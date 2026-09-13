@@ -5,9 +5,11 @@ import '../config/settings.dart';
 import '../layout/system_bar.dart';
 import '../services/battery.dart';
 import '../services/cpu.dart';
+import '../services/gpu.dart';
 import '../services/workspaces.dart';
 import '../state/battery_bloc.dart';
 import '../state/cpu_bloc.dart';
+import '../state/gpu_bloc.dart';
 import '../state/session_bloc.dart';
 import '../state/settings_bloc.dart';
 import '../state/workspaces_bloc.dart';
@@ -15,13 +17,19 @@ import '../theme/accent.dart';
 import 'battery.dart';
 import 'clock.dart';
 import 'cpu.dart';
+import 'gpu.dart';
 import 'pill.dart';
 import 'workspaces.dart';
 
 class TricksterBarStrip extends StatelessWidget {
-  const TricksterBarStrip({required this.side, super.key});
+  const TricksterBarStrip({
+    required this.side,
+    this.onOpenPowerSettings = _noop,
+    super.key,
+  });
 
   final SystemBarSide side;
+  final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
   static const double _cardMargin = 5;
@@ -35,6 +43,9 @@ class TricksterBarStrip extends StatelessWidget {
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
     final horizontal = side.isHorizontal;
+    final cpuVisible =
+        settings.includes('cpu') &&
+        context.select((CpuBloc bloc) => bloc.state.current != null);
     return Padding(
       padding: horizontal
           ? const EdgeInsets.symmetric(
@@ -68,9 +79,46 @@ class TricksterBarStrip extends StatelessWidget {
                         child: WorkspacesPill(
                           accent: accent,
                           workspaces: state.workspaces,
+                          horizontal: horizontal,
+                          onPressed: (workspace) => context
+                              .read<WorkspacesBloc>()
+                              .add(WorkspacesFocusRequested(workspace)),
                         ),
                       ),
                     ),
+                  );
+                },
+              ),
+            if (settings.includes('gpu'))
+              BlocBuilder<GpuBloc, GpuState>(
+                builder: (context, state) {
+                  if (state.loads.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Flex(
+                    direction: horizontal ? Axis.horizontal : Axis.vertical,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < state.loads.length; i += 1)
+                        SystemBarEntrance(
+                          key: ValueKey<String>(
+                            'system-bar-gpu-${state.loads[i].id}',
+                          ),
+                          index: (cpuVisible ? 1 : 0) + (state.loads.length - i),
+                          horizontal: horizontal,
+                          child: Padding(
+                            padding: horizontal
+                                ? const EdgeInsets.only(right: _cardGap)
+                                : const EdgeInsets.only(bottom: _cardGap),
+                            child: RepaintBoundary(
+                              child: GpuPill(
+                                accent: accent,
+                                load: state.loads[i],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),
@@ -108,7 +156,11 @@ class TricksterBarStrip extends StatelessWidget {
                           ? const EdgeInsets.only(right: _cardGap)
                           : const EdgeInsets.only(bottom: _cardGap),
                       child: RepaintBoundary(
-                        child: BatteryPill(accent: accent, status: status),
+                        child: BatteryPill(
+                          accent: accent,
+                          status: status,
+                          onPressed: onOpenPowerSettings,
+                        ),
                       ),
                     ),
                   );
@@ -140,3 +192,5 @@ class TricksterBar {
   final BarSettings settings;
   final WallpaperAccent accent;
 }
+
+void _noop() {}

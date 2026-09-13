@@ -147,8 +147,10 @@ as first-class bugs.
 
 - Production builds are AOT release. Do not ship JIT, profile, or
   debug-engine artifacts in packages.
-- One Flutter engine, one isolate, one process. `tricksterctl` is a short
-  client against the control socket, never a second UI runtime.
+- One Flutter engine, one UI isolate, one process. Blocking OS work that
+  must never stall the frame loop (Hyprland IPC, NVML) may run on worker
+  isolates; they host no widgets and no second engine. `tricksterctl` is a
+  short client against the control socket, never a second UI runtime.
 - Do not start a module that is not configured. Disabled modules have zero
   subscriptions, zero timers, zero D-Bus names.
 - Rebuild only the module whose data changed. Use bloc `select`,
@@ -238,6 +240,11 @@ Do not add features Denial's bar does not have until parity is real.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
+- Keep pub packages current. Before starting a change, run
+  `flutter pub upgrade`; verify with `flutter pub outdated` that no
+  resolvable package lags. Commit `pubspec.lock` (and `pubspec.yaml` when a
+  constraint moves) on its own. Never `dependency_overrides` a Flutter SDK
+  pin.
 - Networked Git/GitHub commands (`fetch`, `push`, `gh`) run outside any
   sandbox; sandboxed credential or network failures are not authoritative.
 

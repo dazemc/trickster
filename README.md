@@ -35,9 +35,9 @@ Displays <────────────── host composition <───
 
 ### Small by discipline
 
-The strip is tiny, but waste is still forbidden. One engine, one isolate,
-one process. A module you turn off holds no subscriptions, no timers, no
-D-Bus names. Updates arrive over D-Bus signals and compositor IPC — nothing
+The strip is tiny, but waste is still forbidden. One engine, one UI isolate,
+one process; blocking OS work runs on worker isolates that host no widgets.
+A module you turn off holds no subscriptions, no timers, no D-Bus names. Updates arrive over D-Bus signals and compositor IPC — nothing
 polls on a timer when the platform can push instead. Each pill repaints only
 when its own data changes, and surfaces for unplugged outputs are destroyed
 on the spot.

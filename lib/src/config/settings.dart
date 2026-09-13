@@ -7,7 +7,7 @@ class BarSettings extends Equatable {
   const BarSettings({
     this.revision = 1,
     this.accent,
-    this.modules = const ['workspaces', 'cpu', 'battery', 'clock'],
+    this.modules = const ['workspaces', 'cpu', 'gpu', 'battery', 'clock'],
   });
 
   final int revision;
@@ -62,7 +62,7 @@ class BarSettings extends Equatable {
       accent: _color(decoded['accent']),
       modules: modules is List
           ? modules.whereType<String>().toList(growable: false)
-          : const ['workspaces', 'cpu', 'battery', 'clock'],
+          : const ['workspaces', 'cpu', 'gpu', 'battery', 'clock'],
     );
   }
 

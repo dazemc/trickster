@@ -22,44 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.3 battery bolt in-cell** (S). `lib/src/bar/battery.dart`. Draw the
-      charging bolt inside the gauge cell. Done when: bolt renders in both
-      states, golden-free widget test asserts presence by state.
-- [ ] **2.4 battery tap action** (S). `lib/src/bar/battery.dart`. Migrate the
-      pill onto `TricksterActionCard`; tap opens power settings; semantics
-      label announces charge + state. Done when: tap wired, label tested.
-- [ ] **2.5 CPU sample series** (S). `lib/src/services/cpu.dart`. Keep a
-      bounded series of recent samples (cap + test the cap). Done when:
-      unit test asserts bound and ordering.
-- [ ] **2.6 CPU sparkline pill** (S). `lib/src/bar/cpu.dart`. Render the
-      series as a sparkline `CustomPainter`, replacing `CPU 42%` text.
-      Keep the `RepaintBoundary` at the call site. Done when: widget test
-      asserts series→pixels mapping.
-- [ ] **2.7 GPU sampler service** (S). `lib/src/services/gpu.dart` (new).
-      Per-GPU utilization series with stable ids, same sampler shape as CPU.
-      Done when: unit test covers multi-GPU mapping and the sampler cap.
-- [ ] **2.8 GPU cards in strip** (S). `lib/src/bar/bar.dart` + new
-      `lib/src/bar/gpu.dart`. One meter card per GPU with stable keys,
-      staggered entrance like Denial's `_GpuStatusCards`. Done when: cards
-      appear/disappear with the service list, widget tested.
-- [ ] **2.9 workspace rail widget** (M). `lib/src/bar/workspaces.dart`.
-      Replace printed names with a pip rail and animated active lens
-      (`AnimatedAlign`, workspace-switch curve). Done when: lens tracks the
-      active id in widget tests.
-- [ ] **2.10 rail occupied/urgent states** (S). Same file. Derive occupied
-      from backend flags; urgent styling from telemetry colors. Done when:
-      all three states render distinctly, tested.
-- [ ] **2.11 rail click targets** (S). Same file. Migrate pips onto
-      `TricksterActionCard` semantics; honor `MediaQuery.disableAnimations`.
-      Done when: tap callback fires per pip, reduced-motion path tested.
-- [ ] **2.12 sway focus verb** (S). `lib/src/services/workspaces.dart`. Send
-      `workspace` over the existing Sway socket connection. Done when:
-      tested against a fake unix socket, failure logs and keeps state.
-- [ ] **2.13 hyprland focus verb** (S). Same file. `dispatch workspace` over
-      the existing event/command sockets. Done when: same bar as 2.11.
-- [ ] **2.14 niri focus verb** (S). Same file. `focus-workspace` over the
-      existing stream. Done when: same bar as 2.11.
-
 ## Phase 3 — parity (absent modules)
 
 - [ ] **3.1 StatusNotifier core** (M). New

@@ -4,10 +4,12 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 class FakeCpuSampler extends CpuSampler {
@@ -46,10 +48,30 @@ class FakeBatterySampler extends BatterySampler {
   }
 }
 
+class FakeGpuSampler extends GpuSampler {
+  final controller = StreamController<List<GpuLoad>>.broadcast();
+
+  var disposed = false;
+
+  @override
+  Stream<List<GpuLoad>> get snapshots => controller.stream;
+
+  @override
+  void start() {}
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await controller.close();
+  }
+}
+
 class FakeMonitor extends WorkspaceMonitor {
   final controller = StreamController<List<Workspace>>.broadcast();
 
   var disposed = false;
+  var focusResult = true;
+  final focused = <Workspace>[];
 
   @override
   Stream<List<Workspace>> get snapshots => controller.stream;
@@ -61,6 +83,12 @@ class FakeMonitor extends WorkspaceMonitor {
   Future<void> dispose() async {
     disposed = true;
     await controller.close();
+  }
+
+  @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    focused.add(workspace);
+    return focusResult;
   }
 }
 
@@ -112,6 +140,23 @@ void main() {
         ).current,
         0.25,
       );
+      final series = const CpuSample(null).append(0.25).append(0.75);
+      final decoded = CpuSample.fromJson(
+        Map<String, dynamic>.from(series.toJson()),
+      );
+      expect(decoded.current, 0.75);
+      expect(decoded.history, [0.25, 0.75]);
+    });
+
+    test('cpu series keeps the cap and appends newest last', () {
+      var sample = const CpuSample(null);
+      for (var i = 0; i < CpuSample.capacity + 5; i++) {
+        sample = sample.append(i / 100);
+      }
+      expect(sample.history.length, CpuSample.capacity);
+      expect(sample.history.first, closeTo(0.05, 1e-9));
+      expect(sample.history.last, closeTo((CpuSample.capacity + 4) / 100, 1e-9));
+      expect(sample.current, sample.history.last);
     });
   });
 
@@ -149,8 +194,43 @@ void main() {
     });
   });
 
+  group('GpuBloc', () {
+    const load = GpuLoad(id: 'card0', label: 'AMD0', usage: 0.4);
+
+    test('started then sampled emits the loads', () async {
+      final sampler = FakeGpuSampler();
+      final bloc = GpuBloc(sampler: sampler);
+      try {
+        bloc.add(const GpuStarted());
+        await pumpEventQueue();
+        sampler.controller.add(const [load]);
+        await expectLater(
+          bloc.stream,
+          emits(const GpuState([load])),
+        );
+      } finally {
+        await bloc.close();
+      }
+      expect(sampler.disposed, isTrue);
+    });
+
+    test('gpu state json round-trips', () {
+      final state = GpuState([
+        const GpuLoad(id: 'card0', label: 'AMD0').append(0.4).append(0.5),
+      ]);
+      final decoded = GpuState.fromJson(
+        Map<String, dynamic>.from(state.toJson()),
+      );
+      expect(decoded, state);
+      expect(decoded.loads.single.history, [0.4, 0.5]);
+    });
+  });
+
   group('WorkspacesBloc', () {
     const first = Workspace(id: '1', name: '1', focused: true);
+
+    late FakeMonitor monitor;
+    late List<String> lines;
 
     test('started then sampled emits the list', () async {
       final monitor = FakeMonitor();
@@ -169,12 +249,84 @@ void main() {
       expect(monitor.disposed, isTrue);
     });
 
+    test('workspaces sort numerically, then by name', () {
+      final sorted = sortedWorkspaces(const [
+        Workspace(id: '10', name: '10'),
+        Workspace(id: 'web', name: 'web'),
+        Workspace(id: '2', name: '2'),
+        Workspace(id: '1', name: '1'),
+      ]);
+      expect(sorted.map((workspace) => workspace.id), [
+        '1',
+        '2',
+        '10',
+        'web',
+      ]);
+    });
+
+    test('sampled workspaces are ordered before emitting', () async {
+      final monitor = FakeMonitor();
+      final bloc = WorkspacesBloc(monitor: monitor);
+      try {
+        bloc.add(const WorkspacesStarted());
+        await pumpEventQueue();
+        monitor.controller.add(const [
+          Workspace(id: '10', name: '10'),
+          Workspace(id: '2', name: '2'),
+        ]);
+        await expectLater(
+          bloc.stream,
+          emits(const WorkspacesState([
+            Workspace(id: '2', name: '2'),
+            Workspace(id: '10', name: '10'),
+          ])),
+        );
+      } finally {
+        await bloc.close();
+      }
+    });
+
+    blocTest<WorkspacesBloc, WorkspacesState>(
+      'focus success forwards to the monitor and emits nothing',
+      build: () {
+        monitor = FakeMonitor();
+        lines = <String>[];
+        return WorkspacesBloc(monitor: monitor, log: lines.add);
+      },
+      act: (bloc) => bloc.add(
+        const WorkspacesFocusRequested(Workspace(id: '2', name: 'web')),
+      ),
+      expect: () => const <WorkspacesState>[],
+      verify: (_) {
+        expect(monitor.focused.single.id, '2');
+        expect(lines, isEmpty);
+      },
+    );
+
+    blocTest<WorkspacesBloc, WorkspacesState>(
+      'focus failure logs and keeps state',
+      build: () {
+        monitor = FakeMonitor()..focusResult = false;
+        lines = <String>[];
+        return WorkspacesBloc(monitor: monitor, log: lines.add);
+      },
+      act: (bloc) => bloc.add(
+        const WorkspacesFocusRequested(Workspace(id: '2', name: 'web')),
+      ),
+      expect: () => const <WorkspacesState>[],
+      verify: (_) {
+        expect(monitor.focused.single.id, '2');
+        expect(lines.single, contains('web'));
+      },
+    );
+
     test('workspace json round-trips', () {
       const workspace = Workspace(
         id: '2',
         name: 'web',
         focused: false,
         urgent: true,
+        occupied: true,
       );
       final decoded = Workspace.fromJson(
         Map<String, dynamic>.from(workspace.toJson()),
@@ -182,6 +334,7 @@ void main() {
       expect(decoded.id, '2');
       expect(decoded.name, 'web');
       expect(decoded.urgent, isTrue);
+      expect(decoded.occupied, isTrue);
       final list = workspacesFromJson(workspacesToJson([workspace]).toList());
       expect(list.length, 1);
       expect(list.first.id, '2');

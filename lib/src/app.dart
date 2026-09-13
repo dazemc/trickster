@@ -12,6 +12,7 @@ import 'config/watcher.dart';
 import 'layout/system_bar.dart';
 import 'locale.dart';
 import 'platform/layer_shell.dart';
+import 'platform/power_settings.dart';
 import 'state/module_scope.dart';
 import 'state/outputs_bloc.dart';
 import 'state/session_bloc.dart';
@@ -108,7 +109,10 @@ class _TricksterAppState extends State<TricksterApp> {
             child: ColoredBox(
               color: const Color(0x00000000),
               child: ModuleScope(
-                child: TricksterBarStrip(side: outputs.side),
+                child: TricksterBarStrip(
+                  side: outputs.side,
+                  onOpenPowerSettings: openPowerSettings,
+                ),
               ),
             ),
           ),

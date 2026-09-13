@@ -51,7 +51,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "battery", "clock"]
 }
 ```
 

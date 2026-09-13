@@ -12,21 +12,24 @@ class Workspace extends Equatable {
     required this.name,
     this.focused = false,
     this.urgent = false,
+    this.occupied = false,
   });
 
   final String id;
   final String name;
   final bool focused;
   final bool urgent;
+  final bool occupied;
 
   @override
-  List<Object?> get props => [id, name, focused, urgent];
+  List<Object?> get props => [id, name, focused, urgent, occupied];
 
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
     'focused': focused,
     'urgent': urgent,
+    'occupied': occupied,
   };
 
   static Workspace fromJson(Map<String, dynamic> json) => Workspace(
@@ -34,6 +37,7 @@ class Workspace extends Equatable {
     name: '${json['name']}',
     focused: (json['focused'] as bool?) ?? false,
     urgent: (json['urgent'] as bool?) ?? false,
+    occupied: (json['occupied'] as bool?) ?? false,
   );
 }
 
@@ -68,10 +72,35 @@ class WorkspacesState extends Equatable {
       );
 }
 
+/// Orders workspaces for the rail: numeric ids first in numeric order, then
+/// named ids lexicographically. Compositor replies are not ordered — Hyprland
+/// iterates an unordered workspace map — so the rail must not trust them.
+int compareWorkspaces(Workspace left, Workspace right) {
+  final leftNumber = int.tryParse(left.id);
+  final rightNumber = int.tryParse(right.id);
+  if (leftNumber != null && rightNumber != null) {
+    return leftNumber.compareTo(rightNumber);
+  }
+  if (leftNumber != null) {
+    return -1;
+  }
+  if (rightNumber != null) {
+    return 1;
+  }
+  return left.id.compareTo(right.id);
+}
+
+List<Workspace> sortedWorkspaces(List<Workspace> workspaces) =>
+    [...workspaces]..sort(compareWorkspaces);
+
 abstract class WorkspaceBackend {
   Stream<List<Workspace>> get snapshots;
   Future<void> start();
   Future<void> dispose();
+
+  /// Focuses [workspace] through the compositor. Backends override this when
+  /// their compositor can switch workspaces; the default cannot.
+  Future<bool> focusWorkspace(Workspace workspace) async => false;
 }
 
 class WorkspaceMonitor {
@@ -96,6 +125,10 @@ class WorkspaceMonitor {
     _backend = null;
   }
 
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    return await _backend?.focusWorkspace(workspace) ?? false;
+  }
+
   static WorkspaceBackend? _detect() {
     if (Platform.environment.containsKey('HYPRLAND_INSTANCE_SIGNATURE')) {
       return HyprlandWorkspaces();
@@ -110,7 +143,7 @@ class WorkspaceMonitor {
   }
 }
 
-class HyprlandWorkspaces implements WorkspaceBackend {
+class HyprlandWorkspaces extends WorkspaceBackend {
   HyprlandWorkspaces({String? socketDir}) : _socketDir = socketDir ?? _dirFromEnvironment;
 
   static String? get _dirFromEnvironment {
@@ -214,6 +247,7 @@ class HyprlandWorkspaces implements WorkspaceBackend {
           continue;
         }
         final id = '${entry['id']}';
+        final windows = entry['windows'];
         workspaces.add(
           Workspace(
             id: id,
@@ -222,6 +256,7 @@ class HyprlandWorkspaces implements WorkspaceBackend {
                 ? id == activeId
                 : entry['focused'] == true,
             urgent: urgentIds.contains(id),
+            occupied: windows is num && windows > 0,
           ),
         );
       }
@@ -312,6 +347,72 @@ class HyprlandWorkspaces implements WorkspaceBackend {
   }
 
   @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    final dir = _socketDir;
+    if (dir == null) {
+      return false;
+    }
+    final name = workspace.name;
+    final number = int.tryParse(workspace.id);
+    final luaSelector = number != null && number > 0
+        ? '$number'
+        : '"${_escapeLua(name)}"';
+    try {
+      return await Isolate.run(() async {
+        // Hyprland 0.56 made dispatch evaluate Lua (`hl.dsp.*`); older
+        // releases use the classic `workspace` dispatcher. Try the classic
+        // form first and fall back when the reply reports the Lua error.
+        if (await _sendCommand('dispatch workspace $name', dir) == 'ok') {
+          return true;
+        }
+        final lua =
+            'dispatch hl.dsp.focus({ workspace = $luaSelector })';
+        return await _sendCommand(lua, dir) == 'ok';
+      });
+    } on Object {
+      return false;
+    }
+  }
+
+  static String _escapeLua(String value) =>
+      value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+
+  /// Sends one command on a fresh connection and waits for the compositor's
+  /// reply. Like the `j/*` queries, this runs on a worker isolate: the
+  /// compositor serves `.socket.sock` on its main loop and accepts a
+  /// connection only when the command follows immediately.
+  static Future<String?> _sendCommand(String command, String dir) async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress('$dir/.socket.sock', type: InternetAddressType.unix),
+        0,
+      );
+      socket.add(utf8.encode(command));
+      final buffer = BytesBuilder();
+      await for (final chunk in socket.timeout(_replyTimeout)) {
+        buffer.add(chunk);
+        final reply = utf8.decode(
+          buffer.toBytes(),
+          allowMalformed: true,
+        ).trim();
+        if (reply == 'ok' || reply.startsWith('error:')) {
+          return reply;
+        }
+        if (buffer.length > _maxReplyBytes) {
+          return null;
+        }
+      }
+      final reply = utf8.decode(buffer.toBytes(), allowMalformed: true).trim();
+      return reply.isEmpty ? null : reply;
+    } on Object {
+      return null;
+    } finally {
+      await socket?.close();
+    }
+  }
+
+  @override
   Future<void> dispose() async {
     await _events?.close();
     _events = null;
@@ -319,16 +420,27 @@ class HyprlandWorkspaces implements WorkspaceBackend {
   }
 }
 
-class SwayWorkspaces implements WorkspaceBackend {
+class SwayWorkspaces extends WorkspaceBackend {
+  SwayWorkspaces({String? socketPath}) : _socketPath = socketPath;
+
+  /// Cap on a single command reply; the cap only bounds a runaway socket,
+  /// never real data.
+  static const _maxReplyBytes = 1 << 20;
+
+  static const _replyTimeout = Duration(seconds: 5);
+
+  final String? _socketPath;
   Socket? _socket;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
   Stream<List<Workspace>> get snapshots => _controller.stream;
 
+  String? get _path => _socketPath ?? Platform.environment['SWAYSOCK'];
+
   @override
   Future<void> start() async {
-    final path = Platform.environment['SWAYSOCK'];
+    final path = _path;
     if (path == null) {
       return;
     }
@@ -345,6 +457,54 @@ class SwayWorkspaces implements WorkspaceBackend {
     } on Object {
       return;
     }
+  }
+
+  /// Focuses a workspace over a one-shot command connection — the same
+  /// pattern `swaymsg` uses for single commands — keeping the event
+  /// connection dedicated to its subscription.
+  @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    final path = _path;
+    if (path == null) {
+      return false;
+    }
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress(path, type: InternetAddressType.unix),
+        0,
+      );
+      socket.add(_frame(0, utf8.encode('workspace ${workspace.name}')));
+      final buffer = BytesBuilder();
+      await for (final chunk in socket.timeout(_replyTimeout)) {
+        buffer.add(chunk);
+        final reply = _decodeReply(buffer.toBytes());
+        if (reply != null) {
+          return reply['success'] == true;
+        }
+        if (buffer.length > _maxReplyBytes) {
+          return false;
+        }
+      }
+      return false;
+    } on Object {
+      return false;
+    } finally {
+      await socket?.close();
+    }
+  }
+
+  static Map<String, dynamic>? _decodeReply(List<int> bytes) {
+    if (bytes.length < 14) {
+      return null;
+    }
+    final view = ByteData.sublistView(Uint8List.fromList(bytes));
+    final length = view.getUint32(6, Endian.little);
+    if (bytes.length < 14 + length) {
+      return null;
+    }
+    final decoded = jsonDecode(utf8.decode(bytes.sublist(14, 14 + length)));
+    return decoded is Map<String, dynamic> ? decoded : null;
   }
 
   Future<void> _subscribe() async {
@@ -377,16 +537,27 @@ class SwayWorkspaces implements WorkspaceBackend {
   }
 }
 
-class NiriWorkspaces implements WorkspaceBackend {
+class NiriWorkspaces extends WorkspaceBackend {
+  NiriWorkspaces({String? socketPath}) : _socketPath = socketPath;
+
+  /// Cap on a single action reply; the cap only bounds a runaway socket,
+  /// never real data.
+  static const _maxReplyBytes = 1 << 20;
+
+  static const _replyTimeout = Duration(seconds: 5);
+
+  final String? _socketPath;
   Socket? _socket;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
   Stream<List<Workspace>> get snapshots => _controller.stream;
 
+  String? get _path => _socketPath ?? Platform.environment['NIRI_SOCKET'];
+
   @override
   Future<void> start() async {
-    final path = Platform.environment['NIRI_SOCKET'];
+    final path = _path;
     if (path == null) {
       return;
     }
@@ -413,6 +584,48 @@ class NiriWorkspaces implements WorkspaceBackend {
       }, onError: (_) {});
     } on Object {
       return;
+    }
+  }
+
+  /// Focuses a workspace over a one-shot action connection — the same
+  /// pattern `niri msg` uses — keeping the event stream connection dedicated
+  /// to its subscription.
+  @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    final path = _path;
+    if (path == null) {
+      return false;
+    }
+    final number = int.tryParse(workspace.id);
+    final reference = number != null
+        ? '{"Id":$number}'
+        : '{"Name":${jsonEncode(workspace.name)}}';
+    final request = '{"Action":{"FocusWorkspace":{"reference":$reference}}}\n';
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress(path, type: InternetAddressType.unix),
+        0,
+      );
+      socket.add(utf8.encode(request));
+      final buffer = BytesBuilder();
+      await for (final chunk in socket.timeout(_replyTimeout)) {
+        buffer.add(chunk);
+        if (buffer.length > _maxReplyBytes) {
+          return false;
+        }
+        try {
+          final decoded = jsonDecode(utf8.decode(buffer.toBytes()).trim());
+          return decoded is Map && decoded.containsKey('Ok');
+        } on FormatException {
+          continue; // Incomplete document (or split multibyte rune).
+        }
+      }
+      return false;
+    } on Object {
+      return false;
+    } finally {
+      await socket?.close();
     }
   }
 
@@ -444,6 +657,7 @@ class NiriWorkspaces implements WorkspaceBackend {
             name: '${entry['name'] ?? entry['idx'] ?? entry['id']}',
             focused: entry['is_focused'] == true || entry['focused'] == true,
             urgent: entry['is_urgent'] == true,
+            occupied: entry['active_window_id'] != null,
           ),
         );
       }
