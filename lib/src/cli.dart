@@ -2,21 +2,52 @@ class Cli {
   const Cli({
     this.version = false,
     this.check = false,
+    this.help = false,
     this.configPath,
     this.edge,
   });
 
   final bool version;
   final bool check;
+  final bool help;
   final String? configPath;
   final String? edge;
 
   static const appVersion = '0.1.0';
   static const versionText = 'trickster $appVersion';
 
+  /// The `--help` text. Man pages are checked against it so the two cannot
+  /// drift.
+  static const usage = '''
+Usage: trickster [OPTIONS]
+
+A Flutter-native Wayland status bar: one layer-shell strip per output.
+
+Options:
+  --check          Preflight wayland, configs, layer-shell, and outputs, then exit
+  --version        Print the version and exit
+  --config PATH    Use PATH as the outputs.conf override for this run
+  --edge SIDE      One-shot edge override: top, bottom, left, or right
+  -h, --help       Print this help and exit
+''';
+
+  /// The `tricksterctl --help` text (see [usage] for the drift check).
+  static const ctlUsage = '''
+Usage: tricksterctl [COMMAND]
+
+Control client for a running trickster bar over its control socket.
+
+Commands:
+  status           Print the running state, outputs, and module states
+  version          Print the bar and protocol versions
+  reload           Re-read configs now, same path as the file watcher
+  -h, --help       Print this help and exit
+''';
+
   static Cli parse(List<String> args) {
     var version = false;
     var check = false;
+    var help = false;
     String? configPath;
     String? edge;
     for (var i = 0; i < args.length; i++) {
@@ -26,6 +57,9 @@ class Cli {
           version = true;
         case '--check':
           check = true;
+        case '--help':
+        case '-h':
+          help = true;
         case '--config':
           if (i + 1 >= args.length) {
             throw const FormatException('--config requires a path');
@@ -49,6 +83,7 @@ class Cli {
     return Cli(
       version: version,
       check: check,
+      help: help,
       configPath: configPath,
       edge: edge,
     );

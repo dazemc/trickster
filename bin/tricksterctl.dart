@@ -7,6 +7,10 @@ import 'package:trickster/src/platform/control_socket.dart';
 /// Short-lived client for the bar's control socket. Never a second UI.
 Future<void> main(List<String> args) async {
   final command = args.isEmpty ? 'status' : args.first;
+  if (command == '--help' || command == '-h' || command == 'help') {
+    stdout.write(Cli.ctlUsage);
+    return;
+  }
   if (command == '--version' || command == '-v') {
     stdout.writeln('tricksterctl ${Cli.appVersion}');
     return;

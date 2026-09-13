@@ -83,6 +83,11 @@ package() {
   install -Dm644 "$startdir/../outputs.conf" \
     "$pkgdir/etc/trickster/outputs.conf"
 
+  install -Dm644 "$startdir/../man/trickster.1" \
+    "$pkgdir/usr/share/man/man1/trickster.1"
+  install -Dm644 "$startdir/../man/tricksterctl.1" \
+    "$pkgdir/usr/share/man/man1/tricksterctl.1"
+
   install -Dm644 "$_repository_root/README.md" \
     "$pkgdir/usr/share/doc/trickster/README.md"
   install -Dm644 "$_repository_root/LICENSE" \

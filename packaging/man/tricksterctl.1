@@ -1,0 +1,37 @@
+.TH TRICKSTERCTL 1 "0.1.0" "trickster 0.1.0" "User Commands"
+.SH NAME
+tricksterctl \- control client for a running trickster bar
+.SH SYNOPSIS
+.B tricksterctl
+.RI [ command ]
+.SH DESCRIPTION
+.B tricksterctl
+is a short-lived client against the control socket of a running
+.BR trickster (1)
+bar. Each invocation sends one JSON request and prints one reply. It never
+hosts a second engine or UI runtime.
+.SH COMMANDS
+.TP
+.B status
+Print the running state, outputs, and module states as JSON. This is the
+default when no command is given.
+.TP
+.B version
+Print the bar and control protocol versions.
+.TP
+.B reload
+Re-read the configs now, the same path the file watcher uses. Prints
+.B ok
+or the parse error while the bar keeps its last-good state.
+.TP
+.BR \-h ", " \-\-help
+Print help and exit.
+.TP
+.BR \-\-version ", " \-v
+Print the client version and exit.
+.SH SOCKET
+.B $XDG_RUNTIME_DIR/trickster/control.sock
+.SH SEE ALSO
+.BR trickster (1)
+.SH LICENSE
+GPL-3.0-or-later.

@@ -1,0 +1,81 @@
+.TH TRICKSTER 1 "0.1.0" "trickster 0.1.0" "User Commands"
+.SH NAME
+trickster \- Flutter-native Wayland status bar
+.SH SYNOPSIS
+.B trickster
+.RI [ options ]
+.SH DESCRIPTION
+.B trickster
+is a Flutter-native Wayland status bar built on
+.BR wlr-layer-shell .
+It draws one strip surface per connected output and renders the Denial bar
+language: floating pill cards for clock, battery, media, system tray,
+CPU/GPU meters, and workspaces.
+.PP
+The bar is a guest of the host compositor. It never owns outputs, input
+routing, or composition, and it reserves exactly the strip through its
+layer-shell exclusive zone.
+.PP
+With no options the bar starts normally.
+.SH OPTIONS
+.TP
+.B \-\-check
+Preflight the session (wayland, configs, layer-shell, outputs) and exit.
+Exits non-zero when any check fails.
+.TP
+.B \-\-version
+Print the version and exit.
+.TP
+.BI \-\-config " PATH"
+Use
+.I PATH
+as the outputs.conf override for this run.
+.TP
+.BI \-\-edge " SIDE"
+One-shot edge override:
+.BR top ,
+.BR bottom ,
+.B left ,
+or
+.BR right .
+.TP
+.BR \-h ", " \-\-help
+Print help and exit.
+.SH ENVIRONMENT
+.TP
+.B TRICKSTER_LAYER
+Layer-shell layer: top, bottom, background, or overlay.
+.TP
+.B TRICKSTER_NAMESPACE
+Layer-shell namespace (default: trickster).
+.TP
+.B TRICKSTER_KEYBOARD
+Keyboard interactivity: none, on_demand, or exclusive.
+.TP
+.B TRICKSTER_ACCENT
+Accent color used until settings.json supplies one.
+.TP
+.B TRICKSTER_LOG
+Native logging filter.
+.TP
+.B TRICKSTER_OUTPUT_CONFIG
+Optional outputs.conf override path.
+.SH FILES
+.TP
+.I /etc/trickster/session.conf
+Machine configuration, packaged as a pacman backup file.
+.TP
+.I $XDG_CONFIG_HOME/trickster/outputs.conf
+Bar placement; seeded from the packaged template on first launch and
+never overwritten afterward.
+.TP
+.I $XDG_CONFIG_HOME/trickster/settings.json
+Versioned settings document.
+.TP
+.I $XDG_RUNTIME_DIR/trickster/control.sock
+Control socket served to
+.BR tricksterctl (1).
+.SH SEE ALSO
+.BR tricksterctl (1)
+.SH LICENSE
+GPL-3.0-or-later.
