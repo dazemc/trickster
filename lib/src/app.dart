@@ -14,6 +14,8 @@ import 'layout/system_bar.dart';
 import 'locale.dart';
 import 'platform/layer_shell.dart';
 import 'platform/power_settings.dart';
+import 'theme/backdrop_blur.dart';
+import 'state/capabilities_bloc.dart';
 import 'state/module_scope.dart';
 import 'state/outputs_bloc.dart';
 import 'state/session_bloc.dart';
@@ -110,6 +112,9 @@ class _TricksterAppState extends State<TricksterApp>
           // One View per layer surface, all sharing this single engine and
           // the module blocs above the collection. A menu lives on its own
           // fullscreen overlay surface, so the strip surface never resizes.
+          final blur = context.select(
+            (CapabilitiesBloc bloc) => bloc.state.blur,
+          );
           return TrayMenuScope(
             notifier: _menuController,
             child: ModuleScope(
@@ -121,6 +126,8 @@ class _TricksterAppState extends State<TricksterApp>
                             key: ValueKey<int>(view.viewId),
                             view: view,
                             menu: _menuController,
+                            layerShell: _layerShell,
+                            blur: blur,
                           ),
                       ]
                     : const <Widget>[],
@@ -136,16 +143,47 @@ class _TricksterAppState extends State<TricksterApp>
 /// One output's surface: an [Overlay] so shelf overlays can render above the
 /// strip, with either the strip or a tray menu as its single entry.
 class _ViewSurface extends StatefulWidget {
-  const _ViewSurface({required this.view, required this.menu, super.key});
+  const _ViewSurface({
+    required this.view,
+    required this.menu,
+    required this.layerShell,
+    required this.blur,
+    super.key,
+  });
 
   final FlutterView view;
   final TrayMenuController menu;
+  final LayerShell layerShell;
+  final bool blur;
 
   @override
   State<_ViewSurface> createState() => _ViewSurfaceState();
 }
 
 class _ViewSurfaceState extends State<_ViewSurface> {
+  @override
+  void initState() {
+    super.initState();
+    _applyBlur();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ViewSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.blur != widget.blur) {
+      _applyBlur();
+    }
+  }
+
+  void _applyBlur() {
+    unawaited(
+      widget.layerShell.setBlur(
+        viewId: widget.view.viewId,
+        enabled: widget.blur,
+      ),
+    );
+  }
+
   late final OverlayEntry _entry = OverlayEntry(
     builder: (context) => ListenableBuilder(
       listenable: widget.menu,
@@ -189,10 +227,14 @@ class _BarSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final outputs = context.watch<OutputsBloc>().state;
-    return TricksterBarStrip(
-      side: outputs.side,
-      thickness: outputs.thickness,
-      onOpenPowerSettings: openPowerSettings,
+    final blur = context.select((CapabilitiesBloc bloc) => bloc.state.blur);
+    return BackdropBlur(
+      enabled: blur,
+      child: TricksterBarStrip(
+        side: outputs.side,
+        thickness: outputs.thickness,
+        onOpenPowerSettings: openPowerSettings,
+      ),
     );
   }
 }

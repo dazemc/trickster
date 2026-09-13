@@ -22,6 +22,15 @@ class LayerShell {
     return supported ?? false;
   }
 
+  /// Enables or disables the background blur on one strip surface. Only
+  /// meaningful when [blurSupported] is true.
+  Future<void> setBlur({required int viewId, required bool enabled}) {
+    return _channel.invokeMethod<void>('setBlur', {
+      'viewId': viewId,
+      'enabled': enabled,
+    });
+  }
+
   Future<List<LayerOutput>> outputs() async {
     final raw = await _channel.invokeMethod<List<dynamic>>('outputs');
     if (raw == null) {

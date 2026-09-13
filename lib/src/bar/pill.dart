@@ -1,9 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
+import 'package:flutter/material.dart'
+    show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
 import '../theme/accent.dart';
+import '../theme/backdrop_blur.dart';
 import '../theme/motion.dart';
 
 class SystemBarCard extends StatelessWidget {
@@ -30,14 +32,15 @@ class SystemBarCard extends StatelessWidget {
     final bottomFill = highlighted
         ? Color.lerp(accent.cardFill(), accent.color, 0.08)!
         : accent.cardFill();
+    final blurred = BackdropBlur.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            topFill.withValues(alpha: 0.92),
-            bottomFill.withValues(alpha: 0.88),
+            topFill.withValues(alpha: blurred ? 0.74 : 0.92),
+            bottomFill.withValues(alpha: blurred ? 0.66 : 0.88),
           ],
         ),
         borderRadius: const BorderRadius.all(Radius.circular(999)),

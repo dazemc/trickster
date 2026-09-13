@@ -1,6 +1,9 @@
 #include "my_application.h"
 
 #include <gdk/gdkwayland.h>
+
+#include "ext-background-effect-v1-client-protocol.h"
+
 #include <gtk-layer-shell.h>
 #include <flutter_linux/flutter_linux.h>
 
@@ -9,6 +12,7 @@
 typedef struct {
   GtkWindow* window;
   FlView* view;
+  struct ext_background_effect_surface_v1* blur;
 } TricksterSurface;
 
 struct _MyApplication {
@@ -19,6 +23,8 @@ struct _MyApplication {
   GPtrArray* menus;
   gboolean blur_checked;
   gboolean blur_supported;
+  struct wl_compositor* compositor;
+  struct ext_background_effect_manager_v1* blur_manager;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -88,20 +94,46 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
   gtk_window_resize(window, 1, 1);
 }
 
+struct _MyApplication;
+static void blur_registry_global(void* data, struct wl_registry* registry,
+                                 uint32_t name, const char* interface,
+                                 uint32_t version);
+static void blur_registry_global_remove(void* data, struct wl_registry* registry,
+                                        uint32_t name);
+static gboolean trickster_probe_blur(MyApplication* self);
+static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
+                                 gboolean enabled);
+
 static void blur_registry_global(void* data, struct wl_registry* registry,
                                  uint32_t name, const char* interface,
                                  uint32_t version) {
-  gboolean* found = (gboolean*)data;
-  if (g_strcmp0(interface, "ext_background_effect_manager_v1") == 0) {
-    *found = TRUE;
+  MyApplication* self = MY_APPLICATION(data);
+  if (g_strcmp0(interface, wl_compositor_interface.name) == 0) {
+    if (self->compositor == nullptr) {
+      self->compositor = (struct wl_compositor*)wl_registry_bind(
+          registry, name, &wl_compositor_interface, MIN(version, 4));
+    }
+  } else if (g_strcmp0(interface,
+                       ext_background_effect_manager_v1_interface.name) == 0) {
+    self->blur_supported = TRUE;
+    if (self->blur_manager == nullptr) {
+      self->blur_manager =
+          (struct ext_background_effect_manager_v1*)wl_registry_bind(
+              registry, name, &ext_background_effect_manager_v1_interface, 1);
+    }
   }
 }
 
 static void blur_registry_global_remove(void* data, struct wl_registry* registry,
                                         uint32_t name) {}
 
-// One registry roundtrip on GDK's Wayland connection; cached by the caller.
-static gboolean trickster_blur_supported(void) {
+// One registry roundtrip on GDK's Wayland connection, binding the compositor
+// and the background-effect manager; cached for the process.
+static gboolean trickster_probe_blur(MyApplication* self) {
+  if (self->blur_checked) {
+    return self->blur_supported;
+  }
+  self->blur_checked = TRUE;
   GdkDisplay* display = gdk_display_get_default();
   if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
     return FALSE;
@@ -114,13 +146,53 @@ static gboolean trickster_blur_supported(void) {
   if (registry == nullptr) {
     return FALSE;
   }
-  gboolean found = FALSE;
   static const struct wl_registry_listener listener = {
       blur_registry_global, blur_registry_global_remove};
-  wl_registry_add_listener(registry, &listener, &found);
+  wl_registry_add_listener(registry, &listener, self);
   wl_display_roundtrip(wl);
   wl_registry_destroy(registry);
-  return found;
+  return self->blur_supported;
+}
+
+// Blurs the whole strip surface: the pills are the only opaque content, and
+// the protocol takes axis-aligned rects, so the rounded card shape cannot be
+// a region of its own.
+static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
+                                 gboolean enabled) {
+  if (self->blur_manager == nullptr || surface->window == nullptr) {
+    return;
+  }
+  GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(surface->window));
+  if (gdk_window == nullptr) {
+    return;
+  }
+  struct wl_surface* wl_surface = gdk_wayland_window_get_wl_surface(gdk_window);
+  if (wl_surface == nullptr) {
+    return;
+  }
+  if (surface->blur == nullptr) {
+    surface->blur = ext_background_effect_manager_v1_get_background_effect(
+        self->blur_manager, wl_surface);
+  }
+  if (surface->blur == nullptr) {
+    return;
+  }
+  if (!enabled) {
+    ext_background_effect_surface_v1_set_blur_region(surface->blur, nullptr);
+    return;
+  }
+  if (self->compositor == nullptr) {
+    return;
+  }
+  struct wl_region* region = wl_compositor_create_region(self->compositor);
+  if (region == nullptr) {
+    return;
+  }
+  GtkAllocation allocation;
+  gtk_widget_get_allocation(GTK_WIDGET(surface->window), &allocation);
+  wl_region_add(region, 0, 0, allocation.width, allocation.height);
+  ext_background_effect_surface_v1_set_blur_region(surface->blur, region);
+  wl_region_destroy(region);
 }
 
 static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
@@ -218,12 +290,30 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         fl_value_new_bool(gtk_layer_is_supported() ? TRUE : FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "blur") == 0) {
-    if (!self->blur_checked) {
-      self->blur_checked = TRUE;
-      self->blur_supported = trickster_blur_supported();
-    }
-    g_autoptr(FlValue) result = fl_value_new_bool(self->blur_supported);
+    g_autoptr(FlValue) result =
+        fl_value_new_bool(trickster_probe_blur(self) ? TRUE : FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "setBlur") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    gboolean enabled = FALSE;
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "enabled");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+        enabled = fl_value_get_bool(value) ? TRUE : FALSE;
+      }
+    }
+    trickster_probe_blur(self);
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->view == nullptr || fl_view_get_id(surface->view) != view_id) {
+        continue;
+      }
+      trickster_apply_blur(self, surface, enabled);
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (g_strcmp0(method, "outputs") == 0) {
     g_autoptr(FlValue) list = fl_value_new_list();
     GdkDisplay* display = gdk_display_get_default();
@@ -393,7 +483,7 @@ static void trickster_surface_configure(TricksterSurface* surface,
   gtk_widget_realize(GTK_WIDGET(view));
 }
 
-static int run_check() {
+static int run_check(MyApplication* self) {
   int failed = 0;
   const gchar* wayland = g_getenv("WAYLAND_DISPLAY");
   if (wayland == nullptr || wayland[0] == '\0') {
@@ -408,7 +498,7 @@ static int run_check() {
     g_printerr("fail  layer-shell: compositor does not advertise zwlr_layer_shell_v1\n");
     failed = 1;
   }
-  if (trickster_blur_supported()) {
+  if (trickster_probe_blur(self)) {
     g_print("ok    blur: ext-background-effect advertised\n");
   } else {
     g_print("ok    blur: not advertised (translucent fill)\n");
@@ -518,7 +608,7 @@ static gboolean my_application_local_command_line(GApplication* application,
   }
 
   if (want_check) {
-    *exit_status = run_check();
+    *exit_status = run_check(self);
     return TRUE;
   }
 
@@ -537,6 +627,29 @@ static void my_application_shutdown(GApplication* application) {
 
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
+  for (guint i = 0; i < self->surfaces->len; i++) {
+    TricksterSurface* surface =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+    if (surface->blur != nullptr) {
+      ext_background_effect_surface_v1_destroy(surface->blur);
+      surface->blur = nullptr;
+    }
+  }
+  for (guint i = 0; i < self->menus->len; i++) {
+    TricksterSurface* menu = (TricksterSurface*)g_ptr_array_index(self->menus, i);
+    if (menu->blur != nullptr) {
+      ext_background_effect_surface_v1_destroy(menu->blur);
+      menu->blur = nullptr;
+    }
+  }
+  if (self->blur_manager != nullptr) {
+    ext_background_effect_manager_v1_destroy(self->blur_manager);
+    self->blur_manager = nullptr;
+  }
+  if (self->compositor != nullptr) {
+    wl_compositor_destroy(self->compositor);
+    self->compositor = nullptr;
+  }
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);
