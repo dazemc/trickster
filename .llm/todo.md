@@ -22,10 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.6 CPU sparkline pill** (S). `lib/src/bar/cpu.dart`. Render the
-      series as a sparkline `CustomPainter`, replacing `CPU 42%` text.
-      Keep the `RepaintBoundary` at the call site. Done when: widget test
-      asserts series→pixels mapping.
 - [ ] **2.7 GPU sampler service** (S). `lib/src/services/gpu.dart` (new).
       Per-GPU utilization series with stable ids, same sampler shape as CPU.
       Done when: unit test covers multi-GPU mapping and the sampler cap.
