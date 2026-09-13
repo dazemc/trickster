@@ -193,6 +193,15 @@ static void my_application_activate(GApplication* application) {
   if (gtk_layer_is_supported()) {
     gtk_layer_init_for_window(window);
     apply_layer_shell(window, "top", 32, "top", "trickster", "on_demand");
+    // Map the layer surface and finish the initial-configure handshake before
+    // the engine starts. Dart modules open sockets to the compositor as soon
+    // as they run; a request in flight while gtk-layer-shell blocks on the
+    // initial configure stalls compositors that service IPC on their main
+    // loop (Hyprland accepts a connection and blocks in poll() until the
+    // command arrives), which pushes the configure past the map timeout and
+    // tears the surface down. Starting the engine after the handshake makes
+    // the race impossible.
+    gtk_widget_show(GTK_WIDGET(window));
   } else {
     gtk_window_set_default_size(window, 1280, 32);
   }

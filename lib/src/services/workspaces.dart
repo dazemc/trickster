@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
@@ -181,16 +182,21 @@ class HyprlandWorkspaces implements WorkspaceBackend {
       return;
     }
     try {
-      final workspacesJson = await _requestJson('j/workspaces', dir);
+      final replies = await _onWorker(const [
+        'j/workspaces',
+        'j/activeworkspace',
+        'j/clients',
+      ], dir);
+      final workspacesJson = replies[0];
       if (workspacesJson is! List) {
         return;
       }
       // `j/workspaces` carries no focused flag — join the active workspace
       // in the same refresh. `j/clients` supplies urgency the same way:
       // no per-workspace urgency exists in the workspace JSON.
-      final activeJson = await _requestJson('j/activeworkspace', dir);
+      final activeJson = replies[1];
       final activeId = activeJson is Map ? '${activeJson['id']}' : null;
-      final clientsJson = await _requestJson('j/clients', dir);
+      final clientsJson = replies[2];
       final urgentIds = <String>{};
       if (clientsJson is List) {
         for (final client in clientsJson) {
@@ -225,24 +231,52 @@ class HyprlandWorkspaces implements WorkspaceBackend {
     }
   }
 
+  /// Runs the `j/*` queries on a worker isolate and returns the decoded
+  /// documents in order.
+  ///
+  /// The compositor serves `.socket.sock` on its main loop: Hyprland accepts
+  /// a connection and blocks in `poll()` for up to five seconds until the
+  /// command arrives (see `hyprCtlFDTick`). On the UI isolate, connect and
+  /// write do not share a turn with the engine's compositor waits — during
+  /// startup the platform thread can block in a Wayland roundtrip before the
+  /// queued command is flushed, so the compositor waits on the connection
+  /// while the client waits on the compositor, and both give up on timeout:
+  /// a five second freeze and a torn-down layer surface. A worker isolate
+  /// has no other work, so its connect is followed by the write immediately
+  /// and the compositor never sees a silent connection.
+  static Future<List<Object?>> _onWorker(List<String> commands, String dir) {
+    return Isolate.run(() => _queryAll(commands, dir));
+  }
+
+  static Future<List<Object?>> _queryAll(
+    List<String> commands,
+    String dir,
+  ) async {
+    final replies = <Object?>[];
+    for (final command in commands) {
+      replies.add(await _query(command, dir));
+    }
+    return replies;
+  }
+
   /// One `j/*` query with a bounded read. Some Hyprland versions keep the
   /// request connection open after the reply, so reading until socket-done
   /// hangs forever — instead return as soon as the accumulated bytes parse
-  /// as a complete JSON document. The byte cap and timeout bound the
-  /// cases where no complete document ever arrives. Returns null when the
-  /// query fails, keeping the previous snapshot.
+  /// as a complete JSON document. The byte cap and timeout bound the cases
+  /// where no complete document ever arrives. Returns null when the query
+  /// fails, keeping the previous snapshot.
   ///
   /// A transport failure (refused connection, reset mid-write) is retried
   /// once on a fresh connection after a short settle delay: the compositor
-  /// serves IPC on its main loop, and a connection opened while it is
-  /// still tearing down the previous one can be refused.
-  Future<Object?> _requestJson(String command, String dir) async {
+  /// serves IPC on its main loop, and a connection opened while it is still
+  /// tearing down the previous one can be refused.
+  static Future<Object?> _query(String command, String dir) async {
     try {
-      return await _attemptRequest(command, dir);
+      return await _attemptQuery(command, dir);
     } on SocketException {
       await Future<void>.delayed(const Duration(milliseconds: 150));
       try {
-        return await _attemptRequest(command, dir);
+        return await _attemptQuery(command, dir);
       } on Object {
         return null;
       }
@@ -251,7 +285,7 @@ class HyprlandWorkspaces implements WorkspaceBackend {
     }
   }
 
-  Future<Object?> _attemptRequest(String command, String dir) async {
+  static Future<Object?> _attemptQuery(String command, String dir) async {
     Socket? socket;
     try {
       socket = await Socket.connect(
