@@ -44,9 +44,7 @@ class SystemBarCard extends StatelessWidget {
           ],
         ),
         borderRadius: const BorderRadius.all(Radius.circular(999)),
-        border: focused
-            ? Border.all(color: accent.color.withValues(alpha: 0.78))
-            : null,
+        border: focused ? Border.all(color: accent.color, width: 1.5) : null,
       ),
       child: Padding(
         padding: padding,
@@ -65,12 +63,14 @@ class TricksterActionCard extends StatefulWidget {
     required this.label,
     required this.onPressed,
     required this.child,
+    this.hint,
     this.focusNode,
     super.key,
   });
 
   final WallpaperAccent accent;
   final String label;
+  final String? hint;
   final VoidCallback onPressed;
   final Widget child;
   final FocusNode? focusNode;
@@ -97,6 +97,7 @@ class _TricksterActionCardState extends State<TricksterActionCard> {
     return Semantics(
       button: true,
       label: widget.label,
+      hint: widget.hint,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
         child: Material(

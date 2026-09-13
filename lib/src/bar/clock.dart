@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../config/settings.dart';
+import '../locale.dart';
 import '../state/clock_bloc.dart';
 import '../theme/accent.dart';
 import '../theme/motion.dart';
@@ -45,37 +46,44 @@ class _ClockRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final time = _formatTime(context, now);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          _formatDate(context, now),
-          style: ShellText.systemBarCaption.copyWith(
-            color: accent.captionColor(),
-          ),
-        ),
-        const SizedBox(width: 8),
-        AnimatedSwitcher(
-          duration: Motion.cardSettle,
-          switchInCurve: Motion.standard,
-          switchOutCurve: Motion.standard,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.25),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
+    final date = _formatDate(context, now);
+    return Semantics(
+      label: context.l10n.clockTitle,
+      value: '$date, $time',
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              date,
+              style: ShellText.systemBarCaption.copyWith(
+                color: accent.captionColor(),
+              ),
             ),
-          ),
-          child: Text(
-            time,
-            key: ValueKey<String>(time),
-            style: ShellText.systemBarValue,
-          ),
+            const SizedBox(width: 8),
+            AnimatedSwitcher(
+              duration: Motion.cardSettle,
+              switchInCurve: Motion.standard,
+              switchOutCurve: Motion.standard,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.25),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: Text(
+                time,
+                key: ValueKey<String>(time),
+                style: ShellText.systemBarValue,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

@@ -162,6 +162,9 @@ class _WorkspacePipButtonState extends State<_WorkspacePipButton> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: _pipColor(workspace, widget.accent),
+                    border: _focused
+                        ? Border.all(color: widget.accent.color, width: 1.5)
+                        : null,
                   ),
                 ),
               ),

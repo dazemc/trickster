@@ -74,4 +74,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trayMenuUntitled => '未命名项目';
+
+  @override
+  String get clockTitle => '时钟';
+
+  @override
+  String get batteryHint => '打开电源设置';
+
+  @override
+  String get mediaHint => '显示播放控制';
+
+  @override
+  String get trayItemHint => '激活该项目';
 }

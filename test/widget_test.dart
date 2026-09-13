@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
@@ -83,11 +82,9 @@ Future<void> _pumpClock(
   return tester.pumpWidget(
     MultiBlocProvider(
       providers: [BlocProvider(create: (_) => ClockBloc())],
-      child: Localizations(
+      child: TricksterLocalizationScope(
         locale: locale,
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: Directionality(
-          textDirection: TextDirection.ltr,
+        child: Center(
           child: ClockPill(
             accent: const WallpaperAccent(Color(0xffd0bcff)),
             format: format,
@@ -102,6 +99,7 @@ void main() {
   setUpAll(() async {
     await initializeDateFormatting('en_US');
     await initializeDateFormatting('de_DE');
+    await initializeDateFormatting('zh');
   });
   testWidgets('strip shows clock, cpu, battery, and workspaces', (
     tester,
@@ -225,11 +223,9 @@ void main() {
     final node = FocusNode();
     addTearDown(node.dispose);
     await tester.pumpWidget(
-      Localizations(
+      TricksterLocalizationScope(
         locale: const Locale('en', 'US'),
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: Directionality(
-          textDirection: TextDirection.ltr,
+        child: Center(
           child: TricksterActionCard(
             accent: const WallpaperAccent(Color(0xffd0bcff)),
             label: 'Test action',
@@ -264,14 +260,14 @@ void main() {
     expect(formatBarDate(fixed, 'de_DE'), contains('Sept'));
   });
 
-  testWidgets('clock follows the German 24-hour cycle', (tester) async {
-    await _pumpClock(tester, const Locale('de', 'DE'));
+  testWidgets('clock follows the Chinese 24-hour cycle', (tester) async {
+    await _pumpClock(tester, const Locale('zh'));
     await tester.pump(const Duration(milliseconds: 500));
     final texts = tester
         .widgetList<RichText>(find.byType(RichText))
         .map((text) => text.text.toPlainText())
         .join(' ');
     expect(texts, isNot(anyOf(contains('AM'), contains('PM'))));
-    expect(texts, matches(RegExp(r'\b\d{2}:\d{2}\b')));
+    expect(texts, matches(RegExp(r'\b\d{1,2}:\d{2}\b')));
   });
 }

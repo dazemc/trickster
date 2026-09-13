@@ -99,5 +99,21 @@
   "trayMenuUntitled": "未命名项目",
   "@trayMenuUntitled": {
     "description": "Tray menu entry label when the item publishes none."
+  },
+  "clockTitle": "时钟",
+  "@clockTitle": {
+    "description": "Accessible label for the clock pill."
+  },
+  "batteryHint": "打开电源设置",
+  "@batteryHint": {
+    "description": "Accessible hint for the battery pill."
+  },
+  "mediaHint": "显示播放控制",
+  "@mediaHint": {
+    "description": "Accessible hint for the media pill."
+  },
+  "trayItemHint": "激活该项目",
+  "@trayItemHint": {
+    "description": "Accessible hint for a tray item button."
   }
 }

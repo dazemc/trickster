@@ -33,48 +33,54 @@ class LoadMeter extends StatelessWidget {
   Widget build(BuildContext context) {
     final percent = ((current ?? 0.0) * 100).round();
     final captionColor = accent.captionColor();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedDefaultTextStyle(
-          duration: Motion.wallpaperReveal,
-          curve: Motion.standard,
-          style: ShellText.systemBarCaption.copyWith(color: captionColor),
-          child: Text(label),
-        ),
-        const SizedBox(width: 6),
-        RepaintBoundary(
-          child: CustomPaint(
-            key: sparklineKey,
-            size: const Size(38, 14),
-            painter: _SparklinePainter(
-              history: history,
-              capacity: capacity,
-              accent: accent.color,
+    return Semantics(
+      label: label,
+      value: '$percent%',
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedDefaultTextStyle(
+              duration: Motion.wallpaperReveal,
+              curve: Motion.standard,
+              style: ShellText.systemBarCaption.copyWith(color: captionColor),
+              child: Text(label),
             ),
-          ),
-        ),
-        const SizedBox(width: 7),
-        SizedBox(
-          width: 34,
-          child: Text.rich(
-            TextSpan(
-              text: '$percent',
-              style: ShellText.systemBarValue.copyWith(color: valueColor),
-              children: [
-                TextSpan(
-                  text: '%',
-                  style: ShellText.systemBarCaption.copyWith(
-                    color: captionColor,
-                  ),
+            const SizedBox(width: 6),
+            RepaintBoundary(
+              child: CustomPaint(
+                key: sparklineKey,
+                size: const Size(38, 14),
+                painter: _SparklinePainter(
+                  history: history,
+                  capacity: capacity,
+                  accent: accent.color,
                 ),
-              ],
+              ),
             ),
-            textAlign: TextAlign.right,
-            maxLines: 1,
-          ),
+            const SizedBox(width: 7),
+            SizedBox(
+              width: 34,
+              child: Text.rich(
+                TextSpan(
+                  text: '$percent',
+                  style: ShellText.systemBarValue.copyWith(color: valueColor),
+                  children: [
+                    TextSpan(
+                      text: '%',
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: captionColor,
+                      ),
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

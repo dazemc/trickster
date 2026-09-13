@@ -223,6 +223,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Untitled item'**
   String get trayMenuUntitled;
+
+  /// Accessible label for the clock pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get clockTitle;
+
+  /// Accessible hint for the battery pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens power settings'**
+  String get batteryHint;
+
+  /// Accessible hint for the media pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows playback controls'**
+  String get mediaHint;
+
+  /// Accessible hint for a tray item button.
+  ///
+  /// In en, this message translates to:
+  /// **'Activates the item'**
+  String get trayItemHint;
 }
 
 class _AppLocalizationsDelegate

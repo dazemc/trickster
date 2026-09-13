@@ -72,6 +72,7 @@ class _MediaPillState extends State<MediaPill> {
       button: true,
       label: label,
       value: value,
+      hint: l10n.mediaHint,
       onTap: _toggle,
       child: FocusableActionDetector(
         focusNode: _focusNode,

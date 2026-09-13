@@ -43,6 +43,7 @@ class BatteryPill extends StatelessWidget {
       label:
           '${l10n.batteryTitle}, '
           '${l10n.batteryStateAndPercent(state, capacity)}',
+      hint: l10n.batteryHint,
       onPressed: onPressed,
       child: Row(
         mainAxisSize: MainAxisSize.min,

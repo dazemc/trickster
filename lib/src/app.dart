@@ -310,11 +310,24 @@ class _ViewSurfaceState extends State<_ViewSurface> {
     // The View starts the render zone; MediaQuery is required by Material
     // menus (and gives each surface its own metrics); TapRegionSurface lets
     // menu panels observe outside taps.
+    // No WidgetsApp above the bar, so install the standard shell keymap by
+    // hand: Tab and arrow traversal, Enter/Space activation, Escape dismissal.
     return View(
       view: widget.view,
       child: MediaQuery.fromView(
         view: widget.view,
-        child: TapRegionSurface(child: Overlay(initialEntries: [_entry])),
+        child: Shortcuts(
+          shortcuts: WidgetsApp.defaultShortcuts,
+          child: Actions(
+            actions: WidgetsApp.defaultActions,
+            // Autofocus gives the view a key target, so Tab reaches the
+            // shortcut map instead of dying on the root scope.
+            child: FocusScope(
+              autofocus: true,
+              child: TapRegionSurface(child: Overlay(initialEntries: [_entry])),
+            ),
+          ),
+        ),
       ),
     );
   }

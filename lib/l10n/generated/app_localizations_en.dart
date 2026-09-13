@@ -74,4 +74,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trayMenuUntitled => 'Untitled item';
+
+  @override
+  String get clockTitle => 'Clock';
+
+  @override
+  String get batteryHint => 'Opens power settings';
+
+  @override
+  String get mediaHint => 'Shows playback controls';
+
+  @override
+  String get trayItemHint => 'Activates the item';
 }

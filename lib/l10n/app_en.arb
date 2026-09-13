@@ -99,5 +99,21 @@
   "trayMenuUntitled": "Untitled item",
   "@trayMenuUntitled": {
     "description": "Tray menu entry label when the item publishes none."
+  },
+  "clockTitle": "Clock",
+  "@clockTitle": {
+    "description": "Accessible label for the clock pill."
+  },
+  "batteryHint": "Opens power settings",
+  "@batteryHint": {
+    "description": "Accessible hint for the battery pill."
+  },
+  "mediaHint": "Shows playback controls",
+  "@mediaHint": {
+    "description": "Accessible hint for the media pill."
+  },
+  "trayItemHint": "Activates the item",
+  "@trayItemHint": {
+    "description": "Accessible hint for a tray item button."
   }
 }
