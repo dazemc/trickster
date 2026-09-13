@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.9 control socket transport** (S). Socket transport behind the
-      existing `SettingsDocumentTransport` interface (no store changes).
-      Done when: transport round-trip tested, absent socket is a clean error.
 - [ ] **4.10 tricksterctl status + version** (S). `bin/tricksterctl.dart`.
       Short-lived client only, never a second UI runtime. Done when: both
       commands round-trip against a live bar.
