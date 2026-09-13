@@ -20,15 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.8 Hyprland workspace data fix** (S). `lib/src/services/workspaces.dart`.
-      The `j/workspaces` query `fold`s until socket-done, but Hyprland keeps
-      the request connection open — replace with a bounded read. Join
-      `j/activeworkspace` in the same refresh to mark `focused` (the field
-      does not exist in Hyprland's workspace JSON). Map socket2 `urgent`
-      events through, or document the gap in code. Done when: fake-socket
-      unit test with canned Hyprland JSON, plus a live run showing real
-      workspaces with the active one lit.
-
 ## Phase 2 — feel (behaves like Denial)
 
 - [ ] **2.3 battery bolt in-cell** (S). `lib/src/bar/battery.dart`. Draw the
