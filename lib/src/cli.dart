@@ -24,7 +24,7 @@ Usage: trickster [OPTIONS]
 A Flutter-native Wayland status bar: one layer-shell strip per output.
 
 Options:
-  --check          Preflight wayland, configs, layer-shell, and outputs, then exit
+  --check          Preflight wayland, configs, layer-shell, blur, and outputs, then exit
   --version        Print the version and exit
   --config PATH    Use PATH as the outputs.conf override for this run
   --edge SIDE      One-shot edge override: top, bottom, left, or right

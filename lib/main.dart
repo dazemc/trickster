@@ -70,7 +70,13 @@ Future<void> _check(Cli cli) async {
   }
 
   try {
-    final runtime = Bootstrap.load(configPath: cli.configPath, edge: cli.edge);
+    // Strict: a preflight must fail on an unparseable file, while the bar
+    // itself starts lenient and keeps last-good state.
+    final runtime = Bootstrap.load(
+      configPath: cli.configPath,
+      edge: cli.edge,
+      strict: true,
+    );
     ok(
       'outputs.conf',
       '${runtime.outputs.side.name},${runtime.outputs.thickness.round()}',
@@ -89,6 +95,11 @@ Future<void> _check(Cli cli) async {
     } else {
       bad('layer-shell', 'compositor does not advertise zwlr_layer_shell_v1');
     }
+    if (await layer.blurSupported()) {
+      ok('blur', 'ext-background-effect advertised');
+    } else {
+      ok('blur', 'not advertised (translucent fill)');
+    }
     final outputs = await layer.outputs();
     if (outputs.isEmpty) {
       bad('outputs', 'no monitors reported');
@@ -99,7 +110,6 @@ Future<void> _check(Cli cli) async {
     bad('layer-shell', '$error');
   }
 
-  if (failed) {
-    exitCode = 1;
-  }
+  // The native GTK loop outlives main(), so the check must end the process.
+  exit(failed ? 1 : 0);
 }

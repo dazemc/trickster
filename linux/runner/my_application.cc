@@ -808,56 +808,6 @@ static void trickster_surface_configure(TricksterSurface* surface,
   gtk_widget_realize(GTK_WIDGET(view));
 }
 
-static int run_check(MyApplication* self) {
-  int failed = 0;
-  const gchar* wayland = g_getenv("WAYLAND_DISPLAY");
-  if (wayland == nullptr || wayland[0] == '\0') {
-    g_printerr("fail  wayland: WAYLAND_DISPLAY is unset\n");
-    failed = 1;
-  } else {
-    g_print("ok    wayland: %s\n", wayland);
-  }
-  if (gtk_layer_is_supported()) {
-    g_print("ok    layer-shell: zwlr_layer_shell_v1 advertised\n");
-  } else {
-    g_printerr("fail  layer-shell: compositor does not advertise zwlr_layer_shell_v1\n");
-    failed = 1;
-  }
-  if (trickster_probe_blur(self)) {
-    g_print("ok    blur: ext-background-effect advertised\n");
-  } else {
-    g_print("ok    blur: not advertised (translucent fill)\n");
-  }
-  GdkDisplay* display = gdk_display_get_default();
-  if (display == nullptr) {
-    g_printerr("fail  outputs: no display\n");
-    failed = 1;
-  } else {
-    const int count = gdk_display_get_n_monitors(display);
-    if (count <= 0) {
-      g_printerr("fail  outputs: no monitors reported\n");
-      failed = 1;
-    } else {
-      g_autoptr(GString) names = g_string_new(nullptr);
-      for (int i = 0; i < count; i++) {
-        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
-        g_autofree gchar* connector =
-            trickster_connector_for_monitor(monitor);
-        const gchar* model = gdk_monitor_get_model(monitor);
-        if (i > 0) {
-          g_string_append(names, ", ");
-        }
-        g_string_append_printf(names, "%s",
-                               connector != nullptr
-                                   ? connector
-                                   : model != nullptr ? model : "output");
-      }
-      g_print("ok    outputs: %s\n", names->str);
-    }
-  }
-  return failed;
-}
-
 static void monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor,
                              gpointer data) {
   MyApplication* self = MY_APPLICATION(data);
@@ -973,12 +923,9 @@ static gboolean my_application_local_command_line(GApplication* application,
   MyApplication* self = MY_APPLICATION(application);
   gchar** argv = *arguments;
   gboolean want_version = FALSE;
-  gboolean want_check = FALSE;
   for (int i = 1; argv[i] != nullptr; i++) {
     if (g_strcmp0(argv[i], "--version") == 0) {
       want_version = TRUE;
-    } else if (g_strcmp0(argv[i], "--check") == 0) {
-      want_check = TRUE;
     }
   }
   if (want_version) {
@@ -993,11 +940,6 @@ static gboolean my_application_local_command_line(GApplication* application,
   if (!g_application_register(application, nullptr, &error)) {
     g_warning("Failed to register: %s", error->message);
     *exit_status = 1;
-    return TRUE;
-  }
-
-  if (want_check) {
-    *exit_status = run_check(self);
     return TRUE;
   }
 
