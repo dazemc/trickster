@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.3 blur capability probe** (S). Probe `ext-background-effect` once
-      at startup, expose as a provider. Done when: tested both ways via
-      override.
 - [ ] **4.4 pill backdrop integration** (S). `lib/src/bar/pill.dart`. Blur
       behind pills when capable, translucent fill otherwise. Done when:
       exercised on compositors with and without the protocol.
