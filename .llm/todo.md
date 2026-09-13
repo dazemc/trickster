@@ -28,10 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.5 tray menus** (M). Same pill. Right-click D-Bus menus with
-      submenus via `MenuController`, destructive styling, dismissal paths.
-      Done when: open/navigate/dismiss tested, verified against two real
-      SNI apps. XEmbed stays dropped — document why in code.
 - [ ] **3.6 MPRIS service** (M). New `lib/src/services/mpris.{dart,test}`.
       Player discovery, playback state, metadata; hide when no player claims
       the bus. Done when: state mapping tested against a fake player.
