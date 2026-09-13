@@ -30,7 +30,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 
 | Phase | Branch | Status | Headline changes |
 | --- | --- | --- | --- |
-| A — feel | `bar/phase-a` | in progress | Locale-aware clock time; locale fallback fix |
-| B — parity | `bar/phase-b` | queued | StatusNotifier tray, MPRIS media |
-| C — finish | `bar/phase-c` | queued | l10n, blur, fonts, per-output surfaces, tricksterctl, options, a11y |
-| Packaging | `bar/packaging` | queued | Source PKGBUILD, man pages, AUR -bin path |
+| 1 — feel | `bar/phase-1` | in progress | Locale-aware clock time; locale fallback fix |
+| 2 — parity | `bar/phase-2` | queued | StatusNotifier tray, MPRIS media |
+| 3 — finish | `bar/phase-3` | queued | l10n, blur, fonts, per-output surfaces, tricksterctl, options, a11y |
+| 4 — packaging | `bar/phase-4` | queued | Source PKGBUILD, man pages, AUR -bin path |
