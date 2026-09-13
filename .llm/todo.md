@@ -30,10 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.18 menu surfaces across compositors** (S). `trickster_menu_surface_new`
-      and `TrayMenuSurface`. Anchor math is Hyprland-verified only; check
-      placement and dismissal on Sway, niri, and river. Done when: each
-      opens the menu below the strip and every dismissal path works.
 
 ## Phase 5 — packaging and release
 
