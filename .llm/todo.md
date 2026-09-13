@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.3 battery bolt in-cell** (S). `lib/src/bar/battery.dart`. Draw the
-      charging bolt inside the gauge cell. Done when: bolt renders in both
-      states, golden-free widget test asserts presence by state.
 - [ ] **2.4 battery tap action** (S). `lib/src/bar/battery.dart`. Migrate the
       pill onto `TricksterActionCard`; tap opens power settings; semantics
       label announces charge + state. Done when: tap wired, label tested.
