@@ -26,7 +26,7 @@ serves the same pages with sidebar and search.
 
 - [AGENTS.md](AGENTS.md) — project rules, module index
 - [.llm/todo.md](.llm/todo.md) — work queue, in build order
-- [.llm/suggestions.md](.llm/suggestions.md) — agent scratchpad
+- [.llm/suggestions.md](.llm/suggestions.md) — user-reviewed suggestions
 
 ## Phase ledger
 
@@ -36,6 +36,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | --- | --- | --- | --- |
 | 1 — Bloc migration | `working` | done | flutter_bloc cutover, toJson states, observer transcript |
 | 2 — feel | `working` | done | Workspace pip rail (lens, states, focus verbs, reconnect); CPU/GPU meters (sysfs + NVML, gated); battery bolt and tap; locale clock |
-| 3 — parity | `working` | queued | StatusNotifier tray, MPRIS media |
-| 4 — finish | `working` | queued | l10n, blur, fonts, per-output surfaces, tricksterctl, options, a11y |
-| 5 — packaging | `working` | queued | Source PKGBUILD, man pages, AUR -bin path |
+| 3 — parity | `working` | done | StatusNotifier tray with menus and icon lookup, MPRIS media, menus on transient overlay surfaces |
+| 4 — finish | `working` | done | l10n (en/zh), blur, fonts, per-output surfaces and hotplug, tricksterctl control socket, typed options, accessibility, tooltips |
+| 5 — packaging | `working` | done | Source PKGBUILD, man pages, AUR -bin recipe, v0.1.0 release asset |
+| 6 — follow-ups | `working` | queued | Direct tray icon sources, single `--check` implementation |
