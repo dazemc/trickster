@@ -48,7 +48,7 @@ class WeatherSampler {
 }
 ```
 
-**2. Pill** (`lib/src/bar/weather.dart`) — a `StatelessWidget` taking `accent` + state, wrapped in `SystemBarCard`, text in `ShellText.systemBarValue`:
+**2. Pill** (`lib/src/bar/weather.dart`) — a `StatelessWidget` taking `accent` + state, wrapped in `SystemBarCard`, text in `ShellText.systemBarValue`, and every visible string from the arb catalogs:
 
 ```dart
 class WeatherPill extends StatelessWidget {
@@ -61,11 +61,21 @@ class WeatherPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return SystemBarCard(
       accent: accent,
-      child: Text('${weather.degrees}°', style: ShellText.systemBarValue),
+      child: Text(
+        context.l10n.weatherDegrees(weather.degrees),
+        style: ShellText.systemBarValue,
+      ),
     );
   }
 }
 ```
+
+<Warning>
+No hardcoded UI text. Strings live in `lib/l10n/app_en.arb` and
+`lib/l10n/app_zh.arb` and are read through `context.l10n`
+(`lib/src/locale.dart`); add new keys to both catalogs. This includes
+accessible labels, values, and hints.
+</Warning>
 
 **3. Wiring** — a `WeatherBloc` in `lib/src/state/weather_bloc.dart` following `CpuBloc` (explicit `Started`/`Stopped`/`Sampled` events, sampler owned by the bloc, `toJson`/`fromJson` on the state from day one), one conditional `BlocProvider` in `ModuleScope` (nothing built when the module is not listed), plus one guarded `BlocBuilder` block in `TricksterBarStrip` with a `SystemBarEntrance` wrapper and `RepaintBoundary`:
 
@@ -101,4 +111,4 @@ if (settings.includes('weather'))
   ),
 ```
 
-Then add `'weather'` to the defaults in `settings.dart` and a mapping test in `test/` mirroring the existing ones. The bar, theme, and config layers never change — that is the point of the seams.
+Then add `'weather'` to the defaults in `settings.dart`, its copy to both arb catalogs, and a mapping test in `test/` mirroring the existing ones. The bar, theme, and config layers never change — that is the point of the seams.
