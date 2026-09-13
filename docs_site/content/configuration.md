@@ -67,6 +67,16 @@ rejected at decode, so a live reload keeps the last-good settings.
 - `workspaces.show_empty` (bool, default `true`) — keep workspaces with no
   open windows in the rail; the focused workspace always stays.
 - `workspaces.max` (int 1–64, default `9`) — cap the number of pips shown.
+- `cpu.warn` / `cpu.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
+  the CPU load percent when it crosses each level; `warn` must stay below
+  `critical`.
+- `clock.format` (`locale`, `24h`, or `12h`, default `locale`) — force the
+  clock's hour cycle instead of following the locale's preference.
+- `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
+  tint the battery gauge and percent while discharging; `critical` must stay
+  below `warn`.
+- `meter.caption_source` (`generic` or `device`, default `generic`) — label
+  CPU and GPU meters with their generic tags or the queried device names.
 
 
 ## Live reload

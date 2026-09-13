@@ -30,10 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.13 remaining module options** (S). CPU thresholds, clock format,
-      battery warn levels, and meter caption source (generic CPU/GPU tags
-      vs queried device names), same discipline. Done when: tested +
-      documented.
 - [ ] **4.14 accessibility audit** (S). Labels, values, hints, tap actions on
       everything; keyboard-only traversal of a full strip. File findings
       back here as new items.
