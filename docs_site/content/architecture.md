@@ -39,7 +39,7 @@ Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-
 
 ## Performance rules
 
-- AOT release only. One engine, one isolate, one process.
+- AOT release only. One engine, one UI isolate, one process; blocking OS work (compositor IPC, NVML) runs on widget-free worker isolates.
 - Disabled modules start nothing. Event-driven D-Bus and IPC; bounded `/proc` sampling with reused buffers.
 - Exclusive zone equals the laid-out strip. Dead-output surfaces die immediately.
 - Backdrop blur only with `ext-background-effect`; otherwise translucent fill. Never fake blur.
