@@ -13,3 +13,11 @@ configured color plus optional local sampler; XEmbed tray → omit; exclusive
 zone → layer-shell request.
 
 Do not add features Denial's bar does not have until parity is real.
+
+Deliberate, user-reviewed divergences:
+
+- **Meter captions.** CPU and NVIDIA GPU meters default to `CPU`/`GPU`,
+  with queried device names (`/proc/cpuinfo` model name, NVML device name)
+  kept in state for the future caption option; AMD/Intel pips keep their
+  vendor tags. NVIDIA therefore diverges from Denial's `NV`. Do not restore
+  `NV`, or make device names the default, without asking.
