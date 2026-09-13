@@ -5,13 +5,23 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+typedef struct {
+  GtkWindow* window;
+  FlView* view;
+} TricksterSurface;
+
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
-  GtkWindow* window;
+  FlEngine* engine;
+  GPtrArray* surfaces;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+static void trickster_surface_free(gpointer data) {
+  g_free(data);
+}
 
 static int trickster_layer(const gchar* value) {
   if (g_strcmp0(value, "background") == 0) {
@@ -129,8 +139,13 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         thickness = (gint)fl_value_get_int(value);
       }
     }
-    if (self->window != nullptr) {
-      apply_layer_shell(self->window, side, thickness, layer, name, keyboard);
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->window != nullptr) {
+        apply_layer_shell(surface->window, side, thickness, layer, name,
+                          keyboard);
+      }
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else {
@@ -140,8 +155,53 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   fl_method_call_respond(method_call, response, nullptr);
 }
 
-static void first_frame_cb(MyApplication* self, FlView* view) {
-  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+static TricksterSurface* trickster_surface_new(MyApplication* self,
+                                               GdkMonitor* monitor) {
+  TricksterSurface* surface = g_new0(TricksterSurface, 1);
+  GtkWindow* window =
+      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
+  surface->window = window;
+
+  gtk_window_set_decorated(window, FALSE);
+  gtk_window_set_title(window, "trickster");
+  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+  GdkScreen* screen = gtk_window_get_screen(window);
+  GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
+  if (visual != nullptr) {
+    gtk_widget_set_visual(GTK_WIDGET(window), visual);
+  }
+
+  if (gtk_layer_is_supported()) {
+    gtk_layer_init_for_window(window);
+    if (monitor != nullptr) {
+      gtk_layer_set_monitor(window, monitor);
+    }
+    apply_layer_shell(window, "top", 32, "top", "trickster", "on_demand");
+    // Map the layer surface and finish the initial-configure handshake before
+    // the engine starts. Dart modules open sockets to the compositor as soon
+    // as they run; a request in flight while gtk-layer-shell blocks on the
+    // initial configure stalls compositors that service IPC on their main
+    // loop (Hyprland accepts a connection and blocks in poll() until the
+    // command arrives), which pushes the configure past the map timeout and
+    // tears the surface down. Starting the engine after the handshake makes
+    // the race impossible.
+    gtk_widget_show(GTK_WIDGET(window));
+  } else {
+    gtk_window_set_default_size(window, 1280, 32);
+    gtk_widget_show(GTK_WIDGET(window));
+  }
+  return surface;
+}
+
+static void trickster_surface_configure(TricksterSurface* surface,
+                                        FlView* view) {
+  surface->view = view;
+  GdkRGBA background_color;
+  gdk_rgba_parse(&background_color, "#00000000");
+  fl_view_set_background_color(view, &background_color);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(surface->window), GTK_WIDGET(view));
+  gtk_widget_realize(GTK_WIDGET(view));
 }
 
 static int run_check() {
@@ -177,60 +237,61 @@ static int run_check() {
 
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
-  GtkWindow* window =
-      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
-  self->window = window;
-
-  gtk_window_set_decorated(window, FALSE);
-  gtk_window_set_title(window, "trickster");
-  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
-  GdkScreen* screen = gtk_window_get_screen(window);
-  GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
-  if (visual != nullptr) {
-    gtk_widget_set_visual(GTK_WIDGET(window), visual);
+  GdkDisplay* display = gdk_display_get_default();
+  int monitor_count = display != nullptr ? gdk_display_get_n_monitors(display)
+                                         : 0;
+  if (monitor_count <= 0) {
+    monitor_count = 1;
   }
 
-  if (gtk_layer_is_supported()) {
-    gtk_layer_init_for_window(window);
-    apply_layer_shell(window, "top", 32, "top", "trickster", "on_demand");
-    // Map the layer surface and finish the initial-configure handshake before
-    // the engine starts. Dart modules open sockets to the compositor as soon
-    // as they run; a request in flight while gtk-layer-shell blocks on the
-    // initial configure stalls compositors that service IPC on their main
-    // loop (Hyprland accepts a connection and blocks in poll() until the
-    // command arrives), which pushes the configure past the map timeout and
-    // tears the surface down. Starting the engine after the handshake makes
-    // the race impossible.
-    gtk_widget_show(GTK_WIDGET(window));
-  } else {
-    gtk_window_set_default_size(window, 1280, 32);
+  // Map every layer surface before the engine starts; see
+  // trickster_surface_new for why the initial-configure handshake must finish
+  // first.
+  for (int i = 0; i < monitor_count; i++) {
+    GdkMonitor* monitor =
+        display != nullptr ? gdk_display_get_monitor(display, i) : nullptr;
+    g_ptr_array_add(self->surfaces, trickster_surface_new(self, monitor));
   }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
 
-  FlView* view = fl_view_new(project);
-  GdkRGBA background_color;
-  gdk_rgba_parse(&background_color, "#00000000");
-  fl_view_set_background_color(view, &background_color);
-  gtk_widget_show(GTK_WIDGET(view));
-  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
-
-  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
-                           self);
-  gtk_widget_realize(GTK_WIDGET(view));
-
-  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  // The first view bootstraps the engine; every further surface attaches to
+  // that same engine with fl_view_new_for_engine. One engine, one isolate,
+  // one FlView per layer surface. Plugins are engine-scoped, so they register
+  // once on the first view. Note: fl_engine_new produces a handle that this
+  // embedder rejects at AddView ("Engine handle was invalid"), so the
+  // single-view bootstrap is the only working entry point.
+  FlEngine* engine = nullptr;
+  for (guint i = 0; i < self->surfaces->len; i++) {
+    TricksterSurface* surface =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+    if (engine == nullptr) {
+      FlView* view = fl_view_new(project);
+      engine = fl_view_get_engine(view);
+      self->engine = engine;
+      trickster_surface_configure(surface, view);
+      fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+    } else {
+      trickster_surface_configure(surface, fl_view_new_for_engine(engine));
+    }
+  }
 
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
-      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      fl_engine_get_binary_messenger(self->engine),
       "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
                                             nullptr);
 
-  gtk_widget_grab_focus(GTK_WIDGET(view));
+  if (self->surfaces->len > 0) {
+    TricksterSurface* first =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, 0);
+    if (first->view != nullptr) {
+      gtk_widget_grab_focus(GTK_WIDGET(first->view));
+    }
+  }
 }
 
 static gboolean my_application_local_command_line(GApplication* application,
@@ -283,7 +344,8 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
-  self->window = nullptr;
+  g_clear_pointer(&self->surfaces, g_ptr_array_unref);
+  self->engine = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
@@ -296,7 +358,9 @@ static void my_application_class_init(MyApplicationClass* klass) {
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
-static void my_application_init(MyApplication* self) {}
+static void my_application_init(MyApplication* self) {
+  self->surfaces = g_ptr_array_new_with_free_func(trickster_surface_free);
+}
 
 MyApplication* my_application_new() {
   g_set_prgname(APPLICATION_ID);

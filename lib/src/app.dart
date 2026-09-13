@@ -32,7 +32,8 @@ class TricksterApp extends StatefulWidget {
   State<TricksterApp> createState() => _TricksterAppState();
 }
 
-class _TricksterAppState extends State<TricksterApp> {
+class _TricksterAppState extends State<TricksterApp>
+    with WidgetsBindingObserver {
   late final LayerShell _layerShell;
   ConfigWatcher? _watcher;
   OutputsConfig _lastOutputs = const OutputsConfig();
@@ -41,6 +42,7 @@ class _TricksterAppState extends State<TricksterApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
@@ -53,8 +55,18 @@ class _TricksterAppState extends State<TricksterApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_watcher?.dispose());
     super.dispose();
+  }
+
+  // The engine adds a FlutterView per layer surface; a view change must
+  // rebuild the root so the new surface gets its own strip.
+  @override
+  void didChangeMetrics() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _reload() {
@@ -91,9 +103,6 @@ class _TricksterAppState extends State<TricksterApp> {
   Widget build(BuildContext context) {
     return BlocBuilder<OutputsBloc, OutputsConfig>(
       builder: (context, outputs) {
-        if (!outputs.active) {
-          return const ColoredBox(color: Color(0x00000000));
-        }
         // Bare widgets need explicit directionality and locale; there is no
         // MaterialApp above the strip. The device locale is reduced to one the
         // widgets delegate supports (headless LANG=C environments crash
@@ -101,18 +110,37 @@ class _TricksterAppState extends State<TricksterApp> {
         final locale = resolveAppLocale(
           WidgetsBinding.instance.platformDispatcher.locale,
         );
+        // One View per layer surface, all sharing this single engine and the
+        // module blocs above the collection. RenderObject widgets may not sit
+        // between the collection and its views, so the per-surface background
+        // lives inside each View.
         return Localizations(
           locale: locale,
           delegates: const [GlobalWidgetsLocalizations.delegate],
           child: Directionality(
             textDirection: TextDirection.ltr,
-            child: ColoredBox(
-              color: const Color(0x00000000),
-              child: ModuleScope(
-                child: TricksterBarStrip(
-                  side: outputs.side,
-                  onOpenPowerSettings: openPowerSettings,
-                ),
+            child: ModuleScope(
+              child: ViewCollection(
+                views: outputs.active
+                    ? <Widget>[
+                        for (final view
+                            in WidgetsBinding
+                                .instance
+                                .platformDispatcher
+                                .views)
+                          View(
+                            key: ValueKey<int>(view.viewId),
+                            view: view,
+                            child: ColoredBox(
+                              color: const Color(0x00000000),
+                              child: TricksterBarStrip(
+                                side: outputs.side,
+                                onOpenPowerSettings: openPowerSettings,
+                              ),
+                            ),
+                          ),
+                      ]
+                    : const <Widget>[],
               ),
             ),
           ),
