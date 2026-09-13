@@ -22,11 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.16 Hyprland workspace reconnect** (S). `lib/src/services/workspaces.dart`.
-      The event socket swallows `onError` and ignores `onDone`, so a dead IPC
-      socket freezes the rail for the session. Re-dial with the existing
-      bounded retry, re-subscribe, and refresh once failure is observable.
-      Done when: fake-socket test covers drop and recovery.
 - [ ] **2.17 Sway workspace reconnect** (S). Same file. The command/event
       socket has the same silent-death shape. Done when: fake-socket test
       covers drop and recovery.
