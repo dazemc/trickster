@@ -22,7 +22,11 @@ The bundle lands at `build/linux/x64/release/bundle/trickster`. Run it directly 
 ./build/linux/x64/release/bundle/trickster
 ```
 
-First-party packages and an AUR recipe are planned but not published.
+First-party packages and an AUR recipe are planned but not published. The
+in-tree recipes can be built directly:
+
+- `packaging/arch/PKGBUILD` builds from this checkout (`makepkg`).
+- `packaging/aur/trickster-bin/PKGBUILD` repackages a release asset.
 
 ## Preflight
 
