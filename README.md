@@ -1,4 +1,4 @@
-<h1 align="center">Trickster Bar</h1>
+<h1 align="center">Trickster</h1>
 
 <p align="center"><strong>A Flutter-native Wayland status bar.</strong></p>
 
