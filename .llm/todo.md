@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.18 niri workspace reconnect** (S). Same file. The event stream has
-      the same silent-death shape. Done when: fake-socket test covers drop
-      and recovery.
 - [ ] **2.19 NVML presence gate** (S). `lib/src/services/gpu.dart`. The
       sampler always calls `_nvml.read()` when no runtime-status files exist,
       so AMD-only systems load NVML and keep an idle worker isolate alive.
