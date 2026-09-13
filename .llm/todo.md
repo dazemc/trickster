@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.17 Sway workspace reconnect** (S). Same file. The command/event
-      socket has the same silent-death shape. Done when: fake-socket test
-      covers drop and recovery.
 - [ ] **2.18 niri workspace reconnect** (S). Same file. The event stream has
       the same silent-death shape. Done when: fake-socket test covers drop
       and recovery.
