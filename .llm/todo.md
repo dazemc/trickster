@@ -79,6 +79,24 @@ silent per the logging rules.
 - [ ] **4.14 accessibility audit** (S). Labels, values, hints, tap actions on
       everything; keyboard-only traversal of a full strip. File findings
       back here as new items.
+- [ ] **4.15 MPRIS stale-signal guard** (S). `lib/src/services/mpris.dart`.
+      The dbus package installs signal matches without awaiting the bus, so
+      a change emitted right after discovery can be lost until the recovery
+      scan. Done when: a test emits before the match installs and the
+      service converges without a second signal.
+- [ ] **4.16 tray icon-name lookup** (S). `lib/src/services/status_notifier.dart`.
+      Resolve `IconName`/`IconThemePath` from the freedesktop icon theme
+      when no `IconPixmap` exists, with the same display-size cache and
+      eviction as pixmaps. Done when: an item publishing only `IconName`
+      renders a decoded icon in a test.
+- [ ] **4.17 tray tooltips** (S). `lib/src/bar/tray.dart`. Hover tooltips on
+      a transient overlay surface, reusing the menu-surface mechanism;
+      semantics stay as the accessible path. Done when: hover show/hide and
+      dismissal verified on the live session.
+- [ ] **4.18 menu surfaces across compositors** (S). `trickster_menu_surface_new`
+      and `TrayMenuSurface`. Anchor math is Hyprland-verified only; check
+      placement and dismissal on Sway, niri, and river. Done when: each
+      opens the menu below the strip and every dismissal path works.
 
 ## Phase 5 — packaging and release
 
