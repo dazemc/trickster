@@ -30,11 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.1 arb pipeline + EN** (M). `lib/l10n/*.arb`, `flutter gen-l10n`
-      in the build. Replace every hardcoded UI string including tooltips
-      and semantics, and resolve `Directionality` from the locale instead
-      of hardcoded ltr. Done when: no raw UI strings remain, EN widget
-      tests.
 - [ ] **4.2 zh strings** (S). Port Denial's bar strings for clock, battery,
       tray status, workspace semantics. Done when: zh widget tests.
 - [ ] **4.3 blur capability probe** (S). Probe `ext-background-effect` once
