@@ -1,1 +1,1 @@
-../../docs.md
+../../.llm/docs.md
