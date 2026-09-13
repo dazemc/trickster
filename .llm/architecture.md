@@ -1,5 +1,9 @@
 # Trickster architecture
 
+Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
+`AGENTS.md` → Instruction precedence); on a conflict the higher document wins
+and this file is corrected.
+
 ## What it is
 
 - One Flutter Linux process. One `wlr-layer-shell` surface per connected
