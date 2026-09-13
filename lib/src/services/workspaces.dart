@@ -429,8 +429,12 @@ class SwayWorkspaces extends WorkspaceBackend {
 
   static const _replyTimeout = Duration(seconds: 5);
 
+  /// Sway sets bit 31 on event types; workspace events carry type 3.
+  static const _workspaceEventType = 0x80000003;
+
   final String? _socketPath;
   Socket? _socket;
+  final _buffer = <int>[];
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -449,11 +453,9 @@ class SwayWorkspaces extends WorkspaceBackend {
         InternetAddress(path, type: InternetAddressType.unix),
         0,
       );
-      await _request(1);
-      _socket!.listen((data) {
-        unawaited(_request(1));
-      }, onError: (_) {});
-      await _subscribe();
+      _socket!.listen(_onData, onError: (_) {});
+      _subscribe();
+      _request(1);
     } on Object {
       return;
     }
@@ -507,18 +509,96 @@ class SwayWorkspaces extends WorkspaceBackend {
     return decoded is Map<String, dynamic> ? decoded : null;
   }
 
-  Future<void> _subscribe() async {
-    final payload = utf8.encode('["workspace"]');
-    _socket?.add(_frame(2, payload));
+  void _subscribe() {
+    _socket?.add(_frame(2, utf8.encode('["workspace"]')));
   }
 
-  Future<void> _request(int type) async {
-    final socket = _socket;
-    if (socket == null) {
+  void _request(int type) {
+    _socket?.add(_frame(type, Uint8List(0)));
+  }
+
+  /// Reassembles `i3-ipc` frames across chunk boundaries and dispatches them:
+  /// the type-1 reply carries the workspace list, workspace events request a
+  /// fresh one. Nothing else re-requests, so a healthy socket is quiet
+  /// between events.
+  void _onData(Uint8List data) {
+    _buffer.addAll(data);
+    var consumed = 0;
+    while (_buffer.length - consumed >= 14) {
+      if (!_hasMagic(_buffer, consumed)) {
+        _buffer.clear();
+        return;
+      }
+      final length = _readUint32(_buffer, consumed + 6);
+      if (_buffer.length - consumed < 14 + length) {
+        break;
+      }
+      final type = _readUint32(_buffer, consumed + 10);
+      final payload = _buffer.sublist(consumed + 14, consumed + 14 + length);
+      consumed += 14 + length;
+      _handleFrame(type, payload);
+    }
+    if (consumed > 0) {
+      _buffer.removeRange(0, consumed);
+    }
+    if (_buffer.length > _maxReplyBytes) {
+      _buffer.clear();
+    }
+  }
+
+  void _handleFrame(int type, List<int> payload) {
+    if (type == 1) {
+      _emitWorkspaces(payload);
       return;
     }
-    socket.add(_frame(type, Uint8List(0)));
+    if (type == _workspaceEventType) {
+      _request(1);
+    }
   }
+
+  void _emitWorkspaces(List<int> payload) {
+    try {
+      final decoded = jsonDecode(utf8.decode(payload));
+      if (decoded is! List) {
+        return;
+      }
+      final workspaces = <Workspace>[];
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          continue;
+        }
+        final number = entry['num'];
+        final name = '${entry['name'] ?? number}';
+        workspaces.add(
+          Workspace(
+            id: number is int && number >= 0 ? '$number' : name,
+            name: name,
+            focused: entry['focused'] == true,
+            urgent: entry['urgent'] == true,
+          ),
+        );
+      }
+      _controller.add(workspaces);
+    } on Object {
+      return;
+    }
+  }
+
+  static bool _hasMagic(List<int> bytes, int offset) {
+    const magic = 'i3-ipc';
+    for (var i = 0; i < magic.length; i++) {
+      if (bytes[offset + i] != magic.codeUnitAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static int _readUint32(List<int> bytes, int offset) =>
+      bytes[offset] |
+      bytes[offset + 1] << 8 |
+      bytes[offset + 2] << 16 |
+      bytes[offset + 3] << 24;
 
   Uint8List _frame(int type, List<int> payload) {
     final header = Uint8List(14);
@@ -533,6 +613,7 @@ class SwayWorkspaces extends WorkspaceBackend {
   Future<void> dispose() async {
     await _socket?.close();
     _socket = null;
+    _buffer.clear();
     await _controller.close();
   }
 }

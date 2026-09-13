@@ -22,6 +22,124 @@ Uint8List _frame(int type, String payload) {
   return (type: type, payload: utf8.decode(bytes.sublist(14, 14 + length)));
 }
 
+Future<Directory> _temporaryDir() async {
+  final dir = await Directory.systemTemp.createTemp('sway-focus');
+  addTearDown(() => dir.delete(recursive: true));
+  return dir;
+}
+
+Future<void> _waitFor(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('timed out waiting for condition');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
+const _initialWorkspaces = '''
+[{"num":1,"name":"1","visible":true,"focused":true,"urgent":false},
+ {"num":2,"name":"web","visible":false,"focused":false,"urgent":false}]''';
+
+const _updatedWorkspaces = '''
+[{"num":1,"name":"1","visible":false,"focused":false,"urgent":false},
+ {"num":2,"name":"web","visible":true,"focused":true,"urgent":true}]''';
+
+/// A persistent Sway endpoint: records every frame, answers IPC requests,
+/// and can fire workspace events. Frames can be split across writes to
+/// exercise reassembly.
+class _FakeSwayServer {
+  _FakeSwayServer._(this._server);
+
+  final ServerSocket _server;
+  final requests = <({int type, String payload})>[];
+  final _connections = <Socket>[];
+  var workspacesReply = _initialWorkspaces;
+  var splitFrames = false;
+
+  int get refreshCount =>
+      requests.where((request) => request.type == 1).length;
+
+  static Future<_FakeSwayServer> bind(String path) async {
+    final server = await ServerSocket.bind(
+      InternetAddress(path, type: InternetAddressType.unix),
+      0,
+    );
+    final fake = _FakeSwayServer._(server);
+    server.listen(fake._onConnection);
+    return fake;
+  }
+
+  void _onConnection(Socket socket) {
+    _connections.add(socket);
+    final buffer = <int>[];
+    var tail = Future<void>.value();
+    socket.listen((data) {
+      buffer.addAll(data);
+      var consumed = 0;
+      final frames = <({int type, String payload})>[];
+      while (buffer.length - consumed >= 14) {
+        final view = ByteData.sublistView(
+          Uint8List.fromList(buffer.sublist(consumed, consumed + 14)),
+        );
+        final length = view.getUint32(6, Endian.little);
+        if (buffer.length - consumed < 14 + length) {
+          break;
+        }
+        final type = view.getUint32(10, Endian.little);
+        final payload = utf8.decode(
+          buffer.sublist(consumed + 14, consumed + 14 + length),
+        );
+        consumed += 14 + length;
+        frames.add((type: type, payload: payload));
+      }
+      buffer.removeRange(0, consumed);
+      for (final frame in frames) {
+        requests.add(frame);
+        // Serialize replies: flush() marks the sink bound until it drains,
+        // so two concurrent replies would throw.
+        tail = tail.then((_) => _reply(socket, frame.type));
+      }
+    }, onError: (_) {});
+    socket.done.then((_) => _connections.remove(socket));
+  }
+
+  Future<void> _reply(Socket socket, int type) async {
+    if (type == 1) {
+      final frame = _frame(1, workspacesReply);
+      if (splitFrames && frame.length > 1) {
+        final half = frame.length ~/ 2;
+        socket.add(frame.sublist(0, half));
+        await socket.flush();
+        socket.add(frame.sublist(half));
+      } else {
+        socket.add(frame);
+      }
+      await socket.flush();
+      return;
+    }
+    if (type == 2) {
+      socket.add(_frame(2, '{"success":true}'));
+      await socket.flush();
+    }
+  }
+
+  Future<void> fireWorkspaceEvent() async {
+    for (final socket in _connections.toList()) {
+      socket.add(_frame(0x80000003, '{"change":"focus"}'));
+      await socket.flush();
+    }
+  }
+
+  Future<void> dispose() async {
+    for (final socket in _connections.toList()) {
+      await socket.close();
+    }
+    await _server.close();
+  }
+}
+
 Future<ServerSocket> _bindCommandServer(
   String path,
   Map<String, Object?> Function(String command) reply,
@@ -43,13 +161,97 @@ Future<ServerSocket> _bindCommandServer(
   return server;
 }
 
-Future<Directory> _temporaryDir() async {
-  final dir = await Directory.systemTemp.createTemp('sway-focus');
-  addTearDown(() => dir.delete(recursive: true));
-  return dir;
-}
-
 void main() {
+  test('start emits the snapshot and then stays quiet', () async {
+    final dir = await _temporaryDir();
+    final server = await _FakeSwayServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+
+    final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await _waitFor(() => snapshots.length == 1);
+
+    final workspaces = snapshots.single;
+    expect(workspaces.map((workspace) => workspace.id), ['1', '2']);
+    expect(workspaces.map((workspace) => workspace.name), ['1', 'web']);
+    expect(workspaces[0].focused, isTrue);
+    expect(workspaces[1].focused, isFalse);
+    expect(
+      server.requests.map((request) => request.type),
+      [2, 1],
+      reason: 'one subscribe frame and one workspaces request',
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(server.refreshCount, 1, reason: 'replies must not re-request');
+
+    await sub.cancel();
+    await backend.dispose();
+  });
+
+  test('workspace events refresh and emit the updated focus', () async {
+    final dir = await _temporaryDir();
+    final server = await _FakeSwayServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+
+    final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await _waitFor(() => snapshots.length == 1);
+
+    server.workspacesReply = _updatedWorkspaces;
+    await server.fireWorkspaceEvent();
+    await _waitFor(() => snapshots.length == 2);
+
+    expect(snapshots[1][1].focused, isTrue);
+    expect(snapshots[1][1].urgent, isTrue);
+    expect(server.refreshCount, 2);
+
+    await sub.cancel();
+    await backend.dispose();
+  });
+
+  test('split frames reassemble across chunks', () async {
+    final dir = await _temporaryDir();
+    final server = await _FakeSwayServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+    server.splitFrames = true;
+
+    final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await _waitFor(() => snapshots.length == 1);
+
+    expect(snapshots.single, hasLength(2));
+    expect(snapshots.single[1].name, 'web');
+
+    await sub.cancel();
+    await backend.dispose();
+  });
+
+  test('malformed workspaces payload emits nothing', () async {
+    final dir = await _temporaryDir();
+    final server = await _FakeSwayServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+    server.workspacesReply = 'not json{';
+
+    final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(snapshots, isEmpty);
+    expect(server.refreshCount, 1);
+
+    await sub.cancel();
+    await backend.dispose();
+  });
+
   test('focus sends the workspace command over a one-shot connection', () async {
     final dir = await _temporaryDir();
     final commands = <String>[];
