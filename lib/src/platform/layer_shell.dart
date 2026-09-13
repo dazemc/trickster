@@ -31,6 +31,30 @@ class LayerShell {
     });
   }
 
+  /// Creates a strip surface for [connector] when none exists, returning its
+  /// view id (-1 when the connector has no monitor or already has one).
+  Future<int> createSurface({required String connector}) async {
+    final viewId = await _channel.invokeMethod<int>('surfaceCreate', {
+      'connector': connector,
+    });
+    return viewId ?? -1;
+  }
+
+  /// Maps or unmaps a strip surface, releasing its exclusive zone when
+  /// hidden. Used for the engine's implicit view, which cannot be destroyed.
+  Future<void> setSurfaceVisible({required int viewId, required bool visible}) {
+    return _channel.invokeMethod<void>('surfaceVisible', {
+      'viewId': viewId,
+      'visible': visible,
+    });
+  }
+
+  /// Destroys a strip surface and its Flutter view. The engine's implicit
+  /// view (0) is never destroyed.
+  Future<void> destroySurface({required int viewId}) {
+    return _channel.invokeMethod<void>('surfaceDestroy', {'viewId': viewId});
+  }
+
   Future<List<LayerOutput>> outputs() async {
     final raw = await _channel.invokeMethod<List<dynamic>>('outputs');
     if (raw == null) {

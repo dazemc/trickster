@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show FlutterView;
 
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -38,6 +39,10 @@ class _TricksterAppState extends State<TricksterApp>
   late final TrayMenuController _menuController;
   ConfigWatcher? _watcher;
   List<LayerOutput>? _outputs;
+  final Set<int> _hiddenSurfaces = <int>{};
+  Set<int> _lastBarViews = const <int>{};
+  var _reconciling = false;
+  var _reconcileAgain = false;
   OutputsConfig _lastOutputs = const OutputsConfig();
   SessionConfig _lastSession = const SessionConfig();
 
@@ -47,13 +52,6 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
-    unawaited(
-      _layerShell.outputs().then((outputs) {
-        if (mounted) {
-          setState(() => _outputs = outputs);
-        }
-      }),
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
       _watcher = ConfigWatcher(
@@ -75,8 +73,18 @@ class _TricksterAppState extends State<TricksterApp>
   // rebuild the root so the new surface gets its own strip.
   @override
   void didChangeMetrics() {
-    if (mounted) {
-      setState(() {});
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    // Menu surfaces add and remove views too; only bar-view changes matter.
+    final barViews = WidgetsBinding.instance.platformDispatcher.views
+        .map((view) => view.viewId)
+        .where((viewId) => !_menuController.isMenuView(viewId))
+        .toSet();
+    if (!setEquals(barViews, _lastBarViews)) {
+      _lastBarViews = barViews;
+      unawaited(_reconcileOutputs(context.read<OutputsBloc>().state));
     }
   }
 
@@ -108,6 +116,47 @@ class _TricksterAppState extends State<TricksterApp>
     }
     _lastOutputs = loaded.outputs;
     _lastSession = loaded.session;
+    unawaited(_reconcileOutputs(loaded.outputs));
+  }
+
+  /// Creates, hides, or destroys strip surfaces so exactly the hosted
+  /// outputs carry one, following monitor hotplug and connector changes.
+  Future<void> _reconcileOutputs(OutputsConfig config) async {
+    if (_reconciling) {
+      _reconcileAgain = true;
+      return;
+    }
+    _reconciling = true;
+    try {
+      do {
+        _reconcileAgain = false;
+        final outputs = await _layerShell.outputs();
+        if (!mounted) {
+          return;
+        }
+        setState(() => _outputs = outputs);
+        for (final output in outputs) {
+          if (config.hosts(output.name)) {
+            if (output.viewId < 0) {
+              await _layerShell.createSurface(connector: output.name);
+            } else if (_hiddenSurfaces.remove(output.viewId)) {
+              await _layerShell.setSurfaceVisible(
+                viewId: output.viewId,
+                visible: true,
+              );
+            }
+          } else if (output.viewId == 0) {
+            if (_hiddenSurfaces.add(0)) {
+              await _layerShell.setSurfaceVisible(viewId: 0, visible: false);
+            }
+          } else if (output.viewId > 0) {
+            await _layerShell.destroySurface(viewId: output.viewId);
+          }
+        }
+      } while (_reconcileAgain && mounted);
+    } finally {
+      _reconciling = false;
+    }
   }
 
   @override
