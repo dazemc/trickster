@@ -1,4 +1,4 @@
-# Trickster Bar suggestions
+# Trickster suggestions
 
 A scratchpad for any LLM agent working this repo. If you see something the
 queue, the constitution, or the code gets wrong — a missed Denial parallel,
