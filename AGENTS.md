@@ -211,23 +211,24 @@ Do not add features Denial's bar does not have until parity is real.
 
 ## Repository workflow
 
-- `main` is the stable branch. Each TODO phase gets its own branch from
-  `main`: `bar/phase-1`, `bar/phase-2`, `bar/phase-3`, `bar/phase-4`,
-  `bar/phase-5`.
-  All of the phase's steps land on that branch — never on `main`, never on
-  another phase's branch.
+- `main` is the stable branch. Exactly one working branch exists beside it:
+  the branch for the phase at the top of `.llm/todo.md` that still has steps
+  — `bar/phase-N`. All of that phase's steps land on the working branch —
+  never on `main`, never on another phase's branch. Merged phase branches
+  are deleted locally and on the remote; branches never accumulate.
 - Never start a new phase without the user's explicit go-ahead in chat: no
   branch, no first step, until asked. Merging a finished phase likewise
   waits for confirmation.
-- Commit every finished TODO step on the phase branch as a slice: one commit
+- Commit every finished TODO step on the working branch as a slice: one commit
   for the code, then one commit per touched LLM-maintained markdown file
   (`.llm/todo.md`, `.llm/suggestions.md`, docs). A step is finished only when
   it is implemented, proven (`flutter analyze` clean, `flutter test` green),
   and removed from `.llm/todo.md`. No direct pushes to `main` beyond initial
   scaffolding.
-- When a phase's steps are all landed and removed, merge the phase branch
-  back into `main` through a pull request, then branch the next phase fresh
-  from the updated `main`.
+- When a phase's steps are all landed and removed, merge the working branch
+  back into `main` through a pull request, delete the merged branch locally
+  and on the remote, then create the next phase's working branch fresh from
+  the updated `main`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Any update to `AGENTS.md` itself is committed immediately, in its own
