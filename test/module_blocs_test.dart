@@ -4,10 +4,12 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 class FakeCpuSampler extends CpuSampler {
@@ -43,6 +45,24 @@ class FakeBatterySampler extends BatterySampler {
   void dispose() {
     disposed = true;
     controller.close();
+  }
+}
+
+class FakeGpuSampler extends GpuSampler {
+  final controller = StreamController<List<GpuLoad>>.broadcast();
+
+  var disposed = false;
+
+  @override
+  Stream<List<GpuLoad>> get snapshots => controller.stream;
+
+  @override
+  void start() {}
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await controller.close();
   }
 }
 
@@ -163,6 +183,38 @@ void main() {
       );
       expect(decoded.capacity, 50);
       expect(decoded.charging, isFalse);
+    });
+  });
+
+  group('GpuBloc', () {
+    const load = GpuLoad(id: 'card0', label: 'AMD0', usage: 0.4);
+
+    test('started then sampled emits the loads', () async {
+      final sampler = FakeGpuSampler();
+      final bloc = GpuBloc(sampler: sampler);
+      try {
+        bloc.add(const GpuStarted());
+        await pumpEventQueue();
+        sampler.controller.add(const [load]);
+        await expectLater(
+          bloc.stream,
+          emits(const GpuState([load])),
+        );
+      } finally {
+        await bloc.close();
+      }
+      expect(sampler.disposed, isTrue);
+    });
+
+    test('gpu state json round-trips', () {
+      final state = GpuState([
+        const GpuLoad(id: 'card0', label: 'AMD0').append(0.4).append(0.5),
+      ]);
+      final decoded = GpuState.fromJson(
+        Map<String, dynamic>.from(state.toJson()),
+      );
+      expect(decoded, state);
+      expect(decoded.loads.single.history, [0.4, 0.5]);
     });
   });
 

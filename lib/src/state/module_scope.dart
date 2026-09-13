@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'battery_bloc.dart';
 import 'clock_bloc.dart';
 import 'cpu_bloc.dart';
+import 'gpu_bloc.dart';
 import 'settings_bloc.dart';
 import 'workspaces_bloc.dart';
 
@@ -25,6 +26,7 @@ class ModuleScope extends StatelessWidget {
     required this.child,
     this.clockBuilder,
     this.cpuBuilder,
+    this.gpuBuilder,
     this.batteryBuilder,
     this.workspacesBuilder,
     super.key,
@@ -33,6 +35,7 @@ class ModuleScope extends StatelessWidget {
   final Widget child;
   final ClockBloc Function()? clockBuilder;
   final CpuBloc Function()? cpuBuilder;
+  final GpuBloc Function()? gpuBuilder;
   final BatteryBloc Function()? batteryBuilder;
   final WorkspacesBloc Function()? workspacesBuilder;
 
@@ -49,6 +52,11 @@ class ModuleScope extends StatelessWidget {
           BlocProvider<CpuBloc>(
             create: (_) =>
                 cpuBuilder?.call() ?? (CpuBloc()..add(const CpuStarted())),
+          ),
+        if (settings.includes('gpu'))
+          BlocProvider<GpuBloc>(
+            create: (_) =>
+                gpuBuilder?.call() ?? (GpuBloc()..add(const GpuStarted())),
           ),
         if (settings.includes('battery'))
           BlocProvider<BatteryBloc>(

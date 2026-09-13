@@ -5,9 +5,11 @@ import '../config/settings.dart';
 import '../layout/system_bar.dart';
 import '../services/battery.dart';
 import '../services/cpu.dart';
+import '../services/gpu.dart';
 import '../services/workspaces.dart';
 import '../state/battery_bloc.dart';
 import '../state/cpu_bloc.dart';
+import '../state/gpu_bloc.dart';
 import '../state/session_bloc.dart';
 import '../state/settings_bloc.dart';
 import '../state/workspaces_bloc.dart';
@@ -15,6 +17,7 @@ import '../theme/accent.dart';
 import 'battery.dart';
 import 'clock.dart';
 import 'cpu.dart';
+import 'gpu.dart';
 import 'pill.dart';
 import 'workspaces.dart';
 
@@ -40,6 +43,9 @@ class TricksterBarStrip extends StatelessWidget {
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
     final horizontal = side.isHorizontal;
+    final cpuVisible =
+        settings.includes('cpu') &&
+        context.select((CpuBloc bloc) => bloc.state.current != null);
     return Padding(
       padding: horizontal
           ? const EdgeInsets.symmetric(
@@ -76,6 +82,39 @@ class TricksterBarStrip extends StatelessWidget {
                         ),
                       ),
                     ),
+                  );
+                },
+              ),
+            if (settings.includes('gpu'))
+              BlocBuilder<GpuBloc, GpuState>(
+                builder: (context, state) {
+                  if (state.loads.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Flex(
+                    direction: horizontal ? Axis.horizontal : Axis.vertical,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < state.loads.length; i += 1)
+                        SystemBarEntrance(
+                          key: ValueKey<String>(
+                            'system-bar-gpu-${state.loads[i].id}',
+                          ),
+                          index: (cpuVisible ? 1 : 0) + (state.loads.length - i),
+                          horizontal: horizontal,
+                          child: Padding(
+                            padding: horizontal
+                                ? const EdgeInsets.only(right: _cardGap)
+                                : const EdgeInsets.only(bottom: _cardGap),
+                            child: RepaintBoundary(
+                              child: GpuPill(
+                                accent: accent,
+                                load: state.loads[i],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),

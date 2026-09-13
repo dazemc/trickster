@@ -5,15 +5,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
+import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -46,6 +49,7 @@ Future<void> _pumpStrip(
         BlocProvider(
           create: (_) => CpuBloc(initial: const CpuSample(0.42)),
         ),
+        BlocProvider(create: (_) => GpuBloc(initial: const GpuState())),
         BlocProvider(
           create: (_) => BatteryBloc(
             initial: const BatteryStatus(capacity: 87, charging: true),
@@ -112,6 +116,42 @@ void main() {
     expect(find.text('42%', findRichText: true), findsNothing);
     expect(find.text('87%'), findsNothing);
     expect(find.text('1'), findsNothing);
+  });
+
+  testWidgets('gpu cards follow the service list', (tester) async {
+    tester.view.physicalSize = const Size(1600, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpStrip(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(GpuPill), findsNothing);
+
+    final gpu = tester.element(find.byType(TricksterBarStrip)).read<GpuBloc>();
+    gpu.add(
+      const GpuSampled([
+        GpuLoad(id: 'card0', label: 'AMD0', usage: 0.4, history: [0.2, 0.4]),
+        GpuLoad(id: 'card1', label: 'AMD1', usage: 0.8, history: [0.8]),
+      ]),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(GpuPill), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-gpu-card0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-gpu-card1')),
+      findsOneWidget,
+    );
+    expect(find.text('AMD0'), findsOneWidget);
+    expect(find.text('AMD1'), findsOneWidget);
+
+    gpu.add(const GpuSampled([]));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(GpuPill), findsNothing);
   });
 
   testWidgets('strip tints captions with the settings accent', (tester) async {

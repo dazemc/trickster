@@ -1,15 +1,15 @@
 import 'package:flutter/widgets.dart';
 
-import '../services/cpu.dart';
+import '../services/gpu.dart';
 import '../theme/accent.dart';
 import 'meter.dart';
 import 'pill.dart';
 
-class CpuPill extends StatelessWidget {
-  const CpuPill({required this.accent, required this.sample, super.key});
+class GpuPill extends StatelessWidget {
+  const GpuPill({required this.accent, required this.load, super.key});
 
   final WallpaperAccent accent;
-  final CpuSample sample;
+  final GpuLoad load;
 
   @override
   Widget build(BuildContext context) {
@@ -17,10 +17,10 @@ class CpuPill extends StatelessWidget {
       accent: accent,
       child: LoadMeter(
         accent: accent,
-        label: 'CPU',
-        current: sample.current,
-        history: sample.history,
-        capacity: CpuSample.capacity,
+        label: load.label,
+        current: load.usage,
+        history: load.history,
+        capacity: GpuLoad.capacity,
       ),
     );
   }

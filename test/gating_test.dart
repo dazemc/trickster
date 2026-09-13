@@ -11,9 +11,11 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
@@ -71,6 +73,7 @@ Future<void> _pumpGated(
           child: ModuleScope(
             cpuBuilder:
                 cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
+            gpuBuilder: () => GpuBloc(initial: const GpuState()),
             batteryBuilder: () => BatteryBloc(
               initial: const BatteryStatus(capacity: 87, charging: true),
             ),
@@ -115,12 +118,14 @@ void main() {
     // subscription and no timer, for anything not configured.
     expect(_created(lines, 'ClockBloc'), isTrue);
     expect(_created(lines, 'CpuBloc'), isFalse);
+    expect(_created(lines, 'GpuBloc'), isFalse);
     expect(_created(lines, 'BatteryBloc'), isFalse);
     expect(_created(lines, 'WorkspacesBloc'), isFalse);
     expect(
       lines.any(
         (line) =>
             line.contains('CpuBloc') ||
+            line.contains('GpuBloc') ||
             line.contains('BatteryBloc') ||
             line.contains('WorkspacesBloc'),
       ),

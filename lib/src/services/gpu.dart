@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
 
+import 'nvidia.dart';
+
 class GpuLoad extends Equatable {
   const GpuLoad({
     required this.id,
@@ -56,58 +58,115 @@ class GpuLoad extends Equatable {
   );
 }
 
-/// Autodetects every GPU whose utilization is readable without spawning
-/// processes: amdgpu publishes `gpu_busy_percent` under `/sys/class/drm`.
-/// GPUs offering no such file (i915, nouveau, the NVIDIA proprietary driver)
-/// simply do not appear.
+List<Map<String, Object?>> gpuLoadsToJson(List<GpuLoad> loads) =>
+    loads.map((load) => load.toJson()).toList(growable: false);
+
+List<GpuLoad> gpuLoadsFromJson(List<dynamic> json) => json
+    .whereType<Map<String, dynamic>>()
+    .map(GpuLoad.fromJson)
+    .toList(growable: false);
+
+/// Bloc state for the GPU list. A bare `List` compares by identity, so the
+/// wrapper exists to give the bloc value semantics — and a JSON shape for
+/// the future `tricksterctl status` dump.
+class GpuState extends Equatable {
+  const GpuState([this.loads = const []]);
+
+  final List<GpuLoad> loads;
+
+  // Spread: Equatable compares props element-wise, so spreading gives deep
+  // equality over the list (each GpuLoad is itself Equatable).
+  @override
+  List<Object?> get props => [...loads];
+
+  Map<String, Object?> toJson() => {'gpus': gpuLoadsToJson(loads)};
+
+  static GpuState fromJson(Map<String, dynamic> json) =>
+      GpuState(gpuLoadsFromJson((json['gpus'] as List?) ?? const []));
+}
+
+/// Autodetects GPU utilization without spawning sampling processes: amdgpu
+/// publishes `gpu_busy_percent` under `/sys/class/drm`; the NVIDIA proprietary
+/// driver is read over NVML on a persistent worker isolate. GPUs offering
+/// neither (i915, nouveau) simply do not appear.
 class GpuSampler {
   GpuSampler({
     this.interval = const Duration(seconds: 1),
     String drmRoot = '/sys/class/drm',
-  }) : _drmRoot = drmRoot;
+    NvmlReader? nvml,
+  }) : _drmRoot = drmRoot,
+       _nvml = nvml ?? NvmlReader();
 
   final Duration interval;
   final String _drmRoot;
+  final NvmlReader _nvml;
   final Uint8List _buffer = Uint8List(256);
   List<_GpuDevice>? _devices;
+  List<File>? _nvidiaRuntimeStatusFiles;
   List<GpuLoad> _loads = const <GpuLoad>[];
   Timer? _timer;
+  var _sampling = false;
   final _controller = StreamController<List<GpuLoad>>.broadcast();
 
   Stream<List<GpuLoad>> get snapshots => _controller.stream;
 
   void start() {
-    _controller.add(sample());
-    _timer = Timer.periodic(interval, (_) => _controller.add(sample()));
+    unawaited(_tick());
+    _timer = Timer.periodic(interval, (_) => unawaited(_tick()));
   }
 
-  void dispose() {
+  Future<void> dispose() async {
     _timer?.cancel();
     _timer = null;
-    _controller.close();
+    await _nvml.dispose();
+    await _controller.close();
   }
 
-  /// One synchronous pass over the discovered cards, appending each reading
-  /// to the card's series. Exposed so tests (and any caller wanting the
-  /// series without the periodic timer) can drive it directly.
-  List<GpuLoad> sample() {
+  Future<void> _tick() async {
+    if (_sampling) {
+      return;
+    }
+    _sampling = true;
+    try {
+      _controller.add(await sample());
+    } finally {
+      _sampling = false;
+    }
+  }
+
+  /// One pass over the discovered cards, appending each reading to the
+  /// card's series. Exposed so tests (and any caller wanting the series
+  /// without the periodic timer) can drive it directly.
+  Future<List<GpuLoad>> sample() async {
     _devices ??= _discover();
+    final reads = <({String id, String label, double usage})>[
+      for (final device in _devices!)
+        if (_busyPercent(device.busyFile) case final usage?)
+          (id: device.id, label: device.label, usage: usage),
+    ];
+    if (await _canReadNvidiaWithoutWake()) {
+      for (final nvidia in await _nvml.read()) {
+        reads.add(
+          (id: 'nvml${nvidia.index}', label: 'NV', usage: nvidia.usage),
+        );
+      }
+    } else {
+      for (
+        var index = 0;
+        index < _nvidiaRuntimeStatusFiles!.length;
+        index += 1
+      ) {
+        reads.add((id: 'nvml$index', label: 'NV', usage: 0.0));
+      }
+    }
     final previous = <String, GpuLoad>{
       for (final load in _loads) load.id: load,
     };
-    final next = <GpuLoad>[];
-    for (final device in _devices!) {
-      final usage = _busyPercent(device.busyFile);
-      if (usage == null) {
-        continue;
-      }
-      final prior = previous[device.id];
-      next.add(
-        prior == null
-            ? GpuLoad(id: device.id, label: device.label).append(usage)
-            : prior.append(usage),
-      );
-    }
+    final next = <GpuLoad>[
+      for (final read in reads)
+        (previous[read.id] ?? GpuLoad(id: read.id, label: read.label))
+            .append(read.usage),
+    ];
     _loads = _disambiguate(next);
     return _loads;
   }
@@ -118,6 +177,7 @@ class GpuSampler {
       return const <_GpuDevice>[];
     }
     final devices = <_GpuDevice>[];
+    final nvidiaRuntimeStatusFiles = <File>[];
     try {
       for (final entity in root.listSync(followLinks: false)) {
         if (entity is! Directory) {
@@ -130,23 +190,53 @@ class GpuSampler {
           continue;
         }
         final device = '${entity.path}/device';
+        final label = _vendorLabel(File('$device/vendor'));
+        if (label == 'NV') {
+          final runtimeStatus = File('$device/power/runtime_status');
+          if (runtimeStatus.existsSync()) {
+            nvidiaRuntimeStatusFiles.add(runtimeStatus);
+          }
+        }
         final busyFile = File('$device/gpu_busy_percent');
         if (!busyFile.existsSync()) {
           continue;
         }
         devices.add(
-          _GpuDevice(
-            id: name,
-            label: _vendorLabel(File('$device/vendor')),
-            busyFile: busyFile,
-          ),
+          _GpuDevice(id: name, label: label, busyFile: busyFile),
         );
       }
     } on FileSystemException {
+      _nvidiaRuntimeStatusFiles = const <File>[];
       return const <_GpuDevice>[];
     }
+    _nvidiaRuntimeStatusFiles = nvidiaRuntimeStatusFiles;
     devices.sort((a, b) => a.id.compareTo(b.id));
     return devices;
+  }
+
+  /// NVML utilization queries power on a runtime-suspended dGPU. Leave hybrid
+  /// graphics asleep until another workload activates them.
+  Future<bool> _canReadNvidiaWithoutWake() async {
+    final statusFiles = _nvidiaRuntimeStatusFiles;
+    if (statusFiles == null || statusFiles.isEmpty) {
+      // Desktop NVIDIA systems may not expose runtime PM through DRM. Keep
+      // NVML available there because querying an always-on GPU cannot wake it.
+      return true;
+    }
+    var suspended = false;
+    for (final statusFile in statusFiles) {
+      try {
+        final status = (await statusFile.readAsString()).trim();
+        if (status == 'suspended' ||
+            status == 'suspending' ||
+            status == 'resuming') {
+          suspended = true;
+        }
+      } on FileSystemException {
+        continue;
+      }
+    }
+    return !suspended;
   }
 
   static final RegExp _cardName = RegExp(r'^card\d+$');
