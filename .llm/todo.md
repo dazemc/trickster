@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.5 CPU sample series** (S). `lib/src/services/cpu.dart`. Keep a
-      bounded series of recent samples (cap + test the cap). Done when:
-      unit test asserts bound and ordering.
 - [ ] **2.6 CPU sparkline pill** (S). `lib/src/bar/cpu.dart`. Render the
       series as a sparkline `CustomPainter`, replacing `CPU 42%` text.
       Keep the `RepaintBoundary` at the call site. Done when: widget test
