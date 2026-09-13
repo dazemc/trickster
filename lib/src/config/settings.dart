@@ -41,6 +41,10 @@ class BarSettings {
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('settings.json must be an object');
     }
+    return BarSettings.fromJson(decoded);
+  }
+
+  static BarSettings fromJson(Map<String, dynamic> decoded) {
     final revision = decoded['revision'];
     if (revision is! int || revision <= 0) {
       throw const FormatException('settings.json revision must be a positive integer');

@@ -24,6 +24,28 @@ class SessionConfig {
   final String? outputConfig;
   final String? log;
 
+  Map<String, Object?> toJson() => {
+    'layer': layer.name,
+    'namespace': namespace,
+    'keyboard': keyboard.name,
+    if (accent != null)
+      'accent':
+          '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
+    if (outputConfig != null) 'outputConfig': outputConfig,
+    if (log != null) 'log': log,
+  };
+
+  static SessionConfig fromJson(Map<String, dynamic> json) {
+    return SessionConfig(
+      layer: _layer(json['layer'] as String?),
+      namespace: (json['namespace'] as String?) ?? 'trickster',
+      keyboard: _keyboard(json['keyboard'] as String?),
+      accent: _color(json['accent'] as String?),
+      outputConfig: json['outputConfig'] as String?,
+      log: json['log'] as String?,
+    );
+  }
+
   static SessionConfig parse(String source) {
     final document = KeyValueDocument.parse(source);
     return SessionConfig(

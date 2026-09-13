@@ -32,6 +32,25 @@ class OutputsConfig {
 
   bool get active => side != SystemBarSide.hidden && thickness > 0;
 
+  Map<String, Object?> toJson() => {
+    'side': side.name,
+    'thickness': thickness,
+    'connectors': connectors,
+  };
+
+  static OutputsConfig fromJson(Map<String, dynamic> json) {
+    return OutputsConfig(
+      side: SystemBarSideGeometry.parse(
+        (json['side'] as String?) ?? 'top',
+      ),
+      thickness: ((json['thickness'] as num?) ?? 32).toDouble(),
+      connectors: (json['connectors'] as List?)
+              ?.whereType<String>()
+              .toList(growable: false) ??
+          const <String>[],
+    );
+  }
+
   bool hosts(String connector) =>
       connectors.isEmpty || connectors.contains(connector);
 
