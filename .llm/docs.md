@@ -5,6 +5,10 @@ description: Documentation index and phase progress ledger.
 
 # Trickster docs
 
+Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
+`AGENTS.md` → Instruction precedence); the index and phase ledger carry no
+authority of their own.
+
 Start with the [readme](readme.md), then pick a guide. The rendered site
 serves the same pages with sidebar and search.
 
