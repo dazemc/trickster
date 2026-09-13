@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
@@ -11,39 +11,51 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/workspaces.dart';
-import 'package:trickster/src/state/providers.dart';
+import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
-class _FixedCpu extends CpuController {
-  @override
-  CpuSample build() => const CpuSample(0.42);
-}
-
-class _FixedBattery extends BatteryController {
-  @override
-  BatteryStatus build() => const BatteryStatus(capacity: 87, charging: true);
-}
-
-class _FixedWorkspaces extends WorkspacesController {
-  @override
-  List<Workspace> build() => const [
-    Workspace(id: '1', name: '1', focused: true),
-    Workspace(id: '2', name: '2', urgent: true),
-  ];
-}
+const _workspaces = [
+  Workspace(id: '1', name: '1', focused: true),
+  Workspace(id: '2', name: '2', urgent: true),
+];
 
 Future<void> _pumpStrip(
   WidgetTester tester, {
   BarSettings settings = const BarSettings(),
   Locale locale = const Locale('en', 'US'),
-}) {
+}) async {
+  // States are seeded via constructors, never via events: awaiting the
+  // real event loop (pumpEventQueue) inside FakeAsync hangs forever.
+  // Providers own their blocs (create, not value): provider disposal closes
+  // blocs unawaited, while awaiting close() in FakeAsync deadlocks on the
+  // bloc's internal event pipeline.
   return tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        settingsProvider.overrideWith((ref) => settings),
-        cpuProvider.overrideWith(_FixedCpu.new),
-        batteryProvider.overrideWith(_FixedBattery.new),
-        workspacesProvider.overrideWith(_FixedWorkspaces.new),
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => SettingsBloc(settings)),
+        BlocProvider(create: (_) => SessionBloc()),
+        BlocProvider(create: (_) => OutputsBloc()),
+        BlocProvider(create: (_) => ClockBloc()),
+        BlocProvider(
+          create: (_) => CpuBloc(initial: const CpuSample(0.42)),
+        ),
+        BlocProvider(
+          create: (_) => BatteryBloc(
+            initial: const BatteryStatus(capacity: 87, charging: true),
+          ),
+        ),
+        BlocProvider(
+          create: (_) => WorkspacesBloc(
+            initial: const WorkspacesState(_workspaces),
+          ),
+        ),
       ],
       child: Localizations(
         locale: locale,
@@ -59,7 +71,8 @@ Future<void> _pumpStrip(
 
 Future<void> _pumpClock(WidgetTester tester, Locale locale) {
   return tester.pumpWidget(
-    ProviderScope(
+    MultiBlocProvider(
+      providers: [BlocProvider(create: (_) => ClockBloc())],
       child: Localizations(
         locale: locale,
         delegates: const [GlobalWidgetsLocalizations.delegate],
@@ -99,6 +112,24 @@ void main() {
     expect(find.text('1'), findsNothing);
   });
 
+  testWidgets('strip tints captions with the settings accent', (tester) async {
+    const accent = Color(0xffff0000);
+    await _pumpStrip(
+      tester,
+      settings: const BarSettings(accent: accent),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    final expected = const WallpaperAccent(accent).captionColor();
+    final caption = tester.widget<Text>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.style?.fontSize == ShellText.systemBarCaption.fontSize,
+      ),
+    );
+    expect(caption.style?.color, expected);
+  });
+
   testWidgets('clock follows the US 12-hour cycle', (tester) async {
     await _pumpClock(tester, const Locale('en', 'US'));
     await tester.pump(const Duration(milliseconds: 500));
@@ -116,19 +147,17 @@ void main() {
     final node = FocusNode();
     addTearDown(node.dispose);
     await tester.pumpWidget(
-      ProviderScope(
-        child: Localizations(
-          locale: const Locale('en', 'US'),
-          delegates: const [GlobalWidgetsLocalizations.delegate],
-          child: Directionality(
-            textDirection: TextDirection.ltr,
-            child: TricksterActionCard(
-              accent: const WallpaperAccent(Color(0xffd0bcff)),
-              label: 'Test action',
-              onPressed: () => pressed++,
-              focusNode: node,
-              child: const Text('go'),
-            ),
+      Localizations(
+        locale: const Locale('en', 'US'),
+        delegates: const [GlobalWidgetsLocalizations.delegate],
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: TricksterActionCard(
+            accent: const WallpaperAccent(Color(0xffd0bcff)),
+            label: 'Test action',
+            onPressed: () => pressed++,
+            focusNode: node,
+            child: const Text('go'),
           ),
         ),
       ),

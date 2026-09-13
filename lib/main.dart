@@ -1,13 +1,20 @@
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'src/app.dart';
 import 'src/bootstrap.dart';
 import 'src/cli.dart';
 import 'src/platform/layer_shell.dart';
+import 'src/state/battery_bloc.dart';
+import 'src/state/clock_bloc.dart';
+import 'src/state/cpu_bloc.dart';
 import 'src/state/observer.dart';
+import 'src/state/outputs_bloc.dart';
+import 'src/state/session_bloc.dart';
+import 'src/state/settings_bloc.dart';
+import 'src/state/workspaces_bloc.dart';
 
 Future<void> main(List<String> args) async {
   final cli = Cli.parse(args);
@@ -25,7 +32,28 @@ Future<void> main(List<String> args) async {
     configPath: cli.configPath,
     edge: cli.edge,
   );
-  runApp(ProviderScope(child: TricksterApp(initial: runtime)));
+  final modules = runtime.settings.modules;
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => SettingsBloc(runtime.settings)),
+        BlocProvider(create: (_) => SessionBloc(runtime.session)),
+        BlocProvider(create: (_) => OutputsBloc(runtime.outputs)),
+        if (modules.contains('clock')) BlocProvider(create: (_) => ClockBloc()),
+        if (modules.contains('cpu'))
+          BlocProvider(create: (_) => CpuBloc()..add(const CpuStarted())),
+        if (modules.contains('battery'))
+          BlocProvider(
+            create: (_) => BatteryBloc()..add(const BatteryStarted()),
+          ),
+        if (modules.contains('workspaces'))
+          BlocProvider(
+            create: (_) => WorkspacesBloc()..add(const WorkspacesStarted()),
+          ),
+      ],
+      child: TricksterApp(initial: runtime),
+    ),
+  );
 }
 
 Future<void> _check(Cli cli) async {
