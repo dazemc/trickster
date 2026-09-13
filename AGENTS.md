@@ -214,6 +214,32 @@ zone → layer-shell request.
 
 Do not add features Denial's bar does not have until parity is real.
 
+## Instruction precedence
+
+One explicit hierarchy, from most to least authoritative. A lower file never
+overrides a higher one; on a conflict the higher file wins and the lower one
+is corrected in the same session.
+
+```text
+AGENTS.md             authoritative rules — the constitution
+.llm/workflow.md      process interpretation of those rules
+.llm/*.md             domain knowledge and contracts
+.llm/todo.md          currently authorized work, in build order
+.llm/suggestions.md   non-authoritative observations
+```
+
+- `AGENTS.md` is authoritative. It answers what the project is and how every
+  change is made.
+- `.llm/workflow.md` interprets the process — branches, commits, phases — and
+  never adds or bends a rule.
+- `.llm/architecture.md`, `configuration.md`, `performance.md`,
+  `porting.md`, and `docs.md` hold domain knowledge and contracts derived
+  from the constitution.
+- `.llm/todo.md` grants exactly the work it lists, top-down, one step at a
+  time; a step never authorizes more than itself.
+- `.llm/suggestions.md` is non-authoritative. Entries inform decisions but
+  bind nothing until the user escalates them.
+
 ## Repository workflow
 
 - `main` is the stable branch. Exactly one working branch, `working`, exists
