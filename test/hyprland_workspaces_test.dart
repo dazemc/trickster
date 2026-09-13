@@ -34,6 +34,7 @@ class _FakeHyprlandServer {
   final String dir;
   final bool _ownsDir;
   final replies = <String, List<int>>{};
+  final commands = <String>[];
   var keepOpen = false;
 
   ServerSocket? _requests;
@@ -77,6 +78,7 @@ class _FakeHyprlandServer {
     _openClients.add(client);
     try {
       final command = utf8.decode(await client.first);
+      commands.add(command);
       final reply = replies[command];
       if (reply != null) {
         // Split write: the client must accumulate, not assume one chunk.
@@ -315,6 +317,73 @@ void main() {
       await sub.cancel();
       await backend.dispose();
       expect(seen, isEmpty);
+    } finally {
+      await dir.delete(recursive: true);
+    }
+  });
+
+  test('focus dispatches the workspace over the command socket', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+    server.replies['dispatch workspace web'] = utf8.encode('ok');
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: 'web'),
+      );
+      expect(focused, isTrue);
+      expect(server.commands, contains('dispatch workspace web'));
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('refused dispatch reply reports failure', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+    server.replies['dispatch workspace web'] = utf8.encode(
+      'error: no such workspace',
+    );
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: 'web'),
+      );
+      expect(focused, isFalse);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('lua dispatch fallback focuses on Hyprland 0.56', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+    server.replies['dispatch workspace web'] = utf8.encode(
+      'error: [string "return hl.dispatch(workspace web)"]:1',
+    );
+    server.replies['dispatch hl.dsp.focus({ workspace = 2 })'] = utf8.encode(
+      'ok',
+    );
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: 'web'),
+      );
+      expect(focused, isTrue);
+      expect(server.commands, [
+        'dispatch workspace web',
+        'dispatch hl.dsp.focus({ workspace = 2 })',
+      ]);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('missing command socket reports failure', () async {
+    final dir = await Directory.systemTemp.createTemp('hyprland-missing');
+    try {
+      final backend = HyprlandWorkspaces(socketDir: dir.path);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: 'web'),
+      );
+      expect(focused, isFalse);
     } finally {
       await dir.delete(recursive: true);
     }

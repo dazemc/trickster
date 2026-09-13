@@ -347,6 +347,72 @@ class HyprlandWorkspaces extends WorkspaceBackend {
   }
 
   @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    final dir = _socketDir;
+    if (dir == null) {
+      return false;
+    }
+    final name = workspace.name;
+    final number = int.tryParse(workspace.id);
+    final luaSelector = number != null && number > 0
+        ? '$number'
+        : '"${_escapeLua(name)}"';
+    try {
+      return await Isolate.run(() async {
+        // Hyprland 0.56 made dispatch evaluate Lua (`hl.dsp.*`); older
+        // releases use the classic `workspace` dispatcher. Try the classic
+        // form first and fall back when the reply reports the Lua error.
+        if (await _sendCommand('dispatch workspace $name', dir) == 'ok') {
+          return true;
+        }
+        final lua =
+            'dispatch hl.dsp.focus({ workspace = $luaSelector })';
+        return await _sendCommand(lua, dir) == 'ok';
+      });
+    } on Object {
+      return false;
+    }
+  }
+
+  static String _escapeLua(String value) =>
+      value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+
+  /// Sends one command on a fresh connection and waits for the compositor's
+  /// reply. Like the `j/*` queries, this runs on a worker isolate: the
+  /// compositor serves `.socket.sock` on its main loop and accepts a
+  /// connection only when the command follows immediately.
+  static Future<String?> _sendCommand(String command, String dir) async {
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress('$dir/.socket.sock', type: InternetAddressType.unix),
+        0,
+      );
+      socket.add(utf8.encode(command));
+      final buffer = BytesBuilder();
+      await for (final chunk in socket.timeout(_replyTimeout)) {
+        buffer.add(chunk);
+        final reply = utf8.decode(
+          buffer.toBytes(),
+          allowMalformed: true,
+        ).trim();
+        if (reply == 'ok' || reply.startsWith('error:')) {
+          return reply;
+        }
+        if (buffer.length > _maxReplyBytes) {
+          return null;
+        }
+      }
+      final reply = utf8.decode(buffer.toBytes(), allowMalformed: true).trim();
+      return reply.isEmpty ? null : reply;
+    } on Object {
+      return null;
+    } finally {
+      await socket?.close();
+    }
+  }
+
+  @override
   Future<void> dispose() async {
     await _events?.close();
     _events = null;
