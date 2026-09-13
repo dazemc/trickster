@@ -100,27 +100,39 @@ class GpuState extends Equatable {
 /// Autodetects GPU utilization without spawning sampling processes: amdgpu
 /// publishes `gpu_busy_percent` under `/sys/class/drm`; the NVIDIA proprietary
 /// driver is read over NVML on a persistent worker isolate. GPUs offering
-/// neither (i915, nouveau) simply do not appear.
+/// neither (i915, nouveau) simply do not appear, and NVML is only consulted
+/// when the proprietary driver or a discovered NVIDIA card is present, so
+/// AMD-only systems never load it.
 class GpuSampler {
   GpuSampler({
     this.interval = const Duration(seconds: 1),
     String drmRoot = '/sys/class/drm',
     NvmlReader? nvml,
+    String nvidiaDriverPath = '/proc/driver/nvidia/version',
   }) : _drmRoot = drmRoot,
-       _nvml = nvml ?? NvmlReader();
+       _nvml = nvml ?? NvmlReader(),
+       _nvidiaDriverPath = nvidiaDriverPath;
 
   final Duration interval;
   final String _drmRoot;
   final NvmlReader _nvml;
+  final String _nvidiaDriverPath;
   final Uint8List _buffer = Uint8List(256);
   List<_GpuDevice>? _devices;
   List<File>? _nvidiaRuntimeStatusFiles;
+  bool? _nvidiaDriverPresent;
+  var _discoveredNvidia = false;
   List<GpuLoad> _loads = const <GpuLoad>[];
   Timer? _timer;
   var _sampling = false;
   final _controller = StreamController<List<GpuLoad>>.broadcast();
 
   Stream<List<GpuLoad>> get snapshots => _controller.stream;
+
+  bool get _hasNvidia =>
+      (_nvidiaDriverPresent ??=
+          File(_nvidiaDriverPath).existsSync()) ||
+      _discoveredNvidia;
 
   void start() {
     unawaited(_tick());
@@ -156,23 +168,25 @@ class GpuSampler {
         if (_busyPercent(device.busyFile) case final usage?)
           (id: device.id, label: device.label, name: null, usage: usage),
     ];
-    if (await _canReadNvidiaWithoutWake()) {
-      for (final nvidia in await _nvml.read()) {
-        final name = nvidia.name?.trim();
-        reads.add((
-          id: 'nvml${nvidia.index}',
-          label: 'GPU',
-          name: name == null || name.isEmpty ? null : name,
-          usage: nvidia.usage,
-        ));
-      }
-    } else {
-      for (
-        var index = 0;
-        index < _nvidiaRuntimeStatusFiles!.length;
-        index += 1
-      ) {
-        reads.add((id: 'nvml$index', label: 'GPU', name: null, usage: 0.0));
+    if (_hasNvidia) {
+      if (await _canReadNvidiaWithoutWake()) {
+        for (final nvidia in await _nvml.read()) {
+          final name = nvidia.name?.trim();
+          reads.add((
+            id: 'nvml${nvidia.index}',
+            label: 'GPU',
+            name: name == null || name.isEmpty ? null : name,
+            usage: nvidia.usage,
+          ));
+        }
+      } else {
+        for (
+          var index = 0;
+          index < _nvidiaRuntimeStatusFiles!.length;
+          index += 1
+        ) {
+          reads.add((id: 'nvml$index', label: 'GPU', name: null, usage: 0.0));
+        }
       }
     }
     final previous = <String, GpuLoad>{
@@ -209,6 +223,7 @@ class GpuSampler {
         final device = '${entity.path}/device';
         final vendor = _readText(File('$device/vendor'))?.trim();
         if (vendor == '0x10de') {
+          _discoveredNvidia = true;
           final runtimeStatus = File('$device/power/runtime_status');
           if (runtimeStatus.existsSync()) {
             nvidiaRuntimeStatusFiles.add(runtimeStatus);
