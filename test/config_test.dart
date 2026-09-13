@@ -57,7 +57,8 @@ void main() {
 
   group('SessionConfig', () {
     test('parses machine overrides', () {
-      const source = 'TRICKSTER_LAYER=overlay\n'
+      const source =
+          'TRICKSTER_LAYER=overlay\n'
           'TRICKSTER_NAMESPACE=trickster-test\n'
           'TRICKSTER_KEYBOARD=exclusive\n'
           'TRICKSTER_ACCENT=#ff0000\n';
@@ -94,6 +95,44 @@ void main() {
         throwsFormatException,
       );
       expect(() => BarSettings.decode('[]'), throwsFormatException);
+    });
+
+    test('workspace options round-trip with defaults', () {
+      const settings = BarSettings(
+        revision: 3,
+        workspaces: WorkspaceOptions(showEmpty: false, max: 5),
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.workspaces.showEmpty, isFalse);
+      expect(decoded.workspaces.max, 5);
+      const bare = BarSettings();
+      expect(bare.workspaces.showEmpty, isTrue);
+      expect(bare.workspaces.max, 9);
+      expect(
+        BarSettings.decode('{"revision": 1}').workspaces,
+        const WorkspaceOptions(),
+      );
+    });
+
+    test('invalid workspace options are rejected at decode', () {
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"show_empty": "yes"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "workspaces": {"max": 0}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "workspaces": {"max": 65}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "workspaces": []}'),
+        throwsFormatException,
+      );
     });
   });
 

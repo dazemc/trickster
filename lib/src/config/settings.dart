@@ -3,6 +3,42 @@ import 'dart:ui';
 
 import 'package:equatable/equatable.dart';
 
+/// Typed options for the workspace rail.
+class WorkspaceOptions extends Equatable {
+  const WorkspaceOptions({this.showEmpty = true, this.max = 9});
+
+  final bool showEmpty;
+  final int max;
+
+  @override
+  List<Object?> get props => [showEmpty, max];
+
+  Map<String, Object?> toJson() => {'show_empty': showEmpty, 'max': max};
+
+  static WorkspaceOptions fromJson(Object? json) {
+    if (json == null) {
+      return const WorkspaceOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.workspaces must be an object');
+    }
+    final showEmpty = json['show_empty'];
+    if (showEmpty != null && showEmpty is! bool) {
+      throw const FormatException(
+        'settings.workspaces.show_empty must be a boolean',
+      );
+    }
+    final max = json['max'];
+    if (max != null && (max is! int || max < 1 || max > 64)) {
+      throw const FormatException('settings.workspaces.max must be 1..64');
+    }
+    return WorkspaceOptions(
+      showEmpty: showEmpty as bool? ?? true,
+      max: max as int? ?? 9,
+    );
+  }
+}
+
 class BarSettings extends Equatable {
   const BarSettings({
     this.revision = 1,
@@ -16,16 +52,18 @@ class BarSettings extends Equatable {
       'battery',
       'clock',
     ],
+    this.workspaces = const WorkspaceOptions(),
   });
 
   final int revision;
   final Color? accent;
   final List<String> modules;
+  final WorkspaceOptions workspaces;
 
   // Spread: Equatable compares props element-wise, so spreading gives deep
   // equality over the module list.
   @override
-  List<Object?> get props => [revision, accent, ...modules];
+  List<Object?> get props => [revision, accent, ...modules, workspaces];
 
   bool includes(String module) => modules.contains(module);
 
@@ -35,16 +73,23 @@ class BarSettings extends Equatable {
       'accent':
           '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
     'modules': modules,
+    'workspaces': workspaces.toJson(),
   };
 
   String encode() =>
       '${const JsonEncoder.withIndent('  ').convert(toJson())}\n';
 
-  BarSettings copyWith({int? revision, Color? accent, List<String>? modules}) {
+  BarSettings copyWith({
+    int? revision,
+    Color? accent,
+    List<String>? modules,
+    WorkspaceOptions? workspaces,
+  }) {
     return BarSettings(
       revision: revision ?? this.revision,
       accent: accent ?? this.accent,
       modules: modules ?? this.modules,
+      workspaces: workspaces ?? this.workspaces,
     );
   }
 
@@ -78,6 +123,7 @@ class BarSettings extends Equatable {
               'battery',
               'clock',
             ],
+      workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
     );
   }
 

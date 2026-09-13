@@ -133,10 +133,24 @@ class TricksterBarStrip extends StatelessWidget {
             if (settings.includes('workspaces'))
               BlocBuilder<WorkspacesBloc, WorkspacesState>(
                 builder: (context, state) {
-                  final workspaces = workspacesForOutput(
+                  final options = context.select(
+                    (SettingsBloc bloc) => bloc.state.workspaces,
+                  );
+                  var workspaces = workspacesForOutput(
                     state.workspaces,
                     output,
                   );
+                  if (!options.showEmpty) {
+                    workspaces = [
+                      for (final workspace in workspaces)
+                        if (workspace.occupied || workspace.focused) workspace,
+                    ];
+                  }
+                  if (workspaces.length > options.max) {
+                    workspaces = workspaces
+                        .take(options.max)
+                        .toList(growable: false);
+                  }
                   if (workspaces.isEmpty) {
                     return const SizedBox.shrink();
                   }
