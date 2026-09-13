@@ -10,7 +10,7 @@ enum TricksterKeyboard { none, exclusive, onDemand }
 class SessionConfig {
   const SessionConfig({
     this.layer = TricksterLayer.top,
-    this.namespace = 'trickster-bar',
+    this.namespace = 'trickster',
     this.keyboard = TricksterKeyboard.onDemand,
     this.accent,
     this.outputConfig,
@@ -28,7 +28,7 @@ class SessionConfig {
     final document = KeyValueDocument.parse(source);
     return SessionConfig(
       layer: _layer(document['TRICKSTER_LAYER']),
-      namespace: document['TRICKSTER_NAMESPACE'] ?? 'trickster-bar',
+      namespace: document['TRICKSTER_NAMESPACE'] ?? 'trickster',
       keyboard: _keyboard(document['TRICKSTER_KEYBOARD']),
       accent: _color(document['TRICKSTER_ACCENT']),
       outputConfig: document['TRICKSTER_OUTPUT_CONFIG'],

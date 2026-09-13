@@ -43,7 +43,7 @@ static void apply_layer_shell(GtkWindow* window, const gchar* side,
     return;
   }
   gtk_layer_set_layer(window, (GtkLayerShellLayer)trickster_layer(layer));
-  gtk_layer_set_namespace(window, name != nullptr ? name : "trickster-bar");
+  gtk_layer_set_namespace(window, name != nullptr ? name : "trickster");
   gtk_layer_set_keyboard_mode(
       window, (GtkLayerShellKeyboardMode)trickster_keyboard(keyboard));
   gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP,
@@ -104,7 +104,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     FlValue* args = fl_method_call_get_args(method_call);
     const gchar* side = "top";
     const gchar* layer = "top";
-    const gchar* name = "trickster-bar";
+    const gchar* name = "trickster";
     const gchar* keyboard = "on_demand";
     gint thickness = 32;
     if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
@@ -192,7 +192,7 @@ static void my_application_activate(GApplication* application) {
 
   if (gtk_layer_is_supported()) {
     gtk_layer_init_for_window(window);
-    apply_layer_shell(window, "top", 32, "top", "trickster-bar", "on_demand");
+    apply_layer_shell(window, "top", 32, "top", "trickster", "on_demand");
   } else {
     gtk_window_set_default_size(window, 1280, 32);
   }

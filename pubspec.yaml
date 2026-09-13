@@ -1,4 +1,4 @@
-name: trickster_bar
+name: trickster
 description: A Flutter-native Wayland status bar
 publish_to: "none"
 version: 0.1.0

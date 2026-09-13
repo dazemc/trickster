@@ -3,15 +3,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:trickster_bar/src/bar/bar.dart';
-import 'package:trickster_bar/src/bar/clock.dart';
-import 'package:trickster_bar/src/config/settings.dart';
-import 'package:trickster_bar/src/layout/system_bar.dart';
-import 'package:trickster_bar/src/services/battery.dart';
-import 'package:trickster_bar/src/services/cpu.dart';
-import 'package:trickster_bar/src/services/workspaces.dart';
-import 'package:trickster_bar/src/state/providers.dart';
-import 'package:trickster_bar/src/theme/accent.dart';
+import 'package:trickster/src/bar/bar.dart';
+import 'package:trickster/src/bar/clock.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/workspaces.dart';
+import 'package:trickster/src/state/providers.dart';
+import 'package:trickster/src/theme/accent.dart';
 
 class _FixedCpu extends CpuController {
   @override

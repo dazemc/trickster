@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trickster_bar/src/config/settings.dart';
-import 'package:trickster_bar/src/config/store.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/config/store.dart';
 
 class _RacingTransport implements SettingsDocumentTransport {
   _RacingTransport(this.document);

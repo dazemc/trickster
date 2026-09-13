@@ -1,8 +1,8 @@
 # Site Configuration
-titleBase: Trickster Bar docs
+titleBase: Trickster docs
 favicon: favicon.ico
 
 # Social media links
 social:
   - name: Github
-    url: https://github.com/dazemc/trickster-bar
+    url: https://github.com/dazemc/trickster

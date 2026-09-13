@@ -56,13 +56,13 @@ void main() {
         // Out-of-the-box layout for documentation sites.
         DocsLayout(
           header: Header(
-            title: 'Trickster Bar',
+            title: 'Trickster',
             logo: '/images/logo.svg',
             items: [
               // Enables switching between light and dark mode.
               ThemeToggle(),
               // Shows github stats.
-              GitHubButton(repo: 'dazemc/trickster-bar'),
+              GitHubButton(repo: 'dazemc/trickster'),
             ],
           ),
           sidebar: Sidebar(

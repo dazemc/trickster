@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trickster_bar/src/layout/system_bar.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 
 void main() {
   group('OutputsConfig.stripWithin', () {

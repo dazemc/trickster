@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trickster_bar/src/locale.dart';
+import 'package:trickster/src/locale.dart';
 
 void main() {
   test('supported locales pass through', () {
