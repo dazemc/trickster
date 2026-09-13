@@ -10,15 +10,20 @@
   it is implemented, proven (`flutter analyze` clean, `flutter test` green),
   and removed from `.llm/todo.md`. No direct pushes to `main` beyond initial
   scaffolding.
+- Never start a new phase without the user's explicit go-ahead in chat: no
+  branch, no first step, until asked. Merging a finished phase likewise
+  waits for confirmation.
 - When a phase's steps are all landed and removed, merge the phase branch
   back into `main` through a pull request, then branch the next phase fresh
-  from the updated `main`. The merge updates the `docs.md` phase ledger and
-  any touched site pages; verify with `jaspr build`.
+  from the updated `main`. The merge updates the `.llm/docs.md` phase ledger
+  and any touched site pages; verify with `jaspr build`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Any update to `AGENTS.md` itself is committed immediately, in its own
   commit, in the same session — a constitution change never sits uncommitted
-  in the tree.
+  in the tree. The same applies to every file under `.llm/`: one file per
+  commit, committed in the same session as the edit, never bundled with
+  code or with each other.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
