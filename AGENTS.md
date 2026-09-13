@@ -23,7 +23,7 @@ surface, not a desktop app. Prefer a port of Denial's Dart over a rewrite
 whenever the code is compositor-agnostic. Do not invent a second design
 language.
 
-The work queue lives in `TODO.md`, in build order. Work it top-down one
+The work queue lives in `.llm/TODO.md`, in build order. Work it top-down one
 step at a time, on the branch for its phase (see Repository workflow):
 
 1. Implement the step, nothing more.
@@ -33,12 +33,12 @@ step at a time, on the branch for its phase (see Repository workflow):
    for runtime errors (stderr exceptions, missing ancestors, dead pills),
    exercise what the step changed, then kill only the Trickster process.
    A step that passes tests but errors at runtime is not done.
-4. Re-read `SUGGESTIONS.md` and update it — but only if something is
+4. Re-read `.llm/SUGGESTIONS.md` and update it — but only if something is
    absolutely needed. Silence is a valid review outcome; never add noise
    to justify the read.
-5. Only then remove the step from `TODO.md`.
+5. Only then remove the step from `.llm/TODO.md`.
 6. Commit in slices: the code change is one commit; every LLM-maintained
-   markdown file (`TODO.md`, `SUGGESTIONS.md`, docs) gets its own commit.
+   markdown file (`.llm/TODO.md`, `.llm/SUGGESTIONS.md`, docs) gets its own commit.
    Markdown never shares a commit with code, and two markdown files never
    share a commit with each other.
 
@@ -209,9 +209,9 @@ Do not add features Denial's bar does not have until parity is real.
   another phase's branch.
 - Commit every finished TODO step on the phase branch as a slice: one commit
   for the code, then one commit per touched LLM-maintained markdown file
-  (`TODO.md`, `SUGGESTIONS.md`, docs). A step is finished only when it is
-  implemented, proven (`flutter analyze` clean, `flutter test` green), and
-  removed from `TODO.md`. No direct pushes to `main` beyond initial
+  (`.llm/TODO.md`, `.llm/SUGGESTIONS.md`, docs). A step is finished only when
+  it is implemented, proven (`flutter analyze` clean, `flutter test` green),
+  and removed from `.llm/TODO.md`. No direct pushes to `main` beyond initial
   scaffolding.
 - When a phase's steps are all landed and removed, merge the phase branch
   back into `main` through a pull request, then branch the next phase fresh
