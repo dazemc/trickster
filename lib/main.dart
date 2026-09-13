@@ -15,9 +15,15 @@ import 'src/state/settings_bloc.dart';
 
 Future<void> main(List<String> args) async {
   final cli = Cli.parse(args);
+  if (cli.help) {
+    stdout.write(Cli.usage);
+    // The native GTK loop outlives main(), so CLI answers must exit the
+    // process rather than return into it.
+    exit(0);
+  }
   if (cli.version) {
     stdout.writeln(Cli.versionText);
-    return;
+    exit(0);
   }
   if (cli.check) {
     await _check(cli);

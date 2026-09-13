@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'config/paths.dart';
 import 'config/session.dart';
 import 'config/settings.dart';
@@ -95,16 +97,40 @@ class Bootstrap {
   }
 
   static void _seedUserConfig(ConfigPaths paths) {
+    seedUserConfig(paths, outputsTemplate: _packagedOutputsTemplate);
+  }
+
+  /// The template the package installs at `/etc/trickster/outputs.conf`.
+  /// Absent in a source checkout; the built-in header stands in then.
+  static const _packagedOutputsTemplate = '/etc/trickster/outputs.conf';
+
+  /// Seeds a session user's config directory on first launch. The per-user
+  /// `outputs.conf` is written once from the packaged template and never
+  /// overwritten after that.
+  @visibleForTesting
+  static void seedUserConfig(ConfigPaths paths, {String? outputsTemplate}) {
     paths.directory.createSync(recursive: true);
     final outputs = File(paths.outputs);
     if (!outputs.existsSync()) {
-      outputs.writeAsStringSync(
-        '# Trickster output configuration\n# system_bar=top,32\n',
-      );
+      outputs.writeAsStringSync(_outputsTemplate(outputsTemplate));
     }
     final settings = File(paths.settings);
     if (!settings.existsSync()) {
       settings.writeAsStringSync(const BarSettings().encode());
     }
+  }
+
+  static String _outputsTemplate(String? path) {
+    if (path != null) {
+      try {
+        final packaged = File(path);
+        if (packaged.existsSync()) {
+          return packaged.readAsStringSync();
+        }
+      } on FileSystemException {
+        // An unreadable template falls back to the built-in header.
+      }
+    }
+    return '# Trickster output configuration\n# system_bar=top,32\n';
   }
 }

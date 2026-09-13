@@ -1,0 +1,95 @@
+# Maintainer: Daazed McFarland <daazedjmcfarland@gmail.com>
+#
+# First-party source package. The build reads the checkout this file lives
+# in (packaging/arch/ -> repository root), mirroring Denial's packaging
+# layout; the AUR -bin repackage lives under packaging/aur/.
+
+pkgname=trickster
+# Keep in sync with pubspec.yaml and Cli.appVersion.
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Flutter-native Wayland status bar'
+arch=('x86_64')
+url='https://github.com/dazemc/trickster'
+license=('GPL-3.0-or-later')
+depends=(
+  'dbus'
+  'fontconfig'
+  'glibc'
+  'gtk-layer-shell'
+  'gtk3'
+  'libglvnd'
+  'libxkbcommon'
+  'mesa'
+  'systemd-libs'
+)
+makedepends=('clang' 'cmake' 'flutter' 'ninja' 'pkgconf')
+# Measured exception to the default strip: a Dart AOT executable loses its
+# snapshot under `strip` and degrades to dartaotruntime, so automatic
+# stripping is off and the C++ runner is stripped explicitly in package().
+# Flutter ships its release libraries already stripped, and `!debug` keeps
+# symbol packages (and any debug artifacts) out of the release.
+options=('!strip' '!debug')
+backup=('etc/trickster/session.conf')
+
+_repository_root="$(realpath "$startdir/../..")"
+_bundle="$_repository_root/build/linux/x64/release/bundle"
+
+check() {
+  cd "$_repository_root"
+  flutter analyze
+  flutter test
+}
+
+build() {
+  cd "$_repository_root"
+  flutter pub get
+  flutter build linux --release
+  # The control client is plain Dart, not a second UI runtime: compile it
+  # to a native AOT executable beside the Flutter bundle.
+  dart compile exe bin/tricksterctl.dart -o "$_bundle/tricksterctl"
+}
+
+package() {
+  for required in \
+    "$_bundle/trickster" \
+    "$_bundle/tricksterctl" \
+    "$_bundle/data/icudtl.dat" \
+    "$_bundle/data/flutter_assets/AssetManifest.bin" \
+    "$_bundle/lib/libapp.so" \
+    "$_bundle/lib/libflutter_linux_gtk.so"; do
+    if [[ ! -f "$required" ]]; then
+      error "Flutter bundle component is missing: $required"
+      return 1
+    fi
+  done
+
+  # The bundle resolves data/ and lib/ relative to the executable, so it
+  # installs whole; the /usr/bin entries are symlinks into it.
+  install -dm755 "$pkgdir/usr/lib/trickster" "$pkgdir/usr/bin"
+  cp -a -- "$_bundle/." "$pkgdir/usr/lib/trickster/"
+  chmod -R u=rwX,go=rX "$pkgdir/usr/lib/trickster"
+  # Only the C++ runner is safe to strip; libapp.so and tricksterctl carry
+  # Dart snapshots.
+  strip --strip-unneeded "$pkgdir/usr/lib/trickster/trickster"
+  ln -s ../lib/trickster/trickster "$pkgdir/usr/bin/trickster"
+  ln -s ../lib/trickster/tricksterctl "$pkgdir/usr/bin/tricksterctl"
+
+  # session.conf is backup-protected for local overrides; the outputs
+  # template is refreshed by package updates and copied to the session
+  # user's config on first launch (never overwritten afterward).
+  install -Dm644 "$startdir/../session.conf" \
+    "$pkgdir/etc/trickster/session.conf"
+  install -Dm644 "$startdir/../outputs.conf" \
+    "$pkgdir/etc/trickster/outputs.conf"
+
+  install -Dm644 "$startdir/../man/trickster.1" \
+    "$pkgdir/usr/share/man/man1/trickster.1"
+  install -Dm644 "$startdir/../man/tricksterctl.1" \
+    "$pkgdir/usr/share/man/man1/tricksterctl.1"
+
+  install -Dm644 "$_repository_root/README.md" \
+    "$pkgdir/usr/share/doc/trickster/README.md"
+  install -Dm644 "$_repository_root/LICENSE" \
+    "$pkgdir/usr/share/licenses/trickster/LICENSE"
+}
