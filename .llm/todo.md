@@ -28,11 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.7 media pill + controls** (S). New `lib/src/bar/media.dart`.
-      Artist/title + playing state; tap reveals play/pause/next; `select`
-      on available/playing only. Done when: controls drive a real player
-      both ways.
-
 ## Phase 4 — finish
 
 - [ ] **4.1 arb pipeline + EN** (M). `lib/l10n/*.arb`, `flutter gen-l10n`
