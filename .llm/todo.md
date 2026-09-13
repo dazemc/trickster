@@ -30,11 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.21 keyboard tray menu** (S). `lib/src/bar/tray.dart`. The audit
-      left the tray context menu pointer-only; bind a keyboard path (Menu
-      key or Shift+F10) to open it for the focused item, and keep the
-      pointer route unchanged. Done when: the menu opens from the keyboard
-      in a test and on the live session.
 
 ## Phase 5 — packaging and release
 
