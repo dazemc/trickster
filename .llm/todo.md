@@ -20,10 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.6 Riverpod removal** (M). Delete `providers.dart`, drop the dep,
-      rewrite test overrides as seeded `BlocProvider.value`. Done when:
-      full suite + release build + live runtime proof with the observer
-      transcript attached as evidence.
 - [ ] **1.7 Docs + constitution** (S). `AGENTS.md`, `.llm/` modules, site
       architecture/modules pages: Riverpod→Bloc seams, observer usage,
       `toJson` convention. One commit per file.
