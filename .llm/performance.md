@@ -1,4 +1,4 @@
-# Trickster Bar performance and memory
+# Trickster performance and memory
 
 ## Performance
 
