@@ -22,12 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.19 NVML presence gate** (S). `lib/src/services/gpu.dart`. The
-      sampler always calls `_nvml.read()` when no runtime-status files exist,
-      so AMD-only systems load NVML and keep an idle worker isolate alive.
-      Gate the worker on the proprietary driver (`/proc/driver/nvidia/version`)
-      or a discovered NVIDIA card. Done when: tested on a host without NVIDIA.
-
 ## Phase 3 — parity (absent modules)
 
 - [ ] **3.1 StatusNotifier core** (M). New
