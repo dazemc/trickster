@@ -12,6 +12,7 @@
 typedef struct {
   GtkWindow* window;
   FlView* view;
+  GdkMonitor* monitor;
   struct ext_background_effect_surface_v1* blur;
 } TricksterSurface;
 
@@ -95,6 +96,112 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
 }
 
 struct _MyApplication;
+typedef struct {
+  struct wl_output* proxy;
+  gchar* name;
+  gint x;
+  gint y;
+} TricksterOutputInfo;
+
+static void output_info_free(gpointer data) {
+  TricksterOutputInfo* info = (TricksterOutputInfo*)data;
+  if (info->proxy != nullptr) {
+    wl_output_destroy(info->proxy);
+  }
+  g_free(info->name);
+  g_free(info);
+}
+
+static void output_name_cb(void* data, struct wl_output* output,
+                           const char* name) {
+  TricksterOutputInfo* info = (TricksterOutputInfo*)data;
+  g_free(info->name);
+  info->name = g_strdup(name);
+}
+
+static void output_geometry_cb(void* data, struct wl_output* output, gint32 x,
+                               gint32 y, gint32 physical_width,
+                               gint32 physical_height, gint32 subpixel,
+                               const char* make, const char* model,
+                               gint32 transform) {
+  TricksterOutputInfo* info = (TricksterOutputInfo*)data;
+  info->x = x;
+  info->y = y;
+}
+
+static void output_mode_cb(void* data, struct wl_output* output, guint32 flags,
+                           gint32 width, gint32 height, gint32 refresh) {}
+
+static void output_scale_cb(void* data, struct wl_output* output, gint32 factor) {
+}
+
+static void output_done_cb(void* data, struct wl_output* output) {}
+
+static void output_description_cb(void* data, struct wl_output* output,
+                                  const char* description) {}
+
+static const struct wl_output_listener output_listener = {
+    output_geometry_cb, output_mode_cb,     output_done_cb,
+    output_scale_cb,    output_name_cb,     output_description_cb};
+
+static void output_registry_global(void* data, struct wl_registry* registry,
+                                   uint32_t name, const char* interface,
+                                   uint32_t version) {
+  if (g_strcmp0(interface, wl_output_interface.name) != 0) {
+    return;
+  }
+  GPtrArray* outputs = (GPtrArray*)data;
+  TricksterOutputInfo* info = g_new0(TricksterOutputInfo, 1);
+  info->proxy = (struct wl_output*)wl_registry_bind(
+      registry, name, &wl_output_interface, MIN(version, 4));
+  wl_output_add_listener(info->proxy, &output_listener, info);
+  g_ptr_array_add(outputs, info);
+}
+
+static void output_registry_global_remove(void* data,
+                                          struct wl_registry* registry,
+                                          uint32_t name) {}
+
+// The connector name (HDMI-A-1) of [monitor], or null. GDK only exposes the
+// EDID model, so the name comes from a fresh wl_output enumeration matched
+// by compositor-space position.
+static gchar* trickster_connector_for_monitor(GdkMonitor* monitor) {
+  if (monitor == nullptr) {
+    return nullptr;
+  }
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
+    return nullptr;
+  }
+  struct wl_display* wl = gdk_wayland_display_get_wl_display(display);
+  if (wl == nullptr) {
+    return nullptr;
+  }
+  struct wl_registry* registry = wl_display_get_registry(wl);
+  if (registry == nullptr) {
+    return nullptr;
+  }
+  g_autoptr(GPtrArray) outputs =
+      g_ptr_array_new_with_free_func(output_info_free);
+  static const struct wl_registry_listener listener = {
+      output_registry_global, output_registry_global_remove};
+  wl_registry_add_listener(registry, &listener, outputs);
+  wl_display_roundtrip(wl);
+  wl_display_roundtrip(wl);
+  wl_registry_destroy(registry);
+
+  GdkRectangle geometry;
+  gdk_monitor_get_geometry(monitor, &geometry);
+  for (guint i = 0; i < outputs->len; i++) {
+    TricksterOutputInfo* info =
+        (TricksterOutputInfo*)g_ptr_array_index(outputs, i);
+    if (info->name != nullptr && info->x == geometry.x && info->y == geometry.y) {
+      return g_strdup(info->name);
+    }
+  }
+  return nullptr;
+}
+
 static void blur_registry_global(void* data, struct wl_registry* registry,
                                  uint32_t name, const char* interface,
                                  uint32_t version);
@@ -316,24 +423,42 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (g_strcmp0(method, "outputs") == 0) {
     g_autoptr(FlValue) list = fl_value_new_list();
-    GdkDisplay* display = gdk_display_get_default();
-    if (display != nullptr) {
-      const int count = gdk_display_get_n_monitors(display);
-      for (int i = 0; i < count; i++) {
-        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
-        GdkRectangle geometry;
-        gdk_monitor_get_geometry(monitor, &geometry);
-        g_autoptr(FlValue) entry = fl_value_new_map();
-        const gchar* model = gdk_monitor_get_model(monitor);
-        g_autofree gchar* name = g_strdup_printf("output-%d", i);
-        fl_value_set_string_take(entry, "name",
-                                 fl_value_new_string(model ? model : name));
-        fl_value_set_string_take(entry, "width",
-                                 fl_value_new_int(geometry.width));
-        fl_value_set_string_take(entry, "height",
-                                 fl_value_new_int(geometry.height));
-        fl_value_append_take(list, fl_value_ref(entry));
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->window == nullptr) {
+        continue;
       }
+      GdkMonitor* monitor = surface->monitor;
+      if (monitor == nullptr) {
+        GdkDisplay* display = gdk_display_get_default();
+        if (display != nullptr) {
+          monitor = gdk_display_get_primary_monitor(display);
+        }
+      }
+      if (monitor == nullptr) {
+        continue;
+      }
+      GdkRectangle geometry;
+      gdk_monitor_get_geometry(monitor, &geometry);
+      g_autofree gchar* connector = trickster_connector_for_monitor(monitor);
+      const gchar* model = gdk_monitor_get_model(monitor);
+      g_autoptr(FlValue) entry = fl_value_new_map();
+      fl_value_set_string_take(
+          entry, "name",
+          fl_value_new_string(connector != nullptr ? connector
+                               : model != nullptr ? model
+                                                  : "output"));
+      fl_value_set_string_take(entry, "width",
+                               fl_value_new_int(geometry.width));
+      fl_value_set_string_take(entry, "height",
+                               fl_value_new_int(geometry.height));
+      fl_value_set_string_take(
+          entry, "viewId",
+          fl_value_new_int(surface->view != nullptr
+                               ? fl_view_get_id(surface->view)
+                               : -1));
+      fl_value_append_take(list, fl_value_ref(entry));
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
   } else if (g_strcmp0(method, "configure") == 0) {
@@ -440,6 +565,7 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   surface->window = window;
+  surface->monitor = monitor;
 
   gtk_window_set_decorated(window, FALSE);
   gtk_window_set_title(window, "trickster");
@@ -513,7 +639,21 @@ static int run_check(MyApplication* self) {
       g_printerr("fail  outputs: no monitors reported\n");
       failed = 1;
     } else {
-      g_print("ok    outputs: %d monitor(s)\n", count);
+      g_autoptr(GString) names = g_string_new(nullptr);
+      for (int i = 0; i < count; i++) {
+        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+        g_autofree gchar* connector =
+            trickster_connector_for_monitor(monitor);
+        const gchar* model = gdk_monitor_get_model(monitor);
+        if (i > 0) {
+          g_string_append(names, ", ");
+        }
+        g_string_append_printf(names, "%s",
+                               connector != nullptr
+                                   ? connector
+                                   : model != nullptr ? model : "output");
+      }
+      g_print("ok    outputs: %s\n", names->str);
     }
   }
   return failed;

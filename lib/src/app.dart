@@ -37,6 +37,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
   ConfigWatcher? _watcher;
+  List<LayerOutput>? _outputs;
   OutputsConfig _lastOutputs = const OutputsConfig();
   SessionConfig _lastSession = const SessionConfig();
 
@@ -46,6 +47,13 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
+    unawaited(
+      _layerShell.outputs().then((outputs) {
+        if (mounted) {
+          setState(() => _outputs = outputs);
+        }
+      }),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
       _watcher = ConfigWatcher(
@@ -115,6 +123,14 @@ class _TricksterAppState extends State<TricksterApp>
           final blur = context.select(
             (CapabilitiesBloc bloc) => bloc.state.blur,
           );
+          // Null until the native enumeration lands: show every strip in the
+          // meantime rather than flashing an empty desktop.
+          final hostedViewIds = _outputs == null
+              ? null
+              : {
+                  for (final output in hostedOutputs(_outputs!, outputs))
+                    output.viewId,
+                };
           return TrayMenuScope(
             notifier: _menuController,
             child: ModuleScope(
@@ -122,13 +138,15 @@ class _TricksterAppState extends State<TricksterApp>
                 views: outputs.active
                     ? <Widget>[
                         for (final view in views)
-                          _ViewSurface(
-                            key: ValueKey<int>(view.viewId),
-                            view: view,
-                            menu: _menuController,
-                            layerShell: _layerShell,
-                            blur: blur,
-                          ),
+                          if (hostedViewIds == null ||
+                              hostedViewIds.contains(view.viewId))
+                            _ViewSurface(
+                              key: ValueKey<int>(view.viewId),
+                              view: view,
+                              menu: _menuController,
+                              layerShell: _layerShell,
+                              blur: blur,
+                            ),
                       ]
                     : const <Widget>[],
               ),

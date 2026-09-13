@@ -41,6 +41,7 @@ class LayerShell {
         .map(
           (entry) => LayerOutput(
             name: '${entry['name'] ?? ''}',
+            viewId: (entry['viewId'] as num?)?.toInt() ?? -1,
             width: (entry['width'] as num?)?.toInt() ?? 0,
             height: (entry['height'] as num?)?.toInt() ?? 0,
           ),
@@ -91,11 +92,27 @@ class LayerShell {
 class LayerOutput {
   const LayerOutput({
     required this.name,
+    this.viewId = -1,
     required this.width,
     required this.height,
   });
 
+  /// Connector name when the host exposes one (`HDMI-A-1`), else the model.
   final String name;
+
+  /// The Flutter view of the layer surface on this output.
+  final int viewId;
   final int width;
   final int height;
+}
+
+/// The outputs that host a strip: every one when the config names no
+/// connectors, otherwise the named ones.
+List<LayerOutput> hostedOutputs(
+  List<LayerOutput> outputs,
+  OutputsConfig config,
+) {
+  return outputs
+      .where((output) => config.hosts(output.name))
+      .toList(growable: false);
 }

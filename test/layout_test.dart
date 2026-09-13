@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 
 void main() {
   group('OutputsConfig.stripWithin', () {
@@ -41,6 +42,33 @@ void main() {
     test('hidden side yields an empty strip', () {
       const config = OutputsConfig(side: SystemBarSide.hidden, thickness: 0);
       expect(config.stripWithin(output), Rect.zero);
+    });
+  });
+
+  group('output selection', () {
+    const outputs = <LayerOutput>[
+      LayerOutput(name: 'eDP-1', viewId: 0, width: 1920, height: 1080),
+      LayerOutput(name: 'HDMI-A-1', viewId: 1, width: 2560, height: 1440),
+    ];
+
+    test('every output hosts a strip when no connectors are named', () {
+      expect(hostedOutputs(outputs, const OutputsConfig()), outputs);
+    });
+
+    test('named connectors select exactly those outputs', () {
+      final hosted = hostedOutputs(
+        outputs,
+        const OutputsConfig(connectors: ['HDMI-A-1']),
+      );
+      expect(hosted.map((output) => output.name), ['HDMI-A-1']);
+      expect(hosted.single.viewId, 1);
+    });
+
+    test('unknown connectors select nothing', () {
+      expect(
+        hostedOutputs(outputs, const OutputsConfig(connectors: ['DP-1'])),
+        isEmpty,
+      );
     });
   });
 }
