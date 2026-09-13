@@ -27,13 +27,17 @@ The work queue lives in `TODO.md`, in build order. Work it top-down one
 step at a time, on the branch for its phase (see Repository workflow):
 
 1. Implement the step, nothing more.
-2. Prove it: `flutter analyze` clean, `flutter test` green (plus a release
-   build when native code changes).
-3. Re-read `SUGGESTIONS.md` and update it — but only if something is
+2. Prove it statically: `flutter analyze` clean, `flutter test` green
+   (plus a release build when native code changes).
+3. Prove it at runtime: launch the release bar in the live session, watch
+   for runtime errors (stderr exceptions, missing ancestors, dead pills),
+   exercise what the step changed, then kill only the Trickster process.
+   A step that passes tests but errors at runtime is not done.
+4. Re-read `SUGGESTIONS.md` and update it — but only if something is
    absolutely needed. Silence is a valid review outcome; never add noise
    to justify the read.
-4. Only then remove the step from `TODO.md`.
-5. Commit in slices: the code change is one commit; every LLM-maintained
+5. Only then remove the step from `TODO.md`.
+6. Commit in slices: the code change is one commit; every LLM-maintained
    markdown file (`TODO.md`, `SUGGESTIONS.md`, docs) gets its own commit.
    Markdown never shares a commit with code, and two markdown files never
    share a commit with each other.
@@ -214,6 +218,9 @@ Do not add features Denial's bar does not have until parity is real.
   from the updated `main`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
+- Any update to `AGENTS.md` itself is committed immediately, in its own
+  commit, in the same session — a constitution change never sits uncommitted
+  in the tree.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
