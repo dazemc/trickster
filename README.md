@@ -115,7 +115,19 @@ trickster --check
 
 ## Documentation
 
-- [Project constitution](AGENTS.md)
+Full docs live in [`docs_site/content/`](docs_site/content/) and render as a
+static site via [Jaspr Content](https://docs.jaspr.site/content):
+
+- [Overview](docs_site/content/index.md)
+- [Installation](docs_site/content/installation.md)
+- [Configuration](docs_site/content/configuration.md)
+- [Modules](docs_site/content/modules.md)
+- [Architecture](docs_site/content/architecture.md)
+- [CLI reference](docs_site/content/cli.md)
+- [Development](docs_site/content/development.md)
+
+Build the site with `jaspr build` inside `docs_site/`. Project rules live in
+[AGENTS.md](AGENTS.md).
 
 ## License
 

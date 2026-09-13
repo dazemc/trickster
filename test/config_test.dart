@@ -1,0 +1,112 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:trickster_bar/src/cli.dart';
+import 'package:trickster_bar/src/config/key_value.dart';
+import 'package:trickster_bar/src/config/session.dart';
+import 'package:trickster_bar/src/config/settings.dart';
+import 'package:trickster_bar/src/layout/system_bar.dart';
+
+void main() {
+  group('KeyValueDocument', () {
+    test('parses pairs and skips comments', () {
+      const source = '# comment\nA=1\n\nB = two \n';
+      final document = KeyValueDocument.parse(source);
+      expect(document['A'], '1');
+      expect(document['B'], 'two');
+      expect(document['missing'], isNull);
+    });
+
+    test('rejects lines without a separator', () {
+      expect(() => KeyValueDocument.parse('nope'), throwsFormatException);
+      expect(() => KeyValueDocument.parse('=x'), throwsFormatException);
+    });
+  });
+
+  group('OutputsConfig', () {
+    test('defaults to a top 32 strip', () {
+      const config = OutputsConfig();
+      expect(config.side, SystemBarSide.top);
+      expect(config.thickness, 32);
+      expect(config.active, isTrue);
+    });
+
+    test('parses Denial grammar', () {
+      final config = OutputsConfig.parse('system_bar=bottom,40,eDP-1\n');
+      expect(config.side, SystemBarSide.bottom);
+      expect(config.thickness, 40);
+      expect(config.hosts('eDP-1'), isTrue);
+      expect(config.hosts('DP-1'), isFalse);
+    });
+
+    test('hidden disables the strip', () {
+      final config = OutputsConfig.parse('system_bar=hidden\n');
+      expect(config.side, SystemBarSide.hidden);
+      expect(config.active, isFalse);
+    });
+
+    test('rejects unknown sides and bad thickness', () {
+      expect(
+        () => OutputsConfig.parse('system_bar=diagonal,32\n'),
+        throwsFormatException,
+      );
+      expect(
+        () => OutputsConfig.parse('system_bar=top,0\n'),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('SessionConfig', () {
+    test('parses machine overrides', () {
+      const source = 'TRICKSTER_LAYER=overlay\n'
+          'TRICKSTER_NAMESPACE=trickster-test\n'
+          'TRICKSTER_KEYBOARD=exclusive\n'
+          'TRICKSTER_ACCENT=#ff0000\n';
+      final config = SessionConfig.parse(source);
+      expect(config.layer, TricksterLayer.overlay);
+      expect(config.namespace, 'trickster-test');
+      expect(config.keyboard, TricksterKeyboard.exclusive);
+      expect(config.accent?.toARGB32(), 0xffff0000);
+    });
+
+    test('rejects bad enum values', () {
+      expect(
+        () => SessionConfig.parse('TRICKSTER_LAYER=sideways\n'),
+        throwsFormatException,
+      );
+      expect(
+        () => SessionConfig.parse('TRICKSTER_ACCENT=red\n'),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('BarSettings', () {
+    test('round-trips through json', () {
+      const settings = BarSettings(revision: 3, modules: ['clock', 'cpu']);
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.revision, 3);
+      expect(decoded.modules, ['clock', 'cpu']);
+    });
+
+    test('rejects non-positive revisions', () {
+      expect(
+        () => BarSettings.decode('{"revision": 0, "modules": []}'),
+        throwsFormatException,
+      );
+      expect(() => BarSettings.decode('[]'), throwsFormatException);
+    });
+  });
+
+  group('Cli', () {
+    test('parses flags and key=value forms', () {
+      final cli = Cli.parse(['--check', '--edge=bottom']);
+      expect(cli.check, isTrue);
+      expect(cli.edge, 'bottom');
+      expect(cli.version, isFalse);
+    });
+
+    test('rejects unknown arguments', () {
+      expect(() => Cli.parse(['--frobnicate']), throwsFormatException);
+    });
+  });
+}

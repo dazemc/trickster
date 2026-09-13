@@ -1,0 +1,297 @@
+#include "my_application.h"
+
+#include <gtk-layer-shell.h>
+#include <flutter_linux/flutter_linux.h>
+
+#include "flutter/generated_plugin_registrant.h"
+
+struct _MyApplication {
+  GtkApplication parent_instance;
+  char** dart_entrypoint_arguments;
+  GtkWindow* window;
+};
+
+G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+static int trickster_layer(const gchar* value) {
+  if (g_strcmp0(value, "background") == 0) {
+    return GTK_LAYER_SHELL_LAYER_BACKGROUND;
+  }
+  if (g_strcmp0(value, "bottom") == 0) {
+    return GTK_LAYER_SHELL_LAYER_BOTTOM;
+  }
+  if (g_strcmp0(value, "overlay") == 0) {
+    return GTK_LAYER_SHELL_LAYER_OVERLAY;
+  }
+  return GTK_LAYER_SHELL_LAYER_TOP;
+}
+
+static int trickster_keyboard(const gchar* value) {
+  if (g_strcmp0(value, "none") == 0) {
+    return GTK_LAYER_SHELL_KEYBOARD_MODE_NONE;
+  }
+  if (g_strcmp0(value, "exclusive") == 0) {
+    return GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE;
+  }
+  return GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND;
+}
+
+static void apply_layer_shell(GtkWindow* window, const gchar* side,
+                              gint thickness, const gchar* layer,
+                              const gchar* name, const gchar* keyboard) {
+  if (!gtk_layer_is_supported()) {
+    return;
+  }
+  gtk_layer_set_layer(window, (GtkLayerShellLayer)trickster_layer(layer));
+  gtk_layer_set_namespace(window, name != nullptr ? name : "trickster-bar");
+  gtk_layer_set_keyboard_mode(
+      window, (GtkLayerShellKeyboardMode)trickster_keyboard(keyboard));
+  gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP,
+                       g_strcmp0(side, "top") == 0);
+  gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM,
+                       g_strcmp0(side, "bottom") == 0);
+  gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_LEFT,
+                       g_strcmp0(side, "left") == 0 ||
+                           g_strcmp0(side, "top") == 0 ||
+                           g_strcmp0(side, "bottom") == 0);
+  gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_RIGHT,
+                       g_strcmp0(side, "right") == 0 ||
+                           g_strcmp0(side, "top") == 0 ||
+                           g_strcmp0(side, "bottom") == 0);
+  gtk_layer_set_exclusive_zone(window, thickness);
+  if (g_strcmp0(side, "left") == 0 || g_strcmp0(side, "right") == 0) {
+    gtk_widget_set_size_request(GTK_WIDGET(window), thickness, -1);
+    gtk_window_resize(window, thickness, 720);
+  } else {
+    gtk_widget_set_size_request(GTK_WIDGET(window), -1, thickness);
+    gtk_window_resize(window, 1280, thickness);
+  }
+}
+
+static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
+                           gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  const gchar* method = fl_method_call_get_name(method_call);
+  g_autoptr(FlMethodResponse) response = nullptr;
+
+  if (g_strcmp0(method, "supported") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_bool(gtk_layer_is_supported() ? TRUE : FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "outputs") == 0) {
+    g_autoptr(FlValue) list = fl_value_new_list();
+    GdkDisplay* display = gdk_display_get_default();
+    if (display != nullptr) {
+      const int count = gdk_display_get_n_monitors(display);
+      for (int i = 0; i < count; i++) {
+        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+        GdkRectangle geometry;
+        gdk_monitor_get_geometry(monitor, &geometry);
+        g_autoptr(FlValue) entry = fl_value_new_map();
+        const gchar* model = gdk_monitor_get_model(monitor);
+        g_autofree gchar* name = g_strdup_printf("output-%d", i);
+        fl_value_set_string_take(entry, "name",
+                                 fl_value_new_string(model ? model : name));
+        fl_value_set_string_take(entry, "width",
+                                 fl_value_new_int(geometry.width));
+        fl_value_set_string_take(entry, "height",
+                                 fl_value_new_int(geometry.height));
+        fl_value_append_take(list, fl_value_ref(entry));
+      }
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
+  } else if (g_strcmp0(method, "configure") == 0) {
+    FlValue* args = fl_method_call_get_args(method_call);
+    const gchar* side = "top";
+    const gchar* layer = "top";
+    const gchar* name = "trickster-bar";
+    const gchar* keyboard = "on_demand";
+    gint thickness = 32;
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "side");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        side = fl_value_get_string(value);
+      }
+      value = fl_value_lookup_string(args, "layer");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        layer = fl_value_get_string(value);
+      }
+      value = fl_value_lookup_string(args, "namespace");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        name = fl_value_get_string(value);
+      }
+      value = fl_value_lookup_string(args, "keyboard");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        keyboard = fl_value_get_string(value);
+      }
+      value = fl_value_lookup_string(args, "thickness");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_INT) {
+        thickness = (gint)fl_value_get_int(value);
+      }
+    }
+    if (self->window != nullptr) {
+      apply_layer_shell(self->window, side, thickness, layer, name, keyboard);
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+
+  fl_method_call_respond(method_call, response, nullptr);
+}
+
+static void first_frame_cb(MyApplication* self, FlView* view) {
+  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+
+static int run_check() {
+  int failed = 0;
+  const gchar* wayland = g_getenv("WAYLAND_DISPLAY");
+  if (wayland == nullptr || wayland[0] == '\0') {
+    g_printerr("fail  wayland: WAYLAND_DISPLAY is unset\n");
+    failed = 1;
+  } else {
+    g_print("ok    wayland: %s\n", wayland);
+  }
+  if (gtk_layer_is_supported()) {
+    g_print("ok    layer-shell: zwlr_layer_shell_v1 advertised\n");
+  } else {
+    g_printerr("fail  layer-shell: compositor does not advertise zwlr_layer_shell_v1\n");
+    failed = 1;
+  }
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr) {
+    g_printerr("fail  outputs: no display\n");
+    failed = 1;
+  } else {
+    const int count = gdk_display_get_n_monitors(display);
+    if (count <= 0) {
+      g_printerr("fail  outputs: no monitors reported\n");
+      failed = 1;
+    } else {
+      g_print("ok    outputs: %d monitor(s)\n", count);
+    }
+  }
+  return failed;
+}
+
+static void my_application_activate(GApplication* application) {
+  MyApplication* self = MY_APPLICATION(application);
+  GtkWindow* window =
+      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  self->window = window;
+
+  gtk_window_set_decorated(window, FALSE);
+  gtk_window_set_title(window, "trickster");
+  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+  GdkScreen* screen = gtk_window_get_screen(window);
+  GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
+  if (visual != nullptr) {
+    gtk_widget_set_visual(GTK_WIDGET(window), visual);
+  }
+
+  if (gtk_layer_is_supported()) {
+    gtk_layer_init_for_window(window);
+    apply_layer_shell(window, "top", 32, "top", "trickster-bar", "on_demand");
+  } else {
+    gtk_window_set_default_size(window, 1280, 32);
+  }
+
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  FlView* view = fl_view_new(project);
+  GdkRGBA background_color;
+  gdk_rgba_parse(&background_color, "#00000000");
+  fl_view_set_background_color(view, &background_color);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
+                           self);
+  gtk_widget_realize(GTK_WIDGET(view));
+
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
+                                            nullptr);
+
+  gtk_widget_grab_focus(GTK_WIDGET(view));
+}
+
+static gboolean my_application_local_command_line(GApplication* application,
+                                                  gchar*** arguments,
+                                                  int* exit_status) {
+  MyApplication* self = MY_APPLICATION(application);
+  gchar** argv = *arguments;
+  gboolean want_version = FALSE;
+  gboolean want_check = FALSE;
+  for (int i = 1; argv[i] != nullptr; i++) {
+    if (g_strcmp0(argv[i], "--version") == 0) {
+      want_version = TRUE;
+    } else if (g_strcmp0(argv[i], "--check") == 0) {
+      want_check = TRUE;
+    }
+  }
+  if (want_version) {
+    g_print("trickster 0.1.0\n");
+    *exit_status = 0;
+    return TRUE;
+  }
+
+  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+
+  g_autoptr(GError) error = nullptr;
+  if (!g_application_register(application, nullptr, &error)) {
+    g_warning("Failed to register: %s", error->message);
+    *exit_status = 1;
+    return TRUE;
+  }
+
+  if (want_check) {
+    *exit_status = run_check();
+    return TRUE;
+  }
+
+  g_application_activate(application);
+  *exit_status = 0;
+  return TRUE;
+}
+
+static void my_application_startup(GApplication* application) {
+  G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
+}
+
+static void my_application_shutdown(GApplication* application) {
+  G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
+}
+
+static void my_application_dispose(GObject* object) {
+  MyApplication* self = MY_APPLICATION(object);
+  g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  self->window = nullptr;
+  G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
+}
+
+static void my_application_class_init(MyApplicationClass* klass) {
+  G_APPLICATION_CLASS(klass)->activate = my_application_activate;
+  G_APPLICATION_CLASS(klass)->local_command_line =
+      my_application_local_command_line;
+  G_APPLICATION_CLASS(klass)->startup = my_application_startup;
+  G_APPLICATION_CLASS(klass)->shutdown = my_application_shutdown;
+  G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
+}
+
+static void my_application_init(MyApplication* self) {}
+
+MyApplication* my_application_new() {
+  g_set_prgname(APPLICATION_ID);
+  return MY_APPLICATION(g_object_new(my_application_get_type(),
+                                     "application-id", APPLICATION_ID, "flags",
+                                     G_APPLICATION_NON_UNIQUE, nullptr));
+}
