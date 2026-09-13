@@ -1,4 +1,4 @@
-# Trickster Bar repository workflow
+# Trickster repository workflow
 
 - `main` is the stable branch. Each TODO phase gets its own branch from
   `main`: `bar/phase-a`, `bar/phase-b`, `bar/phase-c`, `bar/packaging`.
