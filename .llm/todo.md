@@ -53,10 +53,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.2 shared action card** (S). `lib/src/bar/pill.dart`. Add
-      `TricksterActionCard` mirroring Denial's `_BatteryActionCard`:
-      `Semantics(button)`, tap, hover/focus highlight, accent focus ring.
-      Done when: widget test covers tap + highlight states, analyzer clean.
 - [ ] **2.3 battery bolt in-cell** (S). `lib/src/bar/battery.dart`. Draw the
       charging bolt inside the gauge cell. Done when: bolt renders in both
       states, golden-free widget test asserts presence by state.
