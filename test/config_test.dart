@@ -198,5 +198,12 @@ void main() {
     test('rejects unknown arguments', () {
       expect(() => Cli.parse(['--frobnicate']), throwsFormatException);
     });
+
+    test('parses the settings mode flag', () {
+      final cli = Cli.parse(['--settings']);
+      expect(cli.settings, isTrue);
+      expect(cli.check, isFalse);
+      expect(Cli.parse(const []).settings, isFalse);
+    });
   });
 }

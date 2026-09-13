@@ -86,4 +86,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get trayItemHint => '激活该项目';
+
+  @override
+  String get settingsTitle => 'Trickster 设置';
+
+  @override
+  String get settingsCaption => '配置状态栏：外观、模块、显示器与选项。';
+
+  @override
+  String get settingsPlaceholder => '设置页面将在后续步骤中加入。';
+
+  @override
+  String get settingsClose => '关闭设置';
 }

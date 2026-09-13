@@ -115,5 +115,21 @@
   "trayItemHint": "激活该项目",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."
+  },
+  "settingsTitle": "Trickster 设置",
+  "@settingsTitle": {
+    "description": "Window title and heading of the settings application."
+  },
+  "settingsCaption": "配置状态栏：外观、模块、显示器与选项。",
+  "@settingsCaption": {
+    "description": "Subtitle under the settings heading."
+  },
+  "settingsPlaceholder": "设置页面将在后续步骤中加入。",
+  "@settingsPlaceholder": {
+    "description": "Placeholder body while the settings pages are being built."
+  },
+  "settingsClose": "关闭设置",
+  "@settingsClose": {
+    "description": "Accessible label for the settings close button."
   }
 }

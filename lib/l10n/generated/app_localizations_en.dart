@@ -86,4 +86,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get trayItemHint => 'Activates the item';
+
+  @override
+  String get settingsTitle => 'Trickster Settings';
+
+  @override
+  String get settingsCaption =>
+      'Configure the bar: appearance, modules, displays, and options.';
+
+  @override
+  String get settingsPlaceholder =>
+      'Settings pages arrive in the following steps.';
+
+  @override
+  String get settingsClose => 'Close settings';
 }

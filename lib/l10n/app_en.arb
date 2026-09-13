@@ -115,5 +115,21 @@
   "trayItemHint": "Activates the item",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."
+  },
+  "settingsTitle": "Trickster Settings",
+  "@settingsTitle": {
+    "description": "Window title and heading of the settings application."
+  },
+  "settingsCaption": "Configure the bar: appearance, modules, displays, and options.",
+  "@settingsCaption": {
+    "description": "Subtitle under the settings heading."
+  },
+  "settingsPlaceholder": "Settings pages arrive in the following steps.",
+  "@settingsPlaceholder": {
+    "description": "Placeholder body while the settings pages are being built."
+  },
+  "settingsClose": "Close settings",
+  "@settingsClose": {
+    "description": "Accessible label for the settings close button."
   }
 }

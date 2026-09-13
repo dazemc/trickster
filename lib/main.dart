@@ -7,6 +7,7 @@ import 'src/app.dart';
 import 'src/bootstrap.dart';
 import 'src/cli.dart';
 import 'src/platform/layer_shell.dart';
+import 'src/settings/app.dart';
 import 'src/state/capabilities_bloc.dart';
 import 'src/state/observer.dart';
 import 'src/state/outputs_bloc.dart';
@@ -31,6 +32,10 @@ Future<void> main(List<String> args) async {
   }
   WidgetsFlutterBinding.ensureInitialized();
   installObserver();
+  if (cli.settings) {
+    runWidget(const TricksterSettingsApp());
+    return;
+  }
   final runtime = Bootstrap.load(configPath: cli.configPath, edge: cli.edge);
   // Config blocs live above the app; ModuleScope (inside TricksterApp)
   // builds one provider per enabled module below SettingsBloc so live

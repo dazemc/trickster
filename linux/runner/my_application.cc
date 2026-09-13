@@ -26,6 +26,9 @@ struct _MyApplication {
   GPtrArray* surfaces;
   GPtrArray* menus;
   GPtrArray* tooltips;
+  gboolean settings_mode;
+  GtkWindow* settings_window;
+  FlView* settings_view;
   gboolean blur_checked;
   gboolean blur_supported;
   struct wl_compositor* compositor;
@@ -737,6 +740,11 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       break;
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "settingsClose") == 0) {
+    if (self->settings_window != nullptr) {
+      gtk_widget_destroy(GTK_WIDGET(self->settings_window));
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (g_strcmp0(method, "tooltipClose") == 0) {
     const gint64 view_id = method_arg_int(method_call, "viewId");
     for (guint i = 0; i < self->tooltips->len; i++) {
@@ -852,8 +860,55 @@ static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor,
   }
 }
 
+// The settings window is a plain toplevel, not a layer surface: the
+// settings application is a normal Wayland client of the host compositor.
+static void trickster_settings_destroy_cb(GtkWidget* widget, gpointer data) {
+  MyApplication* self = MY_APPLICATION(data);
+  self->settings_window = nullptr;
+  self->settings_view = nullptr;
+  g_application_quit(G_APPLICATION(self));
+}
+
+static void trickster_settings_show(MyApplication* self,
+                                    FlDartProject* project) {
+  GtkWindow* window =
+      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
+  gtk_window_set_title(window, "Trickster Settings");
+  gtk_window_set_default_size(window, 980, 720);
+  g_signal_connect(window, "destroy", G_CALLBACK(trickster_settings_destroy_cb),
+                   self);
+
+  FlView* view = fl_view_new(project);
+  self->settings_window = window;
+  self->settings_view = view;
+  self->engine = fl_view_get_engine(view);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  gtk_widget_show(GTK_WIDGET(window));
+}
+
+static void trickster_install_method_channel(MyApplication* self) {
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(self->engine),
+      "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
+                                            nullptr);
+}
+
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+  if (self->settings_mode) {
+    trickster_settings_show(self, project);
+    trickster_install_method_channel(self);
+    return;
+  }
+
   GdkDisplay* display = gdk_display_get_default();
   int monitor_count = display != nullptr ? gdk_display_get_n_monitors(display)
                                          : 0;
@@ -876,10 +931,6 @@ static void my_application_activate(GApplication* application) {
     g_ptr_array_add(self->surfaces, trickster_surface_new(self, monitor));
   }
 
-  g_autoptr(FlDartProject) project = fl_dart_project_new();
-  fl_dart_project_set_dart_entrypoint_arguments(
-      project, self->dart_entrypoint_arguments);
-
   // The first view bootstraps the engine; every further surface attaches to
   // that same engine with fl_view_new_for_engine. One engine, one isolate,
   // one FlView per layer surface. Plugins are engine-scoped, so they register
@@ -901,12 +952,7 @@ static void my_application_activate(GApplication* application) {
     }
   }
 
-  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
-  g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
-      fl_engine_get_binary_messenger(self->engine),
-      "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
-  fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
-                                            nullptr);
+  trickster_install_method_channel(self);
 
   if (self->surfaces->len > 0) {
     TricksterSurface* first =
@@ -923,9 +969,12 @@ static gboolean my_application_local_command_line(GApplication* application,
   MyApplication* self = MY_APPLICATION(application);
   gchar** argv = *arguments;
   gboolean want_version = FALSE;
+  gboolean want_settings = FALSE;
   for (int i = 1; argv[i] != nullptr; i++) {
     if (g_strcmp0(argv[i], "--version") == 0) {
       want_version = TRUE;
+    } else if (g_strcmp0(argv[i], "--settings") == 0) {
+      want_settings = TRUE;
     }
   }
   if (want_version) {
@@ -934,7 +983,24 @@ static gboolean my_application_local_command_line(GApplication* application,
     return TRUE;
   }
 
-  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+  // The trickster-settings symlink is the same binary in settings mode.
+  g_autofree gchar* program = g_path_get_basename(argv[0]);
+  const gboolean by_name =
+      g_strcmp0(program, "trickster-settings") == 0;
+  self->settings_mode = want_settings || by_name;
+  if (self->settings_mode) {
+    // Dart branches on --settings; inject it when the symlink supplied it.
+    const guint argc = g_strv_length(argv);
+    gchar** dart_args = g_new0(gchar*, argc + 1);
+    dart_args[0] = g_strdup("--settings");
+    for (guint i = 1; i < argc; i++) {
+      dart_args[i] = g_strdup(argv[i]);
+    }
+    dart_args[argc] = nullptr;
+    self->dart_entrypoint_arguments = dart_args;
+  } else {
+    self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+  }
 
   g_autoptr(GError) error = nullptr;
   if (!g_application_register(application, nullptr, &error)) {
@@ -1006,6 +1072,7 @@ static void my_application_init(MyApplication* self) {
   self->surfaces = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->menus = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->tooltips = g_ptr_array_new_with_free_func(trickster_surface_free);
+  self->settings_mode = FALSE;
   self->side = g_strdup("top");
   self->thickness = 32;
   self->layer = g_strdup("top");

@@ -3,6 +3,7 @@ class Cli {
     this.version = false,
     this.check = false,
     this.help = false,
+    this.settings = false,
     this.configPath,
     this.edge,
   });
@@ -10,6 +11,7 @@ class Cli {
   final bool version;
   final bool check;
   final bool help;
+  final bool settings;
   final String? configPath;
   final String? edge;
 
@@ -28,6 +30,7 @@ Options:
   --version        Print the version and exit
   --config PATH    Use PATH as the outputs.conf override for this run
   --edge SIDE      One-shot edge override: top, bottom, left, or right
+  --settings       Run the settings application instead of the bar
   -h, --help       Print this help and exit
 ''';
 
@@ -48,6 +51,7 @@ Commands:
     var version = false;
     var check = false;
     var help = false;
+    var settings = false;
     String? configPath;
     String? edge;
     for (var i = 0; i < args.length; i++) {
@@ -60,6 +64,8 @@ Commands:
         case '--help':
         case '-h':
           help = true;
+        case '--settings':
+          settings = true;
         case '--config':
           if (i + 1 >= args.length) {
             throw const FormatException('--config requires a path');
@@ -84,6 +90,7 @@ Commands:
       version: version,
       check: check,
       help: help,
+      settings: settings,
       configPath: configPath,
       edge: edge,
     );

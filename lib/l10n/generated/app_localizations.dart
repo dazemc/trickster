@@ -247,6 +247,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Activates the item'**
   String get trayItemHint;
+
+  /// Window title and heading of the settings application.
+  ///
+  /// In en, this message translates to:
+  /// **'Trickster Settings'**
+  String get settingsTitle;
+
+  /// Subtitle under the settings heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure the bar: appearance, modules, displays, and options.'**
+  String get settingsCaption;
+
+  /// Placeholder body while the settings pages are being built.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings pages arrive in the following steps.'**
+  String get settingsPlaceholder;
+
+  /// Accessible label for the settings close button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close settings'**
+  String get settingsClose;
 }
 
 class _AppLocalizationsDelegate
