@@ -236,7 +236,9 @@ Do not add features Denial's bar does not have until parity is real.
   `### <YYYY-MM-DD> — <short title>` on its own line, then
   `- USER_PROMPT: <faithful condensation of the request, verbatim when short>`
   then `- AGENT_INTERPRETATION: <what was decided and done>` then
-  `- COMMIT: <hashes>`. Oldest entries first; never reorder, never rewrite.
+  `- COMMIT: <hashes>`. List the work commits only, never the entry's own
+  commit — otherwise every entry would demand a follow-up entry about
+  itself, forever. Oldest entries first; never reorder, never rewrite.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
