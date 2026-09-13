@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.14 accessibility audit** (S). Labels, values, hints, tap actions on
-      everything; keyboard-only traversal of a full strip. File findings
-      back here as new items.
 - [ ] **4.15 MPRIS stale-signal guard** (S). `lib/src/services/mpris.dart`.
       The dbus package installs signal matches without awaiting the bus, so
       a change emitted right after discovery can be lost until the recovery
@@ -59,6 +56,11 @@ silent per the logging rules.
       Document the contract and extract the shared pump harness used by
       `widget_test.dart` and `gating_test.dart`. Done when: the docs section
       and harness exist and both suites are green.
+- [ ] **4.21 keyboard tray menu** (S). `lib/src/bar/tray.dart`. The audit
+      left the tray context menu pointer-only; bind a keyboard path (Menu
+      key or Shift+F10) to open it for the focused item, and keep the
+      pointer route unchanged. Done when: the menu opens from the keyboard
+      in a test and on the live session.
 
 ## Phase 5 — packaging and release
 
