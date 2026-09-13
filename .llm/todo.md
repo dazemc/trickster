@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.10 rail occupied/urgent states** (S). Same file. Derive occupied
-      from backend flags; urgent styling from telemetry colors. Done when:
-      all three states render distinctly, tested.
 - [ ] **2.11 rail click targets** (S). Same file. Migrate pips onto
       `TricksterActionCard` semantics; honor `MediaQuery.disableAnimations`.
       Done when: tap callback fires per pip, reduced-motion path tested.
