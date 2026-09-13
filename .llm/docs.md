@@ -40,4 +40,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 4 — finish | `working` | done | l10n (en/zh), blur, fonts, per-output surfaces and hotplug, tricksterctl control socket, typed options, accessibility, tooltips |
 | 5 — packaging | `working` | done | Source PKGBUILD, man pages, AUR -bin recipe, v0.1.0 release asset |
 | 6 — follow-ups | `working` | done | Direct and SVG tray icon sources, single `--check` implementation |
-| 7 — version sync | `working` | queued | One test pinning every version field to `Cli.appVersion` |
+| 7 — version sync | `working` | done | One test pinning every version field to `Cli.appVersion` |
