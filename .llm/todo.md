@@ -48,16 +48,19 @@ a standalone settings application. It is its own Flutter process and bundle
 (file transport as fallback), and covers exactly the settings the bar has.
 The version stays 0.1.0 until the user calls a bump.
 
-- [ ] **8.1 settings app scaffold** (M). `settings_app/`. A standalone
-      Flutter Linux app with its own runner and bundle, depending on the
-      `trickster` package for theme tokens, motion, and the localized
-      catalog; one window, no strip surfaces, no bar blocs. Done when: it
-      builds and opens a window painted in the shell's design language.
-- [ ] **8.2 control transport wiring** (S). `settings_app/`. Read and write
-      the settings document through `SocketSettingsTransport`
-      (`settings.read`/`settings.write`), surfacing revision conflicts and
+- [ ] **8.1 settings mode scaffold** (M). `lib/main.dart`, `linux/runner`,
+      `lib/src/settings/`. `trickster --settings` (and the
+      `trickster-settings` symlink) runs the same binary in settings mode:
+      one plain window with its own engine, no strip surfaces, no bar blocs,
+      painted in the shell's design language. Done when: it builds, opens,
+      and closes cleanly in the live session.
+- [ ] **8.2 settings transport wiring** (S). `lib/src/settings/`. Read and
+      write the settings document through `SocketSettingsTransport`
+      (`settings.read`/`settings.write`) with `FileSettingsTransport` as the
+      fallback when the bar is down, surfacing revision conflicts and
       last-good errors. Done when: a test round-trips a document over a fake
-      socket and reports a conflict without losing data.
+      socket, reports a conflict without losing data, and falls back to the
+      file.
 - [ ] **8.3 appearance page** (M). Accent presets plus the HSV wheel from
       Denial's settings, writing `accent` and following live bar updates.
       Done when: picking a color writes the document and the bar reloads it.
