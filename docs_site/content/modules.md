@@ -14,8 +14,8 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler | Hidden with no reading |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `workspaces` | Pip rail with a sliding lens; occupied and urgent pips | Sway/Hyprland/niri IPC sockets, auto-detected | Hidden when empty |
-
-Planned, not built: `media` (MPRIS) and `tray` (StatusNotifier). The `dbus` dependency is already declared for them.
+| `media` | Title + artist with a playing indicator; tap reveals previous/play/pause/next | MPRIS (`org.mpris.MediaPlayer2.*`), event-driven properties | Hidden with no playing or paused player |
+| `tray` | Icon per StatusNotifier item; right-click opens the D-Bus menu | StatusNotifier watcher (SNI) and `com.canonical.dbusmenu` | Hidden with no items |
 
 <Info>
 Tray is StatusNotifier only. Denial's XEmbed merge came from owning Xwayland, which a guest cannot borrow.
