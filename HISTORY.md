@@ -8,10 +8,6 @@ without loading this file. Never read it for context.
 ## Entries
 
 <!-- append new entries below this line -->
-### 2026-09-12 — Land verbose BlocObserver (1.3)
-- USER_PROMPT: continue phase 1; every todo step must run the program and check runtime errors.
-- AGENT_INTERPRETATION: added debug/profile-only TricksterObserver (lifecycle, events, transitions with handler latency, errors) with injectable sink, wired via installObserver in main; transcript shapes unit-tested; proven analyze-clean, 45/45 green, debug build launched clean in live session with zero errors, release path untouched and silent by gate inspection.
-- COMMIT: 542286b 85b65b1
 ### 2026-09-12 — Create HISTORY.md
 - USER_PROMPT: create a HISTORY.md that will not be read by llm models so keep it out of .llm, update AGENTS.md with instructions to update this file, keep it in the root dir, follow the scheme USER_PROMPT -> AGENT_INTERPRETATION -> COMMIT_LINK, start now with this prompt.
 - AGENT_INTERPRETATION: root HISTORY.md as an append-only human changelog agents never load (format lives in AGENTS.md, anchored appends need no read); AGENTS.md gains the per-step append rule; first entry is this prompt.
@@ -32,3 +28,7 @@ without loading this file. Never read it for context.
 - USER_PROMPT: use the equatable library in bloc, before any other phase.
 - AGENT_INTERPRETATION: added equatable dep; all bloc events and states extend Equatable with props (spread trick for list fields, documented in-tree); new WorkspacesState wrapper so the list state has value semantics and a JSON shape; tests assert direct equality on distinct instances; narrowed the equality suggestion to the remaining _apply guard. Proven analyze-clean, 44/44 green.
 - COMMIT: fa39079 6134c4d
+### 2026-09-12 — Land verbose BlocObserver (1.3)
+- USER_PROMPT: continue phase 1; every todo step must run the program and check runtime errors.
+- AGENT_INTERPRETATION: added debug/profile-only TricksterObserver (lifecycle, events, transitions with handler latency, errors) with injectable sink, wired via installObserver in main; transcript shapes unit-tested; proven analyze-clean, 45/45 green, debug build launched clean in live session with zero errors, release path untouched and silent by gate inspection.
+- COMMIT: 542286b 85b65b1
