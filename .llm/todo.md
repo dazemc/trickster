@@ -1,4 +1,4 @@
-# Trickster Bar TODO
+# Trickster TODO
 
 The work list, in build order. `AGENTS.md` is the constitution; this file is
 the queue. Remove items as they land — do not check them off, do not let it
