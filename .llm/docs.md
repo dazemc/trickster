@@ -1,9 +1,9 @@
 ---
-title: Trickster Bar docs
+title: Trickster docs
 description: Documentation index and phase progress ledger.
 ---
 
-# Trickster Bar docs
+# Trickster docs
 
 Start with the [readme](readme.md), then pick a guide. The rendered site
 serves the same pages with sidebar and search.
