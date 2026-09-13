@@ -9,12 +9,12 @@ session sees it.
 
 - Entries must be **absolutely needed**: they prevent a future mistake,
   unblock queued work, or record a decision with its reason. Brainstorming,
-  nice-to-haves, and restatements of `TODO.md` do not belong here.
+  nice-to-haves, and restatements of `.llm/TODO.md` do not belong here.
 - One entry per issue. Keep it to five lines: what, where, why, and what
   to do about it.
 - Remove an entry in the same change that resolves it — same discipline as
-  `TODO.md`.
-- After finishing any `TODO.md` step, re-read this file and update it, but
+  `.llm/TODO.md`.
+- After finishing any `.llm/TODO.md` step, re-read this file and update it, but
   only if something meets the bar above. No obligatory edits. Silence is a
   valid review outcome.
 
