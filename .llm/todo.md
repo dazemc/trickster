@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.5 font bundle** (S). Measure painted glyphs; bundle the JetBrainsMono
-      subset (or full file if subsetting costs more than it saves). Done
-      when: bundle delta recorded, pills render offline with no system fonts.
 - [ ] **4.6 output enumeration + selection** (S). Bootstrap + layer-shell
       platform code. Enumerate monitors, honor `outputs.conf` connector
       selection. Done when: selection logic unit-tested.
