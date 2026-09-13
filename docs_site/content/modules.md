@@ -10,7 +10,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | Name | Pill | Source | Visibility rule |
 | --- | --- | --- | --- |
 | `clock` | Date caption + `HH:MM`, minute crossfade | Local time, minute-aligned single timer | Always renders |
-| `cpu` | `CPU 42%` | `/proc/stat`, 1 Hz shared sampler, reused read buffer | Hidden if unreadable |
+| `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer | Hidden if unreadable |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `workspaces` | Focused/urgent names | Sway/Hyprland/niri IPC sockets, auto-detected | Hidden when empty |
 
