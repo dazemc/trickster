@@ -180,6 +180,10 @@ class _TricksterAppState extends State<TricksterApp>
                   for (final output in hostedOutputs(_outputs!, outputs))
                     output.viewId,
                 };
+          final viewOutputs = <int, String>{
+            for (final output in _outputs ?? const <LayerOutput>[])
+              if (output.viewId >= 0) output.viewId: output.name,
+          };
           return TrayMenuScope(
             notifier: _menuController,
             child: ModuleScope(
@@ -195,6 +199,7 @@ class _TricksterAppState extends State<TricksterApp>
                               menu: _menuController,
                               layerShell: _layerShell,
                               blur: blur,
+                              output: viewOutputs[view.viewId],
                             ),
                       ]
                     : const <Widget>[],
@@ -215,6 +220,7 @@ class _ViewSurface extends StatefulWidget {
     required this.menu,
     required this.layerShell,
     required this.blur,
+    required this.output,
     super.key,
   });
 
@@ -222,6 +228,7 @@ class _ViewSurface extends StatefulWidget {
   final TrayMenuController menu;
   final LayerShell layerShell;
   final bool blur;
+  final String? output;
 
   @override
   State<_ViewSurface> createState() => _ViewSurfaceState();
@@ -262,7 +269,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
           }
           return TrayMenuSurface(session: session, controller: widget.menu);
         }
-        return const _BarSurface();
+        return _BarSurface(output: widget.output);
       },
     ),
   );
@@ -289,7 +296,9 @@ class _ViewSurfaceState extends State<_ViewSurface> {
 }
 
 class _BarSurface extends StatelessWidget {
-  const _BarSurface();
+  const _BarSurface({required this.output});
+
+  final String? output;
 
   @override
   Widget build(BuildContext context) {
@@ -300,6 +309,7 @@ class _BarSurface extends StatelessWidget {
       child: TricksterBarStrip(
         side: outputs.side,
         thickness: outputs.thickness,
+        output: output,
         onOpenPowerSettings: openPowerSettings,
       ),
     );

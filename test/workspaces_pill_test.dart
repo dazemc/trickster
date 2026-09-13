@@ -145,6 +145,25 @@ void main() {
     await _pump(tester, _focused('2'));
     expect(_pipColor(tester, '2'), _accent.color);
   });
+  test('rail filtering picks exactly the outputs workspaces', () {
+    const all = <Workspace>[
+      Workspace(id: '1', name: '1', output: 'HDMI-A-1', focused: true),
+      Workspace(id: '2', name: '2', output: 'HDMI-A-2'),
+      Workspace(id: '3', name: '3', output: 'HDMI-A-1'),
+    ];
+    expect(
+      workspacesForOutput(all, 'HDMI-A-1').map((workspace) => workspace.id),
+      <String>['1', '3'],
+    );
+    expect(
+      workspacesForOutput(all, 'HDMI-A-2').map((workspace) => workspace.id),
+      <String>['2'],
+    );
+    expect(workspacesForOutput(all, null), all);
+    expect(workspacesForOutput(all, 'DP-1'), isEmpty);
+    const unknown = <Workspace>[Workspace(id: '1', name: '1')];
+    expect(workspacesForOutput(unknown, 'HDMI-A-1'), unknown);
+  });
 }
 
 Color? _pipColor(WidgetTester tester, String id) {

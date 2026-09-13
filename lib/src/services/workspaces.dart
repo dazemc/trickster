@@ -5,11 +5,13 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 class Workspace extends Equatable {
   const Workspace({
     required this.id,
     required this.name,
+    this.output = '',
     this.focused = false,
     this.urgent = false,
     this.occupied = false,
@@ -17,16 +19,23 @@ class Workspace extends Equatable {
 
   final String id;
   final String name;
+
+  /// The connector the workspace lives on, or empty when the backend has no
+  /// per-output view.
+  final String output;
+
+  /// Active on its own output (the rail's lens state), not globally focused.
   final bool focused;
   final bool urgent;
   final bool occupied;
 
   @override
-  List<Object?> get props => [id, name, focused, urgent, occupied];
+  List<Object?> get props => [id, name, output, focused, urgent, occupied];
 
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
+    'output': output,
     'focused': focused,
     'urgent': urgent,
     'occupied': occupied,
@@ -35,10 +44,30 @@ class Workspace extends Equatable {
   static Workspace fromJson(Map<String, dynamic> json) => Workspace(
     id: '${json['id']}',
     name: '${json['name']}',
+    output: '${json['output'] ?? ''}',
     focused: (json['focused'] as bool?) ?? false,
     urgent: (json['urgent'] as bool?) ?? false,
     occupied: (json['occupied'] as bool?) ?? false,
   );
+}
+
+/// The workspaces hosted on [output], preserving order. When [output] is
+/// unknown or no workspace carries an output, the list passes through so
+/// single-output hosts keep their rail.
+List<Workspace> workspacesForOutput(
+  List<Workspace> workspaces,
+  String? output,
+) {
+  if (output == null || output.isEmpty) {
+    return workspaces;
+  }
+  if (!workspaces.any((workspace) => workspace.output.isNotEmpty)) {
+    return workspaces;
+  }
+  return [
+    for (final workspace in workspaces)
+      if (workspace.output == output) workspace,
+  ];
 }
 
 List<Map<String, Object?>> workspacesToJson(List<Workspace> workspaces) =>
@@ -62,14 +91,11 @@ class WorkspacesState extends Equatable {
   @override
   List<Object?> get props => [...workspaces];
 
-  Map<String, Object?> toJson() => {
-    'workspaces': workspacesToJson(workspaces),
-  };
+  Map<String, Object?> toJson() => {'workspaces': workspacesToJson(workspaces)};
 
-  static WorkspacesState fromJson(Map<String, dynamic> json) =>
-      WorkspacesState(
-        workspacesFromJson((json['workspaces'] as List?) ?? const []),
-      );
+  static WorkspacesState fromJson(Map<String, dynamic> json) => WorkspacesState(
+    workspacesFromJson((json['workspaces'] as List?) ?? const []),
+  );
 }
 
 /// Orders workspaces for the rail: numeric ids first in numeric order, then
@@ -144,7 +170,8 @@ class WorkspaceMonitor {
 }
 
 class HyprlandWorkspaces extends WorkspaceBackend {
-  HyprlandWorkspaces({String? socketDir}) : _socketDir = socketDir ?? _dirFromEnvironment;
+  HyprlandWorkspaces({String? socketDir})
+    : _socketDir = socketDir ?? _dirFromEnvironment;
 
   static String? get _dirFromEnvironment {
     final signature = Platform.environment['HYPRLAND_INSTANCE_SIGNATURE'];
@@ -265,18 +292,31 @@ class HyprlandWorkspaces extends WorkspaceBackend {
     try {
       final replies = await _onWorker(const [
         'j/workspaces',
-        'j/activeworkspace',
+        'j/monitors',
         'j/clients',
       ], dir);
       final workspacesJson = replies[0];
       if (workspacesJson is! List) {
         return;
       }
-      // `j/workspaces` carries no focused flag — join the active workspace
-      // in the same refresh. `j/clients` supplies urgency the same way:
-      // no per-workspace urgency exists in the workspace JSON.
-      final activeJson = replies[1];
-      final activeId = activeJson is Map ? '${activeJson['id']}' : null;
+      // `j/workspaces` carries no focused flag and `j/activeworkspace` marks
+      // only the focused monitor, so each output's lens comes from its own
+      // monitor's active workspace. `j/clients` supplies urgency the same
+      // way: no per-workspace urgency exists in the workspace JSON.
+      final monitorsJson = replies[1];
+      final activeByOutput = <String, String>{};
+      if (monitorsJson is List) {
+        for (final monitor in monitorsJson) {
+          if (monitor is! Map) {
+            continue;
+          }
+          final name = monitor['name'];
+          final active = monitor['activeWorkspace'];
+          if (name is String && active is Map && active['id'] != null) {
+            activeByOutput[name] = '${active['id']}';
+          }
+        }
+      }
       final clientsJson = replies[2];
       final urgentIds = <String>{};
       if (clientsJson is List) {
@@ -296,12 +336,14 @@ class HyprlandWorkspaces extends WorkspaceBackend {
         }
         final id = '${entry['id']}';
         final windows = entry['windows'];
+        final output = '${entry['monitor'] ?? ''}';
         workspaces.add(
           Workspace(
             id: id,
             name: '${entry['name'] ?? entry['id']}',
-            focused: activeId != null
-                ? id == activeId
+            output: output,
+            focused: activeByOutput.isNotEmpty
+                ? activeByOutput[output] == id
                 : entry['focused'] == true,
             urgent: urgentIds.contains(id),
             occupied: windows is num && windows > 0,
@@ -413,8 +455,7 @@ class HyprlandWorkspaces extends WorkspaceBackend {
         if (await _sendCommand('dispatch workspace $name', dir) == 'ok') {
           return true;
         }
-        final lua =
-            'dispatch hl.dsp.focus({ workspace = $luaSelector })';
+        final lua = 'dispatch hl.dsp.focus({ workspace = $luaSelector })';
         return await _sendCommand(lua, dir) == 'ok';
       });
     } on Object {
@@ -440,10 +481,9 @@ class HyprlandWorkspaces extends WorkspaceBackend {
       final buffer = BytesBuilder();
       await for (final chunk in socket.timeout(_replyTimeout)) {
         buffer.add(chunk);
-        final reply = utf8.decode(
-          buffer.toBytes(),
-          allowMalformed: true,
-        ).trim();
+        final reply = utf8
+            .decode(buffer.toBytes(), allowMalformed: true)
+            .trim();
         if (reply == 'ok' || reply.startsWith('error:')) {
           return reply;
         }
@@ -494,6 +534,9 @@ class SwayWorkspaces extends WorkspaceBackend {
   var _generation = 0;
   final _buffer = <int>[];
   final _controller = StreamController<List<Workspace>>.broadcast();
+  final Map<String, String> _activeByOutput = <String, String>{};
+  var _workspaces = const <Workspace>[];
+  List<Workspace>? _lastEmission;
 
   @override
   Stream<List<Workspace>> get snapshots => _controller.stream;
@@ -534,6 +577,7 @@ class SwayWorkspaces extends WorkspaceBackend {
     );
     _subscribe();
     _request(1);
+    _request(3);
   }
 
   /// Re-dials after a drop or a refused connection, with a capped backoff so
@@ -573,7 +617,10 @@ class SwayWorkspaces extends WorkspaceBackend {
         InternetAddress(path, type: InternetAddressType.unix),
         0,
       );
-      socket.add(_frame(0, utf8.encode('workspace ${workspace.name}')));
+      final command = workspace.output.isEmpty
+          ? 'workspace ${workspace.name}'
+          : 'workspace ${workspace.name} output ${workspace.output}';
+      socket.add(_frame(0, utf8.encode(command)));
       final buffer = BytesBuilder();
       await for (final chunk in socket.timeout(_replyTimeout)) {
         buffer.add(chunk);
@@ -645,15 +692,23 @@ class SwayWorkspaces extends WorkspaceBackend {
 
   void _handleFrame(int type, List<int> payload) {
     if (type == 1) {
-      _emitWorkspaces(payload);
+      // Store only: emitting here would show a transient global-focus lens
+      // until the outputs reply lands, and every refresh requests both.
+      _storeWorkspaces(payload);
+      return;
+    }
+    if (type == 3) {
+      _storeOutputs(payload);
+      _emitWorkspaces();
       return;
     }
     if (type == _workspaceEventType) {
       _request(1);
+      _request(3);
     }
   }
 
-  void _emitWorkspaces(List<int> payload) {
+  void _storeWorkspaces(List<int> payload) {
     try {
       final decoded = jsonDecode(utf8.decode(payload));
       if (decoded is! List) {
@@ -670,15 +725,68 @@ class SwayWorkspaces extends WorkspaceBackend {
           Workspace(
             id: number is int && number >= 0 ? '$number' : name,
             name: name,
+            output: '${entry['output'] ?? ''}',
             focused: entry['focused'] == true,
             urgent: entry['urgent'] == true,
           ),
         );
       }
-      _controller.add(workspaces);
+      _workspaces = workspaces;
     } on Object {
       return;
     }
+  }
+
+  /// `get_outputs` carries each output's current workspace; the type-1 list
+  /// only marks the global focus, which is wrong for the other outputs.
+  void _storeOutputs(List<int> payload) {
+    try {
+      final decoded = jsonDecode(utf8.decode(payload));
+      if (decoded is! List) {
+        return;
+      }
+      final active = <String, String>{};
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          continue;
+        }
+        final name = entry['name'];
+        final current = entry['current_workspace'];
+        if (name is String && current is String && current.isNotEmpty) {
+          active[name] = current;
+        }
+      }
+      _activeByOutput
+        ..clear()
+        ..addAll(active);
+    } on Object {
+      return;
+    }
+  }
+
+  void _emitWorkspaces() {
+    if (_workspaces.isEmpty) {
+      return;
+    }
+    final next = _activeByOutput.isEmpty
+        ? _workspaces
+        : [
+            for (final workspace in _workspaces)
+              Workspace(
+                id: workspace.id,
+                name: workspace.name,
+                output: workspace.output,
+                focused: _activeByOutput[workspace.output] == workspace.name,
+                urgent: workspace.urgent,
+                occupied: workspace.occupied,
+              ),
+          ];
+    final previous = _lastEmission;
+    if (previous != null && listEquals(previous, next)) {
+      return;
+    }
+    _lastEmission = next;
+    _controller.add(next);
   }
 
   static bool _hasMagic(List<int> bytes, int offset) {
@@ -883,7 +991,11 @@ class NiriWorkspaces extends WorkspaceBackend {
           Workspace(
             id: '${entry['id'] ?? entry['idx']}',
             name: '${entry['name'] ?? entry['idx'] ?? entry['id']}',
-            focused: entry['is_focused'] == true || entry['focused'] == true,
+            output: '${entry['output'] ?? ''}',
+            focused:
+                entry['is_active'] == true ||
+                entry['is_focused'] == true ||
+                entry['focused'] == true,
             urgent: entry['is_urgent'] == true,
             occupied: entry['active_window_id'] != null,
           ),

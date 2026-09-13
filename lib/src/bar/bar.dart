@@ -31,6 +31,7 @@ class TricksterBarStrip extends StatelessWidget {
   const TricksterBarStrip({
     required this.side,
     this.thickness = 32,
+    this.output,
     this.onOpenPowerSettings = _noop,
     super.key,
   });
@@ -39,6 +40,10 @@ class TricksterBarStrip extends StatelessWidget {
 
   /// Cross-axis size of the strip band, used to place menus off the bar.
   final double thickness;
+
+  /// Connector this strip is on, so per-output modules (workspaces) can
+  /// filter their state. Null before the output enumeration lands.
+  final String? output;
   final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
@@ -128,7 +133,11 @@ class TricksterBarStrip extends StatelessWidget {
             if (settings.includes('workspaces'))
               BlocBuilder<WorkspacesBloc, WorkspacesState>(
                 builder: (context, state) {
-                  if (state.workspaces.isEmpty) {
+                  final workspaces = workspacesForOutput(
+                    state.workspaces,
+                    output,
+                  );
+                  if (workspaces.isEmpty) {
                     return const SizedBox.shrink();
                   }
                   return SystemBarEntrance(
@@ -141,7 +150,7 @@ class TricksterBarStrip extends StatelessWidget {
                       child: RepaintBoundary(
                         child: WorkspacesPill(
                           accent: accent,
-                          workspaces: state.workspaces,
+                          workspaces: workspaces,
                           horizontal: horizontal,
                           onPressed: (workspace) => context
                               .read<WorkspacesBloc>()
