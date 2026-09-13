@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.6 output enumeration + selection** (S). Bootstrap + layer-shell
-      platform code. Enumerate monitors, honor `outputs.conf` connector
-      selection. Done when: selection logic unit-tested.
 - [ ] **4.7 per-output surface lifecycle** (S). Create one layer surface per
       selected monitor with independent clones; destroy dead-output surfaces
       immediately; frame work only for hosted outputs. Done when: two-monitor
