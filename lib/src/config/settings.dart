@@ -10,6 +10,7 @@ class BarSettings extends Equatable {
     this.modules = const [
       'workspaces',
       'tray',
+      'media',
       'cpu',
       'gpu',
       'battery',
@@ -36,13 +37,10 @@ class BarSettings extends Equatable {
     'modules': modules,
   };
 
-  String encode() => '${const JsonEncoder.withIndent('  ').convert(toJson())}\n';
+  String encode() =>
+      '${const JsonEncoder.withIndent('  ').convert(toJson())}\n';
 
-  BarSettings copyWith({
-    int? revision,
-    Color? accent,
-    List<String>? modules,
-  }) {
+  BarSettings copyWith({int? revision, Color? accent, List<String>? modules}) {
     return BarSettings(
       revision: revision ?? this.revision,
       accent: accent ?? this.accent,
@@ -61,7 +59,9 @@ class BarSettings extends Equatable {
   static BarSettings fromJson(Map<String, dynamic> decoded) {
     final revision = decoded['revision'];
     if (revision is! int || revision <= 0) {
-      throw const FormatException('settings.json revision must be a positive integer');
+      throw const FormatException(
+        'settings.json revision must be a positive integer',
+      );
     }
     final modules = decoded['modules'];
     return BarSettings(
@@ -69,7 +69,15 @@ class BarSettings extends Equatable {
       accent: _color(decoded['accent']),
       modules: modules is List
           ? modules.whereType<String>().toList(growable: false)
-          : const ['workspaces', 'tray', 'cpu', 'gpu', 'battery', 'clock'],
+          : const [
+              'workspaces',
+              'tray',
+              'media',
+              'cpu',
+              'gpu',
+              'battery',
+              'clock',
+            ],
     );
   }
 

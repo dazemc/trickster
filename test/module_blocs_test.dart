@@ -4,14 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
+
+final _epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
 class FakeCpuSampler extends CpuSampler {
   final controller = StreamController<CpuSample>.broadcast();
@@ -133,6 +137,34 @@ class FakeStatusNotifierService extends StatusNotifierService {
     menuActivations.add((item, entryId));
     return true;
   }
+}
+
+class FakeMediaPlayerService extends MediaPlayerService {
+  final controller = StreamController<MprisPlaybackState>.broadcast();
+
+  var disposed = false;
+  final calls = <String>[];
+
+  @override
+  Stream<MprisPlaybackState> get snapshots => controller.stream;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await controller.close();
+  }
+
+  @override
+  Future<void> playPause() async => calls.add('playPause');
+
+  @override
+  Future<void> next() async => calls.add('next');
+
+  @override
+  Future<void> previous() async => calls.add('previous');
 }
 
 void main() {
@@ -497,6 +529,52 @@ cpu MHz\t\t: 3400.000
         Map<String, dynamic>.from(state.toJson()),
       );
       expect(decoded.now, state.now);
+    });
+  });
+
+  group('MediaBloc', () {
+    final playback = MprisPlaybackState(
+      serviceName: 'org.mpris.MediaPlayer2.fake',
+      identity: 'Fake Player',
+      title: 'Test Song',
+      artists: <String>['Test Artist'],
+      album: 'Test Album',
+      artUrl: '',
+      length: Duration(seconds: 180),
+      position: Duration(seconds: 42),
+      observedAt: _epoch,
+      status: MprisPlaybackStatus.playing,
+      canGoNext: true,
+      canGoPrevious: true,
+      canPlay: true,
+      canPause: true,
+    );
+
+    test('started then sampled emits playback state', () async {
+      final service = FakeMediaPlayerService();
+      final bloc = MediaBloc(service: service);
+      try {
+        bloc.add(const MediaStarted());
+        await pumpEventQueue();
+        service.controller.add(playback);
+        await expectLater(bloc.stream, emits(playback));
+      } finally {
+        await bloc.close();
+      }
+      expect(service.disposed, isTrue);
+    });
+
+    test('controls forward to the player service', () async {
+      final service = FakeMediaPlayerService();
+      final bloc = MediaBloc(service: service);
+      try {
+        await bloc.playPause();
+        await bloc.next();
+        await bloc.previous();
+        expect(service.calls, <String>['playPause', 'next', 'previous']);
+      } finally {
+        await bloc.close();
+      }
     });
   });
 }

@@ -12,11 +12,13 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
@@ -83,6 +85,9 @@ Future<void> _pumpGated(
             workspacesBuilder: () => WorkspacesBloc(
               initial: const WorkspacesState(_workspaces),
             ),
+            mediaBuilder: () => MediaBloc(
+              initial: MprisPlaybackState.unavailable(),
+            ),
             child: const TricksterBarStrip(side: SystemBarSide.top),
           ),
         ),
@@ -125,6 +130,7 @@ void main() {
     expect(_created(lines, 'TrayBloc'), isFalse);
     expect(_created(lines, 'BatteryBloc'), isFalse);
     expect(_created(lines, 'WorkspacesBloc'), isFalse);
+    expect(_created(lines, 'MediaBloc'), isFalse);
     expect(
       lines.any(
         (line) =>
@@ -132,7 +138,8 @@ void main() {
             line.contains('GpuBloc') ||
             line.contains('TrayBloc') ||
             line.contains('BatteryBloc') ||
-            line.contains('WorkspacesBloc'),
+            line.contains('WorkspacesBloc') ||
+            line.contains('MediaBloc'),
       ),
       isFalse,
     );

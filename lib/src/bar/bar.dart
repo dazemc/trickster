@@ -12,6 +12,7 @@ import '../services/workspaces.dart';
 import '../state/battery_bloc.dart';
 import '../state/cpu_bloc.dart';
 import '../state/gpu_bloc.dart';
+import '../state/media_bloc.dart';
 import '../state/session_bloc.dart';
 import '../state/settings_bloc.dart';
 import '../state/tray_bloc.dart';
@@ -21,6 +22,7 @@ import 'battery.dart';
 import 'clock.dart';
 import 'cpu.dart';
 import 'gpu.dart';
+import 'media.dart';
 import 'pill.dart';
 import 'tray.dart';
 import 'workspaces.dart';
@@ -98,6 +100,27 @@ class TricksterBarStrip extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ),
+                  );
+                },
+              ),
+            if (settings.includes('media'))
+              Builder(
+                builder: (context) {
+                  final available = context.select(
+                    (MediaBloc bloc) => bloc.state.available,
+                  );
+                  if (!available) {
+                    return const SizedBox.shrink();
+                  }
+                  return SystemBarEntrance(
+                    index: 4,
+                    horizontal: horizontal,
+                    child: Padding(
+                      padding: horizontal
+                          ? const EdgeInsets.only(right: _cardGap)
+                          : const EdgeInsets.only(bottom: _cardGap),
+                      child: RepaintBoundary(child: MediaPill(accent: accent)),
                     ),
                   );
                 },

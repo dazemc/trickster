@@ -5,6 +5,7 @@ import 'battery_bloc.dart';
 import 'clock_bloc.dart';
 import 'cpu_bloc.dart';
 import 'gpu_bloc.dart';
+import 'media_bloc.dart';
 import 'settings_bloc.dart';
 import 'tray_bloc.dart';
 import 'workspaces_bloc.dart';
@@ -31,6 +32,7 @@ class ModuleScope extends StatelessWidget {
     this.trayBuilder,
     this.batteryBuilder,
     this.workspacesBuilder,
+    this.mediaBuilder,
     super.key,
   });
 
@@ -41,6 +43,7 @@ class ModuleScope extends StatelessWidget {
   final TrayBloc Function()? trayBuilder;
   final BatteryBloc Function()? batteryBuilder;
   final WorkspacesBloc Function()? workspacesBuilder;
+  final MediaBloc Function()? mediaBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +80,12 @@ class ModuleScope extends StatelessWidget {
             create: (_) =>
                 workspacesBuilder?.call() ??
                 (WorkspacesBloc()..add(const WorkspacesStarted())),
+          ),
+        if (settings.includes('media'))
+          BlocProvider<MediaBloc>(
+            create: (_) =>
+                mediaBuilder?.call() ??
+                (MediaBloc()..add(const MediaStarted())),
           ),
       ],
       child: child,

@@ -12,12 +12,14 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -61,6 +63,11 @@ Future<void> _pumpStrip(
         BlocProvider(
           create: (_) => WorkspacesBloc(
             initial: const WorkspacesState(_workspaces),
+          ),
+        ),
+        BlocProvider(
+          create: (_) => MediaBloc(
+            initial: MprisPlaybackState.unavailable(),
           ),
         ),
       ],
