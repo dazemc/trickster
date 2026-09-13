@@ -129,12 +129,12 @@ void main() {
     );
 
     test('cpu json round-trips', () {
-      const sample = CpuSample(0.25, label: 'AMD Ryzen 9 5950X');
+      const sample = CpuSample(0.25, name: 'AMD Ryzen 9 5950X');
       final decoded = CpuSample.fromJson(
         Map<String, dynamic>.from(sample.toJson()),
       );
       expect(decoded.current, 0.25);
-      expect(decoded.label, 'AMD Ryzen 9 5950X');
+      expect(decoded.name, 'AMD Ryzen 9 5950X');
       final series = const CpuSample(null).append(0.25).append(0.75);
       final decodedSeries = CpuSample.fromJson(
         Map<String, dynamic>.from(series.toJson()),
@@ -143,7 +143,7 @@ void main() {
       expect(decodedSeries.history, [0.25, 0.75]);
     });
 
-    test('cpu label parses from cpuinfo with a null fallback', () {
+    test('cpu name parses from cpuinfo with a null fallback', () {
       const cpuInfo = '''
 processor\t: 0
 vendor_id\t: AuthenticAMD
@@ -158,11 +158,11 @@ cpu MHz\t\t: 3400.000
       expect(parseCpuModelName('model name\t: \n'), isNull);
     });
 
-    test('cpu series preserves the device label', () {
-      final sample = const CpuSample(null, label: 'AMD Ryzen 9 5950X')
+    test('cpu series preserves the device name', () {
+      final sample = const CpuSample(null, name: 'AMD Ryzen 9 5950X')
           .append(0.5)
           .append(0.75);
-      expect(sample.label, 'AMD Ryzen 9 5950X');
+      expect(sample.name, 'AMD Ryzen 9 5950X');
     });
 
     test('cpu series keeps the cap and appends newest last', () {

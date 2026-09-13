@@ -10,6 +10,7 @@ class GpuLoad extends Equatable {
   const GpuLoad({
     required this.id,
     required this.label,
+    this.name,
     this.usage,
     this.history = const <double>[],
   });
@@ -18,7 +19,15 @@ class GpuLoad extends Equatable {
   static const int capacity = 45;
 
   final String id;
+
+  /// Caption shown by the meter: a vendor tag (or `GPU`), with a 0-based
+  /// suffix when duplicate.
   final String label;
+
+  /// Queried device name, or null when the driver publishes none. The meter
+  /// caption stays [label] until a module option selects the device name.
+  final String? name;
+
   final double? usage;
 
   /// Up to [capacity] readings, oldest first; the newest equals [usage].
@@ -32,17 +41,19 @@ class GpuLoad extends Equatable {
     return GpuLoad(
       id: id,
       label: label,
+      name: name,
       usage: usage,
       history: List.unmodifiable(next),
     );
   }
 
   @override
-  List<Object?> get props => [id, label, usage, history];
+  List<Object?> get props => [id, label, name, usage, history];
 
   Map<String, Object?> toJson() => {
     'id': id,
     'label': label,
+    'name': name,
     'usage': usage,
     'history': history,
   };
@@ -50,6 +61,7 @@ class GpuLoad extends Equatable {
   static GpuLoad fromJson(Map<String, dynamic> json) => GpuLoad(
     id: '${json['id']}',
     label: '${json['label']}',
+    name: json['name'] as String?,
     usage: (json['usage'] as num?)?.toDouble(),
     history: [
       for (final value in json['history'] as List<dynamic>? ?? const [])
@@ -139,17 +151,18 @@ class GpuSampler {
   /// without the periodic timer) can drive it directly.
   Future<List<GpuLoad>> sample() async {
     _devices ??= _discover();
-    final reads = <({String id, String label, double usage})>[
+    final reads = <({String id, String label, String? name, double usage})>[
       for (final device in _devices!)
         if (_busyPercent(device.busyFile) case final usage?)
-          (id: device.id, label: device.label, usage: usage),
+          (id: device.id, label: device.label, name: null, usage: usage),
     ];
     if (await _canReadNvidiaWithoutWake()) {
       for (final nvidia in await _nvml.read()) {
         final name = nvidia.name?.trim();
         reads.add((
           id: 'nvml${nvidia.index}',
-          label: name == null || name.isEmpty ? 'GPU' : name,
+          label: 'GPU',
+          name: name == null || name.isEmpty ? null : name,
           usage: nvidia.usage,
         ));
       }
@@ -159,7 +172,7 @@ class GpuSampler {
         index < _nvidiaRuntimeStatusFiles!.length;
         index += 1
       ) {
-        reads.add((id: 'nvml$index', label: 'GPU', usage: 0.0));
+        reads.add((id: 'nvml$index', label: 'GPU', name: null, usage: 0.0));
       }
     }
     final previous = <String, GpuLoad>{
@@ -167,7 +180,8 @@ class GpuSampler {
     };
     final next = <GpuLoad>[
       for (final read in reads)
-        (previous[read.id] ?? GpuLoad(id: read.id, label: read.label))
+        (previous[read.id] ??
+                GpuLoad(id: read.id, label: read.label, name: read.name))
             .append(read.usage),
     ];
     _loads = _disambiguate(next);
@@ -296,6 +310,7 @@ class GpuSampler {
             id: load.id,
             label:
                 '${load.label}${seen[load.label] = (seen[load.label] ?? -1) + 1}',
+            name: load.name,
             usage: load.usage,
             history: load.history,
           )

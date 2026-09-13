@@ -13,12 +13,11 @@ class CpuPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = sample.label?.trim();
     return SystemBarCard(
       accent: accent,
       child: LoadMeter(
         accent: accent,
-        label: label == null || label.isEmpty ? 'CPU' : label,
+        label: 'CPU',
         current: sample.current,
         history: sample.history,
         capacity: CpuSample.capacity,

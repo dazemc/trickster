@@ -7,7 +7,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 class CpuSample extends Equatable {
-  const CpuSample(this.current, {this.history = const <double>[], this.label});
+  const CpuSample(this.current, {this.history = const <double>[], this.name});
 
   /// Readings each sparkline keeps: 45 samples at the 1 Hz cadence.
   static const int capacity = 45;
@@ -17,8 +17,9 @@ class CpuSample extends Equatable {
   /// Up to [capacity] readings, oldest first; the newest equals [current].
   final List<double> history;
 
-  /// Device name from `/proc/cpuinfo`, or null before it is read.
-  final String? label;
+  /// Device name from `/proc/cpuinfo`, or null before it is read. The meter
+  /// caption stays the generic `CPU` tag until a module option selects it.
+  final String? name;
 
   CpuSample append(double usage) {
     final next = <double>[...history, usage];
@@ -28,17 +29,17 @@ class CpuSample extends Equatable {
     return CpuSample(
       usage,
       history: List.unmodifiable(next),
-      label: label,
+      name: name,
     );
   }
 
   @override
-  List<Object?> get props => [current, history, label];
+  List<Object?> get props => [current, history, name];
 
   Map<String, Object?> toJson() => {
     'current': current,
     'history': history,
-    'label': label,
+    'name': name,
   };
 
   static CpuSample fromJson(Map<String, dynamic> json) => CpuSample(
@@ -47,7 +48,7 @@ class CpuSample extends Equatable {
       for (final value in json['history'] as List<dynamic>? ?? const [])
         (value as num).toDouble(),
     ],
-    label: json['label'] as String?,
+    name: json['name'] as String?,
   );
 }
 
@@ -84,15 +85,15 @@ class CpuSampler {
   int? _idle;
   int? _total;
   CpuSample _latest = const CpuSample(null);
-  String? _label;
-  var _labelRead = false;
+  String? _name;
+  var _nameRead = false;
   Timer? _timer;
   final _controller = StreamController<CpuSample>.broadcast();
 
   Stream<CpuSample> get snapshots => _controller.stream;
 
   void start() {
-    _latest = CpuSample(null, label: _deviceLabel());
+    _latest = CpuSample(null, name: _deviceName());
     _sample();
     _timer = Timer.periodic(interval, (_) => _sample());
   }
@@ -103,17 +104,17 @@ class CpuSampler {
     _controller.close();
   }
 
-  String? _deviceLabel() {
-    if (_labelRead) {
-      return _label;
+  String? _deviceName() {
+    if (_nameRead) {
+      return _name;
     }
-    _labelRead = true;
+    _nameRead = true;
     try {
-      _label = parseCpuModelName(File(_cpuInfoPath).readAsStringSync());
+      _name = parseCpuModelName(File(_cpuInfoPath).readAsStringSync());
     } on Object {
-      _label = null;
+      _name = null;
     }
-    return _label;
+    return _name;
   }
 
   void _sample() {

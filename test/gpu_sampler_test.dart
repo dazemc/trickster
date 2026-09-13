@@ -110,12 +110,13 @@ void main() {
 
     final loads = await sampler.sample();
     expect(loads.map((load) => load.id), ['card0', 'nvml0', 'nvml1']);
-    expect(loads.map((load) => load.label), ['AMD', 'RTX 4070 Ti', 'GPU']);
+    expect(loads.map((load) => load.label), ['AMD', 'GPU0', 'GPU1']);
+    expect(loads.map((load) => load.name), [null, 'RTX 4070 Ti', null]);
     expect(loads.map((load) => load.usage), [0.4, 0.3, 0.6]);
     expect(nvml.reads, 1);
   });
 
-  test('duplicate NVML names get 0-based suffixes', () async {
+  test('queried names survive duplicate-label suffixes', () async {
     final root = _createRoot({});
     final nvml = FakeNvmlReader(const [
       NvidiaGpuSample(index: 0, usage: 0.3, name: 'RTX 4070 Ti'),
@@ -125,9 +126,10 @@ void main() {
     addTearDown(sampler.dispose);
 
     final loads = await sampler.sample();
-    expect(loads.map((load) => load.label), [
-      'RTX 4070 Ti0',
-      'RTX 4070 Ti1',
+    expect(loads.map((load) => load.label), ['GPU0', 'GPU1']);
+    expect(loads.map((load) => load.name), [
+      'RTX 4070 Ti',
+      'RTX 4070 Ti',
     ]);
   });
 
@@ -163,7 +165,8 @@ void main() {
     final loads = await sampler.sample();
     expect(nvml.reads, 1);
     expect(loads.single.id, 'nvml0');
-    expect(loads.single.label, 'RTX 4070 Ti');
+    expect(loads.single.label, 'GPU');
+    expect(loads.single.name, 'RTX 4070 Ti');
     expect(loads.single.usage, 0.9);
   });
 
