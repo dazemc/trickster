@@ -13,9 +13,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase A — feel (behaves like Denial)
 
-- [ ] **A1 clock locale time** (S). `lib/src/bar/clock.dart`. Format the time
-      from the ambient locale instead of hardcoded 24h. Done when: 12/24h
-      follows locale, widget test covers both.
 - [ ] **A2 clock locale date** (S). `lib/src/bar/clock.dart`. Localize the
       date caption, replacing hardcoded English months. Done when: widget
       test covers a non-English locale; minute-boundary timer untouched.
