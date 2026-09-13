@@ -29,13 +29,3 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
-- **Hyprland blocks its main loop on fresh `.socket.sock` connections.**
-  `hyprCtlFDTick` accepts one, then polls up to 5s; a UI-isolate client
-  that flushes a turn later deadlocks the wait and tears down the layer
-  surface. Keep queries and `dispatch` connect+write-adjacent on a worker
-  isolate (`workspaces.dart`); hand off the surface before engine start.
-- **FakeAsync deadlocks on the bloc event loop.** In widget tests, awaiting
-  `pumpEventQueue()` after `bloc.add()` or `bloc.close()` hangs: bloc's
-  pipeline needs real event-loop turns. Seed via constructors, let
-  `BlocProvider(create:)` own lifecycle, and assert disposal with a close
-  flag on an injected subclass — no `bloc-` transcript under FakeAsync.
