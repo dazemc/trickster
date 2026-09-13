@@ -1,4 +1,4 @@
-# Trickster Bar
+# Trickster
 
 A Flutter-native Wayland status bar.
 
