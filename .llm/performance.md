@@ -48,6 +48,10 @@ Resident size should look like a bar, not like a Flutter gallery.
   tokens, motion, and the compositor-agnostic services those modules need.
 - No Material `Icons` font if a smaller subset or Denial's existing font
   stack covers the glyphs. Bundle only fonts and assets the bar paints.
+  Measured: two full JetBrains Mono weights (Medium 500, Bold 700) add
+  551,688 bytes to the release bundle; a glyph subset was rejected because
+  tray, media, and workspace text is dynamic. Pills render with an empty
+  fontconfig.
 - Settings documents: current + last-good only. Config parse trees are
   discarded after they become the typed model.
 - Release packages are stripped. `options=('!strip')` is not the default
