@@ -19,7 +19,7 @@ abstract final class ShellTelemetryColors {
 }
 
 abstract final class ShellText {
-  static const String systemBarFontFamily = 'monospace';
+  static const String systemBarFontFamily = 'JetBrainsMono';
   static const List<String> fallbackFontFamilies = <String>[
     'JetBrains Mono',
     'Source Han Sans CN',
