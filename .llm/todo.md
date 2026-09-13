@@ -33,9 +33,6 @@ silent per the logging rules.
 
 ## Phase 5 — packaging and release
 
-- [ ] **5.1 source PKGBUILD** (M). `packaging/arch/` source package (AOT,
-      stripped, no JIT/profile artifacts); verify `session.conf` backup
-      handling and first-launch `outputs.conf` seeding in-package.
 - [ ] **5.2 man pages** (S). Generated from `--help` output for `trickster`
       and `tricksterctl`, installed to `man1`.
 - [ ] **5.3 AUR -bin path** (S). Mirror Denial's split packaging for the
