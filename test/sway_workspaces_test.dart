@@ -132,6 +132,13 @@ class _FakeSwayServer {
     }
   }
 
+  /// Drops every client connection, simulating a compositor-side socket loss.
+  Future<void> dropConnections() async {
+    for (final socket in _connections.toList()) {
+      await socket.close();
+    }
+  }
+
   Future<void> dispose() async {
     for (final socket in _connections.toList()) {
       await socket.close();
@@ -247,6 +254,29 @@ void main() {
 
     expect(snapshots, isEmpty);
     expect(server.refreshCount, 1);
+
+    await sub.cancel();
+    await backend.dispose();
+  });
+
+  test('reconnects and resubscribes after the socket drops', () async {
+    final dir = await _temporaryDir();
+    final server = await _FakeSwayServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+
+    final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await _waitFor(() => snapshots.length == 1);
+
+    await server.dropConnections();
+    await _waitFor(() => snapshots.length == 2);
+    expect(
+      server.requests.map((request) => request.type),
+      [2, 1, 2, 1],
+      reason: 'reconnect resubscribes and refreshes once',
+    );
 
     await sub.cancel();
     await backend.dispose();
