@@ -146,9 +146,12 @@ class GpuSampler {
     ];
     if (await _canReadNvidiaWithoutWake()) {
       for (final nvidia in await _nvml.read()) {
-        reads.add(
-          (id: 'nvml${nvidia.index}', label: 'GPU', usage: nvidia.usage),
-        );
+        final name = nvidia.name?.trim();
+        reads.add((
+          id: 'nvml${nvidia.index}',
+          label: name == null || name.isEmpty ? 'GPU' : name,
+          usage: nvidia.usage,
+        ));
       }
     } else {
       for (

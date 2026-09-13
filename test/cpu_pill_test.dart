@@ -36,6 +36,15 @@ void main() {
     await _pump(tester, const CpuSample(0.42, history: [0.42]));
     expect(find.byKey(LoadMeter.sparklineKey), isNot(paints..path()));
   });
+
+  testWidgets('caption uses the device label with a CPU fallback', (
+    tester,
+  ) async {
+    await _pump(tester, const CpuSample(0.42, label: 'AMD Ryzen 9 5950X'));
+    expect(find.text('AMD Ryzen 9 5950X'), findsOneWidget);
+    await _pump(tester, const CpuSample(0.42));
+    expect(find.text('CPU'), findsOneWidget);
+  });
 }
 
 Future<void> _pump(WidgetTester tester, CpuSample sample) {

@@ -102,7 +102,7 @@ void main() {
   test('merges NVML readings with stable nvml ids', () async {
     final root = _createRoot({'card0': ('0x1002', '40')});
     final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.3),
+      NvidiaGpuSample(index: 0, usage: 0.3, name: 'RTX 4070 Ti'),
       NvidiaGpuSample(index: 1, usage: 0.6),
     ]);
     final sampler = GpuSampler(drmRoot: root.path, nvml: nvml);
@@ -110,9 +110,25 @@ void main() {
 
     final loads = await sampler.sample();
     expect(loads.map((load) => load.id), ['card0', 'nvml0', 'nvml1']);
-    expect(loads.map((load) => load.label), ['AMD', 'GPU0', 'GPU1']);
+    expect(loads.map((load) => load.label), ['AMD', 'RTX 4070 Ti', 'GPU']);
     expect(loads.map((load) => load.usage), [0.4, 0.3, 0.6]);
     expect(nvml.reads, 1);
+  });
+
+  test('duplicate NVML names get 0-based suffixes', () async {
+    final root = _createRoot({});
+    final nvml = FakeNvmlReader(const [
+      NvidiaGpuSample(index: 0, usage: 0.3, name: 'RTX 4070 Ti'),
+      NvidiaGpuSample(index: 1, usage: 0.6, name: 'RTX 4070 Ti'),
+    ]);
+    final sampler = GpuSampler(drmRoot: root.path, nvml: nvml);
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(loads.map((load) => load.label), [
+      'RTX 4070 Ti0',
+      'RTX 4070 Ti1',
+    ]);
   });
 
   test('leaves a runtime-suspended NVIDIA GPU asleep', () async {
@@ -139,7 +155,7 @@ void main() {
       runtimeStatus: {'card1': 'active'},
     );
     final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.9),
+      NvidiaGpuSample(index: 0, usage: 0.9, name: 'RTX 4070 Ti'),
     ]);
     final sampler = GpuSampler(drmRoot: root.path, nvml: nvml);
     addTearDown(sampler.dispose);
@@ -147,6 +163,7 @@ void main() {
     final loads = await sampler.sample();
     expect(nvml.reads, 1);
     expect(loads.single.id, 'nvml0');
+    expect(loads.single.label, 'RTX 4070 Ti');
     expect(loads.single.usage, 0.9);
   });
 
