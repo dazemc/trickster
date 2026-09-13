@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.11 rail click targets** (S). Same file. Migrate pips onto
-      `TricksterActionCard` semantics; honor `MediaQuery.disableAnimations`.
-      Done when: tap callback fires per pip, reduced-motion path tested.
 - [ ] **2.12 sway focus verb** (S). `lib/src/services/workspaces.dart`. Send
       `workspace` over the existing Sway socket connection. Done when:
       tested against a fake unix socket, failure logs and keeps state.
