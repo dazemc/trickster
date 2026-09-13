@@ -53,12 +53,6 @@ here.
   this follows the resolved locale. Fix with the l10n steps (4.1/4.2), not
   after — otherwise every golden-free layout test written before then bakes
   in ltr. (`lib/src/app.dart`.)
-- **Sway workspaces never emit and request-loop.** `SwayWorkspaces.start()`
-  (`lib/src/services/workspaces.dart`) sends `get_workspaces`, then
-  re-requests on every incoming chunk without parsing the reply or emitting:
-  no rail on Sway, and unbounded IPC traffic. The focus verb works; the data
-  path needs reply-bounded parsing and a single refresh path. (Found while
-  landing 2.12.)
 - **NVIDIA meters read `GPU`, not Denial's `NV`.** By user request the NVML
   path labels cards `GPU` (`lib/src/services/gpu.dart`, sourced from
   `nvidia.dart`); duplicates disambiguate to `GPU0`/`GPU1`. Do not restore
