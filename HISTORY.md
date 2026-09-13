@@ -35,4 +35,4 @@ without loading this file. Never read it for context.
 ### 2026-09-12 — Land app and strip wiring (1.4)
 - USER_PROMPT: continue (execute Phase 1 Bloc migration).
 - AGENT_INTERPRETATION: moved main/app/strip/clock off Riverpod onto blocs with startup gating per configured modules, pure resolveAccent helper, widget tests rewritten to seeded providers; diagnosed two FakeAsync traps (pumpEventQueue and awaited close hang forever — seed via constructors, let providers own lifecycle), recorded in suggestions; proven analyze-clean, 47/47 green, release rebuilt, 8s live run with zero errors.
-- COMMIT: a58ee16 4df9b34 f4b6b52
+- COMMIT: a58ee16 4df9b34 f4b6b52 26cebbb
