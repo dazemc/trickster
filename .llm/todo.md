@@ -20,10 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.3 Verbose BlocObserver** (S). Debug/profile-only observer logging
-      transitions, create/close, errors, and event timing to stderr; silent
-      in release. Done when: a live run shows the full transcript, release
-      build logs nothing extra.
 - [ ] **1.4 App + strip wiring** (M). `main.dart`/`app.dart`/`bar.dart` move
       to `MultiBlocProvider` + `BlocBuilder`/`BlocSelector`/`context.select`;
       accent derived from settings+session blocs; `_apply` dispatches
