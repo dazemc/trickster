@@ -22,38 +22,12 @@ here.
 ## Open suggestions
 
 - **Hyprland blocks its main loop on fresh `.socket.sock` connections.**
-  `hyprCtlFDTick` accepts one, then `poll(..., 5000)`s until the command
-  arrives; a client that connects on the UI isolate and flushes the write a
-  turn later deadlocks the session if the platform thread enters a
-  compositor wait first — the initial configure lands at gtk-layer-shell's
-  map timeout and the surface is torn down. Keep `j/*` queries and focus
-  `dispatch` connect+write-adjacent (worker isolate in `workspaces.dart`)
-  and finish the layer handshake before the engine starts
-  (`my_application.cc`). (Root cause of the "no frames" startup failure.)
-- **FakeAsync deadlocks on the bloc event loop.** In widget tests, `await
-  pumpEventQueue()` after `bloc.add()` and `await bloc.close()` both hang
-  forever — bloc's internal pipeline needs real event-loop turns that
-  FakeAsync never gives unprompted. Seed states via constructors, let
-  `BlocProvider(create:)` own lifecycle (its unawaited close is safe), never
-  await close in a widget test. (`test/widget_test.dart` documents both.)
-  `Bloc.close()` awaits event-drain before `super.close()`/`onClose`, so
-  `bloc-` lines for event-blocs never appear under FakeAsync either — assert
-  disposal via a close-invocation flag on an injected subclass, not the
-  transcript. (`test/gating_test.dart`.)
-- **Guard `_apply` against no-op reloads.** Models now have value equality,
-  but every watcher fire still writes all providers unconditionally —
-  including self-fires once anything writes `settings.json`. Skip the write
-  (and the sampler restarts) when nothing changed, before 4.11/4.12 and
-  tricksterctl. (`lib/src/app.dart`.)
-- **First frame renders defaults, not config.** `_apply(widget.initial)`
-  runs post-frame, so frame one always shows default top/32/all-modules
-  before the real config lands. Seed the providers synchronously or accept
-  the flash explicitly. (`lib/src/app.dart`.)
-- **Directionality is hardcoded ltr.** RTL locales will mirror nothing until
-  this follows the resolved locale. Fix with the l10n steps (4.1/4.2), not
-  after — otherwise every golden-free layout test written before then bakes
-  in ltr. (`lib/src/app.dart`.)
-- **NVIDIA meters read `GPU`, not Denial's `NV`.** By user request the NVML
-  path labels cards `GPU` (`lib/src/services/gpu.dart`, sourced from
-  `nvidia.dart`); duplicates disambiguate to `GPU0`/`GPU1`. Do not restore
-  `NV` for parity without asking.
+  `hyprCtlFDTick` accepts one, then polls up to 5s; a UI-isolate client
+  that flushes a turn later deadlocks the wait and tears down the layer
+  surface. Keep queries and `dispatch` connect+write-adjacent on a worker
+  isolate (`workspaces.dart`); hand off the surface before engine start.
+- **FakeAsync deadlocks on the bloc event loop.** In widget tests, awaiting
+  `pumpEventQueue()` after `bloc.add()` or `bloc.close()` hangs: bloc's
+  pipeline needs real event-loop turns. Seed via constructors, let
+  `BlocProvider(create:)` own lifecycle, and assert disposal with a close
+  flag on an injected subclass — no `bloc-` transcript under FakeAsync.
