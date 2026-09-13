@@ -43,6 +43,7 @@ ok    wayland: wayland-1
 ok    outputs.conf: top,32
 ok    settings.json: revision 1
 ok    layer-shell: zwlr_layer_shell_v1 advertised
+ok    blur: ext-background-effect advertised
 ok    outputs: eDP-1
 ```
 

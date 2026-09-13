@@ -29,8 +29,9 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
-- **The version lives in four places.** `pubspec.yaml`, `Cli.appVersion`,
-  `packaging/arch/PKGBUILD`, and `packaging/aur/trickster-bin/PKGBUILD` must
-  be bumped together and nothing checks them. Add a test pinning the
-  in-tree files to `Cli.appVersion`, like the man-page drift test.
+- **The version lives in five places.** `pubspec.yaml`, `Cli.appVersion`,
+  `linux/runner/my_application.cc` (the native `--version`), and both
+  PKGBUILDs must be bumped together and nothing checks them. Add a test
+  pinning the in-tree files to `Cli.appVersion`, like the man-page drift
+  test.
 
