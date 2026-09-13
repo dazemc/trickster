@@ -31,16 +31,6 @@ class TraySampled extends TrayEvent {
   List<Object?> get props => [...items];
 }
 
-class TrayItemActivated extends TrayEvent {
-  const TrayItemActivated(this.item, this.position);
-
-  final SystemTrayItem item;
-  final Offset position;
-
-  @override
-  List<Object?> get props => [item, position];
-}
-
 class TrayBloc extends Bloc<TrayEvent, TrayState> {
   TrayBloc({
     StatusNotifierService? service,
@@ -52,12 +42,33 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
     on<TrayStarted>(_onStarted);
     on<TrayStopped>(_onStopped);
     on<TraySampled>((event, emit) => emit(TrayState(event.items)));
-    on<TrayItemActivated>(_onActivated);
   }
 
   final StatusNotifierService _service;
   final void Function(String message) _log;
   StreamSubscription<List<SystemTrayItem>>? _subscription;
+
+  /// Invokes an item method with the pointer position; false when the item
+  /// refused every interface.
+  Future<bool> invoke(
+    SystemTrayItem item,
+    SystemTrayAction action,
+    Offset position,
+  ) async {
+    final invoked = await _service.invoke(item, action, position);
+    if (!invoked) {
+      _log('trickster: could not ${action.name} tray item ${item.id}');
+    }
+    return invoked;
+  }
+
+  /// Reads the item's D-Bus menu layout, or null when it has none.
+  Future<List<SystemTrayMenuEntry>?> loadMenu(SystemTrayItem item) =>
+      _service.loadMenu(item);
+
+  /// Sends a menu entry click for [item] through to the item's bus owner.
+  Future<bool> activateMenuEntry(SystemTrayItem item, int entryId) =>
+      _service.activateMenuEntry(item, entryId);
 
   Future<void> _onStarted(TrayStarted event, Emitter<TrayState> emit) async {
     _subscription ??= _service.snapshots.listen(
@@ -73,20 +84,6 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
   Future<void> _onStopped(TrayStopped event, Emitter<TrayState> emit) async {
     await _subscription?.cancel();
     _subscription = null;
-  }
-
-  Future<void> _onActivated(
-    TrayItemActivated event,
-    Emitter<TrayState> emit,
-  ) async {
-    final activated = await _service.invoke(
-      event.item,
-      SystemTrayAction.activate,
-      event.position,
-    );
-    if (!activated) {
-      _log('trickster: could not activate tray item ${event.item.id}');
-    }
   }
 
   @override

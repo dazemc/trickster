@@ -3,8 +3,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../layout/system_bar.dart';
 import '../services/status_notifier.dart';
+import '../state/tray_bloc.dart';
+import '../state/tray_menu.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
@@ -14,12 +18,20 @@ class TrayPill extends StatelessWidget {
     required this.accent,
     required this.items,
     required this.onActivate,
+    this.side = SystemBarSide.top,
+    this.thickness = 32,
     super.key,
   });
 
   final WallpaperAccent accent;
   final List<SystemTrayItem> items;
   final void Function(SystemTrayItem item, Offset position) onActivate;
+
+  /// Which edge the strip sits on; menus open toward the output's interior.
+  final SystemBarSide side;
+
+  /// Cross-axis size of the strip band, used to keep menus off the bar.
+  final double thickness;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +48,8 @@ class TrayPill extends StatelessWidget {
               accent: accent,
               item: items[i],
               onActivate: onActivate,
+              side: side,
+              thickness: thickness,
             ),
           ],
         ],
@@ -49,6 +63,8 @@ class TrayItemButton extends StatefulWidget {
     required this.accent,
     required this.item,
     required this.onActivate,
+    this.side = SystemBarSide.top,
+    this.thickness = 32,
     super.key,
   });
 
@@ -58,6 +74,8 @@ class TrayItemButton extends StatefulWidget {
   final WallpaperAccent accent;
   final SystemTrayItem item;
   final void Function(SystemTrayItem item, Offset position) onActivate;
+  final SystemBarSide side;
+  final double thickness;
 
   @override
   State<TrayItemButton> createState() => _TrayItemButtonState();
@@ -74,6 +92,50 @@ class _TrayItemButtonState extends State<TrayItemButton> {
     return box.localToGlobal(box.size.center(Offset.zero));
   }
 
+  Future<void> _openContextMenu(Offset position) async {
+    final menu = TrayMenuScope.maybeOf(context);
+    final bloc = context.read<TrayBloc>();
+    if (menu == null) {
+      await bloc.invoke(widget.item, SystemTrayAction.contextMenu, position);
+      return;
+    }
+    if (menu.isOpen) {
+      await menu.close();
+      return;
+    }
+    final entries = await bloc.loadMenu(widget.item);
+    if (!mounted) {
+      return;
+    }
+    final visible = entries
+        ?.where((entry) => entry.visible)
+        .toList(growable: false);
+    if (visible == null || visible.isEmpty) {
+      await bloc.invoke(widget.item, SystemTrayAction.contextMenu, position);
+      return;
+    }
+    final opened = await menu.show(
+      barViewId: View.of(context).viewId,
+      item: widget.item,
+      entries: visible,
+      accent: widget.accent,
+      click: position,
+      side: widget.side,
+      thickness: widget.thickness,
+    );
+    if (!opened) {
+      await bloc.invoke(widget.item, SystemTrayAction.contextMenu, position);
+    }
+  }
+
+  Future<void> _activatePrimary(Offset position) async {
+    if (widget.item.primaryOpensMenu) {
+      await _openContextMenu(position);
+      return;
+    }
+    widget.onActivate(widget.item, position);
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -88,12 +150,15 @@ class _TrayItemButtonState extends State<TrayItemButton> {
       button: true,
       label: label,
       value: _statusSemantics(item.status),
-      onTap: () => widget.onActivate(item, _center()),
+      onTap: () => unawaited(_activatePrimary(_center())),
       child: ExcludeSemantics(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (details) => _primaryPosition = details.globalPosition,
-          onTap: () => widget.onActivate(item, _primaryPosition ?? _center()),
+          onTap: () =>
+              unawaited(_activatePrimary(_primaryPosition ?? _center())),
+          onSecondaryTapDown: (details) =>
+              unawaited(_openContextMenu(details.globalPosition)),
           child: SizedBox.square(
             dimension: TrayItemButton.hitExtent,
             child: Stack(

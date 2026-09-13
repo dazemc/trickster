@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -27,11 +28,15 @@ import 'workspaces.dart';
 class TricksterBarStrip extends StatelessWidget {
   const TricksterBarStrip({
     required this.side,
+    this.thickness = 32,
     this.onOpenPowerSettings = _noop,
     super.key,
   });
 
   final SystemBarSide side;
+
+  /// Cross-axis size of the strip band, used to place menus off the bar.
+  final double thickness;
   final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
@@ -82,9 +87,15 @@ class TricksterBarStrip extends StatelessWidget {
                         child: TrayPill(
                           accent: accent,
                           items: state.items,
-                          onActivate: (item, position) => context
-                              .read<TrayBloc>()
-                              .add(TrayItemActivated(item, position)),
+                          side: side,
+                          thickness: thickness,
+                          onActivate: (item, position) => unawaited(
+                            context.read<TrayBloc>().invoke(
+                              item,
+                              SystemTrayAction.activate,
+                              position,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -133,7 +144,8 @@ class TricksterBarStrip extends StatelessWidget {
                           key: ValueKey<String>(
                             'system-bar-gpu-${state.loads[i].id}',
                           ),
-                          index: (cpuVisible ? 1 : 0) + (state.loads.length - i),
+                          index:
+                              (cpuVisible ? 1 : 0) + (state.loads.length - i),
                           horizontal: horizontal,
                           child: Padding(
                             padding: horizontal

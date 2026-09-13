@@ -131,9 +131,82 @@ class _FakeTrayItemObject extends DBusObject {
   }
 }
 
+/// A minimal `com.canonical.dbusmenu` exporter served by the fake bus.
+class _FakeMenuObject extends DBusObject {
+  _FakeMenuObject() : super(DBusObjectPath('/Menu'));
+
+  final events = <int>[];
+
+  @override
+  Future<DBusMethodResponse> handleMethodCall(DBusMethodCall methodCall) async {
+    switch (methodCall.name) {
+      case 'AboutToShow':
+        return DBusMethodSuccessResponse([const DBusBoolean(true)]);
+      case 'GetLayout':
+        return DBusMethodSuccessResponse([DBusUint32(1), _layout()]);
+      case 'Event':
+        events.add(methodCall.values[0].asInt32());
+        return DBusMethodSuccessResponse();
+      default:
+        return DBusMethodErrorResponse.unknownMethod();
+    }
+  }
+
+  DBusValue _layout() {
+    return DBusStruct([
+      const DBusInt32(0),
+      _properties({'children-display': const DBusString('submenu')}),
+      DBusArray(DBusSignature('v'), [
+        DBusVariant(_entry(10, {'label': const DBusString('Play')})),
+        DBusVariant(
+          _entry(
+            11,
+            {'label': const DBusString('Play Next')},
+            children: <DBusValue>[
+              _entry(12, {'label': const DBusString('Subitem')}),
+            ],
+          ),
+        ),
+        DBusVariant(
+          _entry(20, {
+            'label': const DBusString('Delete'),
+            'disposition': const DBusString('warning'),
+          }),
+        ),
+      ]),
+    ]);
+  }
+
+  DBusValue _entry(
+    int id,
+    Map<String, DBusValue> properties, {
+    List<DBusValue> children = const <DBusValue>[],
+  }) {
+    return DBusStruct([
+      DBusInt32(id),
+      _properties(properties),
+      DBusArray(DBusSignature('v'), [
+        for (final child in children) DBusVariant(child),
+      ]),
+    ]);
+  }
+
+  DBusValue _properties(Map<String, DBusValue> values) {
+    return DBusDict(
+      DBusSignature('s'),
+      DBusSignature('v'),
+      <DBusValue, DBusValue>{
+        for (final entry in values.entries)
+          DBusString(entry.key): DBusVariant(entry.value),
+      },
+    );
+  }
+}
+
 /// A watcher already owning the well-known name, used for the host path.
 class _FakeExternalWatcherObject extends DBusObject {
-  _FakeExternalWatcherObject() : super(DBusObjectPath('/StatusNotifierWatcher'));
+  _FakeExternalWatcherObject()
+    : super(DBusObjectPath('/StatusNotifierWatcher'));
 
   final registeredHosts = <String>[];
   List<String> items = const <String>[];
@@ -195,11 +268,7 @@ Future<void> _registerItem(DBusRemoteObject watcher, String address) {
 DBusValue _pixmap(List<(int, int, List<int>)> entries) {
   return DBusArray(DBusSignature('(iiay)'), [
     for (final (width, height, bytes) in entries)
-      DBusStruct([
-        DBusInt32(width),
-        DBusInt32(height),
-        DBusArray.byte(bytes),
-      ]),
+      DBusStruct([DBusInt32(width), DBusInt32(height), DBusArray.byte(bytes)]),
   ]);
 }
 
@@ -386,10 +455,7 @@ void main() {
 
   test('decodes the pixmap nearest the display size', () {
     final decoded = decodeStatusNotifierPixmapForTesting(
-      _pixmap([
-        (2, 2, _argbBytes(2, 2, 128)),
-        (4, 4, _argbBytes(4, 4, 255)),
-      ]),
+      _pixmap([(2, 2, _argbBytes(2, 2, 128)), (4, 4, _argbBytes(4, 4, 255))]),
     )!;
     expect(decoded.width, 4);
     expect(decoded.height, 4);
@@ -399,7 +465,9 @@ void main() {
 
   test('premultiplies alpha channels', () {
     final decoded = decodeStatusNotifierPixmapForTesting(
-      _pixmap([(1, 1, [128, 200, 100, 50])]),
+      _pixmap([
+        (1, 1, [128, 200, 100, 50]),
+      ]),
     )!;
     expect(decoded.rgba, [100, 50, 25, 128]);
   });
@@ -492,5 +560,44 @@ void main() {
     );
     expect(activated, isTrue);
     expect(itemObject.activations.single, (method: 'Activate', x: 12, y: 34));
+  });
+
+  test('loads and activates dbusmenu entries', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = StatusNotifierService(client: bus.client());
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+    await service.start();
+
+    final tray = bus.client();
+    addTearDown(tray.close);
+    final menuObject = _FakeMenuObject();
+    final itemObject = _FakeTrayItemObject()..menuPath = '/Menu';
+    await tray.registerObject(itemObject);
+    await tray.registerObject(menuObject);
+    await tray.requestName('org.example.Tray');
+
+    final probe = bus.client();
+    addTearDown(probe.close);
+    final watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(() => snapshots.isNotEmpty);
+
+    final item = snapshots.last.single;
+    expect(item.menuAvailable, isTrue);
+    final entries = await service.loadMenu(item);
+    expect(entries!.map((entry) => entry.label), [
+      'Play',
+      'Play Next',
+      'Delete',
+    ]);
+    expect(entries[1].children.single.label, 'Subitem');
+    expect(entries[2].destructive, isTrue);
+
+    expect(await service.activateMenuEntry(item, 10), isTrue);
+    expect(menuObject.events, [10]);
   });
 }

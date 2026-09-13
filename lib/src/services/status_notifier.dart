@@ -12,6 +12,62 @@ enum SystemTrayStatus { passive, active, needsAttention }
 /// Item interactions the host can invoke.
 enum SystemTrayAction { activate, secondaryActivate, contextMenu }
 
+/// How a menu entry toggles, mirroring `com.canonical.dbusmenu`.
+enum SystemTrayMenuToggleType { none, checkmark, radio }
+
+/// One parsed `com.canonical.dbusmenu` layout entry.
+@immutable
+class SystemTrayMenuEntry {
+  const SystemTrayMenuEntry({
+    required this.id,
+    required this.label,
+    required this.enabled,
+    required this.visible,
+    required this.separator,
+    required this.toggleType,
+    required this.toggleState,
+    required this.destructive,
+    required this.children,
+  });
+
+  final int id;
+  final String label;
+  final bool enabled;
+  final bool visible;
+  final bool separator;
+  final SystemTrayMenuToggleType toggleType;
+  final int toggleState;
+  final bool destructive;
+  final List<SystemTrayMenuEntry> children;
+
+  @override
+  bool operator ==(Object other) {
+    return other is SystemTrayMenuEntry &&
+        other.id == id &&
+        other.label == label &&
+        other.enabled == enabled &&
+        other.visible == visible &&
+        other.separator == separator &&
+        other.toggleType == toggleType &&
+        other.toggleState == toggleState &&
+        other.destructive == destructive &&
+        listEquals(other.children, children);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    label,
+    enabled,
+    visible,
+    separator,
+    toggleType,
+    toggleState,
+    destructive,
+    Object.hashAll(children),
+  );
+}
+
 /// A decoded, premultiplied RGBA icon at display size.
 @immutable
 class SystemTrayIconPixmap {
@@ -145,6 +201,9 @@ class TrayState extends Equatable {
 /// registers itself as a host, and tracks every item by its bus name and
 /// object path. Items are removed when their name owner disappears. D-Bus
 /// runs on the UI isolate for now; Denial isolated it on a worker.
+///
+/// XEmbed tray icons stay dropped: embedding them needs an owned Xwayland,
+/// which a guest bar cannot borrow.
 class StatusNotifierService {
   StatusNotifierService({DBusClient? client}) : _client = client;
 
@@ -168,6 +227,8 @@ class StatusNotifierService {
   static const Duration _methodTimeout = Duration(seconds: 4);
   static const Duration _signalCoalesce = Duration(milliseconds: 45);
   static const int _maxItems = 64;
+  static const int _maxMenuItems = 256;
+  static const int _maxMenuDepth = 5;
 
   DBusClient? _client;
   final _watcher = StatusNotifierWatcherEndpoint();
@@ -268,12 +329,9 @@ class StatusNotifierService {
       path: DBusObjectPath(watcherPath),
     );
     await object
-        .callMethod(
-          watcherInterface,
-          'RegisterStatusNotifierHost',
-          <DBusValue>[DBusString(hostName)],
-          replySignature: DBusSignature(''),
-        )
+        .callMethod(watcherInterface, 'RegisterStatusNotifierHost', <DBusValue>[
+          DBusString(hostName),
+        ], replySignature: DBusSignature(''))
         .timeout(_methodTimeout);
     _watcherSignals = DBusSignalStream(
       _bus,
@@ -681,6 +739,104 @@ class StatusNotifierService {
     return false;
   }
 
+  /// Reads the item's `com.canonical.dbusmenu` layout, or null when the item
+  /// exposes no usable menu.
+  Future<List<SystemTrayMenuEntry>?> loadMenu(SystemTrayItem item) async {
+    final registration = _registrations[item.id];
+    if (registration == null ||
+        _disposed ||
+        !item.menuAvailable ||
+        item.menuPath.isEmpty ||
+        item.menuPath == '/') {
+      return null;
+    }
+    DBusObjectPath path;
+    try {
+      path = DBusObjectPath(item.menuPath);
+    } on Object {
+      return null;
+    }
+    final object = DBusRemoteObject(
+      _bus,
+      name: registration.busName,
+      path: path,
+    );
+    try {
+      await object
+          .callMethod(menuInterface, 'AboutToShow', const <DBusValue>[
+            DBusInt32(0),
+          ], replySignature: DBusSignature('b'))
+          .timeout(_methodTimeout);
+    } on Object {
+      // Some exporters omit AboutToShow even though their static layout is
+      // otherwise usable.
+    }
+    try {
+      final response = await object
+          .callMethod(menuInterface, 'GetLayout', <DBusValue>[
+            const DBusInt32(0),
+            const DBusInt32(_maxMenuDepth),
+            DBusArray.string(const <String>[
+              'label',
+              'enabled',
+              'visible',
+              'type',
+              'children-display',
+              'toggle-type',
+              'toggle-state',
+              'disposition',
+            ]),
+          ], replySignature: DBusSignature('u(ia{sv}av)'))
+          .timeout(_methodTimeout);
+      if (response.returnValues.length != 2) {
+        return null;
+      }
+      final budget = _MenuBudget(_maxMenuItems);
+      final root = _parseMenuEntry(
+        response.returnValues[1],
+        budget: budget,
+        depth: 0,
+      );
+      if (root == null) {
+        return null;
+      }
+      return List<SystemTrayMenuEntry>.unmodifiable(
+        root.children.where((entry) => entry.visible),
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Sends a `clicked` event for [entryId] to the item's menu.
+  Future<bool> activateMenuEntry(SystemTrayItem item, int entryId) async {
+    final registration = _registrations[item.id];
+    if (registration == null ||
+        _disposed ||
+        entryId <= 0 ||
+        item.menuPath.isEmpty ||
+        item.menuPath == '/') {
+      return false;
+    }
+    try {
+      await DBusRemoteObject(
+            _bus,
+            name: registration.busName,
+            path: DBusObjectPath(item.menuPath),
+          )
+          .callMethod(menuInterface, 'Event', <DBusValue>[
+            DBusInt32(entryId),
+            const DBusString('clicked'),
+            const DBusVariant(DBusString('')),
+            DBusUint32(DateTime.now().millisecondsSinceEpoch & 0xffffffff),
+          ], replySignature: DBusSignature(''))
+          .timeout(_methodTimeout);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
   DBusRemoteObject _remoteItem(_StatusNotifierRegistration registration) {
     return DBusRemoteObject(
       _bus,
@@ -894,6 +1050,94 @@ DBusIntrospectSignal _watcherSignal(String name) => DBusIntrospectSignal(
 class _PendingStatusNotifierRefresh {
   bool full = false;
   final Set<String> properties = <String>{};
+}
+
+class _MenuBudget {
+  _MenuBudget(this.remaining);
+
+  int remaining;
+}
+
+SystemTrayMenuEntry? _parseMenuEntry(
+  DBusValue value, {
+  required _MenuBudget budget,
+  required int depth,
+}) {
+  if (budget.remaining <= 0 || depth > StatusNotifierService._maxMenuDepth) {
+    return null;
+  }
+  try {
+    final fields = value.asStruct();
+    if (fields.length != 3) {
+      return null;
+    }
+    final id = fields[0].asInt32();
+    final properties = fields[1].asStringVariantDict();
+    final children = <SystemTrayMenuEntry>[];
+    if (depth < StatusNotifierService._maxMenuDepth) {
+      for (final child in fields[2].asArray()) {
+        if (budget.remaining <= 0) {
+          break;
+        }
+        final parsed = _parseMenuEntry(
+          child.asVariant(),
+          budget: budget,
+          depth: depth + 1,
+        );
+        if (parsed != null) {
+          children.add(parsed);
+        }
+      }
+    }
+    budget.remaining -= 1;
+    final type = _string(properties['type']);
+    final toggleType = switch (_string(properties['toggle-type'])) {
+      'checkmark' => SystemTrayMenuToggleType.checkmark,
+      'radio' => SystemTrayMenuToggleType.radio,
+      _ => SystemTrayMenuToggleType.none,
+    };
+    return SystemTrayMenuEntry(
+      id: id,
+      label: _menuLabel(_boundedText(_string(properties['label']), 512)),
+      enabled: properties.containsKey('enabled')
+          ? _boolean(properties['enabled'])
+          : true,
+      visible: properties.containsKey('visible')
+          ? _boolean(properties['visible'])
+          : true,
+      separator: type == 'separator',
+      toggleType: toggleType,
+      toggleState: _int32(properties['toggle-state']),
+      destructive: _string(properties['disposition']) == 'warning',
+      children: List<SystemTrayMenuEntry>.unmodifiable(children),
+    );
+  } on Object {
+    return null;
+  }
+}
+
+int _int32(DBusValue? value) {
+  try {
+    return value?.asInt32() ?? 0;
+  } on Object {
+    return 0;
+  }
+}
+
+String _menuLabel(String value) {
+  final output = StringBuffer();
+  for (var index = 0; index < value.length; index += 1) {
+    final character = value[index];
+    if (character != '_') {
+      output.write(character);
+      continue;
+    }
+    if (index + 1 < value.length && value[index + 1] == '_') {
+      output.write('_');
+      index += 1;
+    }
+  }
+  return output.toString();
 }
 
 class _StatusNotifierRegistration {

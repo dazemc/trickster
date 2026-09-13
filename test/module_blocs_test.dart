@@ -97,7 +97,10 @@ class FakeStatusNotifierService extends StatusNotifierService {
   final controller = StreamController<List<SystemTrayItem>>.broadcast();
 
   var disposed = false;
+  var activateResult = true;
   final activations = <(SystemTrayItem, Offset)>[];
+  List<SystemTrayMenuEntry>? menuEntries;
+  final menuActivations = <(SystemTrayItem, int)>[];
 
   @override
   Stream<List<SystemTrayItem>> get snapshots => controller.stream;
@@ -118,6 +121,16 @@ class FakeStatusNotifierService extends StatusNotifierService {
     Offset position,
   ) async {
     activations.add((item, position));
+    return activateResult;
+  }
+
+  @override
+  Future<List<SystemTrayMenuEntry>?> loadMenu(SystemTrayItem item) async =>
+      menuEntries;
+
+  @override
+  Future<bool> activateMenuEntry(SystemTrayItem item, int entryId) async {
+    menuActivations.add((item, entryId));
     return true;
   }
 }
@@ -180,18 +193,16 @@ vendor_id\t: AuthenticAMD
 model name\t: AMD Ryzen 9 5950X 16-Core Processor
 cpu MHz\t\t: 3400.000
 ''';
-      expect(
-        parseCpuModelName(cpuInfo),
-        'AMD Ryzen 9 5950X 16-Core Processor',
-      );
+      expect(parseCpuModelName(cpuInfo), 'AMD Ryzen 9 5950X 16-Core Processor');
       expect(parseCpuModelName('processor\t: 0\n'), isNull);
       expect(parseCpuModelName('model name\t: \n'), isNull);
     });
 
     test('cpu series preserves the device name', () {
-      final sample = const CpuSample(null, name: 'AMD Ryzen 9 5950X')
-          .append(0.5)
-          .append(0.75);
+      final sample = const CpuSample(
+        null,
+        name: 'AMD Ryzen 9 5950X',
+      ).append(0.5).append(0.75);
       expect(sample.name, 'AMD Ryzen 9 5950X');
     });
 
@@ -202,7 +213,10 @@ cpu MHz\t\t: 3400.000
       }
       expect(sample.history.length, CpuSample.capacity);
       expect(sample.history.first, closeTo(0.05, 1e-9));
-      expect(sample.history.last, closeTo((CpuSample.capacity + 4) / 100, 1e-9));
+      expect(
+        sample.history.last,
+        closeTo((CpuSample.capacity + 4) / 100, 1e-9),
+      );
       expect(sample.current, sample.history.last);
     });
   });
@@ -220,9 +234,7 @@ cpu MHz\t\t: 3400.000
         await expectLater(
           bloc.stream,
           emits(
-            predicate<BatteryStatus>(
-              (s) => s.capacity == 87 && s.charging,
-            ),
+            predicate<BatteryStatus>((s) => s.capacity == 87 && s.charging),
           ),
         );
       } finally {
@@ -251,10 +263,7 @@ cpu MHz\t\t: 3400.000
         bloc.add(const GpuStarted());
         await pumpEventQueue();
         sampler.controller.add(const [load]);
-        await expectLater(
-          bloc.stream,
-          emits(const GpuState([load])),
-        );
+        await expectLater(bloc.stream, emits(const GpuState([load])));
       } finally {
         await bloc.close();
       }
@@ -286,10 +295,7 @@ cpu MHz\t\t: 3400.000
         bloc.add(const WorkspacesStarted());
         await pumpEventQueue();
         monitor.controller.add(const [first]);
-        await expectLater(
-          bloc.stream,
-          emits(const WorkspacesState([first])),
-        );
+        await expectLater(bloc.stream, emits(const WorkspacesState([first])));
       } finally {
         await bloc.close();
       }
@@ -303,12 +309,7 @@ cpu MHz\t\t: 3400.000
         Workspace(id: '2', name: '2'),
         Workspace(id: '1', name: '1'),
       ]);
-      expect(sorted.map((workspace) => workspace.id), [
-        '1',
-        '2',
-        '10',
-        'web',
-      ]);
+      expect(sorted.map((workspace) => workspace.id), ['1', '2', '10', 'web']);
     });
 
     test('sampled workspaces are ordered before emitting', () async {
@@ -323,10 +324,12 @@ cpu MHz\t\t: 3400.000
         ]);
         await expectLater(
           bloc.stream,
-          emits(const WorkspacesState([
-            Workspace(id: '2', name: '2'),
-            Workspace(id: '10', name: '10'),
-          ])),
+          emits(
+            const WorkspacesState([
+              Workspace(id: '2', name: '2'),
+              Workspace(id: '10', name: '10'),
+            ]),
+          ),
         );
       } finally {
         await bloc.close();
@@ -407,10 +410,7 @@ cpu MHz\t\t: 3400.000
         bloc.add(const TrayStarted());
         await pumpEventQueue();
         service.controller.add(const [item]);
-        await expectLater(
-          bloc.stream,
-          emits(const TrayState([item])),
-        );
+        await expectLater(bloc.stream, emits(const TrayState([item])));
       } finally {
         await bloc.close();
       }
@@ -421,10 +421,39 @@ cpu MHz\t\t: 3400.000
       final service = FakeStatusNotifierService();
       final bloc = TrayBloc(service: service);
       try {
-        bloc.add(const TrayItemActivated(item, Offset(12, 34)));
-        await pumpEventQueue();
+        final invoked = await bloc.invoke(
+          item,
+          SystemTrayAction.activate,
+          const Offset(12, 34),
+        );
+        expect(invoked, isTrue);
         expect(service.activations.single.$1, item);
         expect(service.activations.single.$2, const Offset(12, 34));
+      } finally {
+        await bloc.close();
+      }
+    });
+
+    test('menu loading and entry activation pass through', () async {
+      const entry = SystemTrayMenuEntry(
+        id: 7,
+        label: 'Open',
+        enabled: true,
+        visible: true,
+        separator: false,
+        toggleType: SystemTrayMenuToggleType.none,
+        toggleState: 0,
+        destructive: false,
+        children: [],
+      );
+      final service = FakeStatusNotifierService()..menuEntries = const [entry];
+      final bloc = TrayBloc(service: service);
+      try {
+        final entries = await bloc.loadMenu(item);
+        expect(entries!.single, entry);
+        expect(await bloc.activateMenuEntry(item, 7), isTrue);
+        expect(service.menuActivations.single.$1, item);
+        expect(service.menuActivations.single.$2, 7);
       } finally {
         await bloc.close();
       }
@@ -454,9 +483,7 @@ cpu MHz\t\t: 3400.000
         await expectLater(
           bloc.stream,
           emits(
-            predicate<ClockState>(
-              (s) => s.now == DateTime(2026, 9, 12, 20, 1),
-            ),
+            predicate<ClockState>((s) => s.now == DateTime(2026, 9, 12, 20, 1)),
           ),
         );
       } finally {

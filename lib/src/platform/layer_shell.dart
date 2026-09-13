@@ -5,7 +5,8 @@ import '../layout/system_bar.dart';
 
 class LayerShell {
   LayerShell({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('org.trickster.bar/layer_shell');
+    : _channel =
+          channel ?? const MethodChannel('org.trickster.bar/layer_shell');
 
   final MethodChannel _channel;
 
@@ -20,7 +21,7 @@ class LayerShell {
       return const [];
     }
     return raw
-        .whereType<Map>()
+        .whereType<Map<Object?, Object?>>()
         .map(
           (entry) => LayerOutput(
             name: '${entry['name'] ?? ''}',
@@ -46,6 +47,28 @@ class LayerShell {
         TricksterKeyboard.onDemand => 'on_demand',
       },
     });
+  }
+
+  /// Creates a hidden fullscreen overlay surface for a tray menu on the same
+  /// output as [barViewId]. [side] is the strip's edge, so the surface can
+  /// anchor against the opposite (unreserved) edge. Returns the new menu view
+  /// id, or null when no layer-shell surface could be created.
+  Future<int?> openMenuSurface({required int barViewId, required String side}) {
+    return _channel.invokeMethod<int>('menuOpen', {
+      'barViewId': barViewId,
+      'side': side,
+    });
+  }
+
+  /// Maps a menu surface created with [openMenuSurface] once its session is
+  /// ready to render.
+  Future<void> showMenuSurface({required int viewId}) {
+    return _channel.invokeMethod<void>('menuShow', {'viewId': viewId});
+  }
+
+  /// Destroys a menu surface and its Flutter view.
+  Future<void> closeMenuSurface({required int viewId}) {
+    return _channel.invokeMethod<void>('menuClose', {'viewId': viewId});
   }
 }
 

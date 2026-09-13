@@ -15,6 +15,7 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
   FlEngine* engine;
   GPtrArray* surfaces;
+  GPtrArray* menus;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -46,12 +47,13 @@ static int trickster_keyboard(const gchar* value) {
   return GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND;
 }
 
-static void apply_layer_shell(GtkWindow* window, const gchar* side,
+static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
                               gint thickness, const gchar* layer,
                               const gchar* name, const gchar* keyboard) {
   if (!gtk_layer_is_supported()) {
     return;
   }
+  GtkWindow* window = surface->window;
   gtk_layer_set_layer(window, (GtkLayerShellLayer)trickster_layer(layer));
   gtk_layer_set_namespace(window, name != nullptr ? name : "trickster");
   gtk_layer_set_keyboard_mode(
@@ -68,14 +70,103 @@ static void apply_layer_shell(GtkWindow* window, const gchar* side,
                        g_strcmp0(side, "right") == 0 ||
                            g_strcmp0(side, "top") == 0 ||
                            g_strcmp0(side, "bottom") == 0);
+  // The exclusive zone always equals the strip. Menus never resize this
+  // surface: they live on their own overlay surfaces, so the strip cannot be
+  // stretched by a resize while an old frame is still current.
   gtk_layer_set_exclusive_zone(window, thickness);
   if (g_strcmp0(side, "left") == 0 || g_strcmp0(side, "right") == 0) {
     gtk_widget_set_size_request(GTK_WIDGET(window), thickness, -1);
-    gtk_window_resize(window, thickness, 720);
   } else {
     gtk_widget_set_size_request(GTK_WIDGET(window), -1, thickness);
-    gtk_window_resize(window, 1280, thickness);
   }
+  // gtk-layer-shell's documented way to apply a changed size request: the
+  // request on axes anchored to opposite edges is ignored, and the resize
+  // hint must stay bogus so GTK does not allocate an intermediate size.
+  gtk_window_resize(window, 1, 1);
+}
+
+static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
+  FlValue* args = fl_method_call_get_args(method_call);
+  if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
+    return -1;
+  }
+  FlValue* value = fl_value_lookup_string(args, name);
+  if (value == nullptr || fl_value_get_type(value) != FL_VALUE_TYPE_INT) {
+    return -1;
+  }
+  return fl_value_get_int(value);
+}
+
+// Creates the fullscreen overlay surface hosting one tray menu. It starts
+// hidden: Dart maps it after the session is ready, so the overlay never shows
+// a default frame. The window's RGBA visual and transparent background match
+// the strip surfaces.
+//
+// The surface is anchored to the edge opposite the strip and sized to the
+// whole monitor: layer-shell places a surface inside the area left over by
+// other surfaces' exclusive zones, so anchoring the strip's own edge would
+// leave the bar band uncovered and clicks there would never dismiss the menu.
+static TricksterSurface* trickster_menu_surface_new(MyApplication* self,
+                                                    GdkMonitor* monitor,
+                                                    const gchar* side) {
+  TricksterSurface* surface = g_new0(TricksterSurface, 1);
+  GtkWindow* window =
+      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
+  surface->window = window;
+
+  gtk_window_set_decorated(window, FALSE);
+  gtk_window_set_title(window, "trickster-menu");
+  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+  GdkScreen* screen = gtk_window_get_screen(window);
+  GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
+  if (visual != nullptr) {
+    gtk_widget_set_visual(GTK_WIDGET(window), visual);
+  }
+
+  if (gtk_layer_is_supported()) {
+    gtk_layer_init_for_window(window);
+    if (monitor != nullptr) {
+      gtk_layer_set_monitor(window, monitor);
+    }
+    gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
+    gtk_layer_set_namespace(window, "trickster-menu");
+    // A menu is modal: it holds the keyboard while mapped and covers the
+    // output so Material's tap-region dismissal catches presses anywhere.
+    gtk_layer_set_keyboard_mode(window,
+                                GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+    gtk_layer_set_exclusive_zone(window, 0);
+    if (g_strcmp0(side, "top") == 0) {
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
+    } else if (g_strcmp0(side, "bottom") == 0) {
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP, TRUE);
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
+    } else if (g_strcmp0(side, "left") == 0) {
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_RIGHT, TRUE);
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP, TRUE);
+    } else {
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
+      gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP, TRUE);
+    }
+    if (monitor != nullptr) {
+      GdkRectangle geometry;
+      gdk_monitor_get_geometry(monitor, &geometry);
+      gtk_widget_set_size_request(GTK_WIDGET(window), geometry.width,
+                                  geometry.height);
+      gtk_window_resize(window, 1, 1);
+    }
+  }
+
+  FlView* view = fl_view_new_for_engine(self->engine);
+  surface->view = view;
+  GdkRGBA background_color;
+  gdk_rgba_parse(&background_color, "#00000000");
+  fl_view_set_background_color(view, &background_color);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+  gtk_widget_realize(GTK_WIDGET(view));
+
+  return surface;
 }
 
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
@@ -141,11 +232,64 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     }
     for (guint i = 0; i < self->surfaces->len; i++) {
       TricksterSurface* surface =
-        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
       if (surface->window != nullptr) {
-        apply_layer_shell(surface->window, side, thickness, layer, name,
-                          keyboard);
+        apply_layer_shell(surface, side, thickness, layer, name, keyboard);
       }
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "menuOpen") == 0) {
+    const gint64 bar_view_id = method_arg_int(method_call, "barViewId");
+    const gchar* side = "top";
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "side");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        side = fl_value_get_string(value);
+      }
+    }
+    GdkMonitor* monitor = nullptr;
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* bar =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (bar->view == nullptr || bar->window == nullptr ||
+          fl_view_get_id(bar->view) != bar_view_id) {
+        continue;
+      }
+      GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(bar->window));
+      if (gdk_window != nullptr) {
+        monitor = gdk_display_get_monitor_at_window(
+            gtk_widget_get_display(GTK_WIDGET(bar->window)), gdk_window);
+      }
+      break;
+    }
+    TricksterSurface* menu = trickster_menu_surface_new(self, monitor, side);
+    g_ptr_array_add(self->menus, menu);
+    g_autoptr(FlValue) result = fl_value_new_int(fl_view_get_id(menu->view));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "menuShow") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    for (guint i = 0; i < self->menus->len; i++) {
+      TricksterSurface* menu =
+          (TricksterSurface*)g_ptr_array_index(self->menus, i);
+      if (menu->view == nullptr || fl_view_get_id(menu->view) != view_id) {
+        continue;
+      }
+      gtk_widget_show(GTK_WIDGET(menu->window));
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "menuClose") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    for (guint i = 0; i < self->menus->len; i++) {
+      TricksterSurface* menu =
+          (TricksterSurface*)g_ptr_array_index(self->menus, i);
+      if (menu->view == nullptr || fl_view_get_id(menu->view) != view_id) {
+        continue;
+      }
+      gtk_widget_destroy(GTK_WIDGET(menu->window));
+      g_ptr_array_remove(self->menus, menu);
+      break;
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else {
@@ -176,7 +320,7 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
     if (monitor != nullptr) {
       gtk_layer_set_monitor(window, monitor);
     }
-    apply_layer_shell(window, "top", 32, "top", "trickster", "on_demand");
+    apply_layer_shell(surface, "top", 32, "top", "trickster", "on_demand");
     // Map the layer surface and finish the initial-configure handshake before
     // the engine starts. Dart modules open sockets to the compositor as soon
     // as they run; a request in flight while gtk-layer-shell blocks on the
@@ -345,6 +489,7 @@ static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
+  g_clear_pointer(&self->menus, g_ptr_array_unref);
   self->engine = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
@@ -360,6 +505,7 @@ static void my_application_class_init(MyApplicationClass* klass) {
 
 static void my_application_init(MyApplication* self) {
   self->surfaces = g_ptr_array_new_with_free_func(trickster_surface_free);
+  self->menus = g_ptr_array_new_with_free_func(trickster_surface_free);
 }
 
 MyApplication* my_application_new() {
