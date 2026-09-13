@@ -95,7 +95,8 @@ void main() {
   ) async {
     await _pumpStrip(tester);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('CPU 42%', findRichText: true), findsOneWidget);
+    expect(find.text('CPU'), findsOneWidget);
+    expect(find.text('42%', findRichText: true), findsOneWidget);
     expect(find.text('87%'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
@@ -107,7 +108,8 @@ void main() {
       settings: const BarSettings(modules: ['clock']),
     );
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('CPU 42%', findRichText: true), findsNothing);
+    expect(find.text('CPU'), findsNothing);
+    expect(find.text('42%', findRichText: true), findsNothing);
     expect(find.text('87%'), findsNothing);
     expect(find.text('1'), findsNothing);
   });
