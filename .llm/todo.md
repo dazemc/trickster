@@ -30,10 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.7 per-output surface lifecycle** (S). Create one layer surface per
-      selected monitor with independent clones; destroy dead-output surfaces
-      immediately; frame work only for hosted outputs. Done when: two-monitor
-      run verified, unplug/replug without restart.
 - [ ] **4.8 per-output workspace focus** (S). `lib/src/services/workspaces.dart`
       + rail wiring. Workspace state is monitor-global: `j/activeworkspace`
       marks only the focused monitor's workspace and focus targets the
