@@ -51,9 +51,23 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "battery", "clock"],
+  "workspaces": {
+    "show_empty": true,
+    "max": 9
+  }
 }
 ```
+
+### Module options
+
+Each module reads typed options from the same document. Invalid values are
+rejected at decode, so a live reload keeps the last-good settings.
+
+- `workspaces.show_empty` (bool, default `true`) — keep workspaces with no
+  open windows in the rail; the focused workspace always stays.
+- `workspaces.max` (int 1–64, default `9`) — cap the number of pips shown.
+
 
 ## Live reload
 
