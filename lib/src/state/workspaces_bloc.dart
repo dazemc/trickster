@@ -30,9 +30,11 @@ class WorkspacesSampled extends WorkspacesEvent {
 }
 
 class WorkspacesBloc extends Bloc<WorkspacesEvent, WorkspacesState> {
-  WorkspacesBloc({WorkspaceMonitor? monitor})
-    : _monitor = monitor ?? WorkspaceMonitor(),
-      super(const WorkspacesState()) {
+  WorkspacesBloc({
+    WorkspaceMonitor? monitor,
+    WorkspacesState initial = const WorkspacesState(),
+  }) : _monitor = monitor ?? WorkspaceMonitor(),
+       super(initial) {
     on<WorkspacesStarted>(_onStarted);
     on<WorkspacesStopped>(_onStopped);
     on<WorkspacesSampled>(

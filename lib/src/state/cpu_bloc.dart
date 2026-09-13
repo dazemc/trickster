@@ -30,9 +30,9 @@ class CpuSampled extends CpuEvent {
 }
 
 class CpuBloc extends Bloc<CpuEvent, CpuSample> {
-  CpuBloc({CpuSampler? sampler})
+  CpuBloc({CpuSampler? sampler, CpuSample initial = const CpuSample(null)})
     : _sampler = sampler ?? CpuSampler(),
-      super(const CpuSample(null)) {
+      super(initial) {
     on<CpuStarted>(_onStarted);
     on<CpuStopped>(_onStopped);
     on<CpuSampled>((event, emit) => emit(event.sample));

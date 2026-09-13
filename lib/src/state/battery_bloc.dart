@@ -30,9 +30,11 @@ class BatterySampled extends BatteryEvent {
 }
 
 class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {
-  BatteryBloc({BatterySampler? sampler})
-    : _sampler = sampler ?? BatterySampler(),
-      super(const BatteryStatus()) {
+  BatteryBloc({
+    BatterySampler? sampler,
+    BatteryStatus initial = const BatteryStatus(),
+  }) : _sampler = sampler ?? BatterySampler(),
+       super(initial) {
     on<BatteryStarted>(_onStarted);
     on<BatteryStopped>(_onStopped);
     on<BatterySampled>((event, emit) => emit(event.status));
