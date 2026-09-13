@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.14 niri focus verb** (S). Same file. `focus-workspace` over the
-      existing stream. Done when: same bar as 2.11.
-
 ## Phase 3 — parity (absent modules)
 
 - [ ] **3.1 StatusNotifier core** (M). New
