@@ -314,6 +314,52 @@ void main() {
     expect(resolveStatusNotifierIconForTesting('', directory.path), isNull);
   });
 
+  test('resolves absolute paths and file URIs directly', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-direct');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/app icon.png');
+    await file.writeAsBytes(base64Decode(_pngFixture));
+
+    expect(resolveStatusNotifierIconForTesting(file.path, ''), file.path);
+    expect(
+      resolveStatusNotifierIconForTesting(Uri.file(file.path).toString(), ''),
+      file.path,
+    );
+    expect(
+      resolveStatusNotifierIconForTesting('file:///no/such/icon.png', ''),
+      isNull,
+    );
+    expect(
+      resolveStatusNotifierIconForTesting('/no/such/icon.png', ''),
+      isNull,
+    );
+    expect(
+      resolveStatusNotifierIconForTesting('file://remote/share/icon.png', ''),
+      isNull,
+    );
+  });
+
+  test('decodes SVG icon files at display size', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-svg');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/icon.svg')
+      ..writeAsStringSync(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24">'
+        '<rect width="48" height="24" fill="#ff0000"/></svg>',
+      );
+
+    final pixmap = await decodeStatusNotifierIconForTesting(file.path);
+
+    expect(pixmap, isNotNull);
+    expect(pixmap!.width, 24);
+    expect(pixmap.height, 12);
+    expect(pixmap.rgba.length, 24 * 12 * 4);
+    expect(pixmap.rgba[0], 255);
+    expect(pixmap.rgba[1], 0);
+    expect(pixmap.rgba[2], 0);
+    expect(pixmap.rgba[3], 255);
+  });
+
   test('decodes an icon-name item into a display-size pixmap', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
