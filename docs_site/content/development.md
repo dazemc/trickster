@@ -18,7 +18,7 @@ Work happens on one branch per phase (`bar/phase-a`, `bar/phase-b`, …), each s
 
 ## Project rules
 
-The full constitution lives in [AGENTS.md](https://github.com/dazemc/trickster-bar/blob/main/AGENTS.md). The short version:
+The full constitution lives in [AGENTS.md](https://github.com/dazemc/trickster/blob/main/AGENTS.md). The short version:
 
 - Resemble Denial at every seam that does not require compositor ownership.
 - Port compositor-agnostic Denial Dart instead of rewriting it; keep type names at module boundaries.
@@ -30,7 +30,7 @@ The full constitution lives in [AGENTS.md](https://github.com/dazemc/trickster-b
 
 Planned, not published:
 
-- Source `trickster-bar` PKGBUILD plus a `-bin` AUR path mirroring Denial's split packaging.
+- Source `trickster` PKGBUILD plus a `-bin` AUR path mirroring Denial's split packaging.
 - `/etc/trickster/session.conf` ships as a `backup=`-preserved template; `outputs.conf` seeds per-user on first launch.
 - Release builds are AOT, stripped, with no JIT/profile/debug artifacts.
 
