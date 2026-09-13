@@ -6,17 +6,36 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 
 class CpuSample extends Equatable {
-  const CpuSample(this.current);
+  const CpuSample(this.current, {this.history = const <double>[]});
+
+  /// Readings each sparkline keeps: 45 samples at the 1 Hz cadence.
+  static const int capacity = 45;
 
   final double? current;
 
+  /// Up to [capacity] readings, oldest first; the newest equals [current].
+  final List<double> history;
+
+  CpuSample append(double usage) {
+    final next = <double>[...history, usage];
+    if (next.length > capacity) {
+      next.removeRange(0, next.length - capacity);
+    }
+    return CpuSample(usage, history: List.unmodifiable(next));
+  }
+
   @override
-  List<Object?> get props => [current];
+  List<Object?> get props => [current, history];
 
-  Map<String, Object?> toJson() => {'current': current};
+  Map<String, Object?> toJson() => {'current': current, 'history': history};
 
-  static CpuSample fromJson(Map<String, dynamic> json) =>
-      CpuSample((json['current'] as num?)?.toDouble());
+  static CpuSample fromJson(Map<String, dynamic> json) => CpuSample(
+    (json['current'] as num?)?.toDouble(),
+    history: [
+      for (final value in json['history'] as List<dynamic>? ?? const [])
+        (value as num).toDouble(),
+    ],
+  );
 }
 
 class CpuSampler {
@@ -26,6 +45,7 @@ class CpuSampler {
   final Uint8List _buffer = Uint8List(256);
   int? _idle;
   int? _total;
+  CpuSample _latest = const CpuSample(null);
   Timer? _timer;
   final _controller = StreamController<CpuSample>.broadcast();
 
@@ -78,7 +98,8 @@ class CpuSampler {
         return;
       }
       final busy = 1.0 - (idleDelta / totalDelta);
-      _controller.add(CpuSample(math.min(1.0, math.max(0.0, busy))));
+      _latest = _latest.append(math.min(1.0, math.max(0.0, busy)));
+      _controller.add(_latest);
     } finally {
       opened.closeSync();
     }

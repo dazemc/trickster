@@ -112,6 +112,23 @@ void main() {
         ).current,
         0.25,
       );
+      final series = const CpuSample(null).append(0.25).append(0.75);
+      final decoded = CpuSample.fromJson(
+        Map<String, dynamic>.from(series.toJson()),
+      );
+      expect(decoded.current, 0.75);
+      expect(decoded.history, [0.25, 0.75]);
+    });
+
+    test('cpu series keeps the cap and appends newest last', () {
+      var sample = const CpuSample(null);
+      for (var i = 0; i < CpuSample.capacity + 5; i++) {
+        sample = sample.append(i / 100);
+      }
+      expect(sample.history.length, CpuSample.capacity);
+      expect(sample.history.first, closeTo(0.05, 1e-9));
+      expect(sample.history.last, closeTo((CpuSample.capacity + 4) / 100, 1e-9));
+      expect(sample.current, sample.history.last);
     });
   });
 
