@@ -12,14 +12,18 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -50,6 +54,7 @@ Future<void> _pumpStrip(
           create: (_) => CpuBloc(initial: const CpuSample(0.42)),
         ),
         BlocProvider(create: (_) => GpuBloc(initial: const GpuState())),
+        BlocProvider(create: (_) => TrayBloc(initial: const TrayState())),
         BlocProvider(
           create: (_) => BatteryBloc(
             initial: const BatteryStatus(capacity: 87, charging: true),
@@ -58,6 +63,11 @@ Future<void> _pumpStrip(
         BlocProvider(
           create: (_) => WorkspacesBloc(
             initial: const WorkspacesState(_workspaces),
+          ),
+        ),
+        BlocProvider(
+          create: (_) => MediaBloc(
+            initial: MprisPlaybackState.unavailable(),
           ),
         ),
       ],

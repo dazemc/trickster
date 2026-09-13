@@ -12,15 +12,19 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 const _workspaces = [
@@ -74,11 +78,15 @@ Future<void> _pumpGated(
             cpuBuilder:
                 cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
             gpuBuilder: () => GpuBloc(initial: const GpuState()),
+            trayBuilder: () => TrayBloc(initial: const TrayState()),
             batteryBuilder: () => BatteryBloc(
               initial: const BatteryStatus(capacity: 87, charging: true),
             ),
             workspacesBuilder: () => WorkspacesBloc(
               initial: const WorkspacesState(_workspaces),
+            ),
+            mediaBuilder: () => MediaBloc(
+              initial: MprisPlaybackState.unavailable(),
             ),
             child: const TricksterBarStrip(side: SystemBarSide.top),
           ),
@@ -119,15 +127,19 @@ void main() {
     expect(_created(lines, 'ClockBloc'), isTrue);
     expect(_created(lines, 'CpuBloc'), isFalse);
     expect(_created(lines, 'GpuBloc'), isFalse);
+    expect(_created(lines, 'TrayBloc'), isFalse);
     expect(_created(lines, 'BatteryBloc'), isFalse);
     expect(_created(lines, 'WorkspacesBloc'), isFalse);
+    expect(_created(lines, 'MediaBloc'), isFalse);
     expect(
       lines.any(
         (line) =>
             line.contains('CpuBloc') ||
             line.contains('GpuBloc') ||
+            line.contains('TrayBloc') ||
             line.contains('BatteryBloc') ||
-            line.contains('WorkspacesBloc'),
+            line.contains('WorkspacesBloc') ||
+            line.contains('MediaBloc'),
       ),
       isFalse,
     );

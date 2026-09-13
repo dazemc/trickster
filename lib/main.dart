@@ -31,7 +31,10 @@ Future<void> main(List<String> args) async {
   // Config blocs live above the app; ModuleScope (inside TricksterApp)
   // builds one provider per enabled module below SettingsBloc so live
   // reloads can add and remove module blocs with the module list.
-  runApp(
+  //
+  // runWidget, not runApp: the native runner creates one FlutterView per
+  // layer surface and TricksterApp builds a View for each.
+  runWidget(
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => SettingsBloc(runtime.settings)),

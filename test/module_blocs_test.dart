@@ -1,16 +1,21 @@
 import 'dart:async';
-
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
+
+final _epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
 class FakeCpuSampler extends CpuSampler {
   final controller = StreamController<CpuSample>.broadcast();
@@ -92,6 +97,76 @@ class FakeMonitor extends WorkspaceMonitor {
   }
 }
 
+class FakeStatusNotifierService extends StatusNotifierService {
+  final controller = StreamController<List<SystemTrayItem>>.broadcast();
+
+  var disposed = false;
+  var activateResult = true;
+  final activations = <(SystemTrayItem, Offset)>[];
+  List<SystemTrayMenuEntry>? menuEntries;
+  final menuActivations = <(SystemTrayItem, int)>[];
+
+  @override
+  Stream<List<SystemTrayItem>> get snapshots => controller.stream;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await controller.close();
+  }
+
+  @override
+  Future<bool> invoke(
+    SystemTrayItem item,
+    SystemTrayAction action,
+    Offset position,
+  ) async {
+    activations.add((item, position));
+    return activateResult;
+  }
+
+  @override
+  Future<List<SystemTrayMenuEntry>?> loadMenu(SystemTrayItem item) async =>
+      menuEntries;
+
+  @override
+  Future<bool> activateMenuEntry(SystemTrayItem item, int entryId) async {
+    menuActivations.add((item, entryId));
+    return true;
+  }
+}
+
+class FakeMediaPlayerService extends MediaPlayerService {
+  final controller = StreamController<MprisPlaybackState>.broadcast();
+
+  var disposed = false;
+  final calls = <String>[];
+
+  @override
+  Stream<MprisPlaybackState> get snapshots => controller.stream;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await controller.close();
+  }
+
+  @override
+  Future<void> playPause() async => calls.add('playPause');
+
+  @override
+  Future<void> next() async => calls.add('next');
+
+  @override
+  Future<void> previous() async => calls.add('previous');
+}
+
 void main() {
   group('CpuBloc', () {
     late FakeCpuSampler fake;
@@ -150,18 +225,16 @@ vendor_id\t: AuthenticAMD
 model name\t: AMD Ryzen 9 5950X 16-Core Processor
 cpu MHz\t\t: 3400.000
 ''';
-      expect(
-        parseCpuModelName(cpuInfo),
-        'AMD Ryzen 9 5950X 16-Core Processor',
-      );
+      expect(parseCpuModelName(cpuInfo), 'AMD Ryzen 9 5950X 16-Core Processor');
       expect(parseCpuModelName('processor\t: 0\n'), isNull);
       expect(parseCpuModelName('model name\t: \n'), isNull);
     });
 
     test('cpu series preserves the device name', () {
-      final sample = const CpuSample(null, name: 'AMD Ryzen 9 5950X')
-          .append(0.5)
-          .append(0.75);
+      final sample = const CpuSample(
+        null,
+        name: 'AMD Ryzen 9 5950X',
+      ).append(0.5).append(0.75);
       expect(sample.name, 'AMD Ryzen 9 5950X');
     });
 
@@ -172,7 +245,10 @@ cpu MHz\t\t: 3400.000
       }
       expect(sample.history.length, CpuSample.capacity);
       expect(sample.history.first, closeTo(0.05, 1e-9));
-      expect(sample.history.last, closeTo((CpuSample.capacity + 4) / 100, 1e-9));
+      expect(
+        sample.history.last,
+        closeTo((CpuSample.capacity + 4) / 100, 1e-9),
+      );
       expect(sample.current, sample.history.last);
     });
   });
@@ -190,9 +266,7 @@ cpu MHz\t\t: 3400.000
         await expectLater(
           bloc.stream,
           emits(
-            predicate<BatteryStatus>(
-              (s) => s.capacity == 87 && s.charging,
-            ),
+            predicate<BatteryStatus>((s) => s.capacity == 87 && s.charging),
           ),
         );
       } finally {
@@ -221,10 +295,7 @@ cpu MHz\t\t: 3400.000
         bloc.add(const GpuStarted());
         await pumpEventQueue();
         sampler.controller.add(const [load]);
-        await expectLater(
-          bloc.stream,
-          emits(const GpuState([load])),
-        );
+        await expectLater(bloc.stream, emits(const GpuState([load])));
       } finally {
         await bloc.close();
       }
@@ -256,10 +327,7 @@ cpu MHz\t\t: 3400.000
         bloc.add(const WorkspacesStarted());
         await pumpEventQueue();
         monitor.controller.add(const [first]);
-        await expectLater(
-          bloc.stream,
-          emits(const WorkspacesState([first])),
-        );
+        await expectLater(bloc.stream, emits(const WorkspacesState([first])));
       } finally {
         await bloc.close();
       }
@@ -273,12 +341,7 @@ cpu MHz\t\t: 3400.000
         Workspace(id: '2', name: '2'),
         Workspace(id: '1', name: '1'),
       ]);
-      expect(sorted.map((workspace) => workspace.id), [
-        '1',
-        '2',
-        '10',
-        'web',
-      ]);
+      expect(sorted.map((workspace) => workspace.id), ['1', '2', '10', 'web']);
     });
 
     test('sampled workspaces are ordered before emitting', () async {
@@ -293,10 +356,12 @@ cpu MHz\t\t: 3400.000
         ]);
         await expectLater(
           bloc.stream,
-          emits(const WorkspacesState([
-            Workspace(id: '2', name: '2'),
-            Workspace(id: '10', name: '10'),
-          ])),
+          emits(
+            const WorkspacesState([
+              Workspace(id: '2', name: '2'),
+              Workspace(id: '10', name: '10'),
+            ]),
+          ),
         );
       } finally {
         await bloc.close();
@@ -358,6 +423,85 @@ cpu MHz\t\t: 3400.000
     });
   });
 
+  group('TrayBloc', () {
+    const item = SystemTrayItem(
+      id: 'status-notifier:org.example.Tray:/StatusNotifierItem',
+      title: 'Test Item',
+      status: SystemTrayStatus.active,
+      iconName: 'test-icon',
+      iconThemePath: '',
+      iconPixmap: null,
+      menuAvailable: false,
+      primaryOpensMenu: false,
+    );
+
+    test('started then sampled emits the items', () async {
+      final service = FakeStatusNotifierService();
+      final bloc = TrayBloc(service: service);
+      try {
+        bloc.add(const TrayStarted());
+        await pumpEventQueue();
+        service.controller.add(const [item]);
+        await expectLater(bloc.stream, emits(const TrayState([item])));
+      } finally {
+        await bloc.close();
+      }
+      expect(service.disposed, isTrue);
+    });
+
+    test('activation forwards the item and pointer position', () async {
+      final service = FakeStatusNotifierService();
+      final bloc = TrayBloc(service: service);
+      try {
+        final invoked = await bloc.invoke(
+          item,
+          SystemTrayAction.activate,
+          const Offset(12, 34),
+        );
+        expect(invoked, isTrue);
+        expect(service.activations.single.$1, item);
+        expect(service.activations.single.$2, const Offset(12, 34));
+      } finally {
+        await bloc.close();
+      }
+    });
+
+    test('menu loading and entry activation pass through', () async {
+      const entry = SystemTrayMenuEntry(
+        id: 7,
+        label: 'Open',
+        enabled: true,
+        visible: true,
+        separator: false,
+        toggleType: SystemTrayMenuToggleType.none,
+        toggleState: 0,
+        destructive: false,
+        children: [],
+      );
+      final service = FakeStatusNotifierService()..menuEntries = const [entry];
+      final bloc = TrayBloc(service: service);
+      try {
+        final entries = await bloc.loadMenu(item);
+        expect(entries!.single, entry);
+        expect(await bloc.activateMenuEntry(item, 7), isTrue);
+        expect(service.menuActivations.single.$1, item);
+        expect(service.menuActivations.single.$2, 7);
+      } finally {
+        await bloc.close();
+      }
+    });
+
+    test('tray state json round-trips', () {
+      const state = TrayState([item]);
+      final decoded = TrayState.fromJson(
+        Map<String, dynamic>.from(state.toJson()),
+      );
+      expect(decoded, state);
+      expect(decoded.items.single.title, 'Test Item');
+      expect(decoded.items.single.status, SystemTrayStatus.active);
+    });
+  });
+
   group('ClockBloc', () {
     test('ticks with the injected clock', () async {
       var tick = DateTime(2026, 9, 12, 20, 0);
@@ -371,9 +515,7 @@ cpu MHz\t\t: 3400.000
         await expectLater(
           bloc.stream,
           emits(
-            predicate<ClockState>(
-              (s) => s.now == DateTime(2026, 9, 12, 20, 1),
-            ),
+            predicate<ClockState>((s) => s.now == DateTime(2026, 9, 12, 20, 1)),
           ),
         );
       } finally {
@@ -387,6 +529,52 @@ cpu MHz\t\t: 3400.000
         Map<String, dynamic>.from(state.toJson()),
       );
       expect(decoded.now, state.now);
+    });
+  });
+
+  group('MediaBloc', () {
+    final playback = MprisPlaybackState(
+      serviceName: 'org.mpris.MediaPlayer2.fake',
+      identity: 'Fake Player',
+      title: 'Test Song',
+      artists: <String>['Test Artist'],
+      album: 'Test Album',
+      artUrl: '',
+      length: Duration(seconds: 180),
+      position: Duration(seconds: 42),
+      observedAt: _epoch,
+      status: MprisPlaybackStatus.playing,
+      canGoNext: true,
+      canGoPrevious: true,
+      canPlay: true,
+      canPause: true,
+    );
+
+    test('started then sampled emits playback state', () async {
+      final service = FakeMediaPlayerService();
+      final bloc = MediaBloc(service: service);
+      try {
+        bloc.add(const MediaStarted());
+        await pumpEventQueue();
+        service.controller.add(playback);
+        await expectLater(bloc.stream, emits(playback));
+      } finally {
+        await bloc.close();
+      }
+      expect(service.disposed, isTrue);
+    });
+
+    test('controls forward to the player service', () async {
+      final service = FakeMediaPlayerService();
+      final bloc = MediaBloc(service: service);
+      try {
+        await bloc.playPause();
+        await bloc.next();
+        await bloc.previous();
+        expect(service.calls, <String>['playPause', 'next', 'previous']);
+      } finally {
+        await bloc.close();
+      }
     });
   });
 }
