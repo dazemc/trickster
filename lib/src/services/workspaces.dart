@@ -727,8 +727,15 @@ class NiriWorkspaces extends WorkspaceBackend {
 
   static const _replyTimeout = Duration(seconds: 5);
 
+  static const _reconnectDelayBase = Duration(milliseconds: 500);
+
+  static const _reconnectDelayMax = Duration(seconds: 5);
+
   final String? _socketPath;
   Socket? _socket;
+  Timer? _reconnect;
+  Duration _reconnectDelay = _reconnectDelayBase;
+  var _generation = 0;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -742,14 +749,29 @@ class NiriWorkspaces extends WorkspaceBackend {
     if (path == null) {
       return;
     }
+    await _dial(path, _generation);
+  }
+
+  Future<void> _dial(String path, int generation) async {
+    Socket socket;
     try {
-      _socket = await Socket.connect(
+      socket = await Socket.connect(
         InternetAddress(path, type: InternetAddressType.unix),
         0,
       );
-      _socket!.add(utf8.encode('${jsonEncode({'EventStream': null})}\n'));
-      final buffer = StringBuffer();
-      _socket!.listen((data) {
+    } on Object {
+      _scheduleReconnect(generation);
+      return;
+    }
+    if (generation != _generation) {
+      await socket.close();
+      return;
+    }
+    _socket = socket;
+    _reconnectDelay = _reconnectDelayBase;
+    final buffer = StringBuffer();
+    socket.listen(
+      (data) {
         buffer.write(utf8.decode(data));
         var text = buffer.toString();
         var newline = text.indexOf('\n');
@@ -762,10 +784,35 @@ class NiriWorkspaces extends WorkspaceBackend {
         buffer
           ..clear()
           ..write(text);
-      }, onError: (_) {});
-    } on Object {
+      },
+      onError: (_) {},
+      onDone: () => _scheduleReconnect(generation),
+    );
+    socket.add(utf8.encode('${jsonEncode({'EventStream': null})}\n'));
+  }
+
+  /// Re-dials after a drop or a refused connection, with a capped backoff so
+  /// a compositor restart recovers without hot-looping. The event stream
+  /// replays the full workspace state on connect, so no extra refresh is
+  /// needed.
+  void _scheduleReconnect(int generation) {
+    if (_generation != generation) {
       return;
     }
+    _generation += 1;
+    _socket = null;
+    _reconnect?.cancel();
+    _reconnect = Timer(_reconnectDelay, () {
+      _reconnect = null;
+      if (_generation == generation + 1) {
+        final path = _path;
+        if (path != null) {
+          unawaited(_dial(path, _generation));
+        }
+      }
+    });
+    final next = _reconnectDelay * 2;
+    _reconnectDelay = next > _reconnectDelayMax ? _reconnectDelayMax : next;
   }
 
   /// Focuses a workspace over a one-shot action connection — the same
@@ -850,6 +897,9 @@ class NiriWorkspaces extends WorkspaceBackend {
 
   @override
   Future<void> dispose() async {
+    _generation += 1;
+    _reconnect?.cancel();
+    _reconnect = null;
     await _socket?.close();
     _socket = null;
     await _controller.close();
