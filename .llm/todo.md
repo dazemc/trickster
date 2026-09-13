@@ -22,10 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.9 workspace rail widget** (M). `lib/src/bar/workspaces.dart`.
-      Replace printed names with a pip rail and animated active lens
-      (`AnimatedAlign`, workspace-switch curve). Done when: lens tracks the
-      active id in widget tests.
 - [ ] **2.10 rail occupied/urgent states** (S). Same file. Derive occupied
       from backend flags; urgent styling from telemetry colors. Done when:
       all three states render distinctly, tested.
