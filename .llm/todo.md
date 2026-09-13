@@ -22,10 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.8 GPU cards in strip** (S). `lib/src/bar/bar.dart` + new
-      `lib/src/bar/gpu.dart`. One meter card per GPU with stable keys,
-      staggered entrance like Denial's `_GpuStatusCards`. Done when: cards
-      appear/disappear with the service list, widget tested.
 - [ ] **2.9 workspace rail widget** (M). `lib/src/bar/workspaces.dart`.
       Replace printed names with a pip rail and animated active lens
       (`AnimatedAlign`, workspace-switch curve). Done when: lens tracks the
