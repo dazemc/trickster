@@ -36,12 +36,6 @@ silent per the logging rules.
 
 ## Phase 6 — follow-ups
 
-- [ ] **6.2 single --check implementation** (S). `lib/main.dart`,
-      `linux/runner/my_application.cc`. The native runner intercepts `--check`
-      before the Dart entrypoint starts, so Dart's `_check` is dead and can
-      drift. Delete the dead path (or route the native flag through Dart) so
-      the diagnostics have one owner. Done when: `--check` output is
-      unchanged and one implementation remains.
 
 ## Decisions pending
 
