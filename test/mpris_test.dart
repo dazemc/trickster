@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dbus/dbus.dart';
@@ -82,6 +83,11 @@ class _FakePlayerObject extends DBusObject {
 
   final calls = <String>[];
 
+  /// When set, the next player-interface GetAll captures its snapshot and
+  /// then waits, letting a test mutate state in the discovery gap.
+  Completer<void>? holdPlayerGetAll;
+  bool playerGetAllHeld = false;
+
   Map<String, DBusValue> _playerProperties() => <String, DBusValue>{
     'PlaybackStatus': DBusString(playbackStatus),
     'Metadata': _metadata(),
@@ -121,15 +127,22 @@ class _FakePlayerObject extends DBusObject {
 
   @override
   Future<DBusMethodResponse> getAllProperties(String interface) async {
-    return switch (interface) {
-      MediaPlayerService.playerInterface => DBusGetAllPropertiesResponse(
-        _playerProperties(),
-      ),
-      MediaPlayerService.rootInterface => DBusGetAllPropertiesResponse(
-        <String, DBusValue>{'Identity': DBusString(identity)},
-      ),
-      _ => DBusMethodErrorResponse.unknownInterface(),
-    };
+    if (interface != MediaPlayerService.playerInterface) {
+      return switch (interface) {
+        MediaPlayerService.rootInterface => DBusGetAllPropertiesResponse(
+          <String, DBusValue>{'Identity': DBusString(identity)},
+        ),
+        _ => DBusMethodErrorResponse.unknownInterface(),
+      };
+    }
+    final snapshot = _playerProperties();
+    final gate = holdPlayerGetAll;
+    if (gate != null && !gate.isCompleted) {
+      playerGetAllHeld = true;
+      await gate.future;
+      playerGetAllHeld = false;
+    }
+    return DBusGetAllPropertiesResponse(snapshot);
   }
 
   @override
@@ -232,6 +245,37 @@ void main() {
       'Metadata': player._metadata(),
     }, () => service.current.title == 'Renamed');
     expect(service.current.artists, <String>['One', 'Two']);
+  });
+
+  test('converges when a change lands before the match installs', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = _service(bus);
+    addTearDown(service.dispose);
+    await service.start();
+
+    final player = _FakePlayerObject();
+    final gate = Completer<void>();
+    player.holdPlayerGetAll = gate;
+    final client = await _servePlayer(bus, player, 'race');
+    addTearDown(client.close);
+
+    // Discovery is blocked inside its read, so no PropertiesChanged match
+    // exists yet. Mutate the player and announce the change: the signal is
+    // lost, and only the resync after subscription can carry it.
+    await _waitFor(() => player.playerGetAllHeld);
+    player.playbackStatus = 'Paused';
+    player.title = 'After Gap';
+    await player.emitChanged(<String, DBusValue>{
+      'PlaybackStatus': DBusString('Paused'),
+      'Metadata': player._metadata(),
+    });
+    gate.complete();
+    player.holdPlayerGetAll = null;
+
+    await _waitFor(() => service.current.title == 'After Gap');
+    expect(service.current.available, isTrue);
+    expect(service.current.status, MprisPlaybackStatus.paused);
   });
 
   test('hides when no player claims the bus', () async {

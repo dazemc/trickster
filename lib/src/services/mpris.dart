@@ -233,8 +233,8 @@ class MediaPlayerService {
           await _handleUnavailable();
         } else {
           _cancelUnavailableGrace();
-          await _selectPlayer(candidate.object);
-          _emit(candidate.state);
+          final resynced = await _selectPlayer(candidate.object);
+          _emit(resynced ?? candidate.state);
         }
       } while (_refreshAgain && !_disposed);
     } on Object {
@@ -344,18 +344,28 @@ class MediaPlayerService {
     }
   }
 
-  Future<void> _selectPlayer(DBusRemoteObject? object) async {
+  /// Swaps the active player, installing its PropertiesChanged match. The
+  /// match registers asynchronously, so a change landing between discovery's
+  /// read and the live match would otherwise wait for the recovery scan: the
+  /// new subscription re-reads once and returns that state to the caller.
+  Future<MprisPlaybackState?> _selectPlayer(DBusRemoteObject? object) async {
     if (_activeObject?.name == object?.name) {
-      return;
+      return null;
     }
     await _propertiesSubscription?.cancel();
     _propertiesSubscription = null;
     _activeObject = object;
-    if (object != null) {
-      _propertiesSubscription = object.propertiesChanged
-          .where((signal) => signal.propertiesInterface == playerInterface)
-          .listen(_handlePropertiesChanged);
+    if (object == null) {
+      return null;
     }
+    _propertiesSubscription = object.propertiesChanged
+        .where((signal) => signal.propertiesInterface == playerInterface)
+        .listen(_handlePropertiesChanged);
+    final fresh = await _readPlayer(object.name);
+    if (_disposed || _activeObject?.name != object.name) {
+      return null;
+    }
+    return fresh?.state;
   }
 
   void _handlePropertiesChanged(DBusPropertiesChangedSignal signal) {
