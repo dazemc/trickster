@@ -34,4 +34,9 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   `lib/l10n/app_en.arb`, so a module added from the guide would
   reintroduce hardcoded UI text. Update the guide and
   `docs_site/content/development.md` when 4.2 lands.
+- **Tray icon lookup is theme-name only.** Items publishing an absolute file
+  path or a `file://` URI in `IconName`, and items whose only asset is SVG,
+  keep the placeholder; Denial resolved both. Add the direct-path arm and an
+  SVG rasterizer only if a real item needs them
+  (`lib/src/services/status_notifier.dart`).
 
