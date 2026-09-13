@@ -31,7 +31,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | Phase | Branch | Status | Headline changes |
 | --- | --- | --- | --- |
 | 1 — Bloc migration | `working` | done | flutter_bloc cutover, toJson states, observer transcript |
-| 2 — feel | `working` | in progress | Locale-aware clock time; locale fallback fix; action card in flight |
+| 2 — feel | `working` | done | Workspace pip rail (lens, states, focus verbs); CPU/GPU meters (sysfs + NVML); battery bolt and tap; locale clock |
 | 3 — parity | `working` | queued | StatusNotifier tray, MPRIS media |
 | 4 — finish | `working` | queued | l10n, blur, fonts, per-output surfaces, tricksterctl, options, a11y |
 | 5 — packaging | `working` | queued | Source PKGBUILD, man pages, AUR -bin path |
