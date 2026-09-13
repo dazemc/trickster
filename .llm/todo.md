@@ -22,6 +22,17 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
+- [ ] **2.16 workspace socket reconnect** (M). `lib/src/services/workspaces.dart`.
+      All three backends swallow `onError` and ignore `onDone`, so a dead IPC
+      socket freezes the rail for the session. Re-dial with the existing
+      bounded retry, re-subscribe, and refresh once failure is observable.
+      Done when: fake-socket tests cover drop and recovery per backend.
+- [ ] **2.17 NVML presence gate** (S). `lib/src/services/gpu.dart`. The
+      sampler always calls `_nvml.read()` when no runtime-status files exist,
+      so AMD-only systems load NVML and keep an idle worker isolate alive.
+      Gate the worker on the proprietary driver (`/proc/driver/nvidia/version`)
+      or a discovered NVIDIA card. Done when: tested on a host without NVIDIA.
+
 ## Phase 3 — parity (absent modules)
 
 - [ ] **3.1 StatusNotifier core** (M). New
@@ -69,8 +80,10 @@ silent per the logging rules.
       selection. Done when: selection logic unit-tested.
 - [ ] **4.7 per-output surface lifecycle** (S). Create one layer surface per
       selected monitor with independent clones; destroy dead-output surfaces
-      immediately; frame work only for hosted outputs. Done when: two-monitor
-      run verified, unplug/replug without restart.
+      immediately; frame work only for hosted outputs, and feed each rail the
+      active workspace of its own output (`j/monitors`, Sway `visible`, niri
+      output) instead of the global active join. Done when: two-monitor run
+      verified, unplug/replug without restart.
 - [ ] **4.8 control socket transport** (S). Socket transport behind the
       existing `SettingsDocumentTransport` interface (no store changes).
       Done when: transport round-trip tested, absent socket is a clean error.
