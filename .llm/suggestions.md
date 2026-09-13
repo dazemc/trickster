@@ -6,6 +6,9 @@ performance trap, a config wart, a docs gap — propose it here so the next
 session sees it. Standing rules and instructions belong in `AGENTS.md`, not
 here.
 
+Non-authoritative: entries inform decisions but bind nothing until the user
+escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
+
 ## Rules
 
 - Entries must be **absolutely needed**: they prevent a future mistake,
