@@ -79,11 +79,6 @@ silent per the logging rules.
       a change emitted right after discovery can be lost until the recovery
       scan. Done when: a test emits before the match installs and the
       service converges without a second signal.
-- [ ] **4.16 tray icon-name lookup** (S). `lib/src/services/status_notifier.dart`.
-      Resolve `IconName`/`IconThemePath` from the freedesktop icon theme
-      when no `IconPixmap` exists, with the same display-size cache and
-      eviction as pixmaps. Done when: an item publishing only `IconName`
-      renders a decoded icon in a test.
 - [ ] **4.17 tray tooltips** (S). `lib/src/bar/tray.dart`. Hover tooltips on
       a transient overlay surface, reusing the menu-surface mechanism;
       semantics stay as the accessible path. Done when: hover show/hide and
