@@ -27,6 +27,7 @@ Future<void> _pump(
   List<Workspace> workspaces, {
   bool horizontal = true,
   bool reduceMotion = false,
+  ValueChanged<Workspace>? onPressed,
 }) {
   return tester.pumpWidget(
     MediaQuery(
@@ -38,6 +39,7 @@ Future<void> _pump(
             accent: _accent,
             workspaces: workspaces,
             horizontal: horizontal,
+            onPressed: onPressed,
           ),
         ),
       ),
@@ -83,12 +85,48 @@ void main() {
     expect(_alignment(tester), const Alignment(0, 1));
   });
 
-  testWidgets('reduced motion zeroes the lens animation', (tester) async {
-    await _pump(tester, _focused('2'), reduceMotion: true);
+  testWidgets('reduced motion zeroes the rail animations', (tester) async {
+    await _pump(
+      tester,
+      const [
+        Workspace(id: '1', name: '1'),
+        Workspace(id: '2', name: '2', focused: true),
+      ],
+      reduceMotion: true,
+    );
     final lens = tester.widget<AnimatedAlign>(
       find.byKey(WorkspacesPill.lensKey),
     );
     expect(lens.duration, Duration.zero);
+    final pip = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('workspace-pip-1')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect(pip.duration, Duration.zero);
+  });
+
+  testWidgets('each pip fires the callback with its own workspace', (
+    tester,
+  ) async {
+    final pressed = <Workspace>[];
+    await _pump(tester, _focused('2'), onPressed: pressed.add);
+    await tester.tap(find.byKey(const ValueKey<String>('workspace-pip-1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('workspace-pip-3')));
+    await tester.pump();
+    expect(pressed, [_three[0], _three[2]]);
+  });
+
+  testWidgets('pip semantics announce name, state, and selection', (
+    tester,
+  ) async {
+    await _pump(tester, _focused('2'), onPressed: (_) {});
+    expect(
+      find.bySemanticsLabel('Workspace web, empty, active'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('pips distinguish empty, occupied, and urgent states', (
@@ -114,11 +152,11 @@ void main() {
 }
 
 Color? _pipColor(WidgetTester tester, String id) {
-  final decorated = tester.widget<DecoratedBox>(
+  final pip = tester.widget<AnimatedContainer>(
     find.descendant(
       of: find.byKey(ValueKey<String>('workspace-pip-$id')),
-      matching: find.byType(DecoratedBox),
+      matching: find.byType(AnimatedContainer),
     ),
   );
-  return (decorated.decoration as BoxDecoration).color;
+  return (pip.decoration as BoxDecoration?)?.color;
 }

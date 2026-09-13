@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart'
+    show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
 import '../services/workspaces.dart';
@@ -11,6 +13,7 @@ class WorkspacesPill extends StatelessWidget {
     required this.accent,
     required this.workspaces,
     required this.horizontal,
+    this.onPressed,
     super.key,
   });
 
@@ -24,6 +27,7 @@ class WorkspacesPill extends StatelessWidget {
   final WallpaperAccent accent;
   final List<Workspace> workspaces;
   final bool horizontal;
+  final ValueChanged<Workspace>? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -71,25 +75,96 @@ class WorkspacesPill extends StatelessWidget {
               direction: horizontal ? Axis.horizontal : Axis.vertical,
               children: [
                 for (final workspace in workspaces)
-                  SizedBox(
+                  _WorkspacePipButton(
                     key: ValueKey<String>('workspace-pip-${workspace.id}'),
-                    width: horizontal ? _itemExtent : _crossExtent,
-                    height: horizontal ? _crossExtent : _itemExtent,
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: _pipSize,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _pipColor(workspace, accent),
-                          ),
-                        ),
-                      ),
-                    ),
+                    workspace: workspace,
+                    accent: accent,
+                    horizontal: horizontal,
+                    onPressed: onPressed == null
+                        ? null
+                        : () => onPressed!(workspace),
                   ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspacePipButton extends StatefulWidget {
+  const _WorkspacePipButton({
+    required this.workspace,
+    required this.accent,
+    required this.horizontal,
+    required this.onPressed,
+    super.key,
+  });
+
+  final Workspace workspace;
+  final WallpaperAccent accent;
+  final bool horizontal;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_WorkspacePipButton> createState() => _WorkspacePipButtonState();
+}
+
+class _WorkspacePipButtonState extends State<_WorkspacePipButton> {
+  var _hovered = false;
+  var _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final workspace = widget.workspace;
+    final description = workspace.occupied ? 'occupied' : 'empty';
+    final label =
+        'Workspace ${workspace.name}, $description'
+        '${workspace.urgent ? ', urgent' : ''}'
+        '${workspace.focused ? ', active' : ''}';
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return Semantics(
+      button: true,
+      selected: workspace.focused,
+      label: label,
+      onTap: widget.onPressed,
+      child: ExcludeSemantics(
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(999)),
+            mouseCursor: SystemMouseCursors.click,
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: WidgetStatePropertyAll(
+              widget.accent.color.withValues(
+                alpha: _hovered || _focused ? 0.12 : 0.0,
+              ),
+            ),
+            onTap: widget.onPressed,
+            onHover: (value) => setState(() => _hovered = value),
+            onFocusChange: (value) => setState(() => _focused = value),
+            child: SizedBox(
+              width: widget.horizontal
+                  ? WorkspacesPill._itemExtent
+                  : WorkspacesPill._crossExtent,
+              height: widget.horizontal
+                  ? WorkspacesPill._crossExtent
+                  : WorkspacesPill._itemExtent,
+              child: Center(
+                child: AnimatedContainer(
+                  duration: reduceMotion ? Duration.zero : Motion.pill,
+                  curve: Motion.standard,
+                  width: WorkspacesPill._pipSize,
+                  height: WorkspacesPill._pipSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _pipColor(workspace, widget.accent),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
