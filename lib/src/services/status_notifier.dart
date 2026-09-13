@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show Offset;
+import 'dart:isolate';
+import 'dart:ui' show ImageByteFormat, Offset, instantiateImageCodec;
 
 import 'package:dbus/dbus.dart';
 import 'package:equatable/equatable.dart';
@@ -240,6 +241,9 @@ class StatusNotifierService {
   final Map<String, Map<String, DBusValue>> _itemProperties = {};
   final Map<String, SystemTrayIconPixmap?> _normalPixmaps = {};
   final Map<String, SystemTrayIconPixmap?> _attentionPixmaps = {};
+  final Map<String, String?> _iconPaths = {};
+  final Map<String, SystemTrayIconPixmap?> _iconFiles = {};
+  final Set<String> _iconLoads = {};
   final Map<String, _PendingStatusNotifierRefresh> _pendingRefreshes = {};
   List<SystemTrayItem> _lastSnapshot = const <SystemTrayItem>[];
 
@@ -679,6 +683,11 @@ class StatusNotifierService {
     if (attention && iconName.isEmpty) {
       iconName = _boundedText(_string(properties['IconName']), 512);
     }
+    final themePath = _boundedText(_string(properties['IconThemePath']), 4096);
+    pixmap ??= _cachedIconPixmap(iconName, themePath);
+    if (pixmap == null && iconName.isNotEmpty) {
+      _ensureIconPixmap(iconName, themePath);
+    }
     final itemId = _boundedText(_string(properties['Id']), 256);
     final rawTitle = _boundedText(_string(properties['Title']), 256);
     final title = rawTitle.isNotEmpty
@@ -692,13 +701,94 @@ class StatusNotifierService {
       title: title,
       status: status,
       iconName: iconName,
-      iconThemePath: _boundedText(_string(properties['IconThemePath']), 4096),
+      iconThemePath: themePath,
       iconPixmap: pixmap,
       menuAvailable: menuPath != null && menuPath != '/',
       primaryOpensMenu: _boolean(properties['ItemIsMenu']),
       menuPath: menuPath ?? '',
     );
     _emit();
+  }
+
+  /// The decoded icon-name cache entry for one item, or null while the file
+  /// lookup and decode are pending (or when the name is unknown).
+  SystemTrayIconPixmap? _cachedIconPixmap(String iconName, String themePath) {
+    if (iconName.isEmpty) {
+      return null;
+    }
+    final key = _iconCacheKey(iconName, themePath);
+    return _iconFiles.containsKey(key) ? _iconFiles[key] : null;
+  }
+
+  void _ensureIconPixmap(String iconName, String themePath) {
+    final key = _iconCacheKey(iconName, themePath);
+    if (_iconFiles.containsKey(key) || !_iconLoads.add(key)) {
+      return;
+    }
+    unawaited(_loadIconPixmap(key, iconName, themePath));
+  }
+
+  static String _iconCacheKey(String iconName, String themePath) =>
+      '$iconName\u0000$themePath';
+
+  /// Resolves the file path off the UI isolate, then decodes it in-place at
+  /// the display size. Results are cached per name/theme and per path; the
+  /// item is re-emitted once the icon lands.
+  Future<void> _loadIconPixmap(
+    String key,
+    String iconName,
+    String themePath,
+  ) async {
+    SystemTrayIconPixmap? pixmap;
+    try {
+      final path = await _iconPath(iconName, themePath);
+      if (path != null) {
+        pixmap = await _decodeIconFile(path);
+      }
+    } on Object {
+      pixmap = null;
+    } finally {
+      _iconLoads.remove(key);
+    }
+    if (_disposed) {
+      return;
+    }
+    _storeIconFile(key, pixmap);
+    for (final item in List<SystemTrayItem>.of(_items.values)) {
+      if (item.iconName == iconName && item.iconThemePath == themePath) {
+        final registration = _registrations[item.id];
+        if (registration != null) {
+          _updateItem(registration);
+        }
+      }
+    }
+  }
+
+  Future<String?> _iconPath(String iconName, String themePath) async {
+    final key = _iconCacheKey(iconName, themePath);
+    if (_iconPaths.containsKey(key)) {
+      return _iconPaths[key];
+    }
+    String? path;
+    try {
+      path = await Isolate.run(() => _resolveTrayIconPath(iconName, themePath));
+    } on Object {
+      path = null;
+    }
+    _iconPaths.remove(key);
+    _iconPaths[key] = path;
+    while (_iconPaths.length > _StatusNotifierLimits.maxIconPaths) {
+      _iconPaths.remove(_iconPaths.keys.first);
+    }
+    return path;
+  }
+
+  void _storeIconFile(String key, SystemTrayIconPixmap? pixmap) {
+    _iconFiles.remove(key);
+    _iconFiles[key] = pixmap;
+    while (_iconFiles.length > _StatusNotifierLimits.maxDecodedIcons) {
+      _iconFiles.remove(_iconFiles.keys.first);
+    }
   }
 
   /// Invokes an item method with the bar-relative pointer position. Returns
@@ -1377,6 +1467,294 @@ abstract final class _StatusNotifierLimits {
   static const int maxInputIconBytes =
       maxInputDimension * maxInputDimension * 4;
   static const int maxOutputDimension = 64;
+  static const int maxIconPaths = 256;
+  static const int maxDecodedIcons = 64;
+  static const int maxIconFileBytes = 8 * 1024 * 1024;
+}
+
+/// Resolves `IconName`/`IconThemePath` the way a freedesktop host does.
+/// Exposed for tests; production runs this on a worker isolate.
+@visibleForTesting
+String? resolveStatusNotifierIconForTesting(
+  String iconName,
+  String iconThemePath,
+) => _resolveTrayIconPath(iconName, iconThemePath);
+
+const List<String> _trayIconExtensions = <String>['png', 'webp', 'jpg', 'jpeg'];
+const List<String> _trayIconSizes = <String>[
+  'scalable',
+  '128x128',
+  '96x96',
+  '64x64',
+  '48x48',
+  '32x32',
+  '24x24',
+  '22x22',
+  '16x16',
+];
+const List<String> _trayIconContexts = <String>[
+  'status',
+  'apps',
+  'devices',
+  'actions',
+];
+const List<String> _trayThemeSizes = <String>[
+  'scalable',
+  '512x512',
+  '256x256',
+  '192x192',
+  '128x128',
+  '96x96',
+  '64x64',
+  '48x48',
+  '36x36',
+  '32x32',
+  '24x24',
+  '22x22',
+  '16x16',
+];
+const List<String> _trayThemeContexts = <String>[
+  'apps',
+  'status',
+  'actions',
+  'devices',
+  'categories',
+  'places',
+  'mimetypes',
+  'legacy',
+  'panel',
+  'ui',
+];
+
+String _joinIconPath(String parent, String child) =>
+    parent.endsWith('/') ? '$parent$child' : '$parent/$child';
+
+List<String> _uniqueIconPaths(Iterable<String> values) {
+  final seen = <String>{};
+  final unique = <String>[];
+  for (final value in values) {
+    if (value.isEmpty || !seen.add(value)) {
+      continue;
+    }
+    unique.add(value);
+  }
+  return unique;
+}
+
+String _stripIconExtension(String name) {
+  final lower = name.toLowerCase();
+  for (final extension in _trayIconExtensions) {
+    final suffix = '.$extension';
+    if (lower.endsWith(suffix)) {
+      return name.substring(0, name.length - suffix.length);
+    }
+  }
+  return name;
+}
+
+bool _isSafeIconFile(String path) {
+  try {
+    final stat = File(path).statSync();
+    return stat.type == FileSystemEntityType.file &&
+        stat.size > 0 &&
+        stat.size <= _StatusNotifierLimits.maxIconFileBytes;
+  } on FileSystemException {
+    return false;
+  }
+}
+
+String? _findIconWithExtension(String base) {
+  for (final extension in _trayIconExtensions) {
+    final path = '$base.$extension';
+    if (_isSafeIconFile(path)) {
+      return path;
+    }
+  }
+  return null;
+}
+
+String? _resolveTrayIconPath(String iconName, String iconThemePath) {
+  final requested = iconName.trim();
+  if (requested.isEmpty) {
+    return null;
+  }
+  final name = _stripIconExtension(requested);
+  if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
+    return null;
+  }
+  for (final root in _uniqueIconPaths(iconThemePath.split(':'))) {
+    if (!root.startsWith('/')) {
+      continue;
+    }
+    final direct = _findIconWithExtension(_joinIconPath(root, name));
+    if (direct != null) {
+      return direct;
+    }
+    for (final size in _trayIconSizes) {
+      for (final context in _trayIconContexts) {
+        final candidate = _findIconWithExtension(
+          _joinIconPath(
+            _joinIconPath(_joinIconPath(root, size), context),
+            name,
+          ),
+        );
+        if (candidate != null) {
+          return candidate;
+        }
+      }
+    }
+  }
+  for (final root in _iconRoots()) {
+    final pixmap = _findIconWithExtension(
+      _joinIconPath(_joinIconPath(root, 'pixmaps'), name),
+    );
+    if (pixmap != null) {
+      return pixmap;
+    }
+    final iconsDir = Directory(_joinIconPath(root, 'icons'));
+    if (!iconsDir.existsSync()) {
+      continue;
+    }
+    final themes = <String>[
+      _joinIconPath(iconsDir.path, 'hicolor'),
+      _joinIconPath(iconsDir.path, 'Adwaita'),
+      _joinIconPath(iconsDir.path, 'Tela'),
+    ];
+    try {
+      for (final entity in iconsDir.listSync(followLinks: false)) {
+        if (entity is Directory) {
+          themes.add(entity.path);
+        }
+      }
+    } on FileSystemException {
+      continue;
+    }
+    for (final theme in _uniqueIconPaths(themes)) {
+      for (final directory in _iconThemeDirectories(theme)) {
+        final candidate = _findIconWithExtension(
+          _joinIconPath(_joinIconPath(theme, directory), name),
+        );
+        if (candidate != null) {
+          return candidate;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+List<String> _iconRoots() {
+  final environment = Platform.environment;
+  final home = environment['HOME'] ?? '';
+  final dataHome =
+      environment['XDG_DATA_HOME'] ??
+      (home.isEmpty ? '' : '$home/.local/share');
+  final dataDirs =
+      (environment['XDG_DATA_DIRS'] ?? '/usr/local/share:/usr/share').split(
+        ':',
+      );
+  return _uniqueIconPaths(<String>[
+    dataHome,
+    ...dataDirs,
+    if (home.isNotEmpty) '$home/.local/share/flatpak/exports/share',
+    '/var/lib/flatpak/exports/share',
+  ]);
+}
+
+List<String> _iconThemeDirectories(String theme) {
+  final directories = <String>[
+    for (final size in _trayThemeSizes)
+      for (final context in _trayThemeContexts) _joinIconPath(size, context),
+    for (final context in _trayThemeContexts)
+      _joinIconPath('symbolic', context),
+  ];
+  try {
+    var inIconTheme = false;
+    for (final rawLine in File(
+      _joinIconPath(theme, 'index.theme'),
+    ).readAsLinesSync()) {
+      final line = rawLine.trim();
+      if (line.startsWith('[') && line.endsWith(']')) {
+        inIconTheme = line == '[Icon Theme]';
+        continue;
+      }
+      if (!inIconTheme) {
+        continue;
+      }
+      final equals = line.indexOf('=');
+      if (equals <= 0) {
+        continue;
+      }
+      final key = line.substring(0, equals);
+      if (key != 'Directories' && key != 'ScaledDirectories') {
+        continue;
+      }
+      for (final value in line.substring(equals + 1).split(',')) {
+        final directory = value.trim();
+        if (_isSafeRelativeIconDirectory(directory)) {
+          directories.add(directory);
+        }
+      }
+    }
+  } on FileSystemException {
+    // Themes without an index still get the conventional lookup paths.
+  }
+  return _uniqueIconPaths(directories);
+}
+
+bool _isSafeRelativeIconDirectory(String value) {
+  if (value.isEmpty || value.startsWith('/')) {
+    return false;
+  }
+  for (final component in value.split('/')) {
+    if (component.isEmpty || component == '.' || component == '..') {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// Decodes an icon file at the strip's display size. [ImageByteFormat.rawRgba]
+/// is premultiplied, matching [SystemTrayIconPixmap].
+Future<SystemTrayIconPixmap?> _decodeIconFile(String path) async {
+  try {
+    final stat = await File(path).stat();
+    if (stat.type != FileSystemEntityType.file ||
+        stat.size <= 0 ||
+        stat.size > _StatusNotifierLimits.maxIconFileBytes) {
+      return null;
+    }
+    final bytes = await File(path).readAsBytes();
+    final codec = await instantiateImageCodec(
+      bytes,
+      targetWidth: _StatusNotifierLimits.preferredIconDimension,
+    );
+    try {
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      try {
+        final longest = image.width > image.height ? image.width : image.height;
+        if (longest > _StatusNotifierLimits.maxOutputDimension) {
+          return null;
+        }
+        final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+        if (data == null) {
+          return null;
+        }
+        return SystemTrayIconPixmap(
+          width: image.width,
+          height: image.height,
+          rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        );
+      } finally {
+        image.dispose();
+      }
+    } finally {
+      codec.dispose();
+    }
+  } on Object {
+    return null;
+  }
 }
 
 @visibleForTesting

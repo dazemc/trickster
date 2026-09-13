@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dbus/dbus.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -278,7 +279,81 @@ List<int> _argbBytes(int width, int height, int alpha) {
   ];
 }
 
+/// A 4x4 opaque red PNG: small, valid, and decodable by the engine codec.
+const String _pngFixture =
+    'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC';
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('resolves icon names from the item theme path', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-icons');
+    addTearDown(() => directory.delete(recursive: true));
+    final bytes = base64Decode(_pngFixture);
+    await File('${directory.path}/direct-icon.png').writeAsBytes(bytes);
+    final statusDir = Directory('${directory.path}/22x22/status');
+    await statusDir.create(recursive: true);
+    await File('${statusDir.path}/theme-icon.png').writeAsBytes(bytes);
+
+    expect(
+      resolveStatusNotifierIconForTesting('direct-icon', directory.path),
+      '${directory.path}/direct-icon.png',
+    );
+    expect(
+      resolveStatusNotifierIconForTesting('theme-icon', directory.path),
+      '${statusDir.path}/theme-icon.png',
+    );
+    expect(
+      resolveStatusNotifierIconForTesting('missing', directory.path),
+      isNull,
+    );
+    expect(
+      resolveStatusNotifierIconForTesting('../evil', directory.path),
+      isNull,
+    );
+    expect(resolveStatusNotifierIconForTesting('', directory.path), isNull);
+  });
+
+  test('decodes an icon-name item into a display-size pixmap', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final icons = await Directory.systemTemp.createTemp('trickster-tray-icons');
+    addTearDown(() => icons.delete(recursive: true));
+    final statusDir = Directory('${icons.path}/22x22/status');
+    await statusDir.create(recursive: true);
+    await File(
+      '${statusDir.path}/theme-icon.png',
+    ).writeAsBytes(base64Decode(_pngFixture));
+
+    final service = StatusNotifierService(client: bus.client());
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+    await service.start();
+
+    final tray = bus.client();
+    addTearDown(tray.close);
+    final itemObject = _FakeTrayItemObject()
+      ..iconName = 'theme-icon'
+      ..iconThemePath = icons.path;
+    await tray.registerObject(itemObject);
+    await tray.requestName('org.example.Tray');
+
+    final probe = bus.client();
+    addTearDown(probe.close);
+    final watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(
+      () => snapshots.isNotEmpty && snapshots.last.single.iconPixmap != null,
+    );
+
+    final icon = snapshots.last.single.iconPixmap!;
+    expect(icon.width, 24);
+    expect(icon.height, 24);
+    expect(icon.rgba.length, 24 * 24 * 4);
+  });
+
   test('hosts the watcher and answers host queries', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
