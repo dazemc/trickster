@@ -12,21 +12,24 @@ class Workspace extends Equatable {
     required this.name,
     this.focused = false,
     this.urgent = false,
+    this.occupied = false,
   });
 
   final String id;
   final String name;
   final bool focused;
   final bool urgent;
+  final bool occupied;
 
   @override
-  List<Object?> get props => [id, name, focused, urgent];
+  List<Object?> get props => [id, name, focused, urgent, occupied];
 
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
     'focused': focused,
     'urgent': urgent,
+    'occupied': occupied,
   };
 
   static Workspace fromJson(Map<String, dynamic> json) => Workspace(
@@ -34,6 +37,7 @@ class Workspace extends Equatable {
     name: '${json['name']}',
     focused: (json['focused'] as bool?) ?? false,
     urgent: (json['urgent'] as bool?) ?? false,
+    occupied: (json['occupied'] as bool?) ?? false,
   );
 }
 
@@ -214,6 +218,7 @@ class HyprlandWorkspaces implements WorkspaceBackend {
           continue;
         }
         final id = '${entry['id']}';
+        final windows = entry['windows'];
         workspaces.add(
           Workspace(
             id: id,
@@ -222,6 +227,7 @@ class HyprlandWorkspaces implements WorkspaceBackend {
                 ? id == activeId
                 : entry['focused'] == true,
             urgent: urgentIds.contains(id),
+            occupied: windows is num && windows > 0,
           ),
         );
       }
@@ -444,6 +450,7 @@ class NiriWorkspaces implements WorkspaceBackend {
             name: '${entry['name'] ?? entry['idx'] ?? entry['id']}',
             focused: entry['is_focused'] == true || entry['focused'] == true,
             urgent: entry['is_urgent'] == true,
+            occupied: entry['active_window_id'] != null,
           ),
         );
       }

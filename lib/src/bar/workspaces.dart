@@ -81,10 +81,7 @@ class WorkspacesPill extends StatelessWidget {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: workspace.focused
-                                ? accent.color
-                                : ShellMediaColors.lightForegroundSecondary
-                                      .withValues(alpha: 0.55),
+                            color: _pipColor(workspace, accent),
                           ),
                         ),
                       ),
@@ -105,4 +102,17 @@ Alignment _activeAlignment(int active, int count, bool horizontal) {
       ? 0.0
       : -1.0 + (2.0 * index / (count - 1));
   return horizontal ? Alignment(position, 0) : Alignment(0, position);
+}
+
+Color _pipColor(Workspace workspace, WallpaperAccent accent) {
+  if (workspace.focused) {
+    return accent.color;
+  }
+  if (workspace.urgent) {
+    return ShellTelemetryColors.warning;
+  }
+  if (workspace.occupied) {
+    return ShellMediaColors.lightForeground;
+  }
+  return ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.55);
 }

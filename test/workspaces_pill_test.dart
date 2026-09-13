@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
@@ -89,4 +90,35 @@ void main() {
     );
     expect(lens.duration, Duration.zero);
   });
+
+  testWidgets('pips distinguish empty, occupied, and urgent states', (
+    tester,
+  ) async {
+    await _pump(tester, const [
+      Workspace(id: '1', name: '1'),
+      Workspace(id: '2', name: '2', occupied: true),
+      Workspace(id: '3', name: '3', urgent: true),
+    ]);
+    final empty = _pipColor(tester, '1');
+    final occupied = _pipColor(tester, '2');
+    final urgent = _pipColor(tester, '3');
+    expect(occupied, ShellMediaColors.lightForeground);
+    expect(urgent, ShellTelemetryColors.warning);
+    expect({empty, occupied, urgent}, hasLength(3));
+  });
+
+  testWidgets('focused pip carries the accent', (tester) async {
+    await _pump(tester, _focused('2'));
+    expect(_pipColor(tester, '2'), _accent.color);
+  });
+}
+
+Color? _pipColor(WidgetTester tester, String id) {
+  final decorated = tester.widget<DecoratedBox>(
+    find.descendant(
+      of: find.byKey(ValueKey<String>('workspace-pip-$id')),
+      matching: find.byType(DecoratedBox),
+    ),
+  );
+  return (decorated.decoration as BoxDecoration).color;
 }

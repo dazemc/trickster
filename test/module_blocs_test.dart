@@ -244,6 +244,7 @@ void main() {
         name: 'web',
         focused: false,
         urgent: true,
+        occupied: true,
       );
       final decoded = Workspace.fromJson(
         Map<String, dynamic>.from(workspace.toJson()),
@@ -251,6 +252,7 @@ void main() {
       expect(decoded.id, '2');
       expect(decoded.name, 'web');
       expect(decoded.urgent, isTrue);
+      expect(decoded.occupied, isTrue);
       final list = workspacesFromJson(workspacesToJson([workspace]).toList());
       expect(list.length, 1);
       expect(list.first.id, '2');

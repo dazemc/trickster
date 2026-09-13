@@ -146,7 +146,7 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1'),
+          Workspace(id: '1', name: '1', occupied: true),
           Workspace(id: '2', name: '2', focused: true),
         ]),
       );
@@ -165,7 +165,7 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1'),
+          Workspace(id: '1', name: '1', occupied: true),
           Workspace(id: '2', name: '2', focused: true),
         ]),
       );
@@ -185,7 +185,7 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1', urgent: true),
+          Workspace(id: '1', name: '1', urgent: true, occupied: true),
           Workspace(id: '2', name: '2', focused: true),
         ]),
       );
@@ -243,7 +243,7 @@ void main() {
       final expectation = expectLater(
         bloc.stream,
         emits(const WorkspacesState([
-          Workspace(id: '1', name: '1'),
+          Workspace(id: '1', name: '1', occupied: true),
           Workspace(id: '2', name: '2', focused: true),
         ])),
       );
@@ -281,7 +281,7 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1'),
+          Workspace(id: '1', name: '1', occupied: true),
           Workspace(id: '2', name: '2', focused: true),
         ]),
       );
