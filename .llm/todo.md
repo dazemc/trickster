@@ -28,9 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.6 MPRIS service** (M). New `lib/src/services/mpris.{dart,test}`.
-      Player discovery, playback state, metadata; hide when no player claims
-      the bus. Done when: state mapping tested against a fake player.
 - [ ] **3.7 media pill + controls** (S). New `lib/src/bar/media.dart`.
       Artist/title + playing state; tap reveals play/pause/next; `select`
       on available/playing only. Done when: controls drive a real player
