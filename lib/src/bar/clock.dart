@@ -66,7 +66,7 @@ class _ClockModuleState extends State<_ClockModule> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          _formatDate(_now),
+          _formatDate(context, _now),
           style: ShellText.systemBarCaption.copyWith(
             color: widget.accent.captionColor(),
           ),
@@ -103,21 +103,14 @@ class _ClockModuleState extends State<_ClockModule> {
     return DateFormat.jm(locale).format(now);
   }
 
-  String _formatDate(DateTime now) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[now.month - 1]} ${now.day}';
+  String _formatDate(BuildContext context, DateTime now) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return formatBarDate(now, locale);
   }
+}
+
+/// Locale-aware date caption (`Sep 12` in `en_US`, `12. Sept.` in `de_DE`).
+/// Kept top-level and pure so unit tests can pin fixed dates.
+String formatBarDate(DateTime now, String locale) {
+  return DateFormat.MMMd(locale).format(now);
 }

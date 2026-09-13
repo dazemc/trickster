@@ -108,6 +108,12 @@ void main() {
     expect(texts, anyOf(contains('AM'), contains('PM')));
   });
 
+  test('bar date caption follows the locale', () {
+    final fixed = DateTime(2026, 9, 12);
+    expect(formatBarDate(fixed, 'en_US'), 'Sep 12');
+    expect(formatBarDate(fixed, 'de_DE'), contains('Sept'));
+  });
+
   testWidgets('clock follows the German 24-hour cycle', (tester) async {
     await _pumpClock(tester, const Locale('de', 'DE'));
     await tester.pump(const Duration(milliseconds: 500));
