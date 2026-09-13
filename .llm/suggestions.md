@@ -45,6 +45,11 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   worker). Add resolution or accept the placeholder before tray parity is
   called done. (`lib/src/bar/tray.dart`.)
 - **Tray tooltips are semantics-only.** A Material `Tooltip` overlay clips to
-  the 32px layer surface, so hover text was left to semantics; real tooltips
-  need a popup view/surface. Fold into the 3.5 popup work or a later step.
-  (`lib/src/bar/tray.dart`.)
+  the 32px layer surface, so hover text was left to semantics. The 3.5 menu
+  surfaces are the template: a transient overlay view per popup.
+  (`lib/src/bar/tray.dart`, `lib/src/bar/tray_menu.dart`.)
+- **Menu surface placement is Hyprland-shaped.** `trickster_menu_surface_new`
+  anchors opposite the strip and sizes to the monitor because Hyprland places
+  layer surfaces inside the area left by other surfaces' exclusive zones; a
+  compositor that positions them differently leaves the bar band uncovered and
+  clicks there cannot dismiss. Re-verify menu placement on Sway, niri, river.
