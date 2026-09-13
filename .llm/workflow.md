@@ -1,10 +1,10 @@
 # Trickster repository workflow
 
-- `main` is the stable branch. Exactly one working branch exists beside it:
-  the branch for the phase at the top of `.llm/todo.md` that still has steps
-  — `bar/phase-N`. All of that phase's steps land on the working branch —
-  never on `main`, never on another phase's branch. Merged phase branches
-  are deleted from the remote and locally; branches never accumulate.
+- `main` is the stable branch. Exactly one working branch, `working`, exists
+  beside it and always carries the steps of the phase at the top of
+  `.llm/todo.md` that still has steps. Everything lands on `working` — never
+  on `main`, and no other branches exist (no per-phase `bar/phase-N`
+  branches).
 - Commit every finished TODO step on the working branch as a slice: one commit
   for the code, then one commit per touched LLM-maintained markdown file
   (`.llm/todo.md`, `.llm/suggestions.md`, docs). A step is finished only when
@@ -14,11 +14,10 @@
 - Never start a new phase without the user's explicit go-ahead in chat: no
   branch, no first step, until asked. Merging a finished phase likewise
   waits for confirmation.
-- When a phase's steps are all landed and removed, merge the working branch
-  back into `main` through a pull request, delete the merged branch locally
-  and on the remote, then create the next phase's working branch fresh from
-  the updated `main`. The merge updates the `.llm/docs.md` phase ledger
-  and any touched site pages; verify with `jaspr build`.
+- When a phase's steps are all landed and removed, merge `working` back into
+  `main` through a pull request, then reset `working` to the updated `main`
+  for the next phase. The merge updates the `.llm/docs.md` phase ledger and
+  any touched site pages; verify with `jaspr build`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Any update to `AGENTS.md` itself is committed immediately, in its own
