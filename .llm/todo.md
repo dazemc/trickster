@@ -33,8 +33,6 @@ silent per the logging rules.
 
 ## Phase 5 — packaging and release
 
-- [ ] **5.3 AUR -bin path** (S). Mirror Denial's split packaging for the
-      release bundle.
 
 ## Phase 6 — follow-ups
 
