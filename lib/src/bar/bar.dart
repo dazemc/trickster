@@ -19,9 +19,14 @@ import 'pill.dart';
 import 'workspaces.dart';
 
 class TricksterBarStrip extends StatelessWidget {
-  const TricksterBarStrip({required this.side, super.key});
+  const TricksterBarStrip({
+    required this.side,
+    this.onOpenPowerSettings = _noop,
+    super.key,
+  });
 
   final SystemBarSide side;
+  final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
   static const double _cardMargin = 5;
@@ -108,7 +113,11 @@ class TricksterBarStrip extends StatelessWidget {
                           ? const EdgeInsets.only(right: _cardGap)
                           : const EdgeInsets.only(bottom: _cardGap),
                       child: RepaintBoundary(
-                        child: BatteryPill(accent: accent, status: status),
+                        child: BatteryPill(
+                          accent: accent,
+                          status: status,
+                          onPressed: onOpenPowerSettings,
+                        ),
                       ),
                     ),
                   );
@@ -140,3 +149,5 @@ class TricksterBar {
   final BarSettings settings;
   final WallpaperAccent accent;
 }
+
+void _noop() {}

@@ -6,18 +6,27 @@ import '../theme/tokens.dart';
 import 'pill.dart';
 
 class BatteryPill extends StatelessWidget {
-  const BatteryPill({required this.accent, required this.status, super.key});
+  const BatteryPill({
+    required this.accent,
+    required this.status,
+    required this.onPressed,
+    super.key,
+  });
 
   static const Key gaugeKey = ValueKey<String>('battery-gauge');
 
   final WallpaperAccent accent;
   final BatteryStatus status;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final capacity = status.capacity ?? 0;
-    return SystemBarCard(
+    final state = status.charging ? 'Charging' : 'Discharging';
+    return TricksterActionCard(
       accent: accent,
+      label: 'Battery, $state $capacity%',
+      onPressed: onPressed,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
