@@ -52,12 +52,18 @@ them. Do not let the queue rot.
 
 ## What it is
 
-- One Flutter Linux process. One `wlr-layer-shell` strip surface per
-  connected output (layer, anchors, exclusive zone via `gtk-layer-shell`
-  FFI), plus a transient overlay surface while a tray menu is open. Never a
-  second strip surface, never a second engine.
+- One Flutter Linux process runs the bar: one `wlr-layer-shell` strip
+  surface per connected output (layer, anchors, exclusive zone via
+  `gtk-layer-shell` FFI), plus a transient overlay surface while a tray menu
+  is open. Never a second strip surface, never a second bar engine.
 - Denial's desktop system bar: floating pill cards, wallpaper-derived or
   configured accent, spring entrance, trailing-edge module cluster.
+- Denial's settings application in parity: a standalone
+  `trickster-settings` Flutter process, on demand, with its own engine and
+  no strip surfaces, writing the same documents through the control socket
+  (falling back to the file transport) and speaking the same design
+  language. It covers exactly the settings the bar has — never compositor
+  controls it does not own.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
   tray (StatusNotifier), CPU/GPU, workspaces.
 - Configured like Denial: files on disk. The `TricksterBar(...)` Dart API is
@@ -73,8 +79,9 @@ them. Do not let the queue rot.
   code (`denial_bridge`, XEmbed tray merge, native workspaces, atlas/KMS)
   stays behind. Anything ported keeps Trickster GPL-3.0-or-later.
 - Not a general Flutter application. No Material scaffolding, no unused
-  routes, no settings window in v1, no second engine, no debug overlay in
-  production.
+  routes, no debug overlay in production. The settings application is a
+  standalone process (above); it is never a window inside the bar process
+  and never a second bar engine.
 
 ## Architecture
 
@@ -152,10 +159,12 @@ as first-class bugs.
 
 - Production builds are AOT release. Do not ship JIT, profile, or
   debug-engine artifacts in packages.
-- One Flutter engine, one UI isolate, one process. Blocking OS work that
-  must never stall the frame loop (Hyprland IPC, NVML) may run on worker
-  isolates; they host no widgets and no second engine. `tricksterctl` is a
-  short client against the control socket, never a second UI runtime.
+- One Flutter engine, one UI isolate, one process — per process. Blocking
+  OS work that must never stall the frame loop (Hyprland IPC, NVML) may run
+  on worker isolates; they host no widgets and no second engine.
+  `tricksterctl` is a short client against the control socket, never a
+  second UI runtime. The settings application hosts its own engine only
+  while it is open; it never hosts the bar.
 - Do not start a module that is not configured. Disabled modules have zero
   subscriptions, zero timers, zero D-Bus names.
 - Rebuild only the module whose data changed. Use bloc `select`,
