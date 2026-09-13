@@ -24,3 +24,7 @@ without loading this file. Never read it for context.
 - USER_PROMPT: continue (execute Phase 1 Bloc migration).
 - AGENT_INTERPRETATION: added Cpu/Battery/Workspaces/Clock blocs with Started/Stopped/sample events, sampler subscription owned by each bloc and cancelled on close, fake-sampler subclasses for tests, JSON shapes on all service models, bloc_test lifecycle/sequencing plus round-trips; proven analyze-clean, 44/44 green, clean 5s runtime.
 - COMMIT: b45c4ad 1f2fe2b
+### 2026-09-12 — Equatable across bloc events and states
+- USER_PROMPT: use the equatable library in bloc, before any other phase.
+- AGENT_INTERPRETATION: added equatable dep; all bloc events and states extend Equatable with props (spread trick for list fields, documented in-tree); new WorkspacesState wrapper so the list state has value semantics and a JSON shape; tests assert direct equality on distinct instances; narrowed the equality suggestion to the remaining _apply guard. Proven analyze-clean, 44/44 green.
+- COMMIT: fa39079 6134c4d
