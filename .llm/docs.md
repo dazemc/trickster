@@ -30,7 +30,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 
 | Phase | Branch | Status | Headline changes |
 | --- | --- | --- | --- |
-| 1 — Bloc migration | `bar/phase-1` | queued | flutter_bloc cutover, toJson states, observer transcript |
+| 1 — Bloc migration | `bar/phase-1` | done | flutter_bloc cutover, toJson states, observer transcript |
 | 2 — feel | `bar/phase-2` | in progress | Locale-aware clock time; locale fallback fix; action card in flight |
 | 3 — parity | `bar/phase-3` | queued | StatusNotifier tray, MPRIS media |
 | 4 — finish | `bar/phase-4` | queued | l10n, blur, fonts, per-output surfaces, tricksterctl, options, a11y |
