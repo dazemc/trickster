@@ -58,12 +58,12 @@ them. Do not let the queue rot.
   is open. Never a second strip surface, never a second bar engine.
 - Denial's desktop system bar: floating pill cards, wallpaper-derived or
   configured accent, spring entrance, trailing-edge module cluster.
-- Denial's settings application in parity: a standalone
-  `trickster-settings` Flutter process, on demand, with its own engine and
-  no strip surfaces, writing the same documents through the control socket
-  (falling back to the file transport) and speaking the same design
-  language. It covers exactly the settings the bar has — never compositor
-  controls it does not own.
+- Denial's settings application in parity: the same binary run in settings
+  mode (`trickster-settings`, i.e. `trickster --settings`). It is its own
+  process with its own engine and no strip surfaces, writing the same
+  documents through the control socket (falling back to the file transport)
+  and speaking the same design language. It covers exactly the settings the
+  bar has — never compositor controls it does not own.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
   tray (StatusNotifier), CPU/GPU, workspaces.
 - Configured like Denial: files on disk. The `TricksterBar(...)` Dart API is
