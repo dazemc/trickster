@@ -1,5 +1,9 @@
 # Trickster performance and memory
 
+Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
+`AGENTS.md` → Instruction precedence); on a conflict the higher document wins
+and this file is corrected.
+
 ## Performance
 
 The strip is small. Waste is still forbidden. Treat idle CPU and frame cost
