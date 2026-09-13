@@ -227,6 +227,16 @@ Do not add features Denial's bar does not have until parity is real.
   in the tree. The same applies to every file under `.llm/`: one file per
   commit, committed in the same session as the edit, never bundled with
   code or with each other.
+- `HISTORY.md` (root) is the human changelog. Agents append to it, never
+  read it: do not load it for context, do not grep it, do not include it in
+  reviews. After every landed TODO step or phase merge, append one entry —
+  in its own commit, after the step's slice commits — anchored on the file's
+  end marker (`<!-- append new entries below this line -->`), so no read is
+  ever needed. Entry scheme, exactly:
+  `### <YYYY-MM-DD> — <short title>` on its own line, then
+  `- USER_PROMPT: <faithful condensation of the request, verbatim when short>`
+  then `- AGENT_INTERPRETATION: <what was decided and done>` then
+  `- COMMIT: <hashes>`. Oldest entries first; never reorder, never rewrite.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
