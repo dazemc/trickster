@@ -11,7 +11,7 @@ as first-class bugs.
   client against the control socket, never a second UI runtime.
 - Do not start a module that is not configured. Disabled modules have zero
   subscriptions, zero timers, zero D-Bus names.
-- Rebuild only the module whose data changed. Use Riverpod `select`,
+- Rebuild only the module whose data changed. Use bloc `select`,
   `RepaintBoundary` around each pill, and a clock that ticks inside its own
   widget — never rebuild the strip on a 1 Hz clock.
 - Prefer D-Bus signals and compositor IPC events over polling. `/proc` and
