@@ -1,4 +1,4 @@
-# Porting from Denial
+# Porting from Denial to Trickster
 
 When a Denial file is compositor-agnostic, port it. When it is not, write
 the smallest honest replacement and keep the same type names at the module
