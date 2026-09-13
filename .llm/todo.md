@@ -28,12 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.3 native multi-view foundation** (M). `linux/runner/my_application.cc`
-      + Dart bootstrap. Stable Flutter: one `FlEngine`, one layer-shelled
-      `GtkWindow`/`FlView` per surface via `fl_view_new_for_engine`, and a
-      Dart router that renders the strip in each `FlutterView`. Done when:
-      two surfaces render from one engine in the live session, with idle CPU
-      and per-view RSS measured.
 - [ ] **3.4 tray pill + activate** (S). New `lib/src/bar/tray.dart`. Icon
       row in a pill; left-click activates; tooltips; status semantics.
       Done when: widget-tested with fake items.
