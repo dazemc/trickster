@@ -36,16 +36,19 @@ step at a time, on the working branch (see Repository workflow):
    done-criteria needs eyes on screen, hand the user the exact run-and-look
    commands and wait for their verdict — never substitute screenshots.
 4. Re-read the topical notes under `.llm/` and update the matching file —
-   but only if something is absolutely needed. `.llm/suggestions.md' is a file for agents to write user reviewed suggestions to that may escalate to todo.md. Silence is a valid
-   review outcome; never add noise to justify the read.
+   but only if something is absolutely needed. `.llm/suggestions.md` is for
+   agent-proposed, user-reviewed findings that may escalate to `todo.md`.
+   Silence is a valid review outcome; never add noise to justify the read.
 5. Only then remove the step from `.llm/todo.md`.
 6. Commit in slices: the code change is one commit; every LLM-maintained
    markdown file (`.llm/todo.md`, `.llm/suggestions.md`, docs) gets its own commit.
    Markdown never shares a commit with code, and two markdown files never
    share a commit with each other.
 
-Never remove an untested step. Never batch multiple steps into one change.
-Never check steps off — remove them. Do not let the queue rot.
+Never remove an untested step. A step is one action with one done-criterion;
+split work that spans backends, services, or widgets into separate steps.
+Never batch multiple steps into one change. Never check steps off — remove
+them. Do not let the queue rot.
 
 ## What it is
 
