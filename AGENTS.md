@@ -204,7 +204,7 @@ Do not add features Denial's bar does not have until parity is real.
 ## Repository workflow
 
 - `main` is the stable branch. Each TODO phase gets its own branch from
-  `main`: `bar/phase-a`, `bar/phase-b`, `bar/phase-c`, `bar/packaging`.
+  `main`: `bar/phase-1`, `bar/phase-2`, `bar/phase-3`, `bar/phase-4`.
   All of the phase's steps land on that branch — never on `main`, never on
   another phase's branch.
 - Never start a new phase without the user's explicit go-ahead in chat: no
