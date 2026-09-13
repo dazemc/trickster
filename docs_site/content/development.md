@@ -14,7 +14,7 @@ flutter build linux --release # production AOT
 
 A first build needs network (pubspec + Flutter SDK); later builds reuse the cache. Keep the tree `flutter analyze`-clean. Widget tests cover layout math, config parse/round-trip, settings revision retry, and module state mapping.
 
-Work happens on one branch per phase (`bar/phase-a`, `bar/phase-b`, …), each step committed separately as it lands proven and is removed from `TODO.md`, with the phase merged back into `main` through a pull request when done. Commits follow `scope: summary` in the imperative.
+Work happens on one branch per phase (`bar/phase-a`, `bar/phase-b`, …), each step committed separately as it lands proven and is removed from `.llm/TODO.md`, with the phase merged back into `main` through a pull request when done. Commits follow `scope: summary` in the imperative.
 
 ## Project rules
 
