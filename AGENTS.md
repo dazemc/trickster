@@ -24,7 +24,7 @@ whenever the code is compositor-agnostic. Do not invent a second design
 language.
 
 The work queue lives in `.llm/todo.md`, in build order. Work it top-down one
-step at a time, on the branch for its phase (see Repository workflow):
+step at a time, on the working branch (see Repository workflow):
 
 1. Implement the step, nothing more.
 2. Prove it statically: `flutter analyze` clean, `flutter test` green
@@ -211,11 +211,11 @@ Do not add features Denial's bar does not have until parity is real.
 
 ## Repository workflow
 
-- `main` is the stable branch. Exactly one working branch exists beside it:
-  the branch for the phase at the top of `.llm/todo.md` that still has steps
-  — `bar/phase-N`. All of that phase's steps land on the working branch —
-  never on `main`, never on another phase's branch. Merged phase branches
-  are deleted locally and on the remote; branches never accumulate.
+- `main` is the stable branch. Exactly one working branch, `working`, exists
+  beside it and always carries the steps of the phase at the top of
+  `.llm/todo.md` that still has steps. Everything lands on `working` — never
+  on `main`, and no other branches exist (no per-phase `bar/phase-N`
+  branches).
 - Never start a new phase without the user's explicit go-ahead in chat: no
   branch, no first step, until asked. Merging a finished phase likewise
   waits for confirmation.
@@ -225,10 +225,9 @@ Do not add features Denial's bar does not have until parity is real.
   it is implemented, proven (`flutter analyze` clean, `flutter test` green),
   and removed from `.llm/todo.md`. No direct pushes to `main` beyond initial
   scaffolding.
-- When a phase's steps are all landed and removed, merge the working branch
-  back into `main` through a pull request, delete the merged branch locally
-  and on the remote, then create the next phase's working branch fresh from
-  the updated `main`.
+- When a phase's steps are all landed and removed, merge `working` into
+  `main` through a pull request, then reset `working` to the updated `main`
+  for the next phase. No branch is created per phase.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Any update to `AGENTS.md` itself is committed immediately, in its own
