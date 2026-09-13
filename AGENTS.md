@@ -23,8 +23,23 @@ surface, not a desktop app. Prefer a port of Denial's Dart over a rewrite
 whenever the code is compositor-agnostic. Do not invent a second design
 language.
 
-The work queue lives in `TODO.md`, in build order. Remove items as they
-land — do not check them off, do not let it rot.
+The work queue lives in `TODO.md`, in build order. Work it top-down one
+step at a time, on the branch for its phase (see Repository workflow):
+
+1. Implement the step, nothing more.
+2. Prove it: `flutter analyze` clean, `flutter test` green (plus a release
+   build when native code changes).
+3. Re-read `SUGGESTIONS.md` and update it — but only if something is
+   absolutely needed. Silence is a valid review outcome; never add noise
+   to justify the read.
+4. Only then remove the step from `TODO.md`.
+5. Commit in slices: the code change is one commit; every LLM-maintained
+   markdown file (`TODO.md`, `SUGGESTIONS.md`, docs) gets its own commit.
+   Markdown never shares a commit with code, and two markdown files never
+   share a commit with each other.
+
+Never remove an untested step. Never batch multiple steps into one change.
+Never check steps off — remove them. Do not let the queue rot.
 
 ## What it is
 
@@ -184,9 +199,19 @@ Do not add features Denial's bar does not have until parity is real.
 
 ## Repository workflow
 
-- `main` is the stable branch. Work happens on short-lived feature branches
-  (`bar/<topic>`), merged through pull requests. No direct pushes to `main`
-  beyond initial scaffolding.
+- `main` is the stable branch. Each TODO phase gets its own branch from
+  `main`: `bar/phase-a`, `bar/phase-b`, `bar/phase-c`, `bar/packaging`.
+  All of the phase's steps land on that branch — never on `main`, never on
+  another phase's branch.
+- Commit every finished TODO step on the phase branch as a slice: one commit
+  for the code, then one commit per touched LLM-maintained markdown file
+  (`TODO.md`, `SUGGESTIONS.md`, docs). A step is finished only when it is
+  implemented, proven (`flutter analyze` clean, `flutter test` green), and
+  removed from `TODO.md`. No direct pushes to `main` beyond initial
+  scaffolding.
+- When a phase's steps are all landed and removed, merge the phase branch
+  back into `main` through a pull request, then branch the next phase fresh
+  from the updated `main`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
