@@ -15,6 +15,7 @@ import 'bootstrap.dart';
 import 'config/session.dart';
 import 'config/store.dart';
 import 'config/watcher.dart';
+import 'layout/shell_keys.dart';
 import 'layout/system_bar.dart';
 import 'locale.dart';
 import 'platform/layer_shell.dart';
@@ -353,7 +354,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
       child: MediaQuery.fromView(
         view: widget.view,
         child: Shortcuts(
-          shortcuts: WidgetsApp.defaultShortcuts,
+          shortcuts: shellShortcuts,
           child: Actions(
             actions: WidgetsApp.defaultActions,
             // Autofocus gives the view a key target, so Tab reaches the

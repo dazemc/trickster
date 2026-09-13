@@ -12,6 +12,7 @@ import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
@@ -36,7 +37,7 @@ const _trayItem = SystemTrayItem(
 
 /// Mirrors the shell keymap the app root installs.
 Widget _keymap(Widget child) => Shortcuts(
-  shortcuts: WidgetsApp.defaultShortcuts,
+  shortcuts: shellShortcuts,
   child: Actions(
     actions: WidgetsApp.defaultActions,
     child: FocusScope(

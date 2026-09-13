@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../layout/shell_keys.dart';
 import '../layout/system_bar.dart';
 import '../locale.dart';
 import '../services/status_notifier.dart';
@@ -245,6 +246,12 @@ class _TrayItemButtonState extends State<TrayItemButton> {
               ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
                 onInvoke: (intent) {
                   unawaited(_activatePrimary(_center()));
+                  return null;
+                },
+              ),
+              TrayMenuIntent: CallbackAction<TrayMenuIntent>(
+                onInvoke: (intent) {
+                  unawaited(_openContextMenu(_center()));
                   return null;
                 },
               ),
