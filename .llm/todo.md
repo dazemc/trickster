@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.10 tricksterctl status + version** (S). `bin/tricksterctl.dart`.
-      Short-lived client only, never a second UI runtime. Done when: both
-      commands round-trip against a live bar.
 - [ ] **4.11 tricksterctl reload** (S). Same binary. Re-read configs through
       the same path as the file watcher. Done when: reload applies a config
       edit end to end.
