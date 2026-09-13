@@ -28,9 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.2 tray icon decode + cache** (S). Same service. Decode pixmaps at
-      display size with a hard cap and eviction; never retain raw D-Bus
-      byte arrays. Done when: cap/eviction unit-tested.
 - [ ] **3.3 native multi-view foundation** (M). `linux/runner/my_application.cc`
       + Dart bootstrap. Stable Flutter: one `FlEngine`, one layer-shelled
       `GtkWindow`/`FlView` per surface via `fl_view_new_for_engine`, and a
