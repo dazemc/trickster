@@ -36,11 +36,6 @@ silent per the logging rules.
 
 ## Phase 6 — follow-ups
 
-- [ ] **6.1 direct tray icon sources** (S). `lib/src/services/status_notifier.dart`.
-      `IconName` values that are absolute paths or `file://` URIs, and items
-      whose only asset is SVG, still render the placeholder. Add the
-      direct-path arm and an SVG rasterizer. Done when: both arms are tested
-      against fake items and a real item needs neither.
 - [ ] **6.2 single --check implementation** (S). `lib/main.dart`,
       `linux/runner/my_application.cc`. The native runner intercepts `--check`
       before the Dart entrypoint starts, so Dart's `_check` is dead and can
