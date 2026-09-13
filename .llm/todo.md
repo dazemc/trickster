@@ -34,12 +34,6 @@ silent per the logging rules.
       and `TrayMenuSurface`. Anchor math is Hyprland-verified only; check
       placement and dismissal on Sway, niri, and river. Done when: each
       opens the menu below the strip and every dismissal path works.
-- [ ] **4.19 Hyprland IPC contract** (S). `.llm/performance.md`. The
-      worker-isolate rule for `.socket.sock` (connect+write in one turn; the
-      strip surface hands off before engine start) exists only as code
-      comments. Promote it to a standing performance contract and point
-      `lib/src/services/workspaces.dart` at it. Done when: the contract is
-      in the note and the code references it.
 - [ ] **4.20 bloc widget-test contract** (S). `docs_site/content/development.md`,
       `test/`. Seed states via constructors, let providers own bloc
       lifecycle, assert disposal with a close flag, and never await
