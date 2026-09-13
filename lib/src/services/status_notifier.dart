@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui' show ImageByteFormat, Offset, instantiateImageCodec;
@@ -6,6 +7,7 @@ import 'dart:ui' show ImageByteFormat, Offset, instantiateImageCodec;
 import 'package:dbus/dbus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 /// StatusNotifier item status, in ascending attention order.
 enum SystemTrayStatus { passive, active, needsAttention }
@@ -1480,6 +1482,61 @@ String? resolveStatusNotifierIconForTesting(
   String iconThemePath,
 ) => _resolveTrayIconPath(iconName, iconThemePath);
 
+/// Decodes an icon file exactly as the service does. Exposed for tests.
+@visibleForTesting
+Future<SystemTrayIconPixmap?> decodeStatusNotifierIconForTesting(String path) =>
+    _decodeIconFile(path);
+
+bool _looksLikeSvg(String path, List<int> bytes) {
+  if (path.toLowerCase().endsWith('.svg')) {
+    return true;
+  }
+  final head = utf8.decode(bytes.take(256).toList(), allowMalformed: true);
+  return head.contains('<svg');
+}
+
+/// Rasterizes an SVG icon at the strip's display size. The vector compiler
+/// runs on its own worker isolate inside flutter_svg; the picture is
+/// rendered and flattened here so the rest of the pipeline stays pixel-based.
+Future<SystemTrayIconPixmap?> _decodeSvgIcon(List<int> bytes) async {
+  final info = await vg.loadPicture(
+    SvgStringLoader(utf8.decode(bytes, allowMalformed: true)),
+    null,
+  );
+  try {
+    final size = info.size;
+    if (size.width <= 0 || size.height <= 0) {
+      return null;
+    }
+    final longest = size.width > size.height ? size.width : size.height;
+    final scale = _StatusNotifierLimits.preferredIconDimension / longest;
+    final width = (size.width * scale).round();
+    final height = (size.height * scale).round();
+    if (width <= 0 ||
+        height <= 0 ||
+        width > _StatusNotifierLimits.maxOutputDimension ||
+        height > _StatusNotifierLimits.maxOutputDimension) {
+      return null;
+    }
+    final image = await info.picture.toImage(width, height);
+    try {
+      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+      if (data == null) {
+        return null;
+      }
+      return SystemTrayIconPixmap(
+        width: image.width,
+        height: image.height,
+        rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      );
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    info.picture.dispose();
+  }
+}
+
 const List<String> _trayIconExtensions = <String>['png', 'webp', 'jpg', 'jpeg'];
 const List<String> _trayIconSizes = <String>[
   'scalable',
@@ -1573,10 +1630,34 @@ String? _findIconWithExtension(String base) {
   return null;
 }
 
+/// The freedesktop direct-path arm: `IconName` may be an absolute path or a
+/// `file://` URI instead of a theme name.
+String? _directIconPath(String requested) {
+  String path = requested;
+  if (requested.startsWith('file://')) {
+    final uri = Uri.tryParse(requested);
+    if (uri == null || uri.scheme != 'file' || uri.host.isNotEmpty) {
+      return null;
+    }
+    try {
+      path = uri.toFilePath();
+    } on UnsupportedError {
+      return null;
+    }
+  } else if (!requested.startsWith('/')) {
+    return null;
+  }
+  return File(path).existsSync() ? path : null;
+}
+
 String? _resolveTrayIconPath(String iconName, String iconThemePath) {
   final requested = iconName.trim();
   if (requested.isEmpty) {
     return null;
+  }
+  final direct = _directIconPath(requested);
+  if (direct != null) {
+    return direct;
   }
   final name = _stripIconExtension(requested);
   if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
@@ -1725,6 +1806,9 @@ Future<SystemTrayIconPixmap?> _decodeIconFile(String path) async {
       return null;
     }
     final bytes = await File(path).readAsBytes();
+    if (_looksLikeSvg(path, bytes)) {
+      return await _decodeSvgIcon(bytes);
+    }
     final codec = await instantiateImageCodec(
       bytes,
       targetWidth: _StatusNotifierLimits.preferredIconDimension,
