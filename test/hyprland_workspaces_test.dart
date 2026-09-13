@@ -115,6 +115,13 @@ class _FakeHyprlandServer {
     }
   }
 
+  /// Drops every event connection, simulating a compositor-side socket loss.
+  Future<void> dropEvents() async {
+    for (final sink in _eventSinks.toList()) {
+      await sink.close();
+    }
+  }
+
   Future<void> dispose() async {
     for (final client in _openClients) {
       try {
@@ -226,6 +233,41 @@ void main() {
       await backend.dispose();
       expect(seen[0][0].urgent, isFalse);
       expect(seen[1][0].urgent, isTrue);
+      expect(seen[1][1].focused, isTrue);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('reconnects the event socket and refreshes after a drop', () async {
+    final server = await _FakeHyprlandServer.bind(
+      keepOpen: false,
+      withEvents: true,
+    );
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final seen = <List<Workspace>>[];
+      final sub = backend.snapshots.listen(seen.add);
+      await backend.start().timeout(const Duration(seconds: 5));
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (seen.isEmpty) {
+        if (DateTime.now().isAfter(deadline)) {
+          fail('timed out waiting for the initial snapshot');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+
+      await server.dropEvents();
+      final recovery = DateTime.now().add(const Duration(seconds: 5));
+      while (seen.length < 2) {
+        if (DateTime.now().isAfter(recovery)) {
+          fail('timed out waiting for the reconnect refresh');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+
+      await sub.cancel();
+      await backend.dispose();
       expect(seen[1][1].focused, isTrue);
     } finally {
       await server.dispose();

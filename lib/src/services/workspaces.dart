@@ -161,8 +161,15 @@ class HyprlandWorkspaces extends WorkspaceBackend {
 
   static const _replyTimeout = Duration(seconds: 5);
 
+  static const _reconnectDelayBase = Duration(milliseconds: 500);
+
+  static const _reconnectDelayMax = Duration(seconds: 5);
+
   final String? _socketDir;
   Socket? _events;
+  Timer? _reconnect;
+  Duration _reconnectDelay = _reconnectDelayBase;
+  var _generation = 0;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -171,17 +178,39 @@ class HyprlandWorkspaces extends WorkspaceBackend {
   @override
   Future<void> start() async {
     await _refresh();
+    _connectEvents();
+  }
+
+  void _connectEvents() {
     final dir = _socketDir;
     if (dir == null) {
       return;
     }
+    final generation = _generation;
+    unawaited(_dialEvents(dir, generation));
+  }
+
+  Future<void> _dialEvents(String dir, int generation) async {
+    Socket socket;
     try {
-      _events = await Socket.connect(
+      socket = await Socket.connect(
         InternetAddress('$dir/.socket2.sock', type: InternetAddressType.unix),
         0,
       );
-      final buffer = StringBuffer();
-      _events!.listen((data) {
+    } on Object {
+      _scheduleReconnect(generation);
+      return;
+    }
+    if (generation != _generation) {
+      await socket.close();
+      return;
+    }
+    _events = socket;
+    _reconnectDelay = _reconnectDelayBase;
+    unawaited(_refresh());
+    final buffer = StringBuffer();
+    socket.listen(
+      (data) {
         // socket2 sends newline-terminated `event>>payload` lines; a chunk
         // boundary can split them, so reassemble before matching.
         buffer.write(utf8.decode(data, allowMalformed: true));
@@ -195,10 +224,29 @@ class HyprlandWorkspaces extends WorkspaceBackend {
         buffer
           ..clear()
           ..write(text);
-      }, onError: (_) {});
-    } on Object {
+      },
+      onError: (_) {},
+      onDone: () => _scheduleReconnect(generation),
+    );
+  }
+
+  /// Re-dials the event socket after a drop or a refused connection, with a
+  /// capped backoff so a compositor restart recovers without hot-looping.
+  void _scheduleReconnect(int generation) {
+    if (_generation != generation) {
       return;
     }
+    _generation += 1;
+    _events = null;
+    _reconnect?.cancel();
+    _reconnect = Timer(_reconnectDelay, () {
+      _reconnect = null;
+      if (_generation == generation + 1) {
+        _connectEvents();
+      }
+    });
+    final next = _reconnectDelay * 2;
+    _reconnectDelay = next > _reconnectDelayMax ? _reconnectDelayMax : next;
   }
 
   void _handleEvent(String line) {
@@ -414,6 +462,9 @@ class HyprlandWorkspaces extends WorkspaceBackend {
 
   @override
   Future<void> dispose() async {
+    _generation += 1;
+    _reconnect?.cancel();
+    _reconnect = null;
     await _events?.close();
     _events = null;
     await _controller.close();
