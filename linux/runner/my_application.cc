@@ -1,5 +1,6 @@
 #include "my_application.h"
 
+#include <gdk/gdkwayland.h>
 #include <gtk-layer-shell.h>
 #include <flutter_linux/flutter_linux.h>
 
@@ -16,6 +17,8 @@ struct _MyApplication {
   FlEngine* engine;
   GPtrArray* surfaces;
   GPtrArray* menus;
+  gboolean blur_checked;
+  gboolean blur_supported;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -83,6 +86,41 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
   // request on axes anchored to opposite edges is ignored, and the resize
   // hint must stay bogus so GTK does not allocate an intermediate size.
   gtk_window_resize(window, 1, 1);
+}
+
+static void blur_registry_global(void* data, struct wl_registry* registry,
+                                 uint32_t name, const char* interface,
+                                 uint32_t version) {
+  gboolean* found = (gboolean*)data;
+  if (g_strcmp0(interface, "ext_background_effect_manager_v1") == 0) {
+    *found = TRUE;
+  }
+}
+
+static void blur_registry_global_remove(void* data, struct wl_registry* registry,
+                                        uint32_t name) {}
+
+// One registry roundtrip on GDK's Wayland connection; cached by the caller.
+static gboolean trickster_blur_supported(void) {
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
+    return FALSE;
+  }
+  struct wl_display* wl = gdk_wayland_display_get_wl_display(display);
+  if (wl == nullptr) {
+    return FALSE;
+  }
+  struct wl_registry* registry = wl_display_get_registry(wl);
+  if (registry == nullptr) {
+    return FALSE;
+  }
+  gboolean found = FALSE;
+  static const struct wl_registry_listener listener = {
+      blur_registry_global, blur_registry_global_remove};
+  wl_registry_add_listener(registry, &listener, &found);
+  wl_display_roundtrip(wl);
+  wl_registry_destroy(registry);
+  return found;
 }
 
 static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
@@ -178,6 +216,13 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   if (g_strcmp0(method, "supported") == 0) {
     g_autoptr(FlValue) result =
         fl_value_new_bool(gtk_layer_is_supported() ? TRUE : FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "blur") == 0) {
+    if (!self->blur_checked) {
+      self->blur_checked = TRUE;
+      self->blur_supported = trickster_blur_supported();
+    }
+    g_autoptr(FlValue) result = fl_value_new_bool(self->blur_supported);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "outputs") == 0) {
     g_autoptr(FlValue) list = fl_value_new_list();
@@ -362,6 +407,11 @@ static int run_check() {
   } else {
     g_printerr("fail  layer-shell: compositor does not advertise zwlr_layer_shell_v1\n");
     failed = 1;
+  }
+  if (trickster_blur_supported()) {
+    g_print("ok    blur: ext-background-effect advertised\n");
+  } else {
+    g_print("ok    blur: not advertised (translucent fill)\n");
   }
   GdkDisplay* display = gdk_display_get_default();
   if (display == nullptr) {

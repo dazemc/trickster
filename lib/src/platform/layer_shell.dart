@@ -15,6 +15,13 @@ class LayerShell {
     return supported ?? false;
   }
 
+  /// Whether the compositor advertises `ext-background-effect-v1`. Probed
+  /// once natively and cached for the process.
+  Future<bool> blurSupported() async {
+    final supported = await _channel.invokeMethod<bool>('blur');
+    return supported ?? false;
+  }
+
   Future<List<LayerOutput>> outputs() async {
     final raw = await _channel.invokeMethod<List<dynamic>>('outputs');
     if (raw == null) {
