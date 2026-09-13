@@ -9,6 +9,7 @@ description: trickster flags and the planned tricksterctl client.
 | --- | --- |
 | `--check` | Preflight (wayland, configs, layer-shell, outputs) and exit; non-zero on any failure |
 | `--version` | Print `trickster 0.1.0` and exit |
+| `-h`, `--help` | Print usage and exit |
 | `--config PATH` | Use PATH as the `outputs.conf` override for this run |
 | `--edge SIDE` | One-shot `top`, `bottom`, `left`, or `right` override |
 
@@ -23,5 +24,6 @@ A short-lived client against `$XDG_RUNTIME_DIR/trickster/control.sock`, mirrorin
 | `tricksterctl status` | Running state, outputs, active modules |
 | `tricksterctl reload` | Re-read configs now (same path as the file watcher) |
 | `tricksterctl version` | Bar and protocol versions |
+| `tricksterctl --help` | Short-lived client commands and flags |
 
 It is a control client only — never a second UI runtime.
