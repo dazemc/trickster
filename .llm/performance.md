@@ -35,6 +35,33 @@ as first-class bugs.
 - Log in production only on state changes and errors. No per-frame or
   per-sample logging.
 
+### Hyprland IPC contract
+
+Hyprland services `.socket.sock` (commands) and `.socket2.sock` (events) on
+its main loop. A client that connects without writing immediately makes the
+compositor block in `poll()` waiting for the command, which can stall the
+initial layer-shell configure and tear the first surface down. Therefore:
+
+- A request connection is dialed and written **in one turn**. Never hold an
+  idle `.socket.sock` connection between commands. Event subscriptions use
+  `.socket2.sock`, which is meant to stay open.
+- Every request is a one-shot connection with a bounded read: return as soon
+  as the accumulated bytes parse as a complete JSON document (or the reply
+  is `ok`/`error:`), cap the reply bytes, time out, and close. Some Hyprland
+  versions keep the connection open after the reply.
+- A refused or reset connection (compositor restarting) is retried once on a
+  fresh connection after a short settle delay; event sockets reconnect with
+  capped backoff.
+- Socket work runs on worker isolates (`Isolate.run`), so neither a blocking
+  dialect nor a reconnecting event socket can stall the frame loop.
+- The engine starts only after the first strip surface has completed its
+  layer-shell initial configure (`trickster_surface_new` in
+  `linux/runner/my_application.cc`), so the first Dart IPC request cannot
+  race the handshake.
+
+Implementations: `lib/src/services/workspaces.dart` (`HyprlandWorkspaces`),
+native handshake comment in `linux/runner/my_application.cc`.
+
 ## Memory
 
 Resident size should look like a bar, not like a Flutter gallery.
