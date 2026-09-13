@@ -7,9 +7,13 @@ import 'package:trickster/src/services/nvidia.dart';
 Directory _createRoot(
   Map<String, (String? vendor, String? busy)> cards, {
   Map<String, String> runtimeStatus = const {},
+  bool nvidiaDriver = true,
 }) {
   final root = Directory.systemTemp.createTempSync('trickster-gpu');
   addTearDown(() => root.deleteSync(recursive: true));
+  if (nvidiaDriver) {
+    File(_driverPath(root)).writeAsStringSync('NVRM version');
+  }
   cards.forEach((name, card) {
     final device = Directory('${root.path}/$name/device')
       ..createSync(recursive: true);
@@ -29,6 +33,8 @@ Directory _createRoot(
   });
   return root;
 }
+
+String _driverPath(Directory root) => '${root.path}/nvidia-version';
 
 class FakeNvmlReader extends NvmlReader {
   FakeNvmlReader([this.samples = const []]);
@@ -54,7 +60,11 @@ void main() {
       'card2': ('0x1002', '80'),
       'card3': ('0x10de', '10'),
     });
-    final sampler = GpuSampler(drmRoot: root.path, nvml: FakeNvmlReader());
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+    );
     addTearDown(sampler.dispose);
 
     final loads = await sampler.sample();
@@ -74,7 +84,11 @@ void main() {
 
   test('series keeps the cap and appends newest last', () async {
     final root = _createRoot({'card0': ('0x1002', '0')});
-    final sampler = GpuSampler(drmRoot: root.path, nvml: FakeNvmlReader());
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+    );
     addTearDown(sampler.dispose);
     final busyFile = File('${root.path}/card0/device/gpu_busy_percent');
 
@@ -94,25 +108,89 @@ void main() {
     final sampler = GpuSampler(
       drmRoot: '/nonexistent/trickster-drm',
       nvml: FakeNvmlReader(),
+      nvidiaDriverPath: '/nonexistent/trickster-nvidia-version',
     );
     addTearDown(sampler.dispose);
     expect(await sampler.sample(), isEmpty);
   });
 
+  test('skips NVML when no NVIDIA driver or card is present', () async {
+    final root = _createRoot({}, nvidiaDriver: false);
+    final nvml = FakeNvmlReader(const [
+      NvidiaGpuSample(index: 0, usage: 0.9),
+    ]);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    expect(await sampler.sample(), isEmpty);
+    expect(nvml.reads, 0);
+  });
+
+  test('a discovered NVIDIA card opens the gate without the proc file', () async {
+    final root = _createRoot(
+      {'card1': ('0x10de', null)},
+      runtimeStatus: {'card1': 'active'},
+      nvidiaDriver: false,
+    );
+    final nvml = FakeNvmlReader(const [
+      NvidiaGpuSample(index: 0, usage: 0.9),
+    ]);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(nvml.reads, 1);
+    expect(loads.single.id, 'nvml0');
+  });
+
   test('merges NVML readings with stable nvml ids', () async {
     final root = _createRoot({'card0': ('0x1002', '40')});
     final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.3),
+      NvidiaGpuSample(index: 0, usage: 0.3, name: 'RTX 4070 Ti'),
       NvidiaGpuSample(index: 1, usage: 0.6),
     ]);
-    final sampler = GpuSampler(drmRoot: root.path, nvml: nvml);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
     addTearDown(sampler.dispose);
 
     final loads = await sampler.sample();
     expect(loads.map((load) => load.id), ['card0', 'nvml0', 'nvml1']);
     expect(loads.map((load) => load.label), ['AMD', 'GPU0', 'GPU1']);
+    expect(loads.map((load) => load.name), [null, 'RTX 4070 Ti', null]);
     expect(loads.map((load) => load.usage), [0.4, 0.3, 0.6]);
     expect(nvml.reads, 1);
+  });
+
+  test('queried names survive duplicate-label suffixes', () async {
+    final root = _createRoot({});
+    final nvml = FakeNvmlReader(const [
+      NvidiaGpuSample(index: 0, usage: 0.3, name: 'RTX 4070 Ti'),
+      NvidiaGpuSample(index: 1, usage: 0.6, name: 'RTX 4070 Ti'),
+    ]);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(loads.map((load) => load.label), ['GPU0', 'GPU1']);
+    expect(loads.map((load) => load.name), [
+      'RTX 4070 Ti',
+      'RTX 4070 Ti',
+    ]);
   });
 
   test('leaves a runtime-suspended NVIDIA GPU asleep', () async {
@@ -123,7 +201,11 @@ void main() {
     final nvml = FakeNvmlReader(const [
       NvidiaGpuSample(index: 0, usage: 0.9),
     ]);
-    final sampler = GpuSampler(drmRoot: root.path, nvml: nvml);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
     addTearDown(sampler.dispose);
 
     final loads = await sampler.sample();
@@ -139,14 +221,20 @@ void main() {
       runtimeStatus: {'card1': 'active'},
     );
     final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.9),
+      NvidiaGpuSample(index: 0, usage: 0.9, name: 'RTX 4070 Ti'),
     ]);
-    final sampler = GpuSampler(drmRoot: root.path, nvml: nvml);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
     addTearDown(sampler.dispose);
 
     final loads = await sampler.sample();
     expect(nvml.reads, 1);
     expect(loads.single.id, 'nvml0');
+    expect(loads.single.label, 'GPU');
+    expect(loads.single.name, 'RTX 4070 Ti');
     expect(loads.single.usage, 0.9);
   });
 

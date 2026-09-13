@@ -7,12 +7,15 @@ import 'background_worker.dart';
 
 /// One NVIDIA GPU utilization reading as a 0-1 fraction.
 class NvidiaGpuSample {
-  const NvidiaGpuSample({required this.index, required this.usage});
+  const NvidiaGpuSample({required this.index, required this.usage, this.name});
 
   /// NVML device index, stable across reads.
   final int index;
 
   final double usage;
+
+  /// NVML device name, or null when the query is unavailable.
+  final String? name;
 }
 
 /// Typed UI-isolate facade for NVML readings owned by the persistent NVIDIA
@@ -55,10 +58,15 @@ List<NvidiaGpuSample> _decodeNvidiaGpuSamples(Object? response) {
   return <NvidiaGpuSample>[
     for (final row in response)
       if (row is List<Object?> &&
-          row.length == 2 &&
+          row.length == 3 &&
           row[0] is int &&
-          row[1] is double)
-        NvidiaGpuSample(index: row[0]! as int, usage: row[1]! as double)
+          row[1] is double &&
+          (row[2] == null || row[2] is String))
+        NvidiaGpuSample(
+          index: row[0]! as int,
+          usage: row[1]! as double,
+          name: row[2] as String?,
+        )
       else
         throw const FormatException('Invalid NVIDIA GPU sample'),
   ];
@@ -83,27 +91,47 @@ final class _NativeNvmlReader {
   List<ffi.Pointer<ffi.Void>> _devices = const <ffi.Pointer<ffi.Void>>[];
   late final int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_NvmlUtilization>)
   _getUtilization;
+  int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int)?
+  _getDeviceName;
+
+  static const _deviceNameCapacity = 96;
 
   List<Object?> read() {
     if (_unavailable || (_library == null && !_initialize())) {
       return const <Object?>[];
     }
     final utilization = pkg_ffi.calloc<_NvmlUtilization>();
+    final name = pkg_ffi.calloc<ffi.Uint8>(_deviceNameCapacity);
     try {
       final samples = <Object?>[];
       for (var index = 0; index < _devices.length; index += 1) {
-        if (_getUtilization(_devices[index], utilization) != 0) {
+        final device = _devices[index];
+        if (_getUtilization(device, utilization) != 0) {
           continue;
         }
         samples.add(<Object?>[
           index,
           (utilization.ref.gpu / 100.0).clamp(0.0, 1.0),
+          _readName(device, name),
         ]);
       }
       return samples;
     } finally {
       pkg_ffi.calloc.free(utilization);
+      pkg_ffi.calloc.free(name);
     }
+  }
+
+  String? _readName(
+    ffi.Pointer<ffi.Void> device,
+    ffi.Pointer<ffi.Uint8> buffer,
+  ) {
+    final getDeviceName = _getDeviceName;
+    if (getDeviceName == null ||
+        getDeviceName(device, buffer, _deviceNameCapacity) != 0) {
+      return null;
+    }
+    return buffer.cast<pkg_ffi.Utf8>().toDartString();
   }
 
   bool _initialize() {
@@ -134,6 +162,19 @@ final class _NativeNvmlReader {
             ),
             int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_NvmlUtilization>)
           >('nvmlDeviceGetUtilizationRates');
+      try {
+        _getDeviceName = library
+            .lookupFunction<
+              ffi.Int32 Function(
+                ffi.Pointer<ffi.Void>,
+                ffi.Pointer<ffi.Uint8>,
+                ffi.Uint32,
+              ),
+              int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int)
+            >('nvmlDeviceGetName');
+      } on Object {
+        _getDeviceName = null;
+      }
 
       final count = pkg_ffi.calloc<ffi.Uint32>();
       final handle = pkg_ffi.calloc<ffi.Pointer<ffi.Void>>();

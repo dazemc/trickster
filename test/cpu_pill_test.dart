@@ -36,6 +36,14 @@ void main() {
     await _pump(tester, const CpuSample(0.42, history: [0.42]));
     expect(find.byKey(LoadMeter.sparklineKey), isNot(paints..path()));
   });
+
+  testWidgets('caption stays the generic CPU tag while the name is data', (
+    tester,
+  ) async {
+    await _pump(tester, const CpuSample(0.42, name: 'AMD Ryzen 9 5950X'));
+    expect(find.text('CPU'), findsOneWidget);
+    expect(find.text('AMD Ryzen 9 5950X'), findsNothing);
+  });
 }
 
 Future<void> _pump(WidgetTester tester, CpuSample sample) {

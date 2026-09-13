@@ -161,8 +161,15 @@ class HyprlandWorkspaces extends WorkspaceBackend {
 
   static const _replyTimeout = Duration(seconds: 5);
 
+  static const _reconnectDelayBase = Duration(milliseconds: 500);
+
+  static const _reconnectDelayMax = Duration(seconds: 5);
+
   final String? _socketDir;
   Socket? _events;
+  Timer? _reconnect;
+  Duration _reconnectDelay = _reconnectDelayBase;
+  var _generation = 0;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -171,17 +178,39 @@ class HyprlandWorkspaces extends WorkspaceBackend {
   @override
   Future<void> start() async {
     await _refresh();
+    _connectEvents();
+  }
+
+  void _connectEvents() {
     final dir = _socketDir;
     if (dir == null) {
       return;
     }
+    final generation = _generation;
+    unawaited(_dialEvents(dir, generation));
+  }
+
+  Future<void> _dialEvents(String dir, int generation) async {
+    Socket socket;
     try {
-      _events = await Socket.connect(
+      socket = await Socket.connect(
         InternetAddress('$dir/.socket2.sock', type: InternetAddressType.unix),
         0,
       );
-      final buffer = StringBuffer();
-      _events!.listen((data) {
+    } on Object {
+      _scheduleReconnect(generation);
+      return;
+    }
+    if (generation != _generation) {
+      await socket.close();
+      return;
+    }
+    _events = socket;
+    _reconnectDelay = _reconnectDelayBase;
+    unawaited(_refresh());
+    final buffer = StringBuffer();
+    socket.listen(
+      (data) {
         // socket2 sends newline-terminated `event>>payload` lines; a chunk
         // boundary can split them, so reassemble before matching.
         buffer.write(utf8.decode(data, allowMalformed: true));
@@ -195,10 +224,29 @@ class HyprlandWorkspaces extends WorkspaceBackend {
         buffer
           ..clear()
           ..write(text);
-      }, onError: (_) {});
-    } on Object {
+      },
+      onError: (_) {},
+      onDone: () => _scheduleReconnect(generation),
+    );
+  }
+
+  /// Re-dials the event socket after a drop or a refused connection, with a
+  /// capped backoff so a compositor restart recovers without hot-looping.
+  void _scheduleReconnect(int generation) {
+    if (_generation != generation) {
       return;
     }
+    _generation += 1;
+    _events = null;
+    _reconnect?.cancel();
+    _reconnect = Timer(_reconnectDelay, () {
+      _reconnect = null;
+      if (_generation == generation + 1) {
+        _connectEvents();
+      }
+    });
+    final next = _reconnectDelay * 2;
+    _reconnectDelay = next > _reconnectDelayMax ? _reconnectDelayMax : next;
   }
 
   void _handleEvent(String line) {
@@ -414,6 +462,9 @@ class HyprlandWorkspaces extends WorkspaceBackend {
 
   @override
   Future<void> dispose() async {
+    _generation += 1;
+    _reconnect?.cancel();
+    _reconnect = null;
     await _events?.close();
     _events = null;
     await _controller.close();
@@ -429,8 +480,19 @@ class SwayWorkspaces extends WorkspaceBackend {
 
   static const _replyTimeout = Duration(seconds: 5);
 
+  /// Sway sets bit 31 on event types; workspace events carry type 3.
+  static const _workspaceEventType = 0x80000003;
+
+  static const _reconnectDelayBase = Duration(milliseconds: 500);
+
+  static const _reconnectDelayMax = Duration(seconds: 5);
+
   final String? _socketPath;
   Socket? _socket;
+  Timer? _reconnect;
+  Duration _reconnectDelay = _reconnectDelayBase;
+  var _generation = 0;
+  final _buffer = <int>[];
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -444,19 +506,56 @@ class SwayWorkspaces extends WorkspaceBackend {
     if (path == null) {
       return;
     }
+    await _dial(path, _generation);
+  }
+
+  Future<void> _dial(String path, int generation) async {
+    Socket socket;
     try {
-      _socket = await Socket.connect(
+      socket = await Socket.connect(
         InternetAddress(path, type: InternetAddressType.unix),
         0,
       );
-      await _request(1);
-      _socket!.listen((data) {
-        unawaited(_request(1));
-      }, onError: (_) {});
-      await _subscribe();
     } on Object {
+      _scheduleReconnect(generation);
       return;
     }
+    if (generation != _generation) {
+      await socket.close();
+      return;
+    }
+    _socket = socket;
+    _reconnectDelay = _reconnectDelayBase;
+    _buffer.clear();
+    socket.listen(
+      _onData,
+      onError: (_) {},
+      onDone: () => _scheduleReconnect(generation),
+    );
+    _subscribe();
+    _request(1);
+  }
+
+  /// Re-dials after a drop or a refused connection, with a capped backoff so
+  /// a compositor restart recovers without hot-looping.
+  void _scheduleReconnect(int generation) {
+    if (_generation != generation) {
+      return;
+    }
+    _generation += 1;
+    _socket = null;
+    _reconnect?.cancel();
+    _reconnect = Timer(_reconnectDelay, () {
+      _reconnect = null;
+      if (_generation == generation + 1) {
+        final path = _path;
+        if (path != null) {
+          unawaited(_dial(path, _generation));
+        }
+      }
+    });
+    final next = _reconnectDelay * 2;
+    _reconnectDelay = next > _reconnectDelayMax ? _reconnectDelayMax : next;
   }
 
   /// Focuses a workspace over a one-shot command connection — the same
@@ -507,18 +606,96 @@ class SwayWorkspaces extends WorkspaceBackend {
     return decoded is Map<String, dynamic> ? decoded : null;
   }
 
-  Future<void> _subscribe() async {
-    final payload = utf8.encode('["workspace"]');
-    _socket?.add(_frame(2, payload));
+  void _subscribe() {
+    _socket?.add(_frame(2, utf8.encode('["workspace"]')));
   }
 
-  Future<void> _request(int type) async {
-    final socket = _socket;
-    if (socket == null) {
+  void _request(int type) {
+    _socket?.add(_frame(type, Uint8List(0)));
+  }
+
+  /// Reassembles `i3-ipc` frames across chunk boundaries and dispatches them:
+  /// the type-1 reply carries the workspace list, workspace events request a
+  /// fresh one. Nothing else re-requests, so a healthy socket is quiet
+  /// between events.
+  void _onData(Uint8List data) {
+    _buffer.addAll(data);
+    var consumed = 0;
+    while (_buffer.length - consumed >= 14) {
+      if (!_hasMagic(_buffer, consumed)) {
+        _buffer.clear();
+        return;
+      }
+      final length = _readUint32(_buffer, consumed + 6);
+      if (_buffer.length - consumed < 14 + length) {
+        break;
+      }
+      final type = _readUint32(_buffer, consumed + 10);
+      final payload = _buffer.sublist(consumed + 14, consumed + 14 + length);
+      consumed += 14 + length;
+      _handleFrame(type, payload);
+    }
+    if (consumed > 0) {
+      _buffer.removeRange(0, consumed);
+    }
+    if (_buffer.length > _maxReplyBytes) {
+      _buffer.clear();
+    }
+  }
+
+  void _handleFrame(int type, List<int> payload) {
+    if (type == 1) {
+      _emitWorkspaces(payload);
       return;
     }
-    socket.add(_frame(type, Uint8List(0)));
+    if (type == _workspaceEventType) {
+      _request(1);
+    }
   }
+
+  void _emitWorkspaces(List<int> payload) {
+    try {
+      final decoded = jsonDecode(utf8.decode(payload));
+      if (decoded is! List) {
+        return;
+      }
+      final workspaces = <Workspace>[];
+      for (final entry in decoded) {
+        if (entry is! Map) {
+          continue;
+        }
+        final number = entry['num'];
+        final name = '${entry['name'] ?? number}';
+        workspaces.add(
+          Workspace(
+            id: number is int && number >= 0 ? '$number' : name,
+            name: name,
+            focused: entry['focused'] == true,
+            urgent: entry['urgent'] == true,
+          ),
+        );
+      }
+      _controller.add(workspaces);
+    } on Object {
+      return;
+    }
+  }
+
+  static bool _hasMagic(List<int> bytes, int offset) {
+    const magic = 'i3-ipc';
+    for (var i = 0; i < magic.length; i++) {
+      if (bytes[offset + i] != magic.codeUnitAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static int _readUint32(List<int> bytes, int offset) =>
+      bytes[offset] |
+      bytes[offset + 1] << 8 |
+      bytes[offset + 2] << 16 |
+      bytes[offset + 3] << 24;
 
   Uint8List _frame(int type, List<int> payload) {
     final header = Uint8List(14);
@@ -531,8 +708,12 @@ class SwayWorkspaces extends WorkspaceBackend {
 
   @override
   Future<void> dispose() async {
+    _generation += 1;
+    _reconnect?.cancel();
+    _reconnect = null;
     await _socket?.close();
     _socket = null;
+    _buffer.clear();
     await _controller.close();
   }
 }
@@ -546,8 +727,15 @@ class NiriWorkspaces extends WorkspaceBackend {
 
   static const _replyTimeout = Duration(seconds: 5);
 
+  static const _reconnectDelayBase = Duration(milliseconds: 500);
+
+  static const _reconnectDelayMax = Duration(seconds: 5);
+
   final String? _socketPath;
   Socket? _socket;
+  Timer? _reconnect;
+  Duration _reconnectDelay = _reconnectDelayBase;
+  var _generation = 0;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -561,14 +749,29 @@ class NiriWorkspaces extends WorkspaceBackend {
     if (path == null) {
       return;
     }
+    await _dial(path, _generation);
+  }
+
+  Future<void> _dial(String path, int generation) async {
+    Socket socket;
     try {
-      _socket = await Socket.connect(
+      socket = await Socket.connect(
         InternetAddress(path, type: InternetAddressType.unix),
         0,
       );
-      _socket!.add(utf8.encode('${jsonEncode({'EventStream': null})}\n'));
-      final buffer = StringBuffer();
-      _socket!.listen((data) {
+    } on Object {
+      _scheduleReconnect(generation);
+      return;
+    }
+    if (generation != _generation) {
+      await socket.close();
+      return;
+    }
+    _socket = socket;
+    _reconnectDelay = _reconnectDelayBase;
+    final buffer = StringBuffer();
+    socket.listen(
+      (data) {
         buffer.write(utf8.decode(data));
         var text = buffer.toString();
         var newline = text.indexOf('\n');
@@ -581,10 +784,35 @@ class NiriWorkspaces extends WorkspaceBackend {
         buffer
           ..clear()
           ..write(text);
-      }, onError: (_) {});
-    } on Object {
+      },
+      onError: (_) {},
+      onDone: () => _scheduleReconnect(generation),
+    );
+    socket.add(utf8.encode('${jsonEncode({'EventStream': null})}\n'));
+  }
+
+  /// Re-dials after a drop or a refused connection, with a capped backoff so
+  /// a compositor restart recovers without hot-looping. The event stream
+  /// replays the full workspace state on connect, so no extra refresh is
+  /// needed.
+  void _scheduleReconnect(int generation) {
+    if (_generation != generation) {
       return;
     }
+    _generation += 1;
+    _socket = null;
+    _reconnect?.cancel();
+    _reconnect = Timer(_reconnectDelay, () {
+      _reconnect = null;
+      if (_generation == generation + 1) {
+        final path = _path;
+        if (path != null) {
+          unawaited(_dial(path, _generation));
+        }
+      }
+    });
+    final next = _reconnectDelay * 2;
+    _reconnectDelay = next > _reconnectDelayMax ? _reconnectDelayMax : next;
   }
 
   /// Focuses a workspace over a one-shot action connection — the same
@@ -669,6 +897,9 @@ class NiriWorkspaces extends WorkspaceBackend {
 
   @override
   Future<void> dispose() async {
+    _generation += 1;
+    _reconnect?.cancel();
+    _reconnect = null;
     await _socket?.close();
     _socket = null;
     await _controller.close();
