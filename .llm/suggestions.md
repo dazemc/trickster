@@ -39,7 +39,12 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   pipeline needs real event-loop turns. Seed via constructors, let
   `BlocProvider(create:)` own lifecycle, and assert disposal with a close
   flag on an injected subclass — no `bloc-` transcript under FakeAsync.
-- **StatusNotifier D-Bus runs on the UI isolate.** Denial isolated the
-  service on a worker; `lib/src/services/status_notifier.dart` talks to the
-  session bus directly. Re-evaluate before 3.2 decodes pixmaps: a busy bus
-  would decode large RGBA arrays on the frame isolate.
+- **Tray icons resolve only from pixmaps.** Items that publish `IconName` /
+  `IconThemePath` without an `IconPixmap` render the placeholder square;
+  freedesktop icon-theme lookup is not ported (Denial resolved it on a
+  worker). Add resolution or accept the placeholder before tray parity is
+  called done. (`lib/src/bar/tray.dart`.)
+- **Tray tooltips are semantics-only.** A Material `Tooltip` overlay clips to
+  the 32px layer surface, so hover text was left to semantics; real tooltips
+  need a popup view/surface. Fold into the 3.5 popup work or a later step.
+  (`lib/src/bar/tray.dart`.)
