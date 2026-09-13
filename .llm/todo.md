@@ -20,9 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.7 Docs + constitution** (S). `AGENTS.md`, `.llm/` modules, site
-      architecture/modules pages: Riverpod→Bloc seams, observer usage,
-      `toJson` convention. One commit per file.
 - [ ] **1.8 Hyprland workspace data fix** (S). `lib/src/services/workspaces.dart`.
       The `j/workspaces` query `fold`s until socket-done, but Hyprland keeps
       the request connection open — replace with a bounded read. Join
