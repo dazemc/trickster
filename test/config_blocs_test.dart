@@ -30,16 +30,11 @@ void main() {
           ..add(const SettingsModulesChanged(['clock']))
           ..add(const SettingsAccentChanged(Color(0xffff0000)));
       },
-      // BarSettings has no == yet (see suggestions); match fields.
       expect: () => [
-        predicate<BarSettings>(
-          (s) => s.modules.length == 1 && s.modules.first == 'clock',
-        ),
-        predicate<BarSettings>(
-          (s) =>
-              s.modules.length == 1 &&
-              s.modules.first == 'clock' &&
-              s.accent == const Color(0xffff0000),
+        const BarSettings(modules: ['clock']),
+        const BarSettings(
+          modules: ['clock'],
+          accent: Color(0xffff0000),
         ),
       ],
     );
@@ -61,15 +56,16 @@ void main() {
 
   group('SessionBloc', () {
     blocTest<SessionBloc, SessionConfig>(
-      'emits loaded config',
+      'emits configs equal by value, not identity',
       build: SessionBloc.new,
       act: (bloc) => bloc.add(
         const SessionLoaded(
           SessionConfig(namespace: 'trickster-test'),
         ),
       ),
+      // Distinct instance from the one added above: passes only with ==.
       expect: () => [
-        const SessionConfig(namespace: 'trickster-test'),
+        SessionConfig(namespace: 'trickster-test'),
       ],
     );
 
@@ -92,15 +88,25 @@ void main() {
 
   group('OutputsBloc', () {
     blocTest<OutputsBloc, OutputsConfig>(
-      'emits loaded config',
+      'emits configs equal by value, not identity',
       build: OutputsBloc.new,
       act: (bloc) => bloc.add(
         const OutputsLoaded(
-          OutputsConfig(side: SystemBarSide.bottom, thickness: 40),
+          OutputsConfig(
+            side: SystemBarSide.bottom,
+            thickness: 40,
+            connectors: ['eDP-1'],
+          ),
         ),
       ),
+      // Distinct instance with its own connector list: passes only with
+      // deep list equality.
       expect: () => [
-        const OutputsConfig(side: SystemBarSide.bottom, thickness: 40),
+        OutputsConfig(
+          side: SystemBarSide.bottom,
+          thickness: 40,
+          connectors: ['eDP-1'],
+        ),
       ],
     );
 

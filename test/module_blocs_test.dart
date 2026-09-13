@@ -79,9 +79,7 @@ void main() {
         await pumpEventQueue();
         fake.controller.add(const CpuSample(0.5));
       },
-      expect: () => [
-        predicate<CpuSample>((sample) => sample.current == 0.5),
-      ],
+      expect: () => const [CpuSample(0.5)],
     );
 
     blocTest<CpuBloc, CpuSample>(
@@ -163,11 +161,7 @@ void main() {
         monitor.controller.add(const [first]);
         await expectLater(
           bloc.stream,
-          emits(
-            predicate<List<Workspace>>(
-              (list) => list.length == 1 && list.first.id == '1',
-            ),
-          ),
+          emits(const WorkspacesState([first])),
         );
       } finally {
         await bloc.close();

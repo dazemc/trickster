@@ -1,21 +1,31 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 
-sealed class ClockEvent {
+sealed class ClockEvent extends Equatable {
   const ClockEvent();
+
+  @override
+  List<Object?> get props => [];
 }
 
 class ClockTicked extends ClockEvent {
   const ClockTicked(this.now);
 
   final DateTime now;
+
+  @override
+  List<Object?> get props => [now];
 }
 
-class ClockState {
+class ClockState extends Equatable {
   const ClockState(this.now);
 
   final DateTime now;
+
+  @override
+  List<Object?> get props => [now];
 
   Map<String, Object?> toJson() => {
     'now': now.millisecondsSinceEpoch,

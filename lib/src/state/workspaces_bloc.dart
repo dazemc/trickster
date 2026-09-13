@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 
 import '../services/workspaces.dart';
 
-sealed class WorkspacesEvent {
+sealed class WorkspacesEvent extends Equatable {
   const WorkspacesEvent();
+
+  @override
+  List<Object?> get props => [];
 }
 
 class WorkspacesStarted extends WorkspacesEvent {
@@ -20,15 +24,20 @@ class WorkspacesSampled extends WorkspacesEvent {
   const WorkspacesSampled(this.workspaces);
 
   final List<Workspace> workspaces;
+
+  @override
+  List<Object?> get props => [...workspaces];
 }
 
-class WorkspacesBloc extends Bloc<WorkspacesEvent, List<Workspace>> {
+class WorkspacesBloc extends Bloc<WorkspacesEvent, WorkspacesState> {
   WorkspacesBloc({WorkspaceMonitor? monitor})
     : _monitor = monitor ?? WorkspaceMonitor(),
-      super(const []) {
+      super(const WorkspacesState()) {
     on<WorkspacesStarted>(_onStarted);
     on<WorkspacesStopped>(_onStopped);
-    on<WorkspacesSampled>((event, emit) => emit(event.workspaces));
+    on<WorkspacesSampled>(
+      (event, emit) => emit(WorkspacesState(event.workspaces)),
+    );
   }
 
   final WorkspaceMonitor _monitor;
@@ -36,7 +45,7 @@ class WorkspacesBloc extends Bloc<WorkspacesEvent, List<Workspace>> {
 
   Future<void> _onStarted(
     WorkspacesStarted event,
-    Emitter<List<Workspace>> emit,
+    Emitter<WorkspacesState> emit,
   ) async {
     _subscription ??= _monitor.snapshots.listen(
       (workspaces) => add(WorkspacesSampled(workspaces)),
@@ -46,7 +55,7 @@ class WorkspacesBloc extends Bloc<WorkspacesEvent, List<Workspace>> {
 
   Future<void> _onStopped(
     WorkspacesStopped event,
-    Emitter<List<Workspace>> emit,
+    Emitter<WorkspacesState> emit,
   ) async {
     await _subscription?.cancel();
     _subscription = null;

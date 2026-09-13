@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:ui';
 
-class BarSettings {
+import 'package:equatable/equatable.dart';
+
+class BarSettings extends Equatable {
   const BarSettings({
     this.revision = 1,
     this.accent,
@@ -11,6 +13,11 @@ class BarSettings {
   final int revision;
   final Color? accent;
   final List<String> modules;
+
+  // Spread: Equatable compares props element-wise, so spreading gives deep
+  // equality over the module list.
+  @override
+  List<Object?> get props => [revision, accent, ...modules];
 
   bool includes(String module) => modules.contains(module);
 

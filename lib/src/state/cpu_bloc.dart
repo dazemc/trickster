@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 
 import '../services/cpu.dart';
 
-sealed class CpuEvent {
+sealed class CpuEvent extends Equatable {
   const CpuEvent();
+
+  @override
+  List<Object?> get props => [];
 }
 
 class CpuStarted extends CpuEvent {
@@ -20,6 +24,9 @@ class CpuSampled extends CpuEvent {
   const CpuSampled(this.sample);
 
   final CpuSample sample;
+
+  @override
+  List<Object?> get props => [sample];
 }
 
 class CpuBloc extends Bloc<CpuEvent, CpuSample> {

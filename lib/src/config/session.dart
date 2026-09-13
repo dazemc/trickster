@@ -1,13 +1,15 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:equatable/equatable.dart';
+
 import 'key_value.dart';
 
 enum TricksterLayer { background, bottom, top, overlay }
 
 enum TricksterKeyboard { none, exclusive, onDemand }
 
-class SessionConfig {
+class SessionConfig extends Equatable {
   const SessionConfig({
     this.layer = TricksterLayer.top,
     this.namespace = 'trickster',
@@ -23,6 +25,16 @@ class SessionConfig {
   final Color? accent;
   final String? outputConfig;
   final String? log;
+
+  @override
+  List<Object?> get props => [
+    layer,
+    namespace,
+    keyboard,
+    accent,
+    outputConfig,
+    log,
+  ];
 
   Map<String, Object?> toJson() => {
     'layer': layer.name,

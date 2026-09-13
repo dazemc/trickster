@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 
 import '../services/battery.dart';
 
-sealed class BatteryEvent {
+sealed class BatteryEvent extends Equatable {
   const BatteryEvent();
+
+  @override
+  List<Object?> get props => [];
 }
 
 class BatteryStarted extends BatteryEvent {
@@ -20,6 +24,9 @@ class BatterySampled extends BatteryEvent {
   const BatterySampled(this.status);
 
   final BatteryStatus status;
+
+  @override
+  List<Object?> get props => [status];
 }
 
 class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {

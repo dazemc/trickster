@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:equatable/equatable.dart';
+
 enum SystemBarSide { top, bottom, left, right, hidden }
 
 extension SystemBarSideGeometry on SystemBarSide {
@@ -19,7 +21,7 @@ extension SystemBarSideGeometry on SystemBarSide {
   }
 }
 
-class OutputsConfig {
+class OutputsConfig extends Equatable {
   const OutputsConfig({
     this.side = SystemBarSide.top,
     this.thickness = 32,
@@ -29,6 +31,10 @@ class OutputsConfig {
   final SystemBarSide side;
   final double thickness;
   final List<String> connectors;
+
+  // Spread: see BarSettings — deep equality over the connector list.
+  @override
+  List<Object?> get props => [side, thickness, ...connectors];
 
   bool get active => side != SystemBarSide.hidden && thickness > 0;
 

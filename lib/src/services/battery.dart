@@ -1,11 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 
-class BatteryStatus {
+import 'package:equatable/equatable.dart';
+
+class BatteryStatus extends Equatable {
   const BatteryStatus({this.capacity, this.charging = false});
 
   final int? capacity;
   final bool charging;
+
+  @override
+  List<Object?> get props => [capacity, charging];
 
   Map<String, Object?> toJson() => {
     'capacity': capacity,

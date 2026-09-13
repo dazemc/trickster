@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-class Workspace {
+import 'package:equatable/equatable.dart';
+
+class Workspace extends Equatable {
   const Workspace({
     required this.id,
     required this.name,
@@ -15,6 +17,9 @@ class Workspace {
   final String name;
   final bool focused;
   final bool urgent;
+
+  @override
+  List<Object?> get props => [id, name, focused, urgent];
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -38,6 +43,29 @@ List<Workspace> workspacesFromJson(List<dynamic> json) => json
     .whereType<Map<String, dynamic>>()
     .map(Workspace.fromJson)
     .toList(growable: false);
+
+/// Bloc state for the workspace list. A bare `List` compares by identity,
+/// so the wrapper exists to give the bloc value semantics — and a JSON
+/// shape for the future `tricksterctl status` dump.
+class WorkspacesState extends Equatable {
+  const WorkspacesState([this.workspaces = const []]);
+
+  final List<Workspace> workspaces;
+
+  // Spread: Equatable compares props element-wise, so spreading gives deep
+  // equality over the list (each Workspace is itself Equatable).
+  @override
+  List<Object?> get props => [...workspaces];
+
+  Map<String, Object?> toJson() => {
+    'workspaces': workspacesToJson(workspaces),
+  };
+
+  static WorkspacesState fromJson(Map<String, dynamic> json) =>
+      WorkspacesState(
+        workspacesFromJson((json['workspaces'] as List?) ?? const []),
+      );
+}
 
 abstract class WorkspaceBackend {
   Stream<List<Workspace>> get snapshots;
