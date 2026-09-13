@@ -30,12 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.8 per-output workspace focus** (S). `lib/src/services/workspaces.dart`
-      + rail wiring. Workspace state is monitor-global: `j/activeworkspace`
-      marks only the focused monitor's workspace and focus targets the
-      current monitor, so a second surface's rail is wrong. Carry the active
-      workspace per output (`j/monitors`, Sway `visible`, niri output). Done
-      when: unit tests assert the mapping, lens verified per output.
 - [ ] **4.9 control socket transport** (S). Socket transport behind the
       existing `SettingsDocumentTransport` interface (no store changes).
       Done when: transport round-trip tested, absent socket is a clean error.
