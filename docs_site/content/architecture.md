@@ -10,7 +10,7 @@ trickster
   Dart bootstrap
     session.conf / outputs.conf / settings.json
     layer-shell surfaces (one per output)
-    Riverpod module graph
+    flutter_bloc module graph
     control socket (tricksterctl, planned)
 
   Host compositor
@@ -27,6 +27,10 @@ Trickster renders a ~32px strip into client buffers; the host composites it. Tha
 
 The widget split mirrors Denial: the strip paints nothing, modules are borderless pills, each pill repaints only on its own data (`select` watches, `RepaintBoundary` per pill, a clock that ticks inside its own widget).
 
+## State
+
+One `BlocProvider` per configured module, explicit events and states, no Cubits. `ModuleScope` builds providers only for listed modules, so a disabled module owns no bloc, no subscription, and no timer. Every state ships `toJson`/`fromJson` from day one (convention only, no HydratedBloc) so `tricksterctl status` reads real state later.
+
 ## Ported vs. replaced
 
 Ported from Denial's `dart_shell` (GPL-3.0-or-later, attribution preserved): pill cards, theme tokens, motion springs, clock behavior, UPower/MPRIS/SNI service shapes, CPU/GPU status, settings-store shape, `system_bar=` grammar, strip math.
@@ -39,7 +43,7 @@ Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-
 - Disabled modules start nothing. Event-driven D-Bus and IPC; bounded `/proc` sampling with reused buffers.
 - Exclusive zone equals the laid-out strip. Dead-output surfaces die immediately.
 - Backdrop blur only with `ext-background-effect`; otherwise translucent fill. Never fake blur.
-- Log on state changes and errors only. No per-frame or per-sample logging.
+- Log on state changes and errors only. No per-frame or per-sample logging. Debug/profile builds trace every bloc event, transition, error, and lifecycle to stderr (`TricksterObserver`); release stays silent.
 
 ## Memory rules
 
