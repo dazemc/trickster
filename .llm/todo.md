@@ -22,12 +22,18 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.16 workspace socket reconnect** (M). `lib/src/services/workspaces.dart`.
-      All three backends swallow `onError` and ignore `onDone`, so a dead IPC
+- [ ] **2.16 Hyprland workspace reconnect** (S). `lib/src/services/workspaces.dart`.
+      The event socket swallows `onError` and ignores `onDone`, so a dead IPC
       socket freezes the rail for the session. Re-dial with the existing
       bounded retry, re-subscribe, and refresh once failure is observable.
-      Done when: fake-socket tests cover drop and recovery per backend.
-- [ ] **2.17 NVML presence gate** (S). `lib/src/services/gpu.dart`. The
+      Done when: fake-socket test covers drop and recovery.
+- [ ] **2.17 Sway workspace reconnect** (S). Same file. The command/event
+      socket has the same silent-death shape. Done when: fake-socket test
+      covers drop and recovery.
+- [ ] **2.18 niri workspace reconnect** (S). Same file. The event stream has
+      the same silent-death shape. Done when: fake-socket test covers drop
+      and recovery.
+- [ ] **2.19 NVML presence gate** (S). `lib/src/services/gpu.dart`. The
       sampler always calls `_nvml.read()` when no runtime-status files exist,
       so AMD-only systems load NVML and keep an idle worker isolate alive.
       Gate the worker on the proprietary driver (`/proc/driver/nvidia/version`)
@@ -80,28 +86,32 @@ silent per the logging rules.
       selection. Done when: selection logic unit-tested.
 - [ ] **4.7 per-output surface lifecycle** (S). Create one layer surface per
       selected monitor with independent clones; destroy dead-output surfaces
-      immediately; frame work only for hosted outputs, and feed each rail the
-      active workspace of its own output (`j/monitors`, Sway `visible`, niri
-      output) instead of the global active join. Done when: two-monitor run
-      verified, unplug/replug without restart.
-- [ ] **4.8 control socket transport** (S). Socket transport behind the
+      immediately; frame work only for hosted outputs. Done when: two-monitor
+      run verified, unplug/replug without restart.
+- [ ] **4.8 per-output workspace focus** (S). `lib/src/services/workspaces.dart`
+      + rail wiring. Workspace state is monitor-global: `j/activeworkspace`
+      marks only the focused monitor's workspace and focus targets the
+      current monitor, so a second surface's rail is wrong. Carry the active
+      workspace per output (`j/monitors`, Sway `visible`, niri output). Done
+      when: unit tests assert the mapping, lens verified per output.
+- [ ] **4.9 control socket transport** (S). Socket transport behind the
       existing `SettingsDocumentTransport` interface (no store changes).
       Done when: transport round-trip tested, absent socket is a clean error.
-- [ ] **4.9 tricksterctl status + version** (S). `bin/tricksterctl.dart`.
+- [ ] **4.10 tricksterctl status + version** (S). `bin/tricksterctl.dart`.
       Short-lived client only, never a second UI runtime. Done when: both
       commands round-trip against a live bar.
-- [ ] **4.10 tricksterctl reload** (S). Same binary. Re-read configs through
+- [ ] **4.11 tricksterctl reload** (S). Same binary. Re-read configs through
       the same path as the file watcher. Done when: reload applies a config
       edit end to end.
-- [ ] **4.11 workspace options schema** (S). `lib/src/config/settings.dart`.
+- [ ] **4.12 workspace options schema** (S). `lib/src/config/settings.dart`.
       Typed `show_empty`/`max` options, validated at decode, last-good on
       invalid, watched via `select`. Template for the rest. Done when:
       round-trip tested, documented in `docs_site/content/configuration.md`.
-- [ ] **4.12 remaining module options** (S). CPU thresholds, clock format,
+- [ ] **4.13 remaining module options** (S). CPU thresholds, clock format,
       battery warn levels, and meter caption source (generic CPU/GPU tags
       vs queried device names), same discipline. Done when: tested +
       documented.
-- [ ] **4.13 accessibility audit** (S). Labels, values, hints, tap actions on
+- [ ] **4.14 accessibility audit** (S). Labels, values, hints, tap actions on
       everything; keyboard-only traversal of a full strip. File findings
       back here as new items.
 
