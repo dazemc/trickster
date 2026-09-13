@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../platform/control_socket.dart';
 import 'settings.dart';
 
 class SettingsDocument {
@@ -76,6 +77,54 @@ class FileSettingsTransport implements SettingsDocumentTransport {
     _current = next;
     _lastGood = next;
     return next;
+  }
+}
+
+/// Talks to the bar's control socket instead of the file. The same
+/// `SettingsDocument` protocol rides one JSON request/reply line; revision
+/// mismatches stay [StateError] so the store's retry path is unchanged.
+class SocketSettingsTransport implements SettingsDocumentTransport {
+  SocketSettingsTransport({String? socketPath}) : _socketPath = socketPath;
+
+  final String? _socketPath;
+
+  @override
+  Future<SettingsDocument> read() async {
+    final reply = await controlRequest(const <String, Object?>{
+      'command': 'settings.read',
+    }, socketPath: _socketPath);
+    return _decode(reply);
+  }
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    final reply = await controlRequest(<String, Object?>{
+      'command': 'settings.write',
+      'expectedRevision': expectedRevision,
+      'document': document,
+    }, socketPath: _socketPath);
+    return _decode(reply);
+  }
+
+  SettingsDocument _decode(Map<String, Object?> reply) {
+    if (reply['ok'] != true) {
+      final error = '${reply['error'] ?? 'control request failed'}';
+      if (error.toLowerCase().contains('revision')) {
+        throw StateError(error);
+      }
+      throw ControlSocketException(error);
+    }
+    final revision = reply['revision'];
+    final document = reply['document'];
+    if (revision is! int || document is! String) {
+      throw const ControlSocketException(
+        'control socket sent a malformed settings document',
+      );
+    }
+    return SettingsDocument(revision: revision, json: document);
   }
 }
 
