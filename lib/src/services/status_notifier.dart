@@ -7,6 +7,33 @@ import 'package:flutter/foundation.dart';
 /// StatusNotifier item status, in ascending attention order.
 enum SystemTrayStatus { passive, active, needsAttention }
 
+/// A decoded, premultiplied RGBA icon at display size.
+@immutable
+class SystemTrayIconPixmap {
+  const SystemTrayIconPixmap({
+    required this.width,
+    required this.height,
+    required this.rgba,
+  });
+
+  final int width;
+  final int height;
+
+  /// Premultiplied RGBA8888 pixels in row-major order.
+  final Uint8List rgba;
+
+  @override
+  bool operator ==(Object other) {
+    return other is SystemTrayIconPixmap &&
+        other.width == width &&
+        other.height == height &&
+        listEquals(other.rgba, rgba);
+  }
+
+  @override
+  int get hashCode => Object.hash(width, height, Object.hashAll(rgba));
+}
+
 /// One StatusNotifier item tracked by the host.
 @immutable
 class SystemTrayItem {
@@ -16,6 +43,7 @@ class SystemTrayItem {
     required this.status,
     required this.iconName,
     required this.iconThemePath,
+    required this.iconPixmap,
     required this.menuAvailable,
     required this.primaryOpensMenu,
     this.menuPath = '',
@@ -26,6 +54,7 @@ class SystemTrayItem {
   final SystemTrayStatus status;
   final String iconName;
   final String iconThemePath;
+  final SystemTrayIconPixmap? iconPixmap;
   final bool menuAvailable;
   final bool primaryOpensMenu;
   final String menuPath;
@@ -38,6 +67,7 @@ class SystemTrayItem {
         other.status == status &&
         other.iconName == iconName &&
         other.iconThemePath == iconThemePath &&
+        other.iconPixmap == iconPixmap &&
         other.menuAvailable == menuAvailable &&
         other.primaryOpensMenu == primaryOpensMenu &&
         other.menuPath == menuPath;
@@ -50,6 +80,7 @@ class SystemTrayItem {
     status,
     iconName,
     iconThemePath,
+    iconPixmap,
     menuAvailable,
     primaryOpensMenu,
     menuPath,
@@ -95,6 +126,8 @@ class StatusNotifierService {
   final Map<String, SystemTrayItem> _items = {};
   final Map<String, String> _itemInterfaces = {};
   final Map<String, Map<String, DBusValue>> _itemProperties = {};
+  final Map<String, SystemTrayIconPixmap?> _normalPixmaps = {};
+  final Map<String, SystemTrayIconPixmap?> _attentionPixmaps = {};
   final Map<String, _PendingStatusNotifierRefresh> _pendingRefreshes = {};
   List<SystemTrayItem> _lastSnapshot = const <SystemTrayItem>[];
 
@@ -379,6 +412,8 @@ class StatusNotifierService {
     _items.remove(registration.id);
     _itemInterfaces.remove(registration.id);
     _itemProperties.remove(registration.id);
+    _normalPixmaps.remove(registration.id);
+    _attentionPixmaps.remove(registration.id);
     _pendingRefreshes.remove(registration.id);
   }
 
@@ -514,8 +549,20 @@ class StatusNotifierService {
     if (properties == null || _disposed) {
       return;
     }
+    if (properties.remove('IconPixmap') case final rawPixmap?) {
+      _normalPixmaps[registration.id] = _bestPixmap(rawPixmap);
+    }
+    if (properties.remove('AttentionIconPixmap') case final rawPixmap?) {
+      _attentionPixmaps[registration.id] = _bestPixmap(rawPixmap);
+    }
     final status = _status(_string(properties['Status']));
     final attention = status == SystemTrayStatus.needsAttention;
+    var pixmap = attention
+        ? _attentionPixmaps[registration.id]
+        : _normalPixmaps[registration.id];
+    if (attention && pixmap == null) {
+      pixmap = _normalPixmaps[registration.id];
+    }
     var iconName = _boundedText(
       _string(properties[attention ? 'AttentionIconName' : 'IconName']),
       512,
@@ -537,6 +584,7 @@ class StatusNotifierService {
       status: status,
       iconName: iconName,
       iconThemePath: _boundedText(_string(properties['IconThemePath']), 4096),
+      iconPixmap: pixmap,
       menuAvailable: menuPath != null && menuPath != '/',
       primaryOpensMenu: _boolean(properties['ItemIsMenu']),
       menuPath: menuPath ?? '',
@@ -872,12 +920,133 @@ int _statusPriority(SystemTrayStatus status) => switch (status) {
   SystemTrayStatus.passive => 2,
 };
 
+/// Picks the pixmap closest to the display size from an `a(iiay)` array,
+/// bounds the input, downscales to at most 64px, and premultiplies the
+/// channels. Returns null when nothing usable is present.
+SystemTrayIconPixmap? _bestPixmap(DBusValue? value) {
+  if (value == null || value.signature != DBusSignature('a(iiay)')) {
+    return null;
+  }
+  _StatusNotifierPixmapCandidate? best;
+  for (final entry in value.asArray().take(32)) {
+    try {
+      final tuple = entry.asStruct();
+      if (tuple.length != 3 || tuple[2].signature != DBusSignature('ay')) {
+        continue;
+      }
+      final width = tuple[0].asInt32();
+      final height = tuple[1].asInt32();
+      final byteCount = width * height * 4;
+      if (width <= 0 ||
+          height <= 0 ||
+          width > _StatusNotifierLimits.maxInputDimension ||
+          height > _StatusNotifierLimits.maxInputDimension ||
+          byteCount > _StatusNotifierLimits.maxInputIconBytes ||
+          tuple[2].asArray().length != byteCount) {
+        continue;
+      }
+      final candidate = _StatusNotifierPixmapCandidate(
+        width: width,
+        height: height,
+        bytes: tuple[2].asArray(),
+      );
+      if (best == null || candidate.score < best.score) {
+        best = candidate;
+      }
+    } on Object {
+      continue;
+    }
+  }
+  return best?.decode();
+}
+
+class _StatusNotifierPixmapCandidate {
+  const _StatusNotifierPixmapCandidate({
+    required this.width,
+    required this.height,
+    required this.bytes,
+  });
+
+  final int width;
+  final int height;
+  final List<DBusValue> bytes;
+
+  int get score {
+    final extent = width > height ? width : height;
+    final delta = extent - _StatusNotifierLimits.preferredIconDimension;
+    return delta >= 0
+        ? delta
+        : -delta + _StatusNotifierLimits.maxInputDimension;
+  }
+
+  SystemTrayIconPixmap decode() {
+    final longest = width > height ? width : height;
+    final outputScale = longest <= _StatusNotifierLimits.maxOutputDimension
+        ? 1.0
+        : _StatusNotifierLimits.maxOutputDimension / longest;
+    final outputWidth = (width * outputScale).round().clamp(
+      1,
+      _StatusNotifierLimits.maxOutputDimension,
+    );
+    final outputHeight = (height * outputScale).round().clamp(
+      1,
+      _StatusNotifierLimits.maxOutputDimension,
+    );
+    final rgba = Uint8List(outputWidth * outputHeight * 4);
+    for (var outputY = 0; outputY < outputHeight; outputY += 1) {
+      final sourceY = outputY * height ~/ outputHeight;
+      for (var outputX = 0; outputX < outputWidth; outputX += 1) {
+        final sourceX = outputX * width ~/ outputWidth;
+        final sourceOffset = (sourceY * width + sourceX) * 4;
+        final outputOffset = (outputY * outputWidth + outputX) * 4;
+        final alpha = bytes[sourceOffset].asByte();
+        rgba[outputOffset] = _premultiplyChannel(
+          bytes[sourceOffset + 1].asByte(),
+          alpha,
+        );
+        rgba[outputOffset + 1] = _premultiplyChannel(
+          bytes[sourceOffset + 2].asByte(),
+          alpha,
+        );
+        rgba[outputOffset + 2] = _premultiplyChannel(
+          bytes[sourceOffset + 3].asByte(),
+          alpha,
+        );
+        rgba[outputOffset + 3] = alpha;
+      }
+    }
+    return SystemTrayIconPixmap(
+      width: outputWidth,
+      height: outputHeight,
+      rgba: rgba,
+    );
+  }
+}
+
+int _premultiplyChannel(int channel, int alpha) {
+  return (channel * alpha + 127) ~/ 255;
+}
+
+abstract final class _StatusNotifierLimits {
+  static const int preferredIconDimension = 24;
+  static const int maxInputDimension = 512;
+  static const int maxInputIconBytes =
+      maxInputDimension * maxInputDimension * 4;
+  static const int maxOutputDimension = 64;
+}
+
+@visibleForTesting
+SystemTrayIconPixmap? decodeStatusNotifierPixmapForTesting(DBusValue value) =>
+    _bestPixmap(value);
+
 const Set<String> _knownItemProperties = <String>{
   'Id',
   'Title',
   'Status',
   'IconName',
+  'IconPixmap',
   'AttentionIconName',
+  'AttentionIconPixmap',
   'IconThemePath',
   'Menu',
   'ItemIsMenu',
@@ -886,7 +1055,7 @@ const Set<String> _knownItemProperties = <String>{
 const Map<String, Set<String>> _itemSignalProperties = <String, Set<String>>{
   'NewTitle': <String>{'Title'},
   'NewStatus': <String>{'Status'},
-  'NewIcon': <String>{'IconName'},
-  'NewAttentionIcon': <String>{'AttentionIconName'},
+  'NewIcon': <String>{'IconName', 'IconPixmap'},
+  'NewAttentionIcon': <String>{'AttentionIconName', 'AttentionIconPixmap'},
   'NewIconThemePath': <String>{'IconThemePath'},
 };

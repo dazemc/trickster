@@ -53,6 +53,8 @@ class _FakeTrayItemObject extends DBusObject {
   String iconThemePath = '';
   bool itemIsMenu = false;
   String menuPath = '/';
+  DBusValue? iconPixmap;
+  DBusValue? attentionIconPixmap;
 
   @override
   Future<DBusMethodResponse> getProperty(String interface, String name) async {
@@ -78,6 +80,8 @@ class _FakeTrayItemObject extends DBusObject {
       'IconThemePath': DBusString(iconThemePath),
       'Menu': DBusObjectPath(menuPath),
       'ItemIsMenu': DBusBoolean(itemIsMenu),
+      'IconPixmap': ?iconPixmap,
+      'AttentionIconPixmap': ?attentionIconPixmap,
     });
   }
 
@@ -94,6 +98,8 @@ class _FakeTrayItemObject extends DBusObject {
     'IconThemePath' => DBusString(iconThemePath),
     'Menu' => DBusObjectPath(menuPath),
     'ItemIsMenu' => DBusBoolean(itemIsMenu),
+    'IconPixmap' => iconPixmap,
+    'AttentionIconPixmap' => attentionIconPixmap,
     _ => null,
   };
 
@@ -171,6 +177,23 @@ Future<void> _registerItem(DBusRemoteObject watcher, String address) {
     <DBusValue>[DBusString(address)],
     replySignature: DBusSignature(''),
   );
+}
+
+DBusValue _pixmap(List<(int, int, List<int>)> entries) {
+  return DBusArray(DBusSignature('(iiay)'), [
+    for (final (width, height, bytes) in entries)
+      DBusStruct([
+        DBusInt32(width),
+        DBusInt32(height),
+        DBusArray.byte(bytes),
+      ]),
+  ]);
+}
+
+List<int> _argbBytes(int width, int height, int alpha) {
+  return [
+    for (var i = 0; i < width * height; i++) ...[alpha, 10, 20, 30],
+  ];
 }
 
 void main() {
@@ -346,5 +369,84 @@ void main() {
     expect(externalWatcher.registeredHosts, isNotEmpty);
     await _waitFor(() => snapshots.isNotEmpty);
     expect(snapshots.single.single.title, 'Test Item');
+  });
+
+  test('decodes the pixmap nearest the display size', () {
+    final decoded = decodeStatusNotifierPixmapForTesting(
+      _pixmap([
+        (2, 2, _argbBytes(2, 2, 128)),
+        (4, 4, _argbBytes(4, 4, 255)),
+      ]),
+    )!;
+    expect(decoded.width, 4);
+    expect(decoded.height, 4);
+    expect(decoded.rgba[0], 10);
+    expect(decoded.rgba[3], 255);
+  });
+
+  test('premultiplies alpha channels', () {
+    final decoded = decodeStatusNotifierPixmapForTesting(
+      _pixmap([(1, 1, [128, 200, 100, 50])]),
+    )!;
+    expect(decoded.rgba, [100, 50, 25, 128]);
+  });
+
+  test('bounds oversized inputs and rejects malformed candidates', () {
+    expect(
+      decodeStatusNotifierPixmapForTesting(
+        _pixmap([(600, 600, List<int>.filled(600 * 600 * 4, 0))]),
+      ),
+      isNull,
+    );
+    expect(
+      decodeStatusNotifierPixmapForTesting(
+        _pixmap([(4, 4, List<int>.filled(3, 0))]),
+      ),
+      isNull,
+    );
+    expect(
+      decodeStatusNotifierPixmapForTesting(_pixmap([(0, 4, <int>[])])),
+      isNull,
+    );
+    expect(
+      decodeStatusNotifierPixmapForTesting(_pixmap([(-1, 4, <int>[])])),
+      isNull,
+    );
+    final downscaled = decodeStatusNotifierPixmapForTesting(
+      _pixmap([(128, 128, _argbBytes(128, 128, 200))]),
+    )!;
+    expect(downscaled.width, 64);
+    expect(downscaled.height, 64);
+  });
+
+  test('exposes decoded icon pixmaps and evicts them with the item', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = StatusNotifierService(client: bus.client());
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+    await service.start();
+
+    final tray = bus.client();
+    final itemObject = _FakeTrayItemObject()
+      ..iconPixmap = _pixmap([(4, 4, _argbBytes(4, 4, 255))]);
+    await tray.registerObject(itemObject);
+    await tray.requestName('org.example.Tray');
+
+    final probe = bus.client();
+    addTearDown(probe.close);
+    final watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(() => snapshots.isNotEmpty);
+
+    final item = snapshots.last.single;
+    expect(item.iconPixmap, isNotNull);
+    expect(item.iconPixmap!.width, 4);
+    expect(item.iconPixmap!.height, 4);
+
+    await tray.close();
+    await _waitFor(() => snapshots.last.isEmpty);
   });
 }
