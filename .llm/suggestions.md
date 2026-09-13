@@ -29,6 +29,12 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
+- **MPRIS's first `PropertiesChanged` can beat the match rule.** The `dbus`
+  package installs signal matches without awaiting the bus round-trip, so a
+  change emitted between player discovery and match installation is lost
+  until a topology event or the one-minute recovery scan (Denial shares the
+  window; `test/mpris_test.dart` re-emits to stay deterministic). A short
+  post-selection refresh would close it if the media pill feels stale.
 - **Hyprland blocks its main loop on fresh `.socket.sock` connections.**
   `hyprCtlFDTick` accepts one, then polls up to 5s; a UI-isolate client
   that flushes a turn later deadlocks the wait and tears down the layer
