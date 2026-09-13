@@ -6,12 +6,14 @@ import '../layout/system_bar.dart';
 import '../services/battery.dart';
 import '../services/cpu.dart';
 import '../services/gpu.dart';
+import '../services/status_notifier.dart';
 import '../services/workspaces.dart';
 import '../state/battery_bloc.dart';
 import '../state/cpu_bloc.dart';
 import '../state/gpu_bloc.dart';
 import '../state/session_bloc.dart';
 import '../state/settings_bloc.dart';
+import '../state/tray_bloc.dart';
 import '../state/workspaces_bloc.dart';
 import '../theme/accent.dart';
 import 'battery.dart';
@@ -19,6 +21,7 @@ import 'clock.dart';
 import 'cpu.dart';
 import 'gpu.dart';
 import 'pill.dart';
+import 'tray.dart';
 import 'workspaces.dart';
 
 class TricksterBarStrip extends StatelessWidget {
@@ -62,6 +65,32 @@ class TricksterBarStrip extends StatelessWidget {
           direction: horizontal ? Axis.horizontal : Axis.vertical,
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
+            if (settings.includes('tray'))
+              BlocBuilder<TrayBloc, TrayState>(
+                builder: (context, state) {
+                  if (state.items.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return SystemBarEntrance(
+                    index: 3,
+                    horizontal: horizontal,
+                    child: Padding(
+                      padding: horizontal
+                          ? const EdgeInsets.only(right: _cardGap)
+                          : const EdgeInsets.only(bottom: _cardGap),
+                      child: RepaintBoundary(
+                        child: TrayPill(
+                          accent: accent,
+                          items: state.items,
+                          onActivate: (item, position) => context
+                              .read<TrayBloc>()
+                              .add(TrayItemActivated(item, position)),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             if (settings.includes('workspaces'))
               BlocBuilder<WorkspacesBloc, WorkspacesState>(
                 builder: (context, state) {

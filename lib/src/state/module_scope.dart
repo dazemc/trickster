@@ -6,6 +6,7 @@ import 'clock_bloc.dart';
 import 'cpu_bloc.dart';
 import 'gpu_bloc.dart';
 import 'settings_bloc.dart';
+import 'tray_bloc.dart';
 import 'workspaces_bloc.dart';
 
 /// Builds one [BlocProvider] per enabled module — and nothing for disabled
@@ -27,6 +28,7 @@ class ModuleScope extends StatelessWidget {
     this.clockBuilder,
     this.cpuBuilder,
     this.gpuBuilder,
+    this.trayBuilder,
     this.batteryBuilder,
     this.workspacesBuilder,
     super.key,
@@ -36,6 +38,7 @@ class ModuleScope extends StatelessWidget {
   final ClockBloc Function()? clockBuilder;
   final CpuBloc Function()? cpuBuilder;
   final GpuBloc Function()? gpuBuilder;
+  final TrayBloc Function()? trayBuilder;
   final BatteryBloc Function()? batteryBuilder;
   final WorkspacesBloc Function()? workspacesBuilder;
 
@@ -57,6 +60,11 @@ class ModuleScope extends StatelessWidget {
           BlocProvider<GpuBloc>(
             create: (_) =>
                 gpuBuilder?.call() ?? (GpuBloc()..add(const GpuStarted())),
+          ),
+        if (settings.includes('tray'))
+          BlocProvider<TrayBloc>(
+            create: (_) =>
+                trayBuilder?.call() ?? (TrayBloc()..add(const TrayStarted())),
           ),
         if (settings.includes('battery'))
           BlocProvider<BatteryBloc>(

@@ -1,11 +1,16 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:dbus/dbus.dart';
+import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
 /// StatusNotifier item status, in ascending attention order.
 enum SystemTrayStatus { passive, active, needsAttention }
+
+/// Item interactions the host can invoke.
+enum SystemTrayAction { activate, secondaryActivate, contextMenu }
 
 /// A decoded, premultiplied RGBA icon at display size.
 @immutable
@@ -85,6 +90,52 @@ class SystemTrayItem {
     primaryOpensMenu,
     menuPath,
   );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'title': title,
+    'status': status.name,
+    'iconName': iconName,
+    'iconThemePath': iconThemePath,
+    'menuAvailable': menuAvailable,
+    'primaryOpensMenu': primaryOpensMenu,
+    'menuPath': menuPath,
+  };
+
+  /// Icon pixmap bytes are presentational and not serialized.
+  static SystemTrayItem fromJson(Map<String, dynamic> json) => SystemTrayItem(
+    id: '${json['id']}',
+    title: '${json['title']}',
+    status: _statusFromName('${json['status']}'),
+    iconName: '${json['iconName']}',
+    iconThemePath: '${json['iconThemePath']}',
+    iconPixmap: null,
+    menuAvailable: (json['menuAvailable'] as bool?) ?? false,
+    primaryOpensMenu: (json['primaryOpensMenu'] as bool?) ?? false,
+    menuPath: '${json['menuPath']}',
+  );
+}
+
+/// Bloc state for the tray item list. A bare `List` compares by identity, so
+/// the wrapper exists to give the bloc value semantics — and a JSON shape for
+/// the future `tricksterctl status` dump.
+class TrayState extends Equatable {
+  const TrayState([this.items = const []]);
+
+  final List<SystemTrayItem> items;
+
+  // Spread: Equatable compares props element-wise.
+  @override
+  List<Object?> get props => [...items];
+
+  Map<String, Object?> toJson() => {
+    'items': [for (final item in items) item.toJson()],
+  };
+
+  static TrayState fromJson(Map<String, dynamic> json) => TrayState([
+    for (final entry in json['items'] as List<dynamic>? ?? const [])
+      if (entry is Map<String, dynamic>) SystemTrayItem.fromJson(entry),
+  ]);
 }
 
 /// Hosts the freedesktop/KDE StatusNotifier protocol used by AppIndicator and
@@ -592,6 +643,44 @@ class StatusNotifierService {
     _emit();
   }
 
+  /// Invokes an item method with the bar-relative pointer position. Returns
+  /// false when no interface accepts the call.
+  Future<bool> invoke(
+    SystemTrayItem item,
+    SystemTrayAction action,
+    Offset position,
+  ) async {
+    final registration = _registrations[item.id];
+    if (registration == null || _disposed) {
+      return false;
+    }
+    final method = switch (action) {
+      SystemTrayAction.activate => 'Activate',
+      SystemTrayAction.secondaryActivate => 'SecondaryActivate',
+      SystemTrayAction.contextMenu => 'ContextMenu',
+    };
+    final x = position.dx.round().clamp(-0x80000000, 0x7fffffff);
+    final y = position.dy.round().clamp(-0x80000000, 0x7fffffff);
+    final preferred = _itemInterfaces[registration.id];
+    final interfaces = <String>{?preferred, ...itemInterfaces};
+    for (final interface in interfaces) {
+      try {
+        await _remoteItem(registration)
+            .callMethod(interface, method, <DBusValue>[
+              DBusInt32(x),
+              DBusInt32(y),
+            ], replySignature: DBusSignature(''))
+            .timeout(_methodTimeout);
+        _itemInterfaces[registration.id] = interface;
+        return true;
+      } on Object {
+        continue;
+      }
+    }
+    _scheduleItemRefresh(registration.id, full: true, immediate: true);
+    return false;
+  }
+
   DBusRemoteObject _remoteItem(_StatusNotifierRegistration registration) {
     return DBusRemoteObject(
       _bus,
@@ -634,7 +723,9 @@ class StatusNotifierService {
     }
     await _watcherSignals?.cancel();
     await _ownerChanges?.cancel();
-    await _bus.unregisterObject(_watcher);
+    if (_started) {
+      await _bus.unregisterObject(_watcher);
+    }
     await _snapshots.close();
     await _client?.close();
   }
@@ -913,6 +1004,15 @@ SystemTrayStatus _status(String value) => switch (value.toLowerCase()) {
   'needsattention' => SystemTrayStatus.needsAttention,
   _ => SystemTrayStatus.active,
 };
+
+SystemTrayStatus _statusFromName(String value) {
+  for (final status in SystemTrayStatus.values) {
+    if (status.name == value) {
+      return status;
+    }
+  }
+  return SystemTrayStatus.active;
+}
 
 int _statusPriority(SystemTrayStatus status) => switch (status) {
   SystemTrayStatus.needsAttention => 0,

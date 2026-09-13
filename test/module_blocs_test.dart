@@ -1,15 +1,16 @@
 import 'dart:async';
-
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 class FakeCpuSampler extends CpuSampler {
@@ -89,6 +90,35 @@ class FakeMonitor extends WorkspaceMonitor {
   Future<bool> focusWorkspace(Workspace workspace) async {
     focused.add(workspace);
     return focusResult;
+  }
+}
+
+class FakeStatusNotifierService extends StatusNotifierService {
+  final controller = StreamController<List<SystemTrayItem>>.broadcast();
+
+  var disposed = false;
+  final activations = <(SystemTrayItem, Offset)>[];
+
+  @override
+  Stream<List<SystemTrayItem>> get snapshots => controller.stream;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await controller.close();
+  }
+
+  @override
+  Future<bool> invoke(
+    SystemTrayItem item,
+    SystemTrayAction action,
+    Offset position,
+  ) async {
+    activations.add((item, position));
+    return true;
   }
 }
 
@@ -355,6 +385,59 @@ cpu MHz\t\t: 3400.000
       final list = workspacesFromJson(workspacesToJson([workspace]).toList());
       expect(list.length, 1);
       expect(list.first.id, '2');
+    });
+  });
+
+  group('TrayBloc', () {
+    const item = SystemTrayItem(
+      id: 'status-notifier:org.example.Tray:/StatusNotifierItem',
+      title: 'Test Item',
+      status: SystemTrayStatus.active,
+      iconName: 'test-icon',
+      iconThemePath: '',
+      iconPixmap: null,
+      menuAvailable: false,
+      primaryOpensMenu: false,
+    );
+
+    test('started then sampled emits the items', () async {
+      final service = FakeStatusNotifierService();
+      final bloc = TrayBloc(service: service);
+      try {
+        bloc.add(const TrayStarted());
+        await pumpEventQueue();
+        service.controller.add(const [item]);
+        await expectLater(
+          bloc.stream,
+          emits(const TrayState([item])),
+        );
+      } finally {
+        await bloc.close();
+      }
+      expect(service.disposed, isTrue);
+    });
+
+    test('activation forwards the item and pointer position', () async {
+      final service = FakeStatusNotifierService();
+      final bloc = TrayBloc(service: service);
+      try {
+        bloc.add(const TrayItemActivated(item, Offset(12, 34)));
+        await pumpEventQueue();
+        expect(service.activations.single.$1, item);
+        expect(service.activations.single.$2, const Offset(12, 34));
+      } finally {
+        await bloc.close();
+      }
+    });
+
+    test('tray state json round-trips', () {
+      const state = TrayState([item]);
+      final decoded = TrayState.fromJson(
+        Map<String, dynamic>.from(state.toJson()),
+      );
+      expect(decoded, state);
+      expect(decoded.items.single.title, 'Test Item');
+      expect(decoded.items.single.status, SystemTrayStatus.active);
     });
   });
 

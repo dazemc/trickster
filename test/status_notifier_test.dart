@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:dbus/dbus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -55,6 +54,7 @@ class _FakeTrayItemObject extends DBusObject {
   String menuPath = '/';
   DBusValue? iconPixmap;
   DBusValue? attentionIconPixmap;
+  final activations = <({String method, int x, int y})>[];
 
   @override
   Future<DBusMethodResponse> getProperty(String interface, String name) async {
@@ -87,6 +87,19 @@ class _FakeTrayItemObject extends DBusObject {
 
   @override
   Future<DBusMethodResponse> handleMethodCall(DBusMethodCall methodCall) async {
+    if (!StatusNotifierService.itemInterfaces.contains(methodCall.interface)) {
+      return DBusMethodErrorResponse.unknownInterface();
+    }
+    if (methodCall.name == 'Activate' ||
+        methodCall.name == 'SecondaryActivate' ||
+        methodCall.name == 'ContextMenu') {
+      activations.add((
+        method: methodCall.name,
+        x: methodCall.values[0].asInt32(),
+        y: methodCall.values[1].asInt32(),
+      ));
+      return DBusMethodSuccessResponse();
+    }
     return DBusMethodErrorResponse.unknownMethod();
   }
 
@@ -448,5 +461,36 @@ void main() {
 
     await tray.close();
     await _waitFor(() => snapshots.last.isEmpty);
+  });
+
+  test('invokes item activation with the pointer position', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = StatusNotifierService(client: bus.client());
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+    await service.start();
+
+    final tray = bus.client();
+    addTearDown(tray.close);
+    final itemObject = _FakeTrayItemObject();
+    await tray.registerObject(itemObject);
+    await tray.requestName('org.example.Tray');
+
+    final probe = bus.client();
+    addTearDown(probe.close);
+    final watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(() => snapshots.isNotEmpty);
+
+    final activated = await service.invoke(
+      snapshots.last.single,
+      SystemTrayAction.activate,
+      const Offset(12, 34),
+    );
+    expect(activated, isTrue);
+    expect(itemObject.activations.single, (method: 'Activate', x: 12, y: 34));
   });
 }
