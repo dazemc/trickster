@@ -240,6 +240,11 @@ Do not add features Denial's bar does not have until parity is real.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
+- Keep pub packages current. Before starting a change, run
+  `flutter pub upgrade`; verify with `flutter pub outdated` that no
+  resolvable package lags. Commit `pubspec.lock` (and `pubspec.yaml` when a
+  constraint moves) on its own. Never `dependency_overrides` a Flutter SDK
+  pin.
 - Networked Git/GitHub commands (`fetch`, `push`, `gh`) run outside any
   sandbox; sandboxed credential or network failures are not authoritative.
 
