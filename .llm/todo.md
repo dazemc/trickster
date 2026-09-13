@@ -28,9 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.4 tray pill + activate** (S). New `lib/src/bar/tray.dart`. Icon
-      row in a pill; left-click activates; tooltips; status semantics.
-      Done when: widget-tested with fake items.
 - [ ] **3.5 tray menus** (M). Same pill. Right-click D-Bus menus with
       submenus via `MenuController`, destructive styling, dismissal paths.
       Done when: open/navigate/dismiss tested, verified against two real
