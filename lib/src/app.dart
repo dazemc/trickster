@@ -10,6 +10,7 @@ import 'bootstrap.dart';
 import 'config/session.dart';
 import 'config/watcher.dart';
 import 'layout/system_bar.dart';
+import 'locale.dart';
 import 'platform/layer_shell.dart';
 import 'state/providers.dart';
 
@@ -89,8 +90,12 @@ class _TricksterAppState extends ConsumerState<TricksterApp> {
       return const ColoredBox(color: Color(0x00000000));
     }
     // Bare widgets need explicit directionality and locale; there is no
-    // MaterialApp above the strip.
-    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    // MaterialApp above the strip. The device locale is reduced to one the
+    // widgets delegate supports (headless LANG=C environments crash
+    // resource resolution otherwise).
+    final locale = resolveAppLocale(
+      WidgetsBinding.instance.platformDispatcher.locale,
+    );
     return Localizations(
       locale: locale,
       delegates: const [GlobalWidgetsLocalizations.delegate],
