@@ -7,6 +7,11 @@ class CpuSample {
   const CpuSample(this.current);
 
   final double? current;
+
+  Map<String, Object?> toJson() => {'current': current};
+
+  static CpuSample fromJson(Map<String, dynamic> json) =>
+      CpuSample((json['current'] as num?)?.toDouble());
 }
 
 class CpuSampler {

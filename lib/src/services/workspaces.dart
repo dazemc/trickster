@@ -15,7 +15,29 @@ class Workspace {
   final String name;
   final bool focused;
   final bool urgent;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'focused': focused,
+    'urgent': urgent,
+  };
+
+  static Workspace fromJson(Map<String, dynamic> json) => Workspace(
+    id: '${json['id']}',
+    name: '${json['name']}',
+    focused: (json['focused'] as bool?) ?? false,
+    urgent: (json['urgent'] as bool?) ?? false,
+  );
 }
+
+List<Map<String, Object?>> workspacesToJson(List<Workspace> workspaces) =>
+    workspaces.map((workspace) => workspace.toJson()).toList(growable: false);
+
+List<Workspace> workspacesFromJson(List<dynamic> json) => json
+    .whereType<Map<String, dynamic>>()
+    .map(Workspace.fromJson)
+    .toList(growable: false);
 
 abstract class WorkspaceBackend {
   Stream<List<Workspace>> get snapshots;

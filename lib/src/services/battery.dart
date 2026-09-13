@@ -6,6 +6,17 @@ class BatteryStatus {
 
   final int? capacity;
   final bool charging;
+
+  Map<String, Object?> toJson() => {
+    'capacity': capacity,
+    'charging': charging,
+  };
+
+  static BatteryStatus fromJson(Map<String, dynamic> json) =>
+      BatteryStatus(
+        capacity: (json['capacity'] as num?)?.toInt(),
+        charging: (json['charging'] as bool?) ?? false,
+      );
 }
 
 class BatterySampler {
