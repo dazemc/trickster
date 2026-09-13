@@ -1,5 +1,9 @@
 # Trickster repository workflow
 
+This file interprets `AGENTS.md` (see its Instruction precedence section) and
+never overrides it; on a conflict the constitution wins and this file is
+corrected.
+
 - `main` is the stable branch. Exactly one working branch, `working`, exists
   beside it and carries the code steps of the phase at the top of
   `.llm/todo.md` that still has steps. No other branches exist (no per-phase
