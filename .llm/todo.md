@@ -28,10 +28,6 @@ silent per the logging rules.
 
 ## Phase 3 — parity (absent modules)
 
-- [ ] **3.1 StatusNotifier core** (M). New
-      `lib/src/services/status_notifier.{dart,test}`. Watcher + host
-      registration over D-Bus, item tracking by service name. Done when:
-      unit-tested against a fake bus, disconnect cleans up.
 - [ ] **3.2 tray icon decode + cache** (S). Same service. Decode pixmaps at
       display size with a hard cap and eviction; never retain raw D-Bus
       byte arrays. Done when: cap/eviction unit-tested.
