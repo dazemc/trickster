@@ -1,4 +1,4 @@
-# Trickster Bar architecture
+# Trickster architecture
 
 ## What it is
 
