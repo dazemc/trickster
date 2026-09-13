@@ -5,6 +5,9 @@
   `.llm/todo.md` that still has steps. Everything lands on `working` — never
   on `main`, and no other branches exist (no per-phase `bar/phase-N`
   branches).
+- Every step is one action with one done-criterion; split work that spans
+  backends, services, or widgets into separate steps. Never batch multiple
+  steps into one change.
 - Commit every finished TODO step on the working branch as a slice: one commit
   for the code, then one commit per touched LLM-maintained markdown file
   (`.llm/todo.md`, `.llm/suggestions.md`, docs). A step is finished only when
