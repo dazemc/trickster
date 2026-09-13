@@ -79,6 +79,7 @@ class TricksterBarStrip extends StatelessWidget {
                         child: WorkspacesPill(
                           accent: accent,
                           workspaces: state.workspaces,
+                          horizontal: horizontal,
                         ),
                       ),
                     ),

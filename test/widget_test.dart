@@ -102,8 +102,14 @@ void main() {
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%', findRichText: true), findsOneWidget);
     expect(find.text('87%'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('workspace-pip-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('workspace-pip-2')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('disabled modules render nothing', (tester) async {
@@ -115,7 +121,10 @@ void main() {
     expect(find.text('CPU'), findsNothing);
     expect(find.text('42%', findRichText: true), findsNothing);
     expect(find.text('87%'), findsNothing);
-    expect(find.text('1'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('workspace-pip-1')),
+      findsNothing,
+    );
   });
 
   testWidgets('gpu cards follow the service list', (tester) async {
