@@ -66,21 +66,37 @@ class WeatherPill extends StatelessWidget {
 }
 ```
 
-**3. Wiring** — a `NotifierProvider` in `lib/src/state/providers.dart` following `CpuController` (watch `settingsProvider.select((s) => s.includes('weather'))`, empty state when disabled, `alive` flag with cancel-on-dispose), plus one guarded block in `TricksterBarStrip` with a `SystemBarEntrance` wrapper and `RepaintBoundary`:
+**3. Wiring** — a `WeatherBloc` in `lib/src/state/weather_bloc.dart` following `CpuBloc` (explicit `Started`/`Stopped`/`Sampled` events, sampler owned by the bloc, `toJson`/`fromJson` on the state from day one), one conditional `BlocProvider` in `ModuleScope` (nothing built when the module is not listed), plus one guarded `BlocBuilder` block in `TricksterBarStrip` with a `SystemBarEntrance` wrapper and `RepaintBoundary`:
 
 ```dart
+// ModuleScope: no bloc, no subscription, no timer when disabled.
 if (settings.includes('weather'))
-  SystemBarEntrance(
-    index: 3,
-    horizontal: horizontal,
-    child: Padding(
-      padding: horizontal
-          ? const EdgeInsets.only(right: _cardGap)
-          : const EdgeInsets.only(bottom: _cardGap),
-      child: RepaintBoundary(
-        child: WeatherPill(accent: accent, weather: weather),
-      ),
-    ),
+  BlocProvider<WeatherBloc>(
+    create: (_) => WeatherBloc()..add(const WeatherStarted()),
+  ),
+```
+
+```dart
+// TricksterBarStrip: empty state hides the pill until data arrives.
+if (settings.includes('weather'))
+  BlocBuilder<WeatherBloc, WeatherState>(
+    builder: (context, state) {
+      if (state.current == null) {
+        return const SizedBox.shrink();
+      }
+      return SystemBarEntrance(
+        index: 3,
+        horizontal: horizontal,
+        child: Padding(
+          padding: horizontal
+              ? const EdgeInsets.only(right: _cardGap)
+              : const EdgeInsets.only(bottom: _cardGap),
+          child: RepaintBoundary(
+            child: WeatherPill(accent: accent, weather: state),
+          ),
+        ),
+      );
+    },
   ),
 ```
 
