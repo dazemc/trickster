@@ -1,5 +1,9 @@
 # Trickster configuration (Denial mirror)
 
+Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
+`AGENTS.md` → Instruction precedence); on a conflict the higher document wins
+and this file is corrected.
+
 File style is Denial-style `KEY=VALUE` with `#` comments.
 
 - `/etc/trickster/session.conf` (`TRICKSTER_*`): machine env — config-path
