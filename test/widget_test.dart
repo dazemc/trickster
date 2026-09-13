@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
+import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
@@ -106,6 +107,48 @@ void main() {
         .map((text) => text.text.toPlainText())
         .join(' ');
     expect(texts, anyOf(contains('AM'), contains('PM')));
+  });
+
+  testWidgets('action card announces, taps, and rings on focus', (
+    tester,
+  ) async {
+    var pressed = 0;
+    final node = FocusNode();
+    addTearDown(node.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: Localizations(
+          locale: const Locale('en', 'US'),
+          delegates: const [GlobalWidgetsLocalizations.delegate],
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: TricksterActionCard(
+              accent: const WallpaperAccent(Color(0xffd0bcff)),
+              label: 'Test action',
+              onPressed: () => pressed++,
+              focusNode: node,
+              child: const Text('go'),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Test action'), findsOneWidget);
+    await tester.tap(find.text('go'));
+    await tester.pump();
+    expect(pressed, 1);
+    node.requestFocus();
+    // Focus notification is delivered asynchronously behind the full
+    // ancestor chain; the first pump applies focus, the second rebuilds.
+    await tester.pump();
+    await tester.pump();
+    final ringed = find.byWidgetPredicate(
+      (widget) =>
+          widget is DecoratedBox &&
+          widget.decoration is BoxDecoration &&
+          (widget.decoration as BoxDecoration).border != null,
+    );
+    expect(ringed, findsOneWidget);
   });
 
   test('bar date caption follows the locale', () {
