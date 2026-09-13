@@ -14,6 +14,7 @@ class LoadMeter extends StatelessWidget {
     required this.current,
     required this.history,
     required this.capacity,
+    this.valueColor,
     super.key,
   });
 
@@ -24,6 +25,9 @@ class LoadMeter extends StatelessWidget {
   final double? current;
   final List<double> history;
   final int capacity;
+
+  /// Overrides the percent text color when a threshold is crossed.
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +60,7 @@ class LoadMeter extends StatelessWidget {
           child: Text.rich(
             TextSpan(
               text: '$percent',
-              style: ShellText.systemBarValue,
+              style: ShellText.systemBarValue.copyWith(color: valueColor),
               children: [
                 TextSpan(
                   text: '%',

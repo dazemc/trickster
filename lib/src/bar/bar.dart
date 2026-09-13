@@ -201,6 +201,7 @@ class TricksterBarStrip extends StatelessWidget {
                               child: GpuPill(
                                 accent: accent,
                                 load: state.loads[i],
+                                captionSource: settings.meter.captionSource,
                               ),
                             ),
                           ),
@@ -223,7 +224,13 @@ class TricksterBarStrip extends StatelessWidget {
                           ? const EdgeInsets.only(right: _cardGap)
                           : const EdgeInsets.only(bottom: _cardGap),
                       child: RepaintBoundary(
-                        child: CpuPill(accent: accent, sample: sample),
+                        child: CpuPill(
+                          accent: accent,
+                          sample: sample,
+                          warn: settings.cpu.warn,
+                          critical: settings.cpu.critical,
+                          captionSource: settings.meter.captionSource,
+                        ),
                       ),
                     ),
                   );
@@ -247,6 +254,8 @@ class TricksterBarStrip extends StatelessWidget {
                           accent: accent,
                           status: status,
                           onPressed: onOpenPowerSettings,
+                          warn: settings.battery.warn,
+                          critical: settings.battery.critical,
                         ),
                       ),
                     ),
@@ -257,7 +266,12 @@ class TricksterBarStrip extends StatelessWidget {
               SystemBarEntrance(
                 index: 0,
                 horizontal: horizontal,
-                child: RepaintBoundary(child: ClockPill(accent: accent)),
+                child: RepaintBoundary(
+                  child: ClockPill(
+                    accent: accent,
+                    format: settings.clock.format,
+                  ),
+                ),
               ),
           ],
         ),

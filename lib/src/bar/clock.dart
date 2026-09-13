@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../config/settings.dart';
 import '../state/clock_bloc.dart';
 import '../theme/accent.dart';
 import '../theme/motion.dart';
@@ -9,26 +10,37 @@ import '../theme/tokens.dart';
 import 'pill.dart';
 
 class ClockPill extends StatelessWidget {
-  const ClockPill({required this.accent, super.key});
+  const ClockPill({
+    required this.accent,
+    this.format = ClockFormat.locale,
+    super.key,
+  });
 
   final WallpaperAccent accent;
+  final ClockFormat format;
 
   @override
   Widget build(BuildContext context) {
     return SystemBarCard(
       accent: accent,
       child: BlocBuilder<ClockBloc, ClockState>(
-        builder: (context, state) => _ClockRow(accent: accent, now: state.now),
+        builder: (context, state) =>
+            _ClockRow(accent: accent, now: state.now, format: format),
       ),
     );
   }
 }
 
 class _ClockRow extends StatelessWidget {
-  const _ClockRow({required this.accent, required this.now});
+  const _ClockRow({
+    required this.accent,
+    required this.now,
+    required this.format,
+  });
 
   final WallpaperAccent accent;
   final DateTime now;
+  final ClockFormat format;
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +80,14 @@ class _ClockRow extends StatelessWidget {
   }
 
   String _formatTime(BuildContext context, DateTime now) {
-    // Skeleton `jm` follows the locale's own hour cycle: 12h with day
+    // The locale default follows the locale's own hour cycle: 12h with day
     // period where the locale prefers it, 24h where it does not.
     final locale = Localizations.localeOf(context).toLanguageTag();
-    return DateFormat.jm(locale).format(now);
+    return switch (format) {
+      ClockFormat.locale => DateFormat.jm(locale).format(now),
+      ClockFormat.hour24 => DateFormat.Hm(locale).format(now),
+      ClockFormat.hour12 => DateFormat('h:mm a', locale).format(now),
+    };
   }
 
   String _formatDate(BuildContext context, DateTime now) {

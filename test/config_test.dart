@@ -114,6 +114,57 @@ void main() {
       );
     });
 
+    test('module options round-trip and validate', () {
+      const settings = BarSettings(
+        revision: 4,
+        cpu: CpuOptions(warn: 0.7, critical: 0.9),
+        clock: ClockOptions(format: ClockFormat.hour24),
+        battery: BatteryOptions(warn: 30, critical: 15),
+        meter: MeterOptions(captionSource: MeterCaptionSource.device),
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.cpu.warn, 0.7);
+      expect(decoded.cpu.critical, 0.9);
+      expect(decoded.clock.format, ClockFormat.hour24);
+      expect(decoded.battery.warn, 30);
+      expect(decoded.battery.critical, 15);
+      expect(decoded.meter.captionSource, MeterCaptionSource.device);
+      const bare = BarSettings();
+      expect(bare.cpu.warn, 0.85);
+      expect(bare.clock.format, ClockFormat.locale);
+      expect(bare.battery.critical, 10);
+      expect(bare.meter.captionSource, MeterCaptionSource.generic);
+    });
+
+    test('invalid module options are rejected at decode', () {
+      expect(
+        () => BarSettings.decode('{"revision": 1, "cpu": {"warn": 2}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "cpu": {"warn": 0.9, "critical": 0.5}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "clock": {"format": "25h"}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "battery": {"warn": 5, "critical": 20}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "meter": {"caption_source": "vendor"}}',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('invalid workspace options are rejected at decode', () {
       expect(
         () => BarSettings.decode(

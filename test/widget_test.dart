@@ -75,16 +75,23 @@ Future<void> _pumpStrip(
   );
 }
 
-Future<void> _pumpClock(WidgetTester tester, Locale locale) {
+Future<void> _pumpClock(
+  WidgetTester tester,
+  Locale locale, {
+  ClockFormat format = ClockFormat.locale,
+}) {
   return tester.pumpWidget(
     MultiBlocProvider(
       providers: [BlocProvider(create: (_) => ClockBloc())],
       child: Localizations(
         locale: locale,
         delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: const Directionality(
+        child: Directionality(
           textDirection: TextDirection.ltr,
-          child: ClockPill(accent: WallpaperAccent(Color(0xffd0bcff))),
+          child: ClockPill(
+            accent: const WallpaperAccent(Color(0xffd0bcff)),
+            format: format,
+          ),
         ),
       ),
     ),
@@ -178,6 +185,33 @@ void main() {
     await _pumpClock(tester, const Locale('en', 'US'));
     await tester.pump(const Duration(milliseconds: 500));
     final texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, anyOf(contains('AM'), contains('PM')));
+  });
+
+  testWidgets('clock options force 24h and 12h', (tester) async {
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      format: ClockFormat.hour24,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    var texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, isNot(contains('AM')));
+    expect(texts, isNot(contains('PM')));
+
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      format: ClockFormat.hour12,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    texts = tester
         .widgetList<RichText>(find.byType(RichText))
         .map((text) => text.text.toPlainText())
         .join(' ');
