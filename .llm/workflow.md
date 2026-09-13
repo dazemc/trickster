@@ -1,7 +1,8 @@
 # Trickster repository workflow
 
 - `main` is the stable branch. Each TODO phase gets its own branch from
-  `main`: `bar/phase-1`, `bar/phase-2`, `bar/phase-3`, `bar/phase-4`.
+  `main`: `bar/phase-1`, `bar/phase-2`, `bar/phase-3`, `bar/phase-4`,
+  `bar/phase-5`.
   All of the phase's steps land on that branch — never on `main`, never on
   another phase's branch.
 - Commit every finished TODO step on the phase branch as a slice: one commit
