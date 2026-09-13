@@ -30,10 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.12 workspace options schema** (S). `lib/src/config/settings.dart`.
-      Typed `show_empty`/`max` options, validated at decode, last-good on
-      invalid, watched via `select`. Template for the rest. Done when:
-      round-trip tested, documented in `docs_site/content/configuration.md`.
 - [ ] **4.13 remaining module options** (S). CPU thresholds, clock format,
       battery warn levels, and meter caption source (generic CPU/GPU tags
       vs queried device names), same discipline. Done when: tested +
