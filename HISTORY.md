@@ -32,3 +32,7 @@ without loading this file. Never read it for context.
 - USER_PROMPT: continue phase 1; every todo step must run the program and check runtime errors.
 - AGENT_INTERPRETATION: added debug/profile-only TricksterObserver (lifecycle, events, transitions with handler latency, errors) with injectable sink, wired via installObserver in main; transcript shapes unit-tested; proven analyze-clean, 45/45 green, debug build launched clean in live session with zero errors, release path untouched and silent by gate inspection.
 - COMMIT: 542286b 85b65b1
+### 2026-09-12 — Land app and strip wiring (1.4)
+- USER_PROMPT: continue (execute Phase 1 Bloc migration).
+- AGENT_INTERPRETATION: moved main/app/strip/clock off Riverpod onto blocs with startup gating per configured modules, pure resolveAccent helper, widget tests rewritten to seeded providers; diagnosed two FakeAsync traps (pumpEventQueue and awaited close hang forever — seed via constructors, let providers own lifecycle), recorded in suggestions; proven analyze-clean, 47/47 green, release rebuilt, 8s live run with zero errors.
+- COMMIT: a58ee16 4df9b34 f4b6b52
