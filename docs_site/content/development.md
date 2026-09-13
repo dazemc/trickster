@@ -16,6 +16,14 @@ A first build needs network (pubspec + Flutter SDK); later builds reuse the cach
 
 Code lands on the single `working` branch; every markdown file commits directly on `main` in its own commit and is merged back into `working`. Each step is committed separately as it lands proven and is removed from `.llm/todo.md`, and a finished phase merges back into `main` through a pull request. Commits follow `scope: summary` in the imperative.
 
+## Localization
+
+UI strings live in `lib/l10n/app_en.arb` and `lib/l10n/app_zh.arb` and are
+read through `context.l10n` (`lib/src/locale.dart`). `generate: true` in
+`pubspec.yaml` regenerates `lib/l10n/generated/` on pub get, build, and
+test; the generated files are committed. Never hardcode user-visible text,
+including accessible labels, values, and hints.
+
 ## Widget test contract
 
 Strip and module widget tests follow one contract, implemented by
