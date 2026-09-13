@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 
 import '../theme/accent.dart';
 import '../theme/motion.dart';
@@ -60,7 +61,7 @@ class _ClockModuleState extends State<_ClockModule> {
 
   @override
   Widget build(BuildContext context) {
-    final time = _formatTime(_now);
+    final time = _formatTime(context, _now);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -95,10 +96,11 @@ class _ClockModuleState extends State<_ClockModule> {
     );
   }
 
-  String _formatTime(DateTime now) {
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  String _formatTime(BuildContext context, DateTime now) {
+    // Skeleton `jm` follows the locale's own hour cycle: 12h with day
+    // period where the locale prefers it, 24h where it does not.
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat.jm(locale).format(now);
   }
 
   String _formatDate(DateTime now) {

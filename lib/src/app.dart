@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'bar/bar.dart';
@@ -87,13 +88,18 @@ class _TricksterAppState extends ConsumerState<TricksterApp> {
     if (!outputs.active) {
       return const ColoredBox(color: Color(0x00000000));
     }
-    // Bare widgets need an explicit text direction; there is no
+    // Bare widgets need explicit directionality and locale; there is no
     // MaterialApp above the strip.
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: ColoredBox(
-        color: const Color(0x00000000),
-        child: TricksterBarStrip(side: outputs.side),
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    return Localizations(
+      locale: locale,
+      delegates: const [GlobalWidgetsLocalizations.delegate],
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: ColoredBox(
+          color: const Color(0x00000000),
+          child: TricksterBarStrip(side: outputs.side),
+        ),
       ),
     );
   }
