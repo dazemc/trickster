@@ -8,71 +8,13 @@ import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
-import 'package:trickster/src/layout/system_bar.dart';
-import 'package:trickster/src/services/battery.dart';
-import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
-import 'package:trickster/src/services/mpris.dart';
-import 'package:trickster/src/services/status_notifier.dart';
-import 'package:trickster/src/services/workspaces.dart';
-import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
-import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
-import 'package:trickster/src/state/media_bloc.dart';
-import 'package:trickster/src/state/outputs_bloc.dart';
-import 'package:trickster/src/state/session_bloc.dart';
-import 'package:trickster/src/state/settings_bloc.dart';
-import 'package:trickster/src/state/tray_bloc.dart';
-import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+
+import 'support/strip_harness.dart';
 import 'package:trickster/src/theme/tokens.dart';
-
-const _workspaces = [
-  Workspace(id: '1', name: '1', focused: true),
-  Workspace(id: '2', name: '2', urgent: true),
-];
-
-Future<void> _pumpStrip(
-  WidgetTester tester, {
-  BarSettings settings = const BarSettings(),
-  Locale locale = const Locale('en', 'US'),
-}) async {
-  // States are seeded via constructors, never via events: awaiting the
-  // real event loop (pumpEventQueue) inside FakeAsync hangs forever.
-  // Providers own their blocs (create, not value): provider disposal closes
-  // blocs unawaited, while awaiting close() in FakeAsync deadlocks on the
-  // bloc's internal event pipeline.
-  return tester.pumpWidget(
-    MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => SettingsBloc(settings)),
-        BlocProvider(create: (_) => SessionBloc()),
-        BlocProvider(create: (_) => OutputsBloc()),
-        BlocProvider(create: (_) => ClockBloc()),
-        BlocProvider(create: (_) => CpuBloc(initial: const CpuSample(0.42))),
-        BlocProvider(create: (_) => GpuBloc(initial: const GpuState())),
-        BlocProvider(create: (_) => TrayBloc(initial: const TrayState())),
-        BlocProvider(
-          create: (_) => BatteryBloc(
-            initial: const BatteryStatus(capacity: 87, charging: true),
-          ),
-        ),
-        BlocProvider(
-          create: (_) =>
-              WorkspacesBloc(initial: const WorkspacesState(_workspaces)),
-        ),
-        BlocProvider(
-          create: (_) => MediaBloc(initial: MprisPlaybackState.unavailable()),
-        ),
-      ],
-      child: TricksterLocalizationScope(
-        locale: locale,
-        child: const TricksterBarStrip(side: SystemBarSide.top),
-      ),
-    ),
-  );
-}
 
 Future<void> _pumpClock(
   WidgetTester tester,
@@ -104,7 +46,7 @@ void main() {
   testWidgets('strip shows clock, cpu, battery, and workspaces', (
     tester,
   ) async {
-    await _pumpStrip(tester);
+    await pumpBarHarness(tester);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%', findRichText: true), findsOneWidget);
@@ -120,7 +62,10 @@ void main() {
   });
 
   testWidgets('disabled modules render nothing', (tester) async {
-    await _pumpStrip(tester, settings: const BarSettings(modules: ['clock']));
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+    );
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('CPU'), findsNothing);
     expect(find.text('42%', findRichText: true), findsNothing);
@@ -133,7 +78,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await _pumpStrip(tester);
+    await pumpBarHarness(tester);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(GpuPill), findsNothing);
 
@@ -166,7 +111,7 @@ void main() {
 
   testWidgets('strip tints captions with the settings accent', (tester) async {
     const accent = Color(0xffff0000);
-    await _pumpStrip(tester, settings: const BarSettings(accent: accent));
+    await pumpBarHarness(tester, settings: const BarSettings(accent: accent));
     await tester.pump(const Duration(milliseconds: 500));
     final expected = const WallpaperAccent(accent).captionColor();
     final caption = tester.widget<Text>(
