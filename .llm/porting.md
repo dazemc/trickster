@@ -1,5 +1,9 @@
 # Porting from Denial to Trickster
 
+Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
+`AGENTS.md` → Instruction precedence); on a conflict the higher document wins
+and this file is corrected.
+
 When a Denial file is compositor-agnostic, port it. When it is not, write
 the smallest honest replacement and keep the same type names at the module
 boundary so the widgets do not care.
