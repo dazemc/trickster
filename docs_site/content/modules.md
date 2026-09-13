@@ -11,6 +11,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | --- | --- | --- | --- |
 | `clock` | Date caption + `HH:MM`, minute crossfade | Local time, minute-aligned single timer | Always renders |
 | `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer | Hidden if unreadable |
+| `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler | Hidden with no reading |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `workspaces` | Focused/urgent names | Sway/Hyprland/niri IPC sockets, auto-detected | Hidden when empty |
 
