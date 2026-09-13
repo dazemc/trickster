@@ -23,6 +23,9 @@ surface, not a desktop app. Prefer a port of Denial's Dart over a rewrite
 whenever the code is compositor-agnostic. Do not invent a second design
 language.
 
+The work queue lives in `TODO.md`, in build order. Remove items as they
+land — do not check them off, do not let it rot.
+
 ## What it is
 
 - One Flutter Linux process. One `wlr-layer-shell` surface per connected
