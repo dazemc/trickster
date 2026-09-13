@@ -30,10 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.17 tray tooltips** (S). `lib/src/bar/tray.dart`. Hover tooltips on
-      a transient overlay surface, reusing the menu-surface mechanism;
-      semantics stay as the accessible path. Done when: hover show/hide and
-      dismissal verified on the live session.
 - [ ] **4.18 menu surfaces across compositors** (S). `trickster_menu_surface_new`
       and `TrayMenuSurface`. Anchor math is Hyprland-verified only; check
       placement and dismissal on Sway, niri, and river. Done when: each
