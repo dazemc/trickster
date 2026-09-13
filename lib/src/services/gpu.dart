@@ -147,7 +147,7 @@ class GpuSampler {
     if (await _canReadNvidiaWithoutWake()) {
       for (final nvidia in await _nvml.read()) {
         reads.add(
-          (id: 'nvml${nvidia.index}', label: 'NV', usage: nvidia.usage),
+          (id: 'nvml${nvidia.index}', label: 'GPU', usage: nvidia.usage),
         );
       }
     } else {
@@ -156,7 +156,7 @@ class GpuSampler {
         index < _nvidiaRuntimeStatusFiles!.length;
         index += 1
       ) {
-        reads.add((id: 'nvml$index', label: 'NV', usage: 0.0));
+        reads.add((id: 'nvml$index', label: 'GPU', usage: 0.0));
       }
     }
     final previous = <String, GpuLoad>{
@@ -190,8 +190,8 @@ class GpuSampler {
           continue;
         }
         final device = '${entity.path}/device';
-        final label = _vendorLabel(File('$device/vendor'));
-        if (label == 'NV') {
+        final vendor = _readText(File('$device/vendor'))?.trim();
+        if (vendor == '0x10de') {
           final runtimeStatus = File('$device/power/runtime_status');
           if (runtimeStatus.existsSync()) {
             nvidiaRuntimeStatusFiles.add(runtimeStatus);
@@ -202,7 +202,11 @@ class GpuSampler {
           continue;
         }
         devices.add(
-          _GpuDevice(id: name, label: label, busyFile: busyFile),
+          _GpuDevice(
+            id: name,
+            label: _vendorLabel(vendor),
+            busyFile: busyFile,
+          ),
         );
       }
     } on FileSystemException {
@@ -241,11 +245,9 @@ class GpuSampler {
 
   static final RegExp _cardName = RegExp(r'^card\d+$');
 
-  String _vendorLabel(File file) {
-    final vendor = _readText(file)?.trim();
+  String _vendorLabel(String? vendor) {
     return switch (vendor) {
       '0x1002' => 'AMD',
-      '0x10de' => 'NV',
       '0x8086' => 'INT',
       _ => 'GPU',
     };

@@ -59,7 +59,7 @@ void main() {
 
     final loads = await sampler.sample();
     expect(loads.map((load) => load.id), ['card0', 'card2', 'card3']);
-    expect(loads.map((load) => load.label), ['AMD0', 'AMD1', 'NV']);
+    expect(loads.map((load) => load.label), ['AMD0', 'AMD1', 'GPU']);
     expect(loads.map((load) => load.usage), [0.4, 0.8, 0.1]);
     expect(loads.map((load) => load.history), [
       [0.4],
@@ -110,7 +110,7 @@ void main() {
 
     final loads = await sampler.sample();
     expect(loads.map((load) => load.id), ['card0', 'nvml0', 'nvml1']);
-    expect(loads.map((load) => load.label), ['AMD', 'NV0', 'NV1']);
+    expect(loads.map((load) => load.label), ['AMD', 'GPU0', 'GPU1']);
     expect(loads.map((load) => load.usage), [0.4, 0.3, 0.6]);
     expect(nvml.reads, 1);
   });
@@ -129,7 +129,7 @@ void main() {
     final loads = await sampler.sample();
     expect(nvml.reads, 0);
     expect(loads.single.id, 'nvml0');
-    expect(loads.single.label, 'NV');
+    expect(loads.single.label, 'GPU');
     expect(loads.single.usage, 0.0);
   });
 
