@@ -22,13 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.15 Sway workspace data path** (M). `lib/src/services/workspaces.dart`.
-      `start()` re-requests on every chunk without parsing or emitting; the
-      rail never renders on Sway and IPC traffic never stops. Implement the
-      framed `i3-ipc` request/reply machine: parse frames, emit on the type-1
-      reply, refresh only on workspace events. Done when: fake-socket tests
-      cover the initial snapshot, event refresh, split frames, and silence.
-
 ## Phase 3 — parity (absent modules)
 
 - [ ] **3.1 StatusNotifier core** (M). New
