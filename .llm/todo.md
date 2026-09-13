@@ -20,11 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.1 Deps + config blocs** (S). Add `flutter_bloc` (+ `bloc_test`
-      dev). New `lib/src/state/settings_bloc.dart`, `session_bloc.dart`,
-      `outputs_bloc.dart` with explicit events and JSON-shaped states.
-      Riverpod stays installed, untouched. Done when: `bloc_test` covers
-      event→state, analyzer clean.
 - [ ] **1.2 Module blocs** (M). `CpuBloc`, `BatteryBloc`, `WorkspacesBloc`
       with `Started`/`Stopped`/`_SampleReceived`; sampler subscription owned
       by the bloc, cancelled on `close()`. `ClockBloc` with `Tick` on the
