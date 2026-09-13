@@ -22,8 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.13 hyprland focus verb** (S). Same file. `dispatch workspace` over
-      the existing event/command sockets. Done when: same bar as 2.11.
 - [ ] **2.14 niri focus verb** (S). Same file. `focus-workspace` over the
       existing stream. Done when: same bar as 2.11.
 
