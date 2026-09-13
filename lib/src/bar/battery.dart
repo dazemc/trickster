@@ -8,6 +8,8 @@ import 'pill.dart';
 class BatteryPill extends StatelessWidget {
   const BatteryPill({required this.accent, required this.status, super.key});
 
+  static const Key gaugeKey = ValueKey<String>('battery-gauge');
+
   final WallpaperAccent accent;
   final BatteryStatus status;
 
@@ -20,7 +22,8 @@ class BatteryPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           CustomPaint(
-            size: const Size(18, 10),
+            key: gaugeKey,
+            size: const Size(24, 14),
             painter: _BatteryPainter(
               capacity: capacity / 100.0,
               charging: status.charging,
@@ -48,34 +51,55 @@ class _BatteryPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final outline = Paint()
-      ..color = ShellMediaColors.lightForeground
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final body = RRect.fromLTRBR(
-      0.5,
-      0.5,
-      size.width - 2.5,
-      size.height - 0.5,
-      const Radius.circular(2),
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.75, 1.25, size.width - 4.0, size.height - 2.5),
+      const Radius.circular(3),
     );
-    canvas.drawRRect(body, outline);
-    canvas.drawRect(
-      Rect.fromLTWH(size.width - 2.2, size.height * 0.28, 1.6, size.height * 0.44),
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..color = ShellMediaColors.lightForeground
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.35,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          size.width - 2.55,
+          size.height * 0.34,
+          1.8,
+          size.height * 0.32,
+        ),
+        const Radius.circular(0.8),
+      ),
       Paint()..color = ShellMediaColors.lightForeground,
     );
-    final fillWidth = (body.width - 2) * capacity.clamp(0.0, 1.0);
+    final fillWidth = (body.width - 4.0) * capacity.clamp(0.0, 1.0);
     if (fillWidth > 0) {
       canvas.drawRRect(
-        RRect.fromLTRBR(
-          body.left + 1,
-          body.top + 1,
-          body.left + 1 + fillWidth,
-          body.bottom - 1,
-          const Radius.circular(1),
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            body.left + 2.0,
+            body.top + 2.0,
+            fillWidth,
+            body.height - 4.0,
+          ),
+          const Radius.circular(1.5),
         ),
         Paint()..color = charging ? ShellTelemetryColors.charging : accent,
       );
+    }
+    if (charging) {
+      final center = body.center;
+      final bolt = Path()
+        ..moveTo(center.dx + 0.6, body.top + 1.7)
+        ..lineTo(center.dx - 3.0, center.dy + 0.4)
+        ..lineTo(center.dx - 0.6, center.dy + 0.4)
+        ..lineTo(center.dx - 1.5, body.bottom - 1.6)
+        ..lineTo(center.dx + 3.0, center.dy - 0.8)
+        ..lineTo(center.dx + 0.5, center.dy - 0.8)
+        ..close();
+      canvas.drawPath(bolt, Paint()..color = ShellMediaColors.lightForeground);
     }
   }
 
