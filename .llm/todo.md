@@ -20,11 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.4 App + strip wiring** (M). `main.dart`/`app.dart`/`bar.dart` move
-      to `MultiBlocProvider` + `BlocBuilder`/`BlocSelector`/`context.select`;
-      accent derived from settings+session blocs; `_apply` dispatches
-      file-load events. Done when: accent derivation tested, strip behaves
-      identically.
 - [ ] **1.5 Gating parity** (S). BlocProviders built per configured module
       only — no bloc, no subscription, no timer for disabled modules.
       Done when: widget tests plus transcript assertions prove silence for
