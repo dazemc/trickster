@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/theme/accent.dart';
 
@@ -29,14 +30,9 @@ Future<void> _pump(
   void Function(SystemTrayItem item, Offset position) onActivate,
 ) {
   return tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
+    TricksterLocalizationScope(
       child: Center(
-        child: TrayPill(
-          accent: _accent,
-          items: items,
-          onActivate: onActivate,
-        ),
+        child: TrayPill(accent: _accent, items: items, onActivate: onActivate),
       ),
     ),
   );
@@ -52,14 +48,8 @@ void main() {
       _item('b', title: 'Beta'),
     ], (item, position) => pressed.add((item, position)));
 
-    expect(
-      find.byKey(const ValueKey<String>('tray-item-a')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('tray-item-b')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey<String>('tray-item-a')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('tray-item-b')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey<String>('tray-item-b')));
     await tester.pump();
@@ -75,9 +65,7 @@ void main() {
 
     expect(find.bySemanticsLabel('Alpha'), findsOneWidget);
     expect(find.bySemanticsLabel('Beta'), findsOneWidget);
-    final semantics = tester.getSemantics(
-      find.bySemanticsLabel('Beta'),
-    );
+    final semantics = tester.getSemantics(find.bySemanticsLabel('Beta'));
     expect(semantics.value, 'Needs attention');
   });
 

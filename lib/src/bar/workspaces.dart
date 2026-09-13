@@ -2,6 +2,7 @@ import 'package:flutter/material.dart'
     show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
+import '../locale.dart';
 import '../services/workspaces.dart';
 import '../theme/accent.dart';
 import '../theme/motion.dart';
@@ -49,9 +50,7 @@ class WorkspacesPill extends StatelessWidget {
             Positioned.fill(
               child: AnimatedAlign(
                 key: lensKey,
-                duration: reduceMotion
-                    ? Duration.zero
-                    : Motion.workspaceSwitch,
+                duration: reduceMotion ? Duration.zero : Motion.workspaceSwitch,
                 curve: Motion.md3Emphasized,
                 alignment: _activeAlignment(active, count, horizontal),
                 child: SizedBox(
@@ -118,11 +117,14 @@ class _WorkspacePipButtonState extends State<_WorkspacePipButton> {
   @override
   Widget build(BuildContext context) {
     final workspace = widget.workspace;
-    final description = workspace.occupied ? 'occupied' : 'empty';
+    final l10n = context.l10n;
+    final description = workspace.occupied
+        ? l10n.workspaceOccupied
+        : l10n.workspaceEmpty;
     final label =
-        'Workspace ${workspace.name}, $description'
-        '${workspace.urgent ? ', urgent' : ''}'
-        '${workspace.focused ? ', active' : ''}';
+        '${l10n.workspaceLabel(workspace.name)}, $description'
+        '${workspace.urgent ? ', ${l10n.workspaceUrgent}' : ''}'
+        '${workspace.focused ? ', ${l10n.workspaceActive}' : ''}';
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Semantics(
       button: true,
@@ -173,9 +175,7 @@ class _WorkspacePipButtonState extends State<_WorkspacePipButton> {
 
 Alignment _activeAlignment(int active, int count, bool horizontal) {
   final index = active < 0 ? 0 : active;
-  final position = count <= 1
-      ? 0.0
-      : -1.0 + (2.0 * index / (count - 1));
+  final position = count <= 1 ? 0.0 : -1.0 + (2.0 * index / (count - 1));
   return horizontal ? Alignment(position, 0) : Alignment(0, position);
 }
 

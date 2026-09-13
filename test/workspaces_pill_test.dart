@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/workspaces.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -32,8 +33,7 @@ Future<void> _pump(
   return tester.pumpWidget(
     MediaQuery(
       data: MediaQueryData(disableAnimations: reduceMotion),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+      child: TricksterLocalizationScope(
         child: Center(
           child: WorkspacesPill(
             accent: _accent,
@@ -86,14 +86,10 @@ void main() {
   });
 
   testWidgets('reduced motion zeroes the rail animations', (tester) async {
-    await _pump(
-      tester,
-      const [
-        Workspace(id: '1', name: '1'),
-        Workspace(id: '2', name: '2', focused: true),
-      ],
-      reduceMotion: true,
-    );
+    await _pump(tester, const [
+      Workspace(id: '1', name: '1'),
+      Workspace(id: '2', name: '2', focused: true),
+    ], reduceMotion: true);
     final lens = tester.widget<AnimatedAlign>(
       find.byKey(WorkspacesPill.lensKey),
     );

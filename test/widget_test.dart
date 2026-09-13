@@ -8,6 +8,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
@@ -50,9 +51,7 @@ Future<void> _pumpStrip(
         BlocProvider(create: (_) => SessionBloc()),
         BlocProvider(create: (_) => OutputsBloc()),
         BlocProvider(create: (_) => ClockBloc()),
-        BlocProvider(
-          create: (_) => CpuBloc(initial: const CpuSample(0.42)),
-        ),
+        BlocProvider(create: (_) => CpuBloc(initial: const CpuSample(0.42))),
         BlocProvider(create: (_) => GpuBloc(initial: const GpuState())),
         BlocProvider(create: (_) => TrayBloc(initial: const TrayState())),
         BlocProvider(
@@ -61,23 +60,16 @@ Future<void> _pumpStrip(
           ),
         ),
         BlocProvider(
-          create: (_) => WorkspacesBloc(
-            initial: const WorkspacesState(_workspaces),
-          ),
+          create: (_) =>
+              WorkspacesBloc(initial: const WorkspacesState(_workspaces)),
         ),
         BlocProvider(
-          create: (_) => MediaBloc(
-            initial: MprisPlaybackState.unavailable(),
-          ),
+          create: (_) => MediaBloc(initial: MprisPlaybackState.unavailable()),
         ),
       ],
-      child: Localizations(
+      child: TricksterLocalizationScope(
         locale: locale,
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: const Directionality(
-          textDirection: TextDirection.ltr,
-          child: TricksterBarStrip(side: SystemBarSide.top),
-        ),
+        child: const TricksterBarStrip(side: SystemBarSide.top),
       ),
     ),
   );
@@ -123,18 +115,12 @@ void main() {
   });
 
   testWidgets('disabled modules render nothing', (tester) async {
-    await _pumpStrip(
-      tester,
-      settings: const BarSettings(modules: ['clock']),
-    );
+    await _pumpStrip(tester, settings: const BarSettings(modules: ['clock']));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('CPU'), findsNothing);
     expect(find.text('42%', findRichText: true), findsNothing);
     expect(find.text('87%'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('workspace-pip-1')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey<String>('workspace-pip-1')), findsNothing);
   });
 
   testWidgets('gpu cards follow the service list', (tester) async {
@@ -175,10 +161,7 @@ void main() {
 
   testWidgets('strip tints captions with the settings accent', (tester) async {
     const accent = Color(0xffff0000);
-    await _pumpStrip(
-      tester,
-      settings: const BarSettings(accent: accent),
-    );
+    await _pumpStrip(tester, settings: const BarSettings(accent: accent));
     await tester.pump(const Duration(milliseconds: 500));
     final expected = const WallpaperAccent(accent).captionColor();
     final caption = tester.widget<Text>(

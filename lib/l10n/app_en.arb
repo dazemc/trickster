@@ -1,0 +1,103 @@
+{
+  "@@locale": "en",
+  "batteryTitle": "Battery",
+  "@batteryTitle": {
+    "description": "Accessible title for the battery pill."
+  },
+  "batteryCharging": "Charging",
+  "@batteryCharging": {
+    "description": "Battery state while connected to power."
+  },
+  "batteryDischarging": "Discharging",
+  "@batteryDischarging": {
+    "description": "Battery state while running on battery."
+  },
+  "batteryStateAndPercent": "{state} {percent}%",
+  "@batteryStateAndPercent": {
+    "description": "Battery state followed by the charge level.",
+    "placeholders": {
+      "state": {
+        "type": "String",
+        "example": "Charging"
+      },
+      "percent": {
+        "type": "int",
+        "example": "87"
+      }
+    }
+  },
+  "metricCpu": "CPU",
+  "@metricCpu": {
+    "description": "Caption for the CPU meter."
+  },
+  "desktopGpuLabel": "GPU",
+  "@desktopGpuLabel": {
+    "description": "Caption for a GPU meter when no device name is known."
+  },
+  "mediaControls": "Media controls",
+  "@mediaControls": {
+    "description": "Accessible label for the media pill."
+  },
+  "mediaPrevious": "Previous track",
+  "@mediaPrevious": {
+    "description": "Accessible label for the previous-track control."
+  },
+  "mediaPlay": "Play",
+  "@mediaPlay": {
+    "description": "Accessible label for the play control."
+  },
+  "mediaPause": "Pause",
+  "@mediaPause": {
+    "description": "Accessible label for the pause control."
+  },
+  "mediaNext": "Next track",
+  "@mediaNext": {
+    "description": "Accessible label for the next-track control."
+  },
+  "workspaceLabel": "Workspace {workspace}",
+  "@workspaceLabel": {
+    "description": "Accessible label for one workspace pip.",
+    "placeholders": {
+      "workspace": {
+        "type": "String",
+        "example": "2"
+      }
+    }
+  },
+  "workspaceActive": "active",
+  "@workspaceActive": {
+    "description": "Workspace state suffix when the workspace is focused."
+  },
+  "workspaceOccupied": "occupied",
+  "@workspaceOccupied": {
+    "description": "Workspace state suffix when windows are open on it."
+  },
+  "workspaceEmpty": "empty",
+  "@workspaceEmpty": {
+    "description": "Workspace state suffix when no windows are open on it."
+  },
+  "workspaceUrgent": "urgent",
+  "@workspaceUrgent": {
+    "description": "Workspace state suffix when a window needs attention."
+  },
+  "trayItemFallbackLabel": "System tray",
+  "@trayItemFallbackLabel": {
+    "description": "Accessible label for a tray item with no title or icon name."
+  },
+  "trayStatusPassive": "Passive",
+  "@trayStatusPassive": {
+    "description": "Tray item status when the item is passive."
+  },
+  "trayStatusActive": "Active",
+  "@trayStatusActive": {
+    "description": "Tray item status when the item is active."
+  },
+  "trayStatusNeedsAttention": "Needs attention",
+  "@trayStatusNeedsAttention": {
+    "description": "Tray item status when the item asks for attention."
+  },
+  "trayMenuUntitled": "Untitled item",
+  "@trayMenuUntitled": {
+    "description": "Tray menu entry label when the item publishes none."
+  }
+}

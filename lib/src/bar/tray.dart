@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../layout/system_bar.dart';
+import '../locale.dart';
 import '../services/status_notifier.dart';
 import '../state/tray_bloc.dart';
 import '../state/tray_menu.dart';
@@ -141,15 +142,20 @@ class _TrayItemButtonState extends State<TrayItemButton> {
     final item = widget.item;
     final attention = item.status == SystemTrayStatus.needsAttention;
     final passive = item.status == SystemTrayStatus.passive;
+    final l10n = context.l10n;
     final label = item.title.isNotEmpty
         ? item.title
         : item.iconName.isNotEmpty
         ? item.iconName
-        : 'System tray';
+        : l10n.trayItemFallbackLabel;
     return Semantics(
       button: true,
       label: label,
-      value: _statusSemantics(item.status),
+      value: switch (item.status) {
+        SystemTrayStatus.passive => l10n.trayStatusPassive,
+        SystemTrayStatus.active => l10n.trayStatusActive,
+        SystemTrayStatus.needsAttention => l10n.trayStatusNeedsAttention,
+      },
       onTap: () => unawaited(_activatePrimary(_center())),
       child: ExcludeSemantics(
         child: GestureDetector(
@@ -312,9 +318,3 @@ class _TrayIconPlaceholder extends StatelessWidget {
     );
   }
 }
-
-String _statusSemantics(SystemTrayStatus status) => switch (status) {
-  SystemTrayStatus.passive => 'Passive',
-  SystemTrayStatus.active => 'Active',
-  SystemTrayStatus.needsAttention => 'Needs attention',
-};

@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/battery.dart';
@@ -8,6 +7,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
@@ -69,27 +69,21 @@ Future<void> _pumpGated(
         BlocProvider(create: (_) => SessionBloc()),
         BlocProvider(create: (_) => OutputsBloc()),
       ],
-      child: Localizations(
+      child: TricksterLocalizationScope(
         locale: const Locale('en', 'US'),
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: ModuleScope(
-            cpuBuilder:
-                cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
-            gpuBuilder: () => GpuBloc(initial: const GpuState()),
-            trayBuilder: () => TrayBloc(initial: const TrayState()),
-            batteryBuilder: () => BatteryBloc(
-              initial: const BatteryStatus(capacity: 87, charging: true),
-            ),
-            workspacesBuilder: () => WorkspacesBloc(
-              initial: const WorkspacesState(_workspaces),
-            ),
-            mediaBuilder: () => MediaBloc(
-              initial: MprisPlaybackState.unavailable(),
-            ),
-            child: const TricksterBarStrip(side: SystemBarSide.top),
+        child: ModuleScope(
+          cpuBuilder:
+              cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
+          gpuBuilder: () => GpuBloc(initial: const GpuState()),
+          trayBuilder: () => TrayBloc(initial: const TrayState()),
+          batteryBuilder: () => BatteryBloc(
+            initial: const BatteryStatus(capacity: 87, charging: true),
           ),
+          workspacesBuilder: () =>
+              WorkspacesBloc(initial: const WorkspacesState(_workspaces)),
+          mediaBuilder: () =>
+              MediaBloc(initial: MprisPlaybackState.unavailable()),
+          child: const TricksterBarStrip(side: SystemBarSide.top),
         ),
       ),
     ),
@@ -97,9 +91,8 @@ Future<void> _pumpGated(
   await tester.pump(const Duration(milliseconds: 500));
 }
 
-bool _created(List<String> lines, String bloc) => lines.any(
-  (line) => line.startsWith('bloc+ ') && line.contains(bloc),
-);
+bool _created(List<String> lines, String bloc) =>
+    lines.any((line) => line.startsWith('bloc+ ') && line.contains(bloc));
 
 void main() {
   testWidgets('disabled modules build no blocs and render nothing', (
@@ -109,10 +102,7 @@ void main() {
     final previous = Bloc.observer;
     Bloc.observer = TricksterObserver(log: lines.add);
     try {
-      await _pumpGated(
-        tester,
-        settings: const BarSettings(modules: ['clock']),
-      );
+      await _pumpGated(tester, settings: const BarSettings(modules: ['clock']));
     } finally {
       Bloc.observer = previous;
     }

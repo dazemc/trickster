@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/bar/tray_menu.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
@@ -140,8 +141,7 @@ Future<void> _pumpMenu(
   await tester.pumpWidget(
     BlocProvider<TrayBloc>.value(
       value: bloc,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+      child: TricksterLocalizationScope(
         child: MediaQuery(
           data: const MediaQueryData(size: Size(800, 600)),
           child: TapRegionSurface(
@@ -180,8 +180,7 @@ Future<void> _pumpPill(
   return tester.pumpWidget(
     BlocProvider<TrayBloc>.value(
       value: bloc,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+      child: TricksterLocalizationScope(
         child: TrayMenuScope(
           notifier: controller,
           child: Center(

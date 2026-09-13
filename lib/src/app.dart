@@ -4,7 +4,6 @@ import 'dart:ui' show FlutterView;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'bar/bar.dart';
 import 'bar/tray_menu.dart';
@@ -103,45 +102,33 @@ class _TricksterAppState extends State<TricksterApp>
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<OutputsBloc, OutputsConfig>(
-      builder: (context, outputs) {
-        // Bare widgets need explicit directionality and locale; there is no
-        // MaterialApp above the strip. The device locale is reduced to one the
-        // widgets delegate supports (headless LANG=C environments crash
-        // resource resolution otherwise).
-        final locale = resolveAppLocale(
-          WidgetsBinding.instance.platformDispatcher.locale,
-        );
-        final views = WidgetsBinding.instance.platformDispatcher.views;
-        _menuController.retainViews(views.map((view) => view.viewId).toSet());
-        // One View per layer surface, all sharing this single engine and the
-        // module blocs above the collection. A menu lives on its own
-        // fullscreen overlay surface, so the strip surface never resizes.
-        return Localizations(
-          locale: locale,
-          delegates: const [GlobalWidgetsLocalizations.delegate],
-          child: Directionality(
-            textDirection: TextDirection.ltr,
-            child: TrayMenuScope(
-              notifier: _menuController,
-              child: ModuleScope(
-                child: ViewCollection(
-                  views: outputs.active
-                      ? <Widget>[
-                          for (final view in views)
-                            _ViewSurface(
-                              key: ValueKey<int>(view.viewId),
-                              view: view,
-                              menu: _menuController,
-                            ),
-                        ]
-                      : const <Widget>[],
-                ),
+    return TricksterLocalizationScope(
+      child: BlocBuilder<OutputsBloc, OutputsConfig>(
+        builder: (context, outputs) {
+          final views = WidgetsBinding.instance.platformDispatcher.views;
+          _menuController.retainViews(views.map((view) => view.viewId).toSet());
+          // One View per layer surface, all sharing this single engine and
+          // the module blocs above the collection. A menu lives on its own
+          // fullscreen overlay surface, so the strip surface never resizes.
+          return TrayMenuScope(
+            notifier: _menuController,
+            child: ModuleScope(
+              child: ViewCollection(
+                views: outputs.active
+                    ? <Widget>[
+                        for (final view in views)
+                          _ViewSurface(
+                            key: ValueKey<int>(view.viewId),
+                            view: view,
+                            menu: _menuController,
+                          ),
+                      ]
+                    : const <Widget>[],
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

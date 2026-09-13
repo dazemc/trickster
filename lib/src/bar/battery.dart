@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../locale.dart';
 import '../services/battery.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
@@ -21,11 +22,16 @@ class BatteryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final capacity = status.capacity ?? 0;
-    final state = status.charging ? 'Charging' : 'Discharging';
+    final state = status.charging
+        ? l10n.batteryCharging
+        : l10n.batteryDischarging;
     return TricksterActionCard(
       accent: accent,
-      label: 'Battery, $state $capacity%',
+      label:
+          '${l10n.batteryTitle}, '
+          '${l10n.batteryStateAndPercent(state, capacity)}',
       onPressed: onPressed,
       child: Row(
         mainAxisSize: MainAxisSize.min,

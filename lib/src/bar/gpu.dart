@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../locale.dart';
 import '../services/gpu.dart';
 import '../theme/accent.dart';
 import 'meter.dart';
@@ -13,11 +14,14 @@ class GpuPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = load.label == GpuLoad.genericLabel
+        ? context.l10n.desktopGpuLabel
+        : load.label;
     return SystemBarCard(
       accent: accent,
       child: LoadMeter(
         accent: accent,
-        label: load.label,
+        label: label,
         current: load.usage,
         history: load.history,
         capacity: GpuLoad.capacity,

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/battery.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/theme/accent.dart';
 
@@ -12,8 +13,7 @@ Future<void> _pump(
   VoidCallback? onPressed,
 }) {
   return tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
+    TricksterLocalizationScope(
       child: Center(
         child: BatteryPill(
           accent: _accent,
