@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.12 sway focus verb** (S). `lib/src/services/workspaces.dart`. Send
-      `workspace` over the existing Sway socket connection. Done when:
-      tested against a fake unix socket, failure logs and keeps state.
 - [ ] **2.13 hyprland focus verb** (S). Same file. `dispatch workspace` over
       the existing event/command sockets. Done when: same bar as 2.11.
 - [ ] **2.14 niri focus verb** (S). Same file. `focus-workspace` over the
