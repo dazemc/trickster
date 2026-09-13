@@ -20,10 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.5 Gating parity** (S). BlocProviders built per configured module
-      only — no bloc, no subscription, no timer for disabled modules.
-      Done when: widget tests plus transcript assertions prove silence for
-      disabled modules.
 - [ ] **1.6 Riverpod removal** (M). Delete `providers.dart`, drop the dep,
       rewrite test overrides as seeded `BlocProvider.value`. Done when:
       full suite + release build + live runtime proof with the observer
