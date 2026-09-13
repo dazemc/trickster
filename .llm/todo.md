@@ -30,8 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.2 zh strings** (S). Port Denial's bar strings for clock, battery,
-      tray status, workspace semantics. Done when: zh widget tests.
 - [ ] **4.3 blur capability probe** (S). Probe `ext-background-effect` once
       at startup, expose as a provider. Done when: tested both ways via
       override.
