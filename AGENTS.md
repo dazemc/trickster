@@ -245,6 +245,13 @@ Do not add features Denial's bar does not have until parity is real.
   resolvable package lags. Commit `pubspec.lock` (and `pubspec.yaml` when a
   constraint moves) on its own. Never `dependency_overrides` a Flutter SDK
   pin.
+- After every change, review the touched code for misses (Denial parallels,
+  performance traps, config warts, docs gaps) and append anything that meets
+  the bar to `.llm/suggestions.md`; findings never live only in the
+  transcript.
+- After each phase is merged, walk every open suggestion with the user and
+  settle its decision — keep, condense, move, escalate, or dismiss — before
+  the next phase starts.
 - Networked Git/GitHub commands (`fetch`, `push`, `gh`) run outside any
   sandbox; sandboxed credential or network failures are not authoritative.
 
