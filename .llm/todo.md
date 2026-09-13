@@ -35,17 +35,23 @@ silent per the logging rules.
 - [ ] **3.2 tray icon decode + cache** (S). Same service. Decode pixmaps at
       display size with a hard cap and eviction; never retain raw D-Bus
       byte arrays. Done when: cap/eviction unit-tested.
-- [ ] **3.3 tray pill + activate** (S). New `lib/src/bar/tray.dart`. Icon
+- [ ] **3.3 native multi-view foundation** (M). `linux/runner/my_application.cc`
+      + Dart bootstrap. Stable Flutter: one `FlEngine`, one layer-shelled
+      `GtkWindow`/`FlView` per surface via `fl_view_new_for_engine`, and a
+      Dart router that renders the strip in each `FlutterView`. Done when:
+      two surfaces render from one engine in the live session, with idle CPU
+      and per-view RSS measured.
+- [ ] **3.4 tray pill + activate** (S). New `lib/src/bar/tray.dart`. Icon
       row in a pill; left-click activates; tooltips; status semantics.
       Done when: widget-tested with fake items.
-- [ ] **3.4 tray menus** (M). Same pill. Right-click D-Bus menus with
+- [ ] **3.5 tray menus** (M). Same pill. Right-click D-Bus menus with
       submenus via `MenuController`, destructive styling, dismissal paths.
       Done when: open/navigate/dismiss tested, verified against two real
       SNI apps. XEmbed stays dropped — document why in code.
-- [ ] **3.5 MPRIS service** (M). New `lib/src/services/mpris.{dart,test}`.
+- [ ] **3.6 MPRIS service** (M). New `lib/src/services/mpris.{dart,test}`.
       Player discovery, playback state, metadata; hide when no player claims
       the bus. Done when: state mapping tested against a fake player.
-- [ ] **3.6 media pill + controls** (S). New `lib/src/bar/media.dart`.
+- [ ] **3.7 media pill + controls** (S). New `lib/src/bar/media.dart`.
       Artist/title + playing state; tap reveals play/pause/next; `select`
       on available/playing only. Done when: controls drive a real player
       both ways.
