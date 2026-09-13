@@ -32,10 +32,12 @@ step at a time, on the branch for its phase (see Repository workflow):
 3. Prove it at runtime: launch the release bar in the live session, watch
    for runtime errors (stderr exceptions, missing ancestors, dead pills),
    exercise what the step changed, then kill only the Trickster process.
-   A step that passes tests but errors at runtime is not done.
-4. Re-read `.llm/suggestions.md` and update it — but only if something is
-   absolutely needed. Silence is a valid review outcome; never add noise
-   to justify the read.
+   A step that passes tests but errors at runtime is not done. If the
+   done-criteria needs eyes on screen, hand the user the exact run-and-look
+   commands and wait for their verdict — never substitute screenshots.
+4. Re-read the topical notes under `.llm/` and update the matching file —
+   but only if something is absolutely needed. `.llm/suggestions.md' is a file for agents to write user reviewed suggestions to that may escalate to todo.md. Silence is a valid
+   review outcome; never add noise to justify the read.
 5. Only then remove the step from `.llm/todo.md`.
 6. Commit in slices: the code change is one commit; every LLM-maintained
    markdown file (`.llm/todo.md`, `.llm/suggestions.md`, docs) gets its own commit.
