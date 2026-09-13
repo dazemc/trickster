@@ -31,7 +31,7 @@ trickster
   Dart bootstrap
     session.conf / outputs.conf / settings.json
     layer-shell surfaces (one per output)
-    Riverpod module graph
+    flutter_bloc module graph
     control socket (tricksterctl)
 
   Host compositor
@@ -44,13 +44,23 @@ Dart owns visual policy, module state, and config. The host compositor owns
 KMS, input seats, and every other surface. Trickster never holds a Wayland
 resource, DRM fd, or client buffer.
 
+## Observability
+
+Debug/profile builds trace every bloc event, transition, error, and
+lifecycle to stderr (`TricksterObserver`, installed in `main`); release
+stays silent. Read the transcript to verify behavior, not pixels.
+
 ## Denial seams to resemble
 
 Resemble Denial at every seam that does not require compositor ownership:
 
 - Same widget split: strip paints nothing; modules are borderless pills.
-- Same Riverpod provider seams and `select` watches as
-  `desktop_system_bar.dart`.
+- Same widget split and per-module state seams as
+  `desktop_system_bar.dart`, carried by `flutter_bloc`: one `BlocProvider`
+  per configured module, explicit events and states, `watch` / `select` /
+  `BlocBuilder` reads — no Cubits.
+- Every bloc state ships `toJson`/`fromJson` from day one (convention only,
+  no HydratedBloc) so `tricksterctl status` reads real state later.
 - Same theme tokens, motion springs, and accent model.
 - Same config layers, file grammar, and CLI scheme.
 - Same D-Bus services (UPower, MPRIS, SNI, and later BlueZ/NetworkManager)
