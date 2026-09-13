@@ -1,4 +1,4 @@
-# Trickster Bar configuration (Denial mirror)
+# Trickster configuration (Denial mirror)
 
 File style is Denial-style `KEY=VALUE` with `#` comments.
 
