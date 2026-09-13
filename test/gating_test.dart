@@ -1,6 +1,4 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/battery.dart';
@@ -8,29 +6,12 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
-import 'package:trickster/src/layout/system_bar.dart';
-import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
-import 'package:trickster/src/services/gpu.dart';
-import 'package:trickster/src/services/mpris.dart';
-import 'package:trickster/src/services/status_notifier.dart';
-import 'package:trickster/src/services/workspaces.dart';
-import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
-import 'package:trickster/src/state/gpu_bloc.dart';
-import 'package:trickster/src/state/media_bloc.dart';
-import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/observer.dart';
-import 'package:trickster/src/state/outputs_bloc.dart';
-import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
-import 'package:trickster/src/state/tray_bloc.dart';
-import 'package:trickster/src/state/workspaces_bloc.dart';
 
-const _workspaces = [
-  Workspace(id: '1', name: '1', focused: true),
-  Workspace(id: '2', name: '2', urgent: true),
-];
+import 'support/strip_harness.dart';
 
 /// Records that [close] was invoked without awaiting it: provider disposal
 /// calls `close()` unawaited, and awaiting a bloc close inside FakeAsync
@@ -48,58 +29,8 @@ class _CloseNotingCpuBloc extends CpuBloc {
   }
 }
 
-/// Pumps the real production nesting — config providers above a
-/// [ModuleScope] above the strip — with seeded module states so no real
-/// sampler starts. Seeded builders stand in for the production `Started`
-/// path; gating (which providers exist) is identical either way.
-Future<void> _pumpGated(
-  WidgetTester tester, {
-  BarSettings settings = const BarSettings(),
-  CpuBloc Function()? cpuBuilder,
-}) async {
-  // States are seeded via constructors, never via events: awaiting the
-  // real event loop (pumpEventQueue) inside FakeAsync hangs forever.
-  // Providers own their blocs (create, not value): provider disposal closes
-  // blocs unawaited, while awaiting close() in a widget test deadlocks on
-  // the bloc's internal event pipeline.
-  await tester.pumpWidget(
-    MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => SettingsBloc(settings)),
-        BlocProvider(create: (_) => SessionBloc()),
-        BlocProvider(create: (_) => OutputsBloc()),
-      ],
-      child: Localizations(
-        locale: const Locale('en', 'US'),
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: ModuleScope(
-            cpuBuilder:
-                cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
-            gpuBuilder: () => GpuBloc(initial: const GpuState()),
-            trayBuilder: () => TrayBloc(initial: const TrayState()),
-            batteryBuilder: () => BatteryBloc(
-              initial: const BatteryStatus(capacity: 87, charging: true),
-            ),
-            workspacesBuilder: () => WorkspacesBloc(
-              initial: const WorkspacesState(_workspaces),
-            ),
-            mediaBuilder: () => MediaBloc(
-              initial: MprisPlaybackState.unavailable(),
-            ),
-            child: const TricksterBarStrip(side: SystemBarSide.top),
-          ),
-        ),
-      ),
-    ),
-  );
-  await tester.pump(const Duration(milliseconds: 500));
-}
-
-bool _created(List<String> lines, String bloc) => lines.any(
-  (line) => line.startsWith('bloc+ ') && line.contains(bloc),
-);
+bool _created(List<String> lines, String bloc) =>
+    lines.any((line) => line.startsWith('bloc+ ') && line.contains(bloc));
 
 void main() {
   testWidgets('disabled modules build no blocs and render nothing', (
@@ -109,9 +40,10 @@ void main() {
     final previous = Bloc.observer;
     Bloc.observer = TricksterObserver(log: lines.add);
     try {
-      await _pumpGated(
+      await pumpBarHarness(
         tester,
         settings: const BarSettings(modules: ['clock']),
+        settle: const Duration(milliseconds: 500),
       );
     } finally {
       Bloc.observer = previous;
@@ -153,13 +85,14 @@ void main() {
     Bloc.observer = TricksterObserver(log: lines.add);
     var cpuClosed = false;
     try {
-      await _pumpGated(
+      await pumpBarHarness(
         tester,
         settings: const BarSettings(modules: ['clock']),
         cpuBuilder: () => _CloseNotingCpuBloc(
           initial: const CpuSample(0.42),
           onClosed: () => cpuClosed = true,
         ),
+        settle: const Duration(milliseconds: 500),
       );
       expect(find.byType(CpuPill), findsNothing);
 

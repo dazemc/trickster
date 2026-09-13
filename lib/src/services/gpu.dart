@@ -20,9 +20,12 @@ class GpuLoad extends Equatable {
 
   final String id;
 
-  /// Caption shown by the meter: a vendor tag (or `GPU`), with a 0-based
-  /// suffix when duplicate.
+  /// Caption shown by the meter: a vendor tag (or [genericLabel]), with a
+  /// 0-based suffix when duplicate.
   final String label;
+
+  /// Caption used when the device publishes no vendor tag.
+  static const String genericLabel = 'GPU';
 
   /// Queried device name, or null when the driver publishes none. The meter
   /// caption stays [label] until a module option selects the device name.
@@ -130,8 +133,7 @@ class GpuSampler {
   Stream<List<GpuLoad>> get snapshots => _controller.stream;
 
   bool get _hasNvidia =>
-      (_nvidiaDriverPresent ??=
-          File(_nvidiaDriverPath).existsSync()) ||
+      (_nvidiaDriverPresent ??= File(_nvidiaDriverPath).existsSync()) ||
       _discoveredNvidia;
 
   void start() {
@@ -174,7 +176,7 @@ class GpuSampler {
           final name = nvidia.name?.trim();
           reads.add((
             id: 'nvml${nvidia.index}',
-            label: 'GPU',
+            label: GpuLoad.genericLabel,
             name: name == null || name.isEmpty ? null : name,
             usage: nvidia.usage,
           ));
@@ -185,7 +187,12 @@ class GpuSampler {
           index < _nvidiaRuntimeStatusFiles!.length;
           index += 1
         ) {
-          reads.add((id: 'nvml$index', label: 'GPU', name: null, usage: 0.0));
+          reads.add((
+            id: 'nvml$index',
+            label: GpuLoad.genericLabel,
+            name: null,
+            usage: 0.0,
+          ));
         }
       }
     }
@@ -234,11 +241,7 @@ class GpuSampler {
           continue;
         }
         devices.add(
-          _GpuDevice(
-            id: name,
-            label: _vendorLabel(vendor),
-            busyFile: busyFile,
-          ),
+          _GpuDevice(id: name, label: _vendorLabel(vendor), busyFile: busyFile),
         );
       }
     } on FileSystemException {

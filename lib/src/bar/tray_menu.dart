@@ -16,6 +16,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../layout/system_bar.dart';
+import '../locale.dart';
 import '../services/status_notifier.dart';
 import '../state/tray_bloc.dart';
 import '../state/tray_menu.dart';
@@ -156,7 +157,9 @@ class _TrayMenuSurfaceState extends State<TrayMenuSurface> {
         );
         continue;
       }
-      final label = entry.label.isEmpty ? 'Untitled item' : entry.label;
+      final label = entry.label.isEmpty
+          ? context.l10n.trayMenuUntitled
+          : entry.label;
       final children = _buildMenuChildren(context, accent, entry.children);
       final style = _menuButtonStyle(
         accent: accent,

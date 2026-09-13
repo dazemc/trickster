@@ -57,7 +57,8 @@ void main() {
 
   group('SessionConfig', () {
     test('parses machine overrides', () {
-      const source = 'TRICKSTER_LAYER=overlay\n'
+      const source =
+          'TRICKSTER_LAYER=overlay\n'
           'TRICKSTER_NAMESPACE=trickster-test\n'
           'TRICKSTER_KEYBOARD=exclusive\n'
           'TRICKSTER_ACCENT=#ff0000\n';
@@ -94,6 +95,95 @@ void main() {
         throwsFormatException,
       );
       expect(() => BarSettings.decode('[]'), throwsFormatException);
+    });
+
+    test('workspace options round-trip with defaults', () {
+      const settings = BarSettings(
+        revision: 3,
+        workspaces: WorkspaceOptions(showEmpty: false, max: 5),
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.workspaces.showEmpty, isFalse);
+      expect(decoded.workspaces.max, 5);
+      const bare = BarSettings();
+      expect(bare.workspaces.showEmpty, isTrue);
+      expect(bare.workspaces.max, 9);
+      expect(
+        BarSettings.decode('{"revision": 1}').workspaces,
+        const WorkspaceOptions(),
+      );
+    });
+
+    test('module options round-trip and validate', () {
+      const settings = BarSettings(
+        revision: 4,
+        cpu: CpuOptions(warn: 0.7, critical: 0.9),
+        clock: ClockOptions(format: ClockFormat.hour24),
+        battery: BatteryOptions(warn: 30, critical: 15),
+        meter: MeterOptions(captionSource: MeterCaptionSource.device),
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.cpu.warn, 0.7);
+      expect(decoded.cpu.critical, 0.9);
+      expect(decoded.clock.format, ClockFormat.hour24);
+      expect(decoded.battery.warn, 30);
+      expect(decoded.battery.critical, 15);
+      expect(decoded.meter.captionSource, MeterCaptionSource.device);
+      const bare = BarSettings();
+      expect(bare.cpu.warn, 0.85);
+      expect(bare.clock.format, ClockFormat.locale);
+      expect(bare.battery.critical, 10);
+      expect(bare.meter.captionSource, MeterCaptionSource.generic);
+    });
+
+    test('invalid module options are rejected at decode', () {
+      expect(
+        () => BarSettings.decode('{"revision": 1, "cpu": {"warn": 2}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "cpu": {"warn": 0.9, "critical": 0.5}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "clock": {"format": "25h"}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "battery": {"warn": 5, "critical": 20}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "meter": {"caption_source": "vendor"}}',
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('invalid workspace options are rejected at decode', () {
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"show_empty": "yes"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "workspaces": {"max": 0}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "workspaces": {"max": 65}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "workspaces": []}'),
+        throwsFormatException,
+      );
     });
   });
 

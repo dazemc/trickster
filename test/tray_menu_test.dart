@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/bar/tray_menu.dart';
+import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -140,8 +142,7 @@ Future<void> _pumpMenu(
   await tester.pumpWidget(
     BlocProvider<TrayBloc>.value(
       value: bloc,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+      child: TricksterLocalizationScope(
         child: MediaQuery(
           data: const MediaQueryData(size: Size(800, 600)),
           child: TapRegionSurface(
@@ -180,26 +181,34 @@ Future<void> _pumpPill(
   return tester.pumpWidget(
     BlocProvider<TrayBloc>.value(
       value: bloc,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: TrayMenuScope(
-          notifier: controller,
-          child: Center(
-            child: TrayPill(
-              accent: _accent,
-              items: [
-                SystemTrayItem(
-                  id: _item.id,
-                  title: _item.title,
-                  status: _item.status,
-                  iconName: _item.iconName,
-                  iconThemePath: _item.iconThemePath,
-                  iconPixmap: _item.iconPixmap,
-                  menuAvailable: menuAvailable,
-                  primaryOpensMenu: _item.primaryOpensMenu,
+      child: Shortcuts(
+        shortcuts: shellShortcuts,
+        child: Actions(
+          actions: WidgetsApp.defaultActions,
+          child: FocusScope(
+            autofocus: true,
+            child: TricksterLocalizationScope(
+              child: TrayMenuScope(
+                notifier: controller,
+                child: Center(
+                  child: TrayPill(
+                    accent: _accent,
+                    items: [
+                      SystemTrayItem(
+                        id: _item.id,
+                        title: _item.title,
+                        status: _item.status,
+                        iconName: _item.iconName,
+                        iconThemePath: _item.iconThemePath,
+                        iconPixmap: _item.iconPixmap,
+                        menuAvailable: menuAvailable,
+                        primaryOpensMenu: _item.primaryOpensMenu,
+                      ),
+                    ],
+                    onActivate: (item, position) {},
+                  ),
                 ),
-              ],
-              onActivate: (item, position) {},
+              ),
             ),
           ),
         ),
@@ -340,6 +349,40 @@ void main() {
     expect(shell.opened, isNotEmpty);
     expect(controller.session, isNull);
     expect(service.invoked, [SystemTrayAction.contextMenu]);
+  });
+
+  testWidgets('shift+F10 opens the focused item menu', (tester) async {
+    final shell = _FakeLayerShell();
+    final controller = TrayMenuController(layerShell: shell);
+    final bloc = TrayBloc(service: _FakeTrayService(_entries));
+    addTearDown(bloc.close);
+    await _pumpPill(tester, controller, bloc);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+
+    expect(shell.opened, [tester.view.viewId]);
+    expect(controller.session?.entries, hasLength(2));
+  });
+
+  testWidgets('the Menu key opens the focused item menu', (tester) async {
+    final shell = _FakeLayerShell();
+    final controller = TrayMenuController(layerShell: shell);
+    final bloc = TrayBloc(service: _FakeTrayService(_entries));
+    addTearDown(bloc.close);
+    await _pumpPill(tester, controller, bloc);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+
+    expect(shell.opened, [tester.view.viewId]);
+    expect(controller.session, isNotNull);
   });
 
   test('opening a menu destroys the previous surface', () async {

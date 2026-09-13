@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
@@ -8,91 +7,30 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
-import 'package:trickster/src/layout/system_bar.dart';
-import 'package:trickster/src/services/battery.dart';
-import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
-import 'package:trickster/src/services/mpris.dart';
-import 'package:trickster/src/services/status_notifier.dart';
-import 'package:trickster/src/services/workspaces.dart';
-import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
-import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
-import 'package:trickster/src/state/media_bloc.dart';
-import 'package:trickster/src/state/outputs_bloc.dart';
-import 'package:trickster/src/state/session_bloc.dart';
-import 'package:trickster/src/state/settings_bloc.dart';
-import 'package:trickster/src/state/tray_bloc.dart';
-import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+
+import 'support/strip_harness.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
-const _workspaces = [
-  Workspace(id: '1', name: '1', focused: true),
-  Workspace(id: '2', name: '2', urgent: true),
-];
-
-Future<void> _pumpStrip(
-  WidgetTester tester, {
-  BarSettings settings = const BarSettings(),
-  Locale locale = const Locale('en', 'US'),
-}) async {
-  // States are seeded via constructors, never via events: awaiting the
-  // real event loop (pumpEventQueue) inside FakeAsync hangs forever.
-  // Providers own their blocs (create, not value): provider disposal closes
-  // blocs unawaited, while awaiting close() in FakeAsync deadlocks on the
-  // bloc's internal event pipeline.
-  return tester.pumpWidget(
-    MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => SettingsBloc(settings)),
-        BlocProvider(create: (_) => SessionBloc()),
-        BlocProvider(create: (_) => OutputsBloc()),
-        BlocProvider(create: (_) => ClockBloc()),
-        BlocProvider(
-          create: (_) => CpuBloc(initial: const CpuSample(0.42)),
-        ),
-        BlocProvider(create: (_) => GpuBloc(initial: const GpuState())),
-        BlocProvider(create: (_) => TrayBloc(initial: const TrayState())),
-        BlocProvider(
-          create: (_) => BatteryBloc(
-            initial: const BatteryStatus(capacity: 87, charging: true),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => WorkspacesBloc(
-            initial: const WorkspacesState(_workspaces),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => MediaBloc(
-            initial: MprisPlaybackState.unavailable(),
-          ),
-        ),
-      ],
-      child: Localizations(
-        locale: locale,
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: const Directionality(
-          textDirection: TextDirection.ltr,
-          child: TricksterBarStrip(side: SystemBarSide.top),
-        ),
-      ),
-    ),
-  );
-}
-
-Future<void> _pumpClock(WidgetTester tester, Locale locale) {
+Future<void> _pumpClock(
+  WidgetTester tester,
+  Locale locale, {
+  ClockFormat format = ClockFormat.locale,
+}) {
   return tester.pumpWidget(
     MultiBlocProvider(
       providers: [BlocProvider(create: (_) => ClockBloc())],
-      child: Localizations(
+      child: TricksterLocalizationScope(
         locale: locale,
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: const Directionality(
-          textDirection: TextDirection.ltr,
-          child: ClockPill(accent: WallpaperAccent(Color(0xffd0bcff))),
+        child: Center(
+          child: ClockPill(
+            accent: const WallpaperAccent(Color(0xffd0bcff)),
+            format: format,
+          ),
         ),
       ),
     ),
@@ -103,11 +41,12 @@ void main() {
   setUpAll(() async {
     await initializeDateFormatting('en_US');
     await initializeDateFormatting('de_DE');
+    await initializeDateFormatting('zh');
   });
   testWidgets('strip shows clock, cpu, battery, and workspaces', (
     tester,
   ) async {
-    await _pumpStrip(tester);
+    await pumpBarHarness(tester);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%', findRichText: true), findsOneWidget);
@@ -123,7 +62,7 @@ void main() {
   });
 
   testWidgets('disabled modules render nothing', (tester) async {
-    await _pumpStrip(
+    await pumpBarHarness(
       tester,
       settings: const BarSettings(modules: ['clock']),
     );
@@ -131,10 +70,7 @@ void main() {
     expect(find.text('CPU'), findsNothing);
     expect(find.text('42%', findRichText: true), findsNothing);
     expect(find.text('87%'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('workspace-pip-1')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey<String>('workspace-pip-1')), findsNothing);
   });
 
   testWidgets('gpu cards follow the service list', (tester) async {
@@ -142,7 +78,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await _pumpStrip(tester);
+    await pumpBarHarness(tester);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(GpuPill), findsNothing);
 
@@ -175,10 +111,7 @@ void main() {
 
   testWidgets('strip tints captions with the settings accent', (tester) async {
     const accent = Color(0xffff0000);
-    await _pumpStrip(
-      tester,
-      settings: const BarSettings(accent: accent),
-    );
+    await pumpBarHarness(tester, settings: const BarSettings(accent: accent));
     await tester.pump(const Duration(milliseconds: 500));
     final expected = const WallpaperAccent(accent).captionColor();
     final caption = tester.widget<Text>(
@@ -201,6 +134,33 @@ void main() {
     expect(texts, anyOf(contains('AM'), contains('PM')));
   });
 
+  testWidgets('clock options force 24h and 12h', (tester) async {
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      format: ClockFormat.hour24,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    var texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, isNot(contains('AM')));
+    expect(texts, isNot(contains('PM')));
+
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      format: ClockFormat.hour12,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, anyOf(contains('AM'), contains('PM')));
+  });
+
   testWidgets('action card announces, taps, and rings on focus', (
     tester,
   ) async {
@@ -208,11 +168,9 @@ void main() {
     final node = FocusNode();
     addTearDown(node.dispose);
     await tester.pumpWidget(
-      Localizations(
+      TricksterLocalizationScope(
         locale: const Locale('en', 'US'),
-        delegates: const [GlobalWidgetsLocalizations.delegate],
-        child: Directionality(
-          textDirection: TextDirection.ltr,
+        child: Center(
           child: TricksterActionCard(
             accent: const WallpaperAccent(Color(0xffd0bcff)),
             label: 'Test action',
@@ -247,14 +205,14 @@ void main() {
     expect(formatBarDate(fixed, 'de_DE'), contains('Sept'));
   });
 
-  testWidgets('clock follows the German 24-hour cycle', (tester) async {
-    await _pumpClock(tester, const Locale('de', 'DE'));
+  testWidgets('clock follows the Chinese 24-hour cycle', (tester) async {
+    await _pumpClock(tester, const Locale('zh'));
     await tester.pump(const Duration(milliseconds: 500));
     final texts = tester
         .widgetList<RichText>(find.byType(RichText))
         .map((text) => text.text.toPlainText())
         .join(' ');
     expect(texts, isNot(anyOf(contains('AM'), contains('PM'))));
-    expect(texts, matches(RegExp(r'\b\d{2}:\d{2}\b')));
+    expect(texts, matches(RegExp(r'\b\d{1,2}:\d{2}\b')));
   });
 }

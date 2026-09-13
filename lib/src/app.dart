@@ -2,24 +2,32 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show FlutterView;
 
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'bar/bar.dart';
 import 'bar/tray_menu.dart';
+import 'bar/tray_tooltip.dart';
+import 'control/control_handler.dart';
+import 'control/control_server.dart';
 import 'bootstrap.dart';
 import 'config/session.dart';
+import 'config/store.dart';
 import 'config/watcher.dart';
+import 'layout/shell_keys.dart';
 import 'layout/system_bar.dart';
 import 'locale.dart';
 import 'platform/layer_shell.dart';
 import 'platform/power_settings.dart';
+import 'theme/backdrop_blur.dart';
+import 'state/capabilities_bloc.dart';
 import 'state/module_scope.dart';
 import 'state/outputs_bloc.dart';
 import 'state/session_bloc.dart';
 import 'state/settings_bloc.dart';
 import 'state/tray_menu.dart';
+import 'state/tray_tooltip.dart';
 
 class TricksterApp extends StatefulWidget {
   const TricksterApp({required this.initial, this.layerShell, super.key});
@@ -35,7 +43,16 @@ class _TricksterAppState extends State<TricksterApp>
     with WidgetsBindingObserver {
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
+  late final TrayTooltipController _tooltipController;
+  late final FileSettingsTransport _settingsTransport;
+  ControlServer? _control;
+  BuildContext? _moduleContext;
   ConfigWatcher? _watcher;
+  List<LayerOutput>? _outputs;
+  final Set<int> _hiddenSurfaces = <int>{};
+  Set<int> _lastBarViews = const <int>{};
+  var _reconciling = false;
+  var _reconcileAgain = false;
   OutputsConfig _lastOutputs = const OutputsConfig();
   SessionConfig _lastSession = const SessionConfig();
 
@@ -45,12 +62,25 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
+    _tooltipController = TrayTooltipController(layerShell: _layerShell);
+    _settingsTransport = FileSettingsTransport(
+      File(widget.initial.paths.settings),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
-        onChanged: _reload,
+        onChanged: () => _reload(),
       )..start();
+      _control = ControlServer(
+        handler: (request) => handleControlRequest(
+          context: _moduleContext ?? context,
+          settings: _settingsTransport,
+          reload: _reload,
+          request: request,
+        ),
+      );
+      unawaited(_control!.start());
     });
   }
 
@@ -58,7 +88,9 @@ class _TricksterAppState extends State<TricksterApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_watcher?.dispose());
+    unawaited(_control?.dispose());
     _menuController.dispose();
+    _tooltipController.dispose();
     super.dispose();
   }
 
@@ -66,19 +98,38 @@ class _TricksterAppState extends State<TricksterApp>
   // rebuild the root so the new surface gets its own strip.
   @override
   void didChangeMetrics() {
-    if (mounted) {
-      setState(() {});
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    // Menu surfaces add and remove views too; only bar-view changes matter.
+    final barViews = WidgetsBinding.instance.platformDispatcher.views
+        .map((view) => view.viewId)
+        .where(
+          (viewId) =>
+              !_menuController.isMenuView(viewId) &&
+              !_tooltipController.isTooltipView(viewId),
+        )
+        .toSet();
+    if (!setEquals(barViews, _lastBarViews)) {
+      _lastBarViews = barViews;
+      unawaited(_reconcileOutputs(context.read<OutputsBloc>().state));
     }
   }
 
-  void _reload() {
+  /// Re-reads every config through the watcher's path. Returns null on a
+  /// clean apply, or the parse error after keeping last-good state.
+  String? _reload() {
     try {
       final loaded = Bootstrap.load(
         configPath: widget.initial.paths.outputOverride,
+        strict: true,
       );
       _apply(loaded);
+      return null;
     } on Object catch (error) {
       stderr.writeln('trickster: keeping last-good config: $error');
+      return '$error';
     }
   }
 
@@ -99,49 +150,117 @@ class _TricksterAppState extends State<TricksterApp>
     }
     _lastOutputs = loaded.outputs;
     _lastSession = loaded.session;
+    unawaited(_reconcileOutputs(loaded.outputs));
+  }
+
+  /// Creates, hides, or destroys strip surfaces so exactly the hosted
+  /// outputs carry one, following monitor hotplug and connector changes.
+  Future<void> _reconcileOutputs(OutputsConfig config) async {
+    if (_reconciling) {
+      _reconcileAgain = true;
+      return;
+    }
+    _reconciling = true;
+    try {
+      do {
+        _reconcileAgain = false;
+        final outputs = await _layerShell.outputs();
+        if (!mounted) {
+          return;
+        }
+        setState(() => _outputs = outputs);
+        for (final output in outputs) {
+          if (config.hosts(output.name)) {
+            if (output.viewId < 0) {
+              await _layerShell.createSurface(connector: output.name);
+            } else if (_hiddenSurfaces.remove(output.viewId)) {
+              await _layerShell.setSurfaceVisible(
+                viewId: output.viewId,
+                visible: true,
+              );
+            }
+          } else if (output.viewId == 0) {
+            if (_hiddenSurfaces.add(0)) {
+              await _layerShell.setSurfaceVisible(viewId: 0, visible: false);
+            }
+          } else if (output.viewId > 0) {
+            await _layerShell.destroySurface(viewId: output.viewId);
+          }
+        }
+      } while (_reconcileAgain && mounted);
+    } finally {
+      _reconciling = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<OutputsBloc, OutputsConfig>(
-      builder: (context, outputs) {
-        // Bare widgets need explicit directionality and locale; there is no
-        // MaterialApp above the strip. The device locale is reduced to one the
-        // widgets delegate supports (headless LANG=C environments crash
-        // resource resolution otherwise).
-        final locale = resolveAppLocale(
-          WidgetsBinding.instance.platformDispatcher.locale,
-        );
-        final views = WidgetsBinding.instance.platformDispatcher.views;
-        _menuController.retainViews(views.map((view) => view.viewId).toSet());
-        // One View per layer surface, all sharing this single engine and the
-        // module blocs above the collection. A menu lives on its own
-        // fullscreen overlay surface, so the strip surface never resizes.
-        return Localizations(
-          locale: locale,
-          delegates: const [GlobalWidgetsLocalizations.delegate],
-          child: Directionality(
-            textDirection: TextDirection.ltr,
-            child: TrayMenuScope(
-              notifier: _menuController,
+    return TricksterLocalizationScope(
+      child: BlocBuilder<OutputsBloc, OutputsConfig>(
+        builder: (context, outputs) {
+          final views = WidgetsBinding.instance.platformDispatcher.views;
+          final liveViewIds = views.map((view) => view.viewId).toSet();
+          _menuController.retainViews(liveViewIds);
+          _tooltipController.retainViews(liveViewIds);
+          // One View per layer surface, all sharing this single engine and
+          // the module blocs above the collection. A menu lives on its own
+          // fullscreen overlay surface, so the strip surface never resizes.
+          final blur = context.select(
+            (CapabilitiesBloc bloc) => bloc.state.blur,
+          );
+          // Null until the native enumeration lands: show every strip in the
+          // meantime rather than flashing an empty desktop. Overlay surfaces
+          // (menus, tooltips) belong to no output's strip, so they are always
+          // attached once the engine adds their views.
+          final hostedViewIds = _outputs == null
+              ? null
+              : <int>{
+                  for (final output in hostedOutputs(_outputs!, outputs))
+                    output.viewId,
+                  for (final view in views)
+                    if (_menuController.isMenuView(view.viewId) ||
+                        _tooltipController.isTooltipView(view.viewId))
+                      view.viewId,
+                };
+          final viewOutputs = <int, String>{
+            for (final output in _outputs ?? const <LayerOutput>[])
+              if (output.viewId >= 0) output.viewId: output.name,
+          };
+          return TrayMenuScope(
+            notifier: _menuController,
+            child: TrayTooltipScope(
+              notifier: _tooltipController,
               child: ModuleScope(
-                child: ViewCollection(
-                  views: outputs.active
-                      ? <Widget>[
-                          for (final view in views)
-                            _ViewSurface(
-                              key: ValueKey<int>(view.viewId),
-                              view: view,
-                              menu: _menuController,
-                            ),
-                        ]
-                      : const <Widget>[],
+                // The control status handler needs a context below the module
+                // providers to read their states.
+                child: Builder(
+                  builder: (context) {
+                    _moduleContext = context;
+                    return ViewCollection(
+                      views: outputs.active
+                          ? <Widget>[
+                              for (final view in views)
+                                if (hostedViewIds == null ||
+                                    hostedViewIds.contains(view.viewId))
+                                  _ViewSurface(
+                                    key: ValueKey<int>(view.viewId),
+                                    view: view,
+                                    menu: _menuController,
+                                    tooltip: _tooltipController,
+                                    layerShell: _layerShell,
+                                    blur: blur,
+                                    output: viewOutputs[view.viewId],
+                                  ),
+                            ]
+                          : const <Widget>[],
+                    );
+                  },
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -149,28 +268,76 @@ class _TricksterAppState extends State<TricksterApp>
 /// One output's surface: an [Overlay] so shelf overlays can render above the
 /// strip, with either the strip or a tray menu as its single entry.
 class _ViewSurface extends StatefulWidget {
-  const _ViewSurface({required this.view, required this.menu, super.key});
+  const _ViewSurface({
+    required this.view,
+    required this.menu,
+    required this.tooltip,
+    required this.layerShell,
+    required this.blur,
+    required this.output,
+    super.key,
+  });
 
   final FlutterView view;
   final TrayMenuController menu;
+  final TrayTooltipController tooltip;
+  final LayerShell layerShell;
+  final bool blur;
+  final String? output;
 
   @override
   State<_ViewSurface> createState() => _ViewSurfaceState();
 }
 
 class _ViewSurfaceState extends State<_ViewSurface> {
+  @override
+  void initState() {
+    super.initState();
+    _applyBlur();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ViewSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.blur != widget.blur) {
+      _applyBlur();
+    }
+  }
+
+  void _applyBlur() {
+    // Backdrop blur belongs to the strip only: overlay surfaces composite
+    // their own glass and an effect on a hidden overlay black-screens it.
+    if (widget.menu.isMenuView(widget.view.viewId) ||
+        widget.tooltip.isTooltipView(widget.view.viewId)) {
+      return;
+    }
+    unawaited(
+      widget.layerShell.setBlur(
+        viewId: widget.view.viewId,
+        enabled: widget.blur,
+      ),
+    );
+  }
+
   late final OverlayEntry _entry = OverlayEntry(
     builder: (context) => ListenableBuilder(
-      listenable: widget.menu,
+      listenable: Listenable.merge([widget.menu, widget.tooltip]),
       builder: (context, _) {
-        final session = widget.menu.session;
         if (widget.menu.isMenuView(widget.view.viewId)) {
+          final session = widget.menu.session;
           if (session == null || session.viewId != widget.view.viewId) {
             return const SizedBox.shrink();
           }
           return TrayMenuSurface(session: session, controller: widget.menu);
         }
-        return const _BarSurface();
+        if (widget.tooltip.isTooltipView(widget.view.viewId)) {
+          final session = widget.tooltip.session;
+          if (session == null || session.viewId != widget.view.viewId) {
+            return const SizedBox.shrink();
+          }
+          return TrayTooltipSurface(session: session);
+        }
+        return _BarSurface(output: widget.output);
       },
     ),
   );
@@ -180,11 +347,24 @@ class _ViewSurfaceState extends State<_ViewSurface> {
     // The View starts the render zone; MediaQuery is required by Material
     // menus (and gives each surface its own metrics); TapRegionSurface lets
     // menu panels observe outside taps.
+    // No WidgetsApp above the bar, so install the standard shell keymap by
+    // hand: Tab and arrow traversal, Enter/Space activation, Escape dismissal.
     return View(
       view: widget.view,
       child: MediaQuery.fromView(
         view: widget.view,
-        child: TapRegionSurface(child: Overlay(initialEntries: [_entry])),
+        child: Shortcuts(
+          shortcuts: shellShortcuts,
+          child: Actions(
+            actions: WidgetsApp.defaultActions,
+            // Autofocus gives the view a key target, so Tab reaches the
+            // shortcut map instead of dying on the root scope.
+            child: FocusScope(
+              autofocus: true,
+              child: TapRegionSurface(child: Overlay(initialEntries: [_entry])),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -197,15 +377,22 @@ class _ViewSurfaceState extends State<_ViewSurface> {
 }
 
 class _BarSurface extends StatelessWidget {
-  const _BarSurface();
+  const _BarSurface({required this.output});
+
+  final String? output;
 
   @override
   Widget build(BuildContext context) {
     final outputs = context.watch<OutputsBloc>().state;
-    return TricksterBarStrip(
-      side: outputs.side,
-      thickness: outputs.thickness,
-      onOpenPowerSettings: openPowerSettings,
+    final blur = context.select((CapabilitiesBloc bloc) => bloc.state.blur);
+    return BackdropBlur(
+      enabled: blur,
+      child: TricksterBarStrip(
+        side: outputs.side,
+        thickness: outputs.thickness,
+        output: output,
+        onOpenPowerSettings: openPowerSettings,
+      ),
     );
   }
 }

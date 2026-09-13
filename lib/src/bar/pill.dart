@@ -1,9 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
+import 'package:flutter/material.dart'
+    show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
 import '../theme/accent.dart';
+import '../theme/backdrop_blur.dart';
 import '../theme/motion.dart';
 
 class SystemBarCard extends StatelessWidget {
@@ -30,20 +32,19 @@ class SystemBarCard extends StatelessWidget {
     final bottomFill = highlighted
         ? Color.lerp(accent.cardFill(), accent.color, 0.08)!
         : accent.cardFill();
+    final blurred = BackdropBlur.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            topFill.withValues(alpha: 0.92),
-            bottomFill.withValues(alpha: 0.88),
+            topFill.withValues(alpha: blurred ? 0.74 : 0.92),
+            bottomFill.withValues(alpha: blurred ? 0.66 : 0.88),
           ],
         ),
         borderRadius: const BorderRadius.all(Radius.circular(999)),
-        border: focused
-            ? Border.all(color: accent.color.withValues(alpha: 0.78))
-            : null,
+        border: focused ? Border.all(color: accent.color, width: 1.5) : null,
       ),
       child: Padding(
         padding: padding,
@@ -62,12 +63,14 @@ class TricksterActionCard extends StatefulWidget {
     required this.label,
     required this.onPressed,
     required this.child,
+    this.hint,
     this.focusNode,
     super.key,
   });
 
   final WallpaperAccent accent;
   final String label;
+  final String? hint;
   final VoidCallback onPressed;
   final Widget child;
   final FocusNode? focusNode;
@@ -94,6 +97,7 @@ class _TricksterActionCardState extends State<TricksterActionCard> {
     return Semantics(
       button: true,
       label: widget.label,
+      hint: widget.hint,
       onTap: widget.onPressed,
       child: ExcludeSemantics(
         child: Material(

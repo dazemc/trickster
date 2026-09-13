@@ -39,12 +39,20 @@ Future<void> _waitFor(bool Function() condition) async {
 }
 
 const _initialWorkspaces = '''
-[{"num":1,"name":"1","visible":true,"focused":true,"urgent":false},
- {"num":2,"name":"web","visible":false,"focused":false,"urgent":false}]''';
+[{"num":1,"name":"1","output":"eDP-1","visible":true,"focused":true,"urgent":false},
+ {"num":2,"name":"web","output":"eDP-1","visible":false,"focused":false,"urgent":false}]''';
 
 const _updatedWorkspaces = '''
-[{"num":1,"name":"1","visible":false,"focused":false,"urgent":false},
- {"num":2,"name":"web","visible":true,"focused":true,"urgent":true}]''';
+[{"num":1,"name":"1","output":"eDP-1","visible":false,"focused":false,"urgent":false},
+ {"num":2,"name":"web","output":"eDP-1","visible":true,"focused":true,"urgent":true}]''';
+
+const _initialOutputs =
+    '[{"name":"eDP-1","current_workspace":"1"},'
+    '{"name":"HDMI-A-1","current_workspace":"1"}]';
+
+const _updatedOutputs =
+    '[{"name":"eDP-1","current_workspace":"web"},'
+    '{"name":"HDMI-A-1","current_workspace":"1"}]';
 
 /// A persistent Sway endpoint: records every frame, answers IPC requests,
 /// and can fire workspace events. Frames can be split across writes to
@@ -56,6 +64,7 @@ class _FakeSwayServer {
   final requests = <({int type, String payload})>[];
   final _connections = <Socket>[];
   var workspacesReply = _initialWorkspaces;
+  var outputsReply = _initialOutputs;
   var splitFrames = false;
 
   int get refreshCount =>
@@ -122,6 +131,11 @@ class _FakeSwayServer {
     if (type == 2) {
       socket.add(_frame(2, '{"success":true}'));
       await socket.flush();
+      return;
+    }
+    if (type == 3) {
+      socket.add(_frame(3, outputsReply));
+      await socket.flush();
     }
   }
 
@@ -183,12 +197,13 @@ void main() {
     final workspaces = snapshots.single;
     expect(workspaces.map((workspace) => workspace.id), ['1', '2']);
     expect(workspaces.map((workspace) => workspace.name), ['1', 'web']);
+    expect(workspaces[0].output, 'eDP-1');
     expect(workspaces[0].focused, isTrue);
     expect(workspaces[1].focused, isFalse);
     expect(
       server.requests.map((request) => request.type),
-      [2, 1],
-      reason: 'one subscribe frame and one workspaces request',
+      [2, 1, 3],
+      reason: 'subscribe, workspaces, and outputs requests',
     );
 
     await Future<void>.delayed(const Duration(milliseconds: 150));
@@ -210,6 +225,7 @@ void main() {
     await _waitFor(() => snapshots.length == 1);
 
     server.workspacesReply = _updatedWorkspaces;
+    server.outputsReply = _updatedOutputs;
     await server.fireWorkspaceEvent();
     await _waitFor(() => snapshots.length == 2);
 
@@ -271,12 +287,14 @@ void main() {
     await _waitFor(() => snapshots.length == 1);
 
     await server.dropConnections();
-    await _waitFor(() => snapshots.length == 2);
+    await _waitFor(() => server.requests.length >= 6);
     expect(
       server.requests.map((request) => request.type),
-      [2, 1, 2, 1],
+      [2, 1, 3, 2, 1, 3],
       reason: 'reconnect resubscribes and refreshes once',
     );
+    // Identical state on reconnect is deduplicated, so no extra emission.
+    expect(snapshots.length, 1);
 
     await sub.cancel();
     await backend.dispose();
@@ -298,6 +316,12 @@ void main() {
     );
     expect(focused, isTrue);
     expect(commands, ['workspace web']);
+
+    final perOutput = await backend.focusWorkspace(
+      const Workspace(id: '2', name: 'web', output: 'eDP-1'),
+    );
+    expect(perOutput, isTrue);
+    expect(commands.last, 'workspace web output eDP-1');
   });
 
   test('refused command reply reports failure', () async {

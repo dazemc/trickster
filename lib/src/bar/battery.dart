@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../locale.dart';
 import '../services/battery.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
@@ -10,6 +11,8 @@ class BatteryPill extends StatelessWidget {
     required this.accent,
     required this.status,
     required this.onPressed,
+    this.warn = 20,
+    this.critical = 10,
     super.key,
   });
 
@@ -18,14 +21,29 @@ class BatteryPill extends StatelessWidget {
   final WallpaperAccent accent;
   final BatteryStatus status;
   final VoidCallback onPressed;
+  final int warn;
+  final int critical;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final capacity = status.capacity ?? 0;
-    final state = status.charging ? 'Charging' : 'Discharging';
+    final state = status.charging
+        ? l10n.batteryCharging
+        : l10n.batteryDischarging;
+    final levelColor = status.charging
+        ? null
+        : capacity <= critical
+        ? ShellTelemetryColors.danger
+        : capacity <= warn
+        ? ShellTelemetryColors.warning
+        : null;
     return TricksterActionCard(
       accent: accent,
-      label: 'Battery, $state $capacity%',
+      label:
+          '${l10n.batteryTitle}, '
+          '${l10n.batteryStateAndPercent(state, capacity)}',
+      hint: l10n.batteryHint,
       onPressed: onPressed,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -37,10 +55,14 @@ class BatteryPill extends StatelessWidget {
               capacity: capacity / 100.0,
               charging: status.charging,
               accent: accent.color,
+              levelColor: levelColor,
             ),
           ),
           const SizedBox(width: 8),
-          Text('$capacity%', style: ShellText.systemBarValue),
+          Text(
+            '$capacity%',
+            style: ShellText.systemBarValue.copyWith(color: levelColor),
+          ),
         ],
       ),
     );
@@ -52,11 +74,13 @@ class _BatteryPainter extends CustomPainter {
     required this.capacity,
     required this.charging,
     required this.accent,
+    required this.levelColor,
   });
 
   final double capacity;
   final bool charging;
   final Color accent;
+  final Color? levelColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -95,7 +119,10 @@ class _BatteryPainter extends CustomPainter {
           ),
           const Radius.circular(1.5),
         ),
-        Paint()..color = charging ? ShellTelemetryColors.charging : accent,
+        Paint()
+          ..color = charging
+              ? ShellTelemetryColors.charging
+              : levelColor ?? accent,
       );
     }
     if (charging) {
@@ -116,6 +143,7 @@ class _BatteryPainter extends CustomPainter {
   bool shouldRepaint(covariant _BatteryPainter oldDelegate) {
     return oldDelegate.capacity != capacity ||
         oldDelegate.charging != charging ||
-        oldDelegate.accent != accent;
+        oldDelegate.accent != accent ||
+        oldDelegate.levelColor != levelColor;
   }
 }

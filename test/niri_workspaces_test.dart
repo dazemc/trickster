@@ -48,8 +48,15 @@ class _FakeNiriServer {
   final requests = <String>[];
   final _streams = <Socket>[];
   var workspaces = const [
-    {'id': 1, 'idx': 1, 'is_focused': true, 'active_window_id': 10},
-    {'id': 2, 'idx': 2, 'is_focused': false},
+    {
+      'id': 1,
+      'idx': 1,
+      'output': 'eDP-1',
+      'is_focused': true,
+      'is_active': true,
+      'active_window_id': 10,
+    },
+    {'id': 2, 'idx': 2, 'output': 'HDMI-A-1', 'is_active': true},
   ];
 
   static Future<_FakeNiriServer> bind(String path) async {
@@ -183,10 +190,19 @@ void main() {
     await _waitFor(() => snapshots.length == 1);
     expect(snapshots.single[0].focused, isTrue);
     expect(snapshots.single[0].occupied, isTrue);
+    expect(snapshots.single[0].output, 'eDP-1');
+    expect(snapshots.single[1].output, 'HDMI-A-1');
+    expect(snapshots.single[1].focused, isTrue);
 
     server.workspaces = const [
-      {'id': 1, 'idx': 1, 'is_focused': false, 'active_window_id': 10},
-      {'id': 2, 'idx': 2, 'is_focused': true},
+      {
+        'id': 1,
+        'idx': 1,
+        'output': 'eDP-1',
+        'is_active': false,
+        'active_window_id': 10,
+      },
+      {'id': 2, 'idx': 2, 'output': 'HDMI-A-1', 'is_active': true},
     ];
     await server.dropStreams();
     await _waitFor(() => snapshots.length == 2);

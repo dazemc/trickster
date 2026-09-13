@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/media.dart';
+import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -62,8 +63,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     BlocProvider<MediaBloc>.value(
       value: bloc,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+      child: TricksterLocalizationScope(
         child: Center(child: MediaPill(accent: _accent)),
       ),
     ),
@@ -81,7 +81,7 @@ void main() {
     expect(find.text('Test Artist'), findsOneWidget);
     expect(find.bySemanticsLabel('Next track'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Media, Test Song, Test Artist'));
+    await tester.tap(find.bySemanticsLabel('Media controls'));
     await tester.pump();
 
     expect(find.bySemanticsLabel('Previous track'), findsOneWidget);
@@ -93,7 +93,7 @@ void main() {
     expect(service.calls, <String>['next']);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Media, Test Song, Test Artist'));
+    await tester.tap(find.bySemanticsLabel('Media controls'));
     await tester.pump();
     expect(find.bySemanticsLabel('Next track'), findsNothing);
   });
@@ -104,7 +104,7 @@ void main() {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(status: MprisPlaybackStatus.paused), service);
 
-    await tester.tap(find.bySemanticsLabel('Media, Test Song, Test Artist'));
+    await tester.tap(find.bySemanticsLabel('Media controls'));
     await tester.pump();
     expect(find.bySemanticsLabel('Pause'), findsNothing);
 
@@ -119,7 +119,7 @@ void main() {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(canGoNext: false), service);
 
-    await tester.tap(find.bySemanticsLabel('Media, Test Song, Test Artist'));
+    await tester.tap(find.bySemanticsLabel('Media controls'));
     await tester.pump();
 
     await tester.tap(find.bySemanticsLabel('Next track'));

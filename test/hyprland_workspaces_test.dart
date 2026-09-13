@@ -12,7 +12,9 @@ const _workspacesReply = '''
 [{"id":1,"name":"1","monitor":"HDMI-A-1","windows":1},
  {"id":2,"name":"2","monitor":"HDMI-A-1","windows":0}]''';
 
-const _activeReply = '{"id":2,"name":"2","monitor":"HDMI-A-1","windows":0}';
+const _monitorsReply = '''
+[{"name":"HDMI-A-1","activeWorkspace":{"id":2,"name":"2"}},
+ {"name":"HDMI-A-2","activeWorkspace":{"id":1,"name":"1"}}]''';
 
 const _clientsReply = '''
 [{"address":"0x1","urgent":false,"workspace":{"id":1,"name":"1"}},
@@ -53,7 +55,7 @@ class _FakeHyprlandServer {
     final server = _FakeHyprlandServer._(path, owned)
       ..keepOpen = keepOpen
       ..replies['j/workspaces'] = utf8.encode(_workspacesReply)
-      ..replies['j/activeworkspace'] = utf8.encode(_activeReply)
+      ..replies['j/monitors'] = utf8.encode(_monitorsReply)
       ..replies['j/clients'] = utf8.encode(_clientsReply);
     server._requests = await ServerSocket.bind(
       InternetAddress('$path/.socket.sock', type: InternetAddressType.unix),
@@ -62,8 +64,7 @@ class _FakeHyprlandServer {
     server._requests!.listen(server._serveRequest);
     if (withEvents) {
       server._events = await ServerSocket.bind(
-        InternetAddress('$path/.socket2.sock',
-            type: InternetAddressType.unix),
+        InternetAddress('$path/.socket2.sock', type: InternetAddressType.unix),
         0,
       );
       server._events!.listen((socket) {
@@ -146,8 +147,7 @@ class _FakeHyprlandServer {
 }
 
 void main() {
-  test(
-      'keep-open request connection still completes and marks the '
+  test('keep-open request connection still completes and marks the '
       'active workspace focused', () async {
     final server = await _FakeHyprlandServer.bind(keepOpen: true);
     try {
@@ -155,8 +155,8 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1', occupied: true),
-          Workspace(id: '2', name: '2', focused: true),
+          Workspace(id: '1', name: '1', output: 'HDMI-A-1', occupied: true),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
         ]),
       );
       await backend.start().timeout(const Duration(seconds: 5));
@@ -174,8 +174,8 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1', occupied: true),
-          Workspace(id: '2', name: '2', focused: true),
+          Workspace(id: '1', name: '1', output: 'HDMI-A-1', occupied: true),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
         ]),
       );
       await backend.start().timeout(const Duration(seconds: 5));
@@ -194,8 +194,14 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1', urgent: true, occupied: true),
-          Workspace(id: '2', name: '2', focused: true),
+          Workspace(
+            id: '1',
+            name: '1',
+            output: 'HDMI-A-1',
+            urgent: true,
+            occupied: true,
+          ),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
         ]),
       );
       await backend.start().timeout(const Duration(seconds: 5));
@@ -286,10 +292,12 @@ void main() {
       final bloc = WorkspacesBloc(monitor: monitor);
       final expectation = expectLater(
         bloc.stream,
-        emits(const WorkspacesState([
-          Workspace(id: '1', name: '1', occupied: true),
-          Workspace(id: '2', name: '2', focused: true),
-        ])),
+        emits(
+          const WorkspacesState([
+            Workspace(id: '1', name: '1', output: 'HDMI-A-1', occupied: true),
+            Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
+          ]),
+        ),
       );
       bloc.add(const WorkspacesStarted());
       await expectation.timeout(const Duration(seconds: 5));
@@ -299,7 +307,8 @@ void main() {
     }
   });
 
-  test('malformed reply keeps the previous snapshot and completes', () async {    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+  test('malformed reply keeps the previous snapshot and completes', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
     server.replies['j/workspaces'] = utf8.encode('not json{');
     try {
       final backend = HyprlandWorkspaces(socketDir: server.dir);
@@ -325,8 +334,8 @@ void main() {
       final expectation = expectLater(
         backend.snapshots,
         emits(const [
-          Workspace(id: '1', name: '1', occupied: true),
-          Workspace(id: '2', name: '2', focused: true),
+          Workspace(id: '1', name: '1', output: 'HDMI-A-1', occupied: true),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
         ]),
       );
       final started = backend.start();

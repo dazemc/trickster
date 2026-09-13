@@ -1,5 +1,10 @@
 #include "my_application.h"
 
+#include <cairo.h>
+#include <gdk/gdkwayland.h>
+
+#include "ext-background-effect-v1-client-protocol.h"
+
 #include <gtk-layer-shell.h>
 #include <flutter_linux/flutter_linux.h>
 
@@ -8,6 +13,10 @@
 typedef struct {
   GtkWindow* window;
   FlView* view;
+  GdkMonitor* monitor;
+  gchar* connector;
+  struct ext_background_effect_surface_v1* blur;
+  gboolean blur_enabled;
 } TricksterSurface;
 
 struct _MyApplication {
@@ -16,12 +25,24 @@ struct _MyApplication {
   FlEngine* engine;
   GPtrArray* surfaces;
   GPtrArray* menus;
+  GPtrArray* tooltips;
+  gboolean blur_checked;
+  gboolean blur_supported;
+  struct wl_compositor* compositor;
+  struct ext_background_effect_manager_v1* blur_manager;
+  gchar* side;
+  gint thickness;
+  gchar* layer;
+  gchar* layer_namespace;
+  gchar* keyboard;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 static void trickster_surface_free(gpointer data) {
-  g_free(data);
+  TricksterSurface* surface = (TricksterSurface*)data;
+  g_free(surface->connector);
+  g_free(surface);
 }
 
 static int trickster_layer(const gchar* value) {
@@ -85,6 +106,218 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
   gtk_window_resize(window, 1, 1);
 }
 
+struct _MyApplication;
+typedef struct {
+  struct wl_output* proxy;
+  gchar* name;
+  gint x;
+  gint y;
+} TricksterOutputInfo;
+
+static void output_info_free(gpointer data) {
+  TricksterOutputInfo* info = (TricksterOutputInfo*)data;
+  if (info->proxy != nullptr) {
+    wl_output_destroy(info->proxy);
+  }
+  g_free(info->name);
+  g_free(info);
+}
+
+static void output_name_cb(void* data, struct wl_output* output,
+                           const char* name) {
+  TricksterOutputInfo* info = (TricksterOutputInfo*)data;
+  g_free(info->name);
+  info->name = g_strdup(name);
+}
+
+static void output_geometry_cb(void* data, struct wl_output* output, gint32 x,
+                               gint32 y, gint32 physical_width,
+                               gint32 physical_height, gint32 subpixel,
+                               const char* make, const char* model,
+                               gint32 transform) {
+  TricksterOutputInfo* info = (TricksterOutputInfo*)data;
+  info->x = x;
+  info->y = y;
+}
+
+static void output_mode_cb(void* data, struct wl_output* output, guint32 flags,
+                           gint32 width, gint32 height, gint32 refresh) {}
+
+static void output_scale_cb(void* data, struct wl_output* output, gint32 factor) {
+}
+
+static void output_done_cb(void* data, struct wl_output* output) {}
+
+static void output_description_cb(void* data, struct wl_output* output,
+                                  const char* description) {}
+
+static const struct wl_output_listener output_listener = {
+    output_geometry_cb, output_mode_cb,     output_done_cb,
+    output_scale_cb,    output_name_cb,     output_description_cb};
+
+static void output_registry_global(void* data, struct wl_registry* registry,
+                                   uint32_t name, const char* interface,
+                                   uint32_t version) {
+  if (g_strcmp0(interface, wl_output_interface.name) != 0) {
+    return;
+  }
+  GPtrArray* outputs = (GPtrArray*)data;
+  TricksterOutputInfo* info = g_new0(TricksterOutputInfo, 1);
+  info->proxy = (struct wl_output*)wl_registry_bind(
+      registry, name, &wl_output_interface, MIN(version, 4));
+  wl_output_add_listener(info->proxy, &output_listener, info);
+  g_ptr_array_add(outputs, info);
+}
+
+static void output_registry_global_remove(void* data,
+                                          struct wl_registry* registry,
+                                          uint32_t name) {}
+
+// The connector name (HDMI-A-1) of [monitor], or null. GDK only exposes the
+// EDID model, so the name comes from a fresh wl_output enumeration matched
+// by compositor-space position.
+static gchar* trickster_connector_for_monitor(GdkMonitor* monitor) {
+  if (monitor == nullptr) {
+    return nullptr;
+  }
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
+    return nullptr;
+  }
+  struct wl_display* wl = gdk_wayland_display_get_wl_display(display);
+  if (wl == nullptr) {
+    return nullptr;
+  }
+  struct wl_registry* registry = wl_display_get_registry(wl);
+  if (registry == nullptr) {
+    return nullptr;
+  }
+  g_autoptr(GPtrArray) outputs =
+      g_ptr_array_new_with_free_func(output_info_free);
+  static const struct wl_registry_listener listener = {
+      output_registry_global, output_registry_global_remove};
+  wl_registry_add_listener(registry, &listener, outputs);
+  wl_display_roundtrip(wl);
+  wl_display_roundtrip(wl);
+  wl_registry_destroy(registry);
+
+  GdkRectangle geometry;
+  gdk_monitor_get_geometry(monitor, &geometry);
+  for (guint i = 0; i < outputs->len; i++) {
+    TricksterOutputInfo* info =
+        (TricksterOutputInfo*)g_ptr_array_index(outputs, i);
+    if (info->name != nullptr && info->x == geometry.x && info->y == geometry.y) {
+      return g_strdup(info->name);
+    }
+  }
+  return nullptr;
+}
+
+static void blur_registry_global(void* data, struct wl_registry* registry,
+                                 uint32_t name, const char* interface,
+                                 uint32_t version);
+static void blur_registry_global_remove(void* data, struct wl_registry* registry,
+                                        uint32_t name);
+static gboolean trickster_probe_blur(MyApplication* self);
+static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
+                                 gboolean enabled);
+static TricksterSurface* trickster_surface_new(MyApplication* self,
+                                               GdkMonitor* monitor);
+static void trickster_surface_configure(TricksterSurface* surface,
+                                        FlView* view);
+
+static void blur_registry_global(void* data, struct wl_registry* registry,
+                                 uint32_t name, const char* interface,
+                                 uint32_t version) {
+  MyApplication* self = MY_APPLICATION(data);
+  if (g_strcmp0(interface, wl_compositor_interface.name) == 0) {
+    if (self->compositor == nullptr) {
+      self->compositor = (struct wl_compositor*)wl_registry_bind(
+          registry, name, &wl_compositor_interface, MIN(version, 4));
+    }
+  } else if (g_strcmp0(interface,
+                       ext_background_effect_manager_v1_interface.name) == 0) {
+    self->blur_supported = TRUE;
+    if (self->blur_manager == nullptr) {
+      self->blur_manager =
+          (struct ext_background_effect_manager_v1*)wl_registry_bind(
+              registry, name, &ext_background_effect_manager_v1_interface, 1);
+    }
+  }
+}
+
+static void blur_registry_global_remove(void* data, struct wl_registry* registry,
+                                        uint32_t name) {}
+
+// One registry roundtrip on GDK's Wayland connection, binding the compositor
+// and the background-effect manager; cached for the process.
+static gboolean trickster_probe_blur(MyApplication* self) {
+  if (self->blur_checked) {
+    return self->blur_supported;
+  }
+  self->blur_checked = TRUE;
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
+    return FALSE;
+  }
+  struct wl_display* wl = gdk_wayland_display_get_wl_display(display);
+  if (wl == nullptr) {
+    return FALSE;
+  }
+  struct wl_registry* registry = wl_display_get_registry(wl);
+  if (registry == nullptr) {
+    return FALSE;
+  }
+  static const struct wl_registry_listener listener = {
+      blur_registry_global, blur_registry_global_remove};
+  wl_registry_add_listener(registry, &listener, self);
+  wl_display_roundtrip(wl);
+  wl_registry_destroy(registry);
+  return self->blur_supported;
+}
+
+// Blurs the whole strip surface: the pills are the only opaque content, and
+// the protocol takes axis-aligned rects, so the rounded card shape cannot be
+// a region of its own.
+static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
+                                 gboolean enabled) {
+  surface->blur_enabled = enabled;
+  if (self->blur_manager == nullptr || surface->window == nullptr) {
+    return;
+  }
+  GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(surface->window));
+  if (gdk_window == nullptr) {
+    return;
+  }
+  struct wl_surface* wl_surface = gdk_wayland_window_get_wl_surface(gdk_window);
+  if (wl_surface == nullptr) {
+    return;
+  }
+  if (surface->blur == nullptr) {
+    surface->blur = ext_background_effect_manager_v1_get_background_effect(
+        self->blur_manager, wl_surface);
+  }
+  if (surface->blur == nullptr) {
+    return;
+  }
+  if (!enabled) {
+    ext_background_effect_surface_v1_set_blur_region(surface->blur, nullptr);
+    return;
+  }
+  if (self->compositor == nullptr) {
+    return;
+  }
+  struct wl_region* region = wl_compositor_create_region(self->compositor);
+  if (region == nullptr) {
+    return;
+  }
+  GtkAllocation allocation;
+  gtk_widget_get_allocation(GTK_WIDGET(surface->window), &allocation);
+  wl_region_add(region, 0, 0, allocation.width, allocation.height);
+  ext_background_effect_surface_v1_set_blur_region(surface->blur, region);
+  wl_region_destroy(region);
+}
+
 static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
   FlValue* args = fl_method_call_get_args(method_call);
   if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
@@ -97,25 +330,31 @@ static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
   return fl_value_get_int(value);
 }
 
-// Creates the fullscreen overlay surface hosting one tray menu. It starts
-// hidden: Dart maps it after the session is ready, so the overlay never shows
-// a default frame. The window's RGBA visual and transparent background match
-// the strip surfaces.
+// Creates the fullscreen overlay surface hosting one transient shelf panel:
+// a tray menu or a tray tooltip. It starts hidden: Dart maps it after the
+// session is ready, so the overlay never shows a default frame. The window's
+// RGBA visual and transparent background match the strip surfaces.
 //
 // The surface is anchored to the edge opposite the strip and sized to the
 // whole monitor: layer-shell places a surface inside the area left over by
 // other surfaces' exclusive zones, so anchoring the strip's own edge would
-// leave the bar band uncovered and clicks there would never dismiss the menu.
-static TricksterSurface* trickster_menu_surface_new(MyApplication* self,
-                                                    GdkMonitor* monitor,
-                                                    const gchar* side) {
+// leave the bar band uncovered and clicks there would never dismiss a menu.
+//
+// Menus are modal (exclusive keyboard, full input). Tooltips are decorative:
+// no keyboard and an empty input region, so hovering one can never steal the
+// pointer from the tray item that spawned it. The semantics tree is the
+// accessible path.
+static TricksterSurface* trickster_overlay_surface_new(MyApplication* self,
+                                                      GdkMonitor* monitor,
+                                                      const gchar* side,
+                                                      gboolean tooltip) {
   TricksterSurface* surface = g_new0(TricksterSurface, 1);
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   surface->window = window;
 
   gtk_window_set_decorated(window, FALSE);
-  gtk_window_set_title(window, "trickster-menu");
+  gtk_window_set_title(window, tooltip ? "trickster-tooltip" : "trickster-menu");
   gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
   GdkScreen* screen = gtk_window_get_screen(window);
   GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
@@ -129,11 +368,13 @@ static TricksterSurface* trickster_menu_surface_new(MyApplication* self,
       gtk_layer_set_monitor(window, monitor);
     }
     gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
-    gtk_layer_set_namespace(window, "trickster-menu");
+    gtk_layer_set_namespace(window,
+                            tooltip ? "trickster-tooltip" : "trickster-menu");
     // A menu is modal: it holds the keyboard while mapped and covers the
     // output so Material's tap-region dismissal catches presses anywhere.
-    gtk_layer_set_keyboard_mode(window,
-                                GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+    gtk_layer_set_keyboard_mode(
+        window, tooltip ? GTK_LAYER_SHELL_KEYBOARD_MODE_NONE
+                        : GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
     gtk_layer_set_exclusive_zone(window, 0);
     if (g_strcmp0(side, "top") == 0) {
       gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
@@ -166,7 +407,33 @@ static TricksterSurface* trickster_menu_surface_new(MyApplication* self,
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
   gtk_widget_realize(GTK_WIDGET(view));
 
+  if (tooltip) {
+    // An empty input region makes the tooltip click-through entirely.
+    gtk_widget_input_shape_combine_region(GTK_WIDGET(window),
+                                          cairo_region_create());
+  }
+
   return surface;
+}
+
+/// The monitor hosting the bar surface [bar_view_id], for overlay placement.
+static GdkMonitor* trickster_monitor_for_bar(MyApplication* self,
+                                             gint64 bar_view_id) {
+  for (guint i = 0; i < self->surfaces->len; i++) {
+    TricksterSurface* bar =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+    if (bar->view == nullptr || bar->window == nullptr ||
+        fl_view_get_id(bar->view) != bar_view_id) {
+      continue;
+    }
+    GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(bar->window));
+    if (gdk_window != nullptr) {
+      return gdk_display_get_monitor_at_window(
+          gtk_widget_get_display(GTK_WIDGET(bar->window)), gdk_window);
+    }
+    return nullptr;
+  }
+  return nullptr;
 }
 
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
@@ -179,6 +446,31 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     g_autoptr(FlValue) result =
         fl_value_new_bool(gtk_layer_is_supported() ? TRUE : FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "blur") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_bool(trickster_probe_blur(self) ? TRUE : FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "setBlur") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    gboolean enabled = FALSE;
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "enabled");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+        enabled = fl_value_get_bool(value) ? TRUE : FALSE;
+      }
+    }
+    trickster_probe_blur(self);
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->view == nullptr || fl_view_get_id(surface->view) != view_id) {
+        continue;
+      }
+      trickster_apply_blur(self, surface, enabled);
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (g_strcmp0(method, "outputs") == 0) {
     g_autoptr(FlValue) list = fl_value_new_list();
     GdkDisplay* display = gdk_display_get_default();
@@ -188,19 +480,143 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         GdkMonitor* monitor = gdk_display_get_monitor(display, i);
         GdkRectangle geometry;
         gdk_monitor_get_geometry(monitor, &geometry);
-        g_autoptr(FlValue) entry = fl_value_new_map();
+        gint64 view_id = -1;
+        const gchar* connector = nullptr;
+        for (guint j = 0; j < self->surfaces->len; j++) {
+          TricksterSurface* surface =
+              (TricksterSurface*)g_ptr_array_index(self->surfaces, j);
+          if (surface->monitor != monitor) {
+            continue;
+          }
+          connector = surface->connector;
+          if (surface->view != nullptr) {
+            view_id = fl_view_get_id(surface->view);
+          }
+          break;
+        }
+        g_autofree gchar* resolved =
+            connector != nullptr ? nullptr
+                                 : trickster_connector_for_monitor(monitor);
         const gchar* model = gdk_monitor_get_model(monitor);
-        g_autofree gchar* name = g_strdup_printf("output-%d", i);
-        fl_value_set_string_take(entry, "name",
-                                 fl_value_new_string(model ? model : name));
+        g_autoptr(FlValue) entry = fl_value_new_map();
+        fl_value_set_string_take(
+            entry, "name",
+            fl_value_new_string(
+                connector != nullptr
+                    ? connector
+                    : resolved != nullptr
+                          ? resolved
+                          : model != nullptr ? model : "output"));
         fl_value_set_string_take(entry, "width",
                                  fl_value_new_int(geometry.width));
         fl_value_set_string_take(entry, "height",
                                  fl_value_new_int(geometry.height));
+        fl_value_set_string_take(entry, "viewId", fl_value_new_int(view_id));
         fl_value_append_take(list, fl_value_ref(entry));
       }
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(list));
+  } else if (g_strcmp0(method, "surfaceVisible") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    gboolean visible = TRUE;
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "visible");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+        visible = fl_value_get_bool(value) ? TRUE : FALSE;
+      }
+    }
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->view == nullptr ||
+          fl_view_get_id(surface->view) != view_id) {
+        continue;
+      }
+      if (visible) {
+        gtk_widget_show(GTK_WIDGET(surface->window));
+        if (surface->blur_enabled) {
+          // Unmapping destroys the window's wl_surface, so the effect bound
+          // to it is stale; build a fresh one for the new surface.
+          trickster_apply_blur(self, surface, TRUE);
+        }
+      } else {
+        if (surface->blur != nullptr) {
+          ext_background_effect_surface_v1_destroy(surface->blur);
+          surface->blur = nullptr;
+        }
+        gtk_widget_hide(GTK_WIDGET(surface->window));
+      }
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "surfaceDestroy") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->view == nullptr ||
+          fl_view_get_id(surface->view) != view_id ||
+          fl_view_get_id(surface->view) == 0) {
+        continue;
+      }
+      if (surface->blur != nullptr) {
+        ext_background_effect_surface_v1_destroy(surface->blur);
+      }
+      gtk_widget_destroy(GTK_WIDGET(surface->window));
+      g_ptr_array_remove_index(self->surfaces, i);
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "surfaceCreate") == 0) {
+    gchar* connector = nullptr;
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "connector");
+      if (value != nullptr &&
+          fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        connector = g_strdup(fl_value_get_string(value));
+      }
+    }
+    gint64 new_view_id = -1;
+    GdkDisplay* display = gdk_display_get_default();
+    if (connector != nullptr && display != nullptr) {
+      const int count = gdk_display_get_n_monitors(display);
+      for (int i = 0; i < count; i++) {
+        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+        g_autofree gchar* name = trickster_connector_for_monitor(monitor);
+        const gchar* model = gdk_monitor_get_model(monitor);
+        const gchar* resolved =
+            name != nullptr ? name : model != nullptr ? model : "output";
+        if (g_strcmp0(resolved, connector) != 0) {
+          continue;
+        }
+        gboolean exists = FALSE;
+        for (guint j = 0; j < self->surfaces->len; j++) {
+          TricksterSurface* surface =
+              (TricksterSurface*)g_ptr_array_index(self->surfaces, j);
+          if (surface->monitor == monitor) {
+            exists = TRUE;
+            break;
+          }
+        }
+        if (!exists) {
+          TricksterSurface* surface = trickster_surface_new(self, monitor);
+          g_ptr_array_add(self->surfaces, surface);
+          if (self->engine != nullptr) {
+            trickster_surface_configure(surface,
+                                        fl_view_new_for_engine(self->engine));
+          }
+          if (surface->view != nullptr) {
+            new_view_id = fl_view_get_id(surface->view);
+          }
+        }
+        break;
+      }
+    }
+    g_free(connector);
+    g_autoptr(FlValue) result = fl_value_new_int(new_view_id);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "configure") == 0) {
     FlValue* args = fl_method_call_get_args(method_call);
     const gchar* side = "top";
@@ -230,10 +646,19 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         thickness = (gint)fl_value_get_int(value);
       }
     }
+    g_free(self->side);
+    self->side = g_strdup(side);
+    g_free(self->layer);
+    self->layer = g_strdup(layer);
+    g_free(self->layer_namespace);
+    self->layer_namespace = g_strdup(name);
+    g_free(self->keyboard);
+    self->keyboard = g_strdup(keyboard);
+    self->thickness = thickness;
     for (guint i = 0; i < self->surfaces->len; i++) {
       TricksterSurface* surface =
           (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
-      if (surface->window != nullptr) {
+      if (surface->window != nullptr && surface->monitor != nullptr) {
         apply_layer_shell(surface, side, thickness, layer, name, keyboard);
       }
     }
@@ -248,22 +673,8 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         side = fl_value_get_string(value);
       }
     }
-    GdkMonitor* monitor = nullptr;
-    for (guint i = 0; i < self->surfaces->len; i++) {
-      TricksterSurface* bar =
-          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
-      if (bar->view == nullptr || bar->window == nullptr ||
-          fl_view_get_id(bar->view) != bar_view_id) {
-        continue;
-      }
-      GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(bar->window));
-      if (gdk_window != nullptr) {
-        monitor = gdk_display_get_monitor_at_window(
-            gtk_widget_get_display(GTK_WIDGET(bar->window)), gdk_window);
-      }
-      break;
-    }
-    TricksterSurface* menu = trickster_menu_surface_new(self, monitor, side);
+    TricksterSurface* menu = trickster_overlay_surface_new(
+        self, trickster_monitor_for_bar(self, bar_view_id), side, FALSE);
     g_ptr_array_add(self->menus, menu);
     g_autoptr(FlValue) result = fl_value_new_int(fl_view_get_id(menu->view));
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
@@ -276,6 +687,9 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         continue;
       }
       gtk_widget_show(GTK_WIDGET(menu->window));
+      GdkRGBA background_color;
+      gdk_rgba_parse(&background_color, "#00000000");
+      fl_view_set_background_color(menu->view, &background_color);
       break;
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
@@ -292,6 +706,50 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       break;
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "tooltipOpen") == 0) {
+    const gint64 bar_view_id = method_arg_int(method_call, "barViewId");
+    const gchar* side = "top";
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* value = fl_value_lookup_string(args, "side");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING) {
+        side = fl_value_get_string(value);
+      }
+    }
+    TricksterSurface* tooltip = trickster_overlay_surface_new(
+        self, trickster_monitor_for_bar(self, bar_view_id), side, TRUE);
+    g_ptr_array_add(self->tooltips, tooltip);
+    g_autoptr(FlValue) result =
+        fl_value_new_int(fl_view_get_id(tooltip->view));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "tooltipShow") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    for (guint i = 0; i < self->tooltips->len; i++) {
+      TricksterSurface* tooltip =
+          (TricksterSurface*)g_ptr_array_index(self->tooltips, i);
+      if (tooltip->view == nullptr || fl_view_get_id(tooltip->view) != view_id) {
+        continue;
+      }
+      gtk_widget_show(GTK_WIDGET(tooltip->window));
+      GdkRGBA background_color;
+      gdk_rgba_parse(&background_color, "#00000000");
+      fl_view_set_background_color(tooltip->view, &background_color);
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else if (g_strcmp0(method, "tooltipClose") == 0) {
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    for (guint i = 0; i < self->tooltips->len; i++) {
+      TricksterSurface* tooltip =
+          (TricksterSurface*)g_ptr_array_index(self->tooltips, i);
+      if (tooltip->view == nullptr || fl_view_get_id(tooltip->view) != view_id) {
+        continue;
+      }
+      gtk_widget_destroy(GTK_WIDGET(tooltip->window));
+      g_ptr_array_remove(self->tooltips, tooltip);
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }
@@ -305,6 +763,8 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   surface->window = window;
+  surface->monitor = monitor;
+  surface->connector = trickster_connector_for_monitor(monitor);
 
   gtk_window_set_decorated(window, FALSE);
   gtk_window_set_title(window, "trickster");
@@ -320,15 +780,15 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
     if (monitor != nullptr) {
       gtk_layer_set_monitor(window, monitor);
     }
-    apply_layer_shell(surface, "top", 32, "top", "trickster", "on_demand");
+    apply_layer_shell(surface, self->side, self->thickness, self->layer,
+                      self->layer_namespace, self->keyboard);
     // Map the layer surface and finish the initial-configure handshake before
     // the engine starts. Dart modules open sockets to the compositor as soon
     // as they run; a request in flight while gtk-layer-shell blocks on the
     // initial configure stalls compositors that service IPC on their main
-    // loop (Hyprland accepts a connection and blocks in poll() until the
-    // command arrives), which pushes the configure past the map timeout and
-    // tears the surface down. Starting the engine after the handshake makes
-    // the race impossible.
+    // loop, which pushes the configure past the map timeout and tears the
+    // surface down. Starting the engine after the handshake makes the race
+    // impossible. Contract: `.llm/performance.md` -> Hyprland IPC.
     gtk_widget_show(GTK_WIDGET(window));
   } else {
     gtk_window_set_default_size(window, 1280, 32);
@@ -348,7 +808,7 @@ static void trickster_surface_configure(TricksterSurface* surface,
   gtk_widget_realize(GTK_WIDGET(view));
 }
 
-static int run_check() {
+static int run_check(MyApplication* self) {
   int failed = 0;
   const gchar* wayland = g_getenv("WAYLAND_DISPLAY");
   if (wayland == nullptr || wayland[0] == '\0') {
@@ -363,6 +823,11 @@ static int run_check() {
     g_printerr("fail  layer-shell: compositor does not advertise zwlr_layer_shell_v1\n");
     failed = 1;
   }
+  if (trickster_probe_blur(self)) {
+    g_print("ok    blur: ext-background-effect advertised\n");
+  } else {
+    g_print("ok    blur: not advertised (translucent fill)\n");
+  }
   GdkDisplay* display = gdk_display_get_default();
   if (display == nullptr) {
     g_printerr("fail  outputs: no display\n");
@@ -373,10 +838,68 @@ static int run_check() {
       g_printerr("fail  outputs: no monitors reported\n");
       failed = 1;
     } else {
-      g_print("ok    outputs: %d monitor(s)\n", count);
+      g_autoptr(GString) names = g_string_new(nullptr);
+      for (int i = 0; i < count; i++) {
+        GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+        g_autofree gchar* connector =
+            trickster_connector_for_monitor(monitor);
+        const gchar* model = gdk_monitor_get_model(monitor);
+        if (i > 0) {
+          g_string_append(names, ", ");
+        }
+        g_string_append_printf(names, "%s",
+                               connector != nullptr
+                                   ? connector
+                                   : model != nullptr ? model : "output");
+      }
+      g_print("ok    outputs: %s\n", names->str);
     }
   }
   return failed;
+}
+
+static void monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor,
+                             gpointer data) {
+  MyApplication* self = MY_APPLICATION(data);
+  for (guint i = 0; i < self->surfaces->len; i++) {
+    TricksterSurface* surface =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+    if (surface->monitor == monitor) {
+      return;
+    }
+  }
+  TricksterSurface* surface = trickster_surface_new(self, monitor);
+  g_ptr_array_add(self->surfaces, surface);
+  if (self->engine != nullptr) {
+    trickster_surface_configure(surface,
+                                fl_view_new_for_engine(self->engine));
+  }
+}
+
+static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor,
+                               gpointer data) {
+  MyApplication* self = MY_APPLICATION(data);
+  for (guint i = 0; i < self->surfaces->len; i++) {
+    TricksterSurface* surface =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+    if (surface->monitor != monitor) {
+      continue;
+    }
+    if (surface->blur != nullptr) {
+      ext_background_effect_surface_v1_destroy(surface->blur);
+      surface->blur = nullptr;
+    }
+    if (surface->view != nullptr && fl_view_get_id(surface->view) == 0) {
+      // The implicit view cannot be removed without stopping the engine;
+      // hide it so the dead output's zone is released.
+      gtk_widget_hide(GTK_WIDGET(surface->window));
+      surface->monitor = nullptr;
+    } else {
+      gtk_widget_destroy(GTK_WIDGET(surface->window));
+      g_ptr_array_remove_index(self->surfaces, i);
+    }
+    break;
+  }
 }
 
 static void my_application_activate(GApplication* application) {
@@ -388,6 +911,12 @@ static void my_application_activate(GApplication* application) {
     monitor_count = 1;
   }
 
+  if (display != nullptr) {
+    g_signal_connect(display, "monitor-added", G_CALLBACK(monitor_added_cb),
+                     self);
+    g_signal_connect(display, "monitor-removed",
+                     G_CALLBACK(monitor_removed_cb), self);
+  }
   // Map every layer surface before the engine starts; see
   // trickster_surface_new for why the initial-configure handshake must finish
   // first.
@@ -468,7 +997,7 @@ static gboolean my_application_local_command_line(GApplication* application,
   }
 
   if (want_check) {
-    *exit_status = run_check();
+    *exit_status = run_check(self);
     return TRUE;
   }
 
@@ -487,9 +1016,37 @@ static void my_application_shutdown(GApplication* application) {
 
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
+  for (guint i = 0; i < self->surfaces->len; i++) {
+    TricksterSurface* surface =
+        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+    if (surface->blur != nullptr) {
+      ext_background_effect_surface_v1_destroy(surface->blur);
+      surface->blur = nullptr;
+    }
+  }
+  for (guint i = 0; i < self->menus->len; i++) {
+    TricksterSurface* menu = (TricksterSurface*)g_ptr_array_index(self->menus, i);
+    if (menu->blur != nullptr) {
+      ext_background_effect_surface_v1_destroy(menu->blur);
+      menu->blur = nullptr;
+    }
+  }
+  if (self->blur_manager != nullptr) {
+    ext_background_effect_manager_v1_destroy(self->blur_manager);
+    self->blur_manager = nullptr;
+  }
+  if (self->compositor != nullptr) {
+    wl_compositor_destroy(self->compositor);
+    self->compositor = nullptr;
+  }
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);
+  g_clear_pointer(&self->tooltips, g_ptr_array_unref);
+  g_clear_pointer(&self->side, g_free);
+  g_clear_pointer(&self->layer, g_free);
+  g_clear_pointer(&self->layer_namespace, g_free);
+  g_clear_pointer(&self->keyboard, g_free);
   self->engine = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
@@ -506,6 +1063,12 @@ static void my_application_class_init(MyApplicationClass* klass) {
 static void my_application_init(MyApplication* self) {
   self->surfaces = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->menus = g_ptr_array_new_with_free_func(trickster_surface_free);
+  self->tooltips = g_ptr_array_new_with_free_func(trickster_surface_free);
+  self->side = g_strdup("top");
+  self->thickness = 32;
+  self->layer = g_strdup("top");
+  self->layer_namespace = g_strdup("trickster");
+  self->keyboard = g_strdup("on_demand");
 }
 
 MyApplication* my_application_new() {

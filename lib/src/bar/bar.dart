@@ -31,6 +31,7 @@ class TricksterBarStrip extends StatelessWidget {
   const TricksterBarStrip({
     required this.side,
     this.thickness = 32,
+    this.output,
     this.onOpenPowerSettings = _noop,
     super.key,
   });
@@ -39,6 +40,10 @@ class TricksterBarStrip extends StatelessWidget {
 
   /// Cross-axis size of the strip band, used to place menus off the bar.
   final double thickness;
+
+  /// Connector this strip is on, so per-output modules (workspaces) can
+  /// filter their state. Null before the output enumeration lands.
+  final String? output;
   final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
@@ -128,7 +133,25 @@ class TricksterBarStrip extends StatelessWidget {
             if (settings.includes('workspaces'))
               BlocBuilder<WorkspacesBloc, WorkspacesState>(
                 builder: (context, state) {
-                  if (state.workspaces.isEmpty) {
+                  final options = context.select(
+                    (SettingsBloc bloc) => bloc.state.workspaces,
+                  );
+                  var workspaces = workspacesForOutput(
+                    state.workspaces,
+                    output,
+                  );
+                  if (!options.showEmpty) {
+                    workspaces = [
+                      for (final workspace in workspaces)
+                        if (workspace.occupied || workspace.focused) workspace,
+                    ];
+                  }
+                  if (workspaces.length > options.max) {
+                    workspaces = workspaces
+                        .take(options.max)
+                        .toList(growable: false);
+                  }
+                  if (workspaces.isEmpty) {
                     return const SizedBox.shrink();
                   }
                   return SystemBarEntrance(
@@ -141,7 +164,7 @@ class TricksterBarStrip extends StatelessWidget {
                       child: RepaintBoundary(
                         child: WorkspacesPill(
                           accent: accent,
-                          workspaces: state.workspaces,
+                          workspaces: workspaces,
                           horizontal: horizontal,
                           onPressed: (workspace) => context
                               .read<WorkspacesBloc>()
@@ -178,6 +201,7 @@ class TricksterBarStrip extends StatelessWidget {
                               child: GpuPill(
                                 accent: accent,
                                 load: state.loads[i],
+                                captionSource: settings.meter.captionSource,
                               ),
                             ),
                           ),
@@ -200,7 +224,13 @@ class TricksterBarStrip extends StatelessWidget {
                           ? const EdgeInsets.only(right: _cardGap)
                           : const EdgeInsets.only(bottom: _cardGap),
                       child: RepaintBoundary(
-                        child: CpuPill(accent: accent, sample: sample),
+                        child: CpuPill(
+                          accent: accent,
+                          sample: sample,
+                          warn: settings.cpu.warn,
+                          critical: settings.cpu.critical,
+                          captionSource: settings.meter.captionSource,
+                        ),
                       ),
                     ),
                   );
@@ -224,6 +254,8 @@ class TricksterBarStrip extends StatelessWidget {
                           accent: accent,
                           status: status,
                           onPressed: onOpenPowerSettings,
+                          warn: settings.battery.warn,
+                          critical: settings.battery.critical,
                         ),
                       ),
                     ),
@@ -234,7 +266,12 @@ class TricksterBarStrip extends StatelessWidget {
               SystemBarEntrance(
                 index: 0,
                 horizontal: horizontal,
-                child: RepaintBoundary(child: ClockPill(accent: accent)),
+                child: RepaintBoundary(
+                  child: ClockPill(
+                    accent: accent,
+                    format: settings.clock.format,
+                  ),
+                ),
               ),
           ],
         ),

@@ -9,6 +9,7 @@ import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
@@ -575,6 +576,52 @@ cpu MHz\t\t: 3400.000
       } finally {
         await bloc.close();
       }
+    });
+  });
+
+  group('CapabilitiesBloc', () {
+    test('probe reports blur availability both ways', () async {
+      final enabled = CapabilitiesBloc(probe: () async => true);
+      try {
+        enabled.add(const CapabilitiesProbeRequested());
+        await expectLater(
+          enabled.stream,
+          emits(const Capabilities(blur: true)),
+        );
+      } finally {
+        await enabled.close();
+      }
+
+      final disabled = CapabilitiesBloc(probe: () async => false);
+      try {
+        disabled.add(const CapabilitiesProbeRequested());
+        await expectLater(
+          disabled.stream,
+          emits(const Capabilities(blur: false)),
+        );
+      } finally {
+        await disabled.close();
+      }
+    });
+
+    test('a failed probe reports no blur and json round-trips', () async {
+      final failing = CapabilitiesBloc(
+        probe: () async => throw StateError('no'),
+      );
+      try {
+        failing.add(const CapabilitiesProbeRequested());
+        await expectLater(
+          failing.stream,
+          emits(const Capabilities(blur: false)),
+        );
+      } finally {
+        await failing.close();
+      }
+      const state = Capabilities(blur: true);
+      expect(
+        Capabilities.fromJson(Map<String, dynamic>.from(state.toJson())),
+        state,
+      );
     });
   });
 }

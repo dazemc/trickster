@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../locale.dart';
 import '../state/media_bloc.dart';
 import '../theme/accent.dart';
 import '../theme/motion.dart';
@@ -59,8 +60,9 @@ class _MediaPillState extends State<MediaPill> {
         : media.identity;
     final title = media.title.isNotEmpty ? media.title : secondary;
     final bloc = context.read<MediaBloc>();
-    final label = [
-      'Media',
+    final l10n = context.l10n;
+    final label = l10n.mediaControls;
+    final value = [
       if (title.isNotEmpty) title,
       if (secondary.isNotEmpty && secondary != title) secondary,
     ].join(', ');
@@ -69,6 +71,8 @@ class _MediaPillState extends State<MediaPill> {
     return Semantics(
       button: true,
       label: label,
+      value: value,
+      hint: l10n.mediaHint,
       onTap: _toggle,
       child: FocusableActionDetector(
         focusNode: _focusNode,
@@ -138,7 +142,7 @@ class _MediaPillState extends State<MediaPill> {
                 if (_expanded) ...[
                   const SizedBox(width: 9),
                   _MediaControlButton(
-                    label: 'Previous track',
+                    label: l10n.mediaPrevious,
                     glyph: _TransportGlyph.previous,
                     color: widget.accent.color,
                     enabled: media.canGoPrevious,
@@ -146,7 +150,7 @@ class _MediaPillState extends State<MediaPill> {
                   ),
                   const SizedBox(width: 4),
                   _MediaControlButton(
-                    label: media.playing ? 'Pause' : 'Play',
+                    label: media.playing ? l10n.mediaPause : l10n.mediaPlay,
                     glyph: media.playing
                         ? _TransportGlyph.pause
                         : _TransportGlyph.play,
@@ -157,7 +161,7 @@ class _MediaPillState extends State<MediaPill> {
                   ),
                   const SizedBox(width: 4),
                   _MediaControlButton(
-                    label: 'Next track',
+                    label: l10n.mediaNext,
                     glyph: _TransportGlyph.next,
                     color: widget.accent.color,
                     enabled: media.canGoNext,
