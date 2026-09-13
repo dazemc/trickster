@@ -20,11 +20,6 @@ state later. Debug/profile builds run a verbose `BlocObserver`
 (transitions + create/close + errors + timing) to stderr; release stays
 silent per the logging rules.
 
-- [ ] **1.2 Module blocs** (M). `CpuBloc`, `BatteryBloc`, `WorkspacesBloc`
-      with `Started`/`Stopped`/`_SampleReceived`; sampler subscription owned
-      by the bloc, cancelled on `close()`. `ClockBloc` with `Tick` on the
-      existing minute-aligned timer. All states `toJson`-shaped. Done when:
-      lifecycle and sequencing covered by `bloc_test`.
 - [ ] **1.3 Verbose BlocObserver** (S). Debug/profile-only observer logging
       transitions, create/close, errors, and event timing to stderr; silent
       in release. Done when: a live run shows the full transcript, release
