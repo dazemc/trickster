@@ -20,7 +20,11 @@ class RuntimeConfig {
 }
 
 class Bootstrap {
-  static RuntimeConfig load({String? configPath, String? edge}) {
+  static RuntimeConfig load({
+    String? configPath,
+    String? edge,
+    bool strict = false,
+  }) {
     final sessionFile = _session();
     final paths = ConfigPaths(
       outputOverride: configPath ?? sessionFile.outputConfig,
@@ -29,8 +33,8 @@ class Bootstrap {
     return RuntimeConfig(
       paths: paths,
       session: SessionConfig.fromEnvironment(defaults: sessionFile),
-      outputs: _outputs(paths, edge: edge),
-      settings: _settings(paths),
+      outputs: _outputs(paths, edge: edge, strict: strict),
+      settings: _settings(paths, strict: strict),
     );
   }
 
@@ -47,7 +51,11 @@ class Bootstrap {
     }
   }
 
-  static OutputsConfig _outputs(ConfigPaths paths, {String? edge}) {
+  static OutputsConfig _outputs(
+    ConfigPaths paths, {
+    String? edge,
+    bool strict = false,
+  }) {
     final file = File(paths.outputs);
     var config = const OutputsConfig();
     if (file.existsSync()) {
@@ -55,6 +63,9 @@ class Bootstrap {
         config = OutputsConfig.parse(file.readAsStringSync());
       } on FormatException catch (error) {
         stderr.writeln('trickster: $error');
+        if (strict) {
+          rethrow;
+        }
       }
     }
     if (edge != null) {
@@ -67,7 +78,7 @@ class Bootstrap {
     return config;
   }
 
-  static BarSettings _settings(ConfigPaths paths) {
+  static BarSettings _settings(ConfigPaths paths, {bool strict = false}) {
     final file = File(paths.settings);
     if (!file.existsSync()) {
       return const BarSettings();
@@ -76,6 +87,9 @@ class Bootstrap {
       return BarSettings.decode(file.readAsStringSync());
     } on FormatException catch (error) {
       stderr.writeln('trickster: $error');
+      if (strict) {
+        rethrow;
+      }
       return const BarSettings();
     }
   }

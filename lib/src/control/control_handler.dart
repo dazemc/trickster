@@ -21,6 +21,7 @@ import '../state/workspaces_bloc.dart';
 Future<Map<String, Object?>> handleControlRequest({
   required BuildContext context,
   required FileSettingsTransport settings,
+  required String? Function() reload,
   required Map<String, Object?> request,
 }) async {
   switch (request['command']) {
@@ -63,6 +64,11 @@ Future<Map<String, Object?>> handleControlRequest({
             'media': bloc.state.toJson(),
         },
       };
+    case 'reload':
+      final error = reload();
+      return error == null
+          ? <String, Object?>{'ok': true}
+          : <String, Object?>{'ok': false, 'error': error};
     case 'settings.read':
       final document = await settings.read();
       return <String, Object?>{

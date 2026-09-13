@@ -18,6 +18,16 @@ Future<void> main(List<String> args) async {
           'command': 'status',
         });
         stdout.writeln(const JsonEncoder.withIndent('  ').convert(reply));
+      case 'reload':
+        final reply = await controlRequest(<String, Object?>{
+          'command': 'reload',
+        });
+        if (reply['ok'] == true) {
+          stdout.writeln('ok');
+        } else {
+          stderr.writeln('tricksterctl: ${reply['error'] ?? 'reload failed'}');
+          exitCode = 1;
+        }
       case 'version':
         final reply = await controlRequest(<String, Object?>{
           'command': 'version',
@@ -30,7 +40,7 @@ Future<void> main(List<String> args) async {
           exitCode = 1;
         }
       default:
-        stderr.writeln('usage: tricksterctl status|version');
+        stderr.writeln('usage: tricksterctl status|version|reload');
         exitCode = 64;
     }
   } on ControlSocketException catch (error) {

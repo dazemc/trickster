@@ -65,12 +65,13 @@ class _TricksterAppState extends State<TricksterApp>
       _apply(widget.initial);
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
-        onChanged: _reload,
+        onChanged: () => _reload(),
       )..start();
       _control = ControlServer(
         handler: (request) => handleControlRequest(
           context: _moduleContext ?? context,
           settings: _settingsTransport,
+          reload: _reload,
           request: request,
         ),
       );
@@ -106,14 +107,19 @@ class _TricksterAppState extends State<TricksterApp>
     }
   }
 
-  void _reload() {
+  /// Re-reads every config through the watcher's path. Returns null on a
+  /// clean apply, or the parse error after keeping last-good state.
+  String? _reload() {
     try {
       final loaded = Bootstrap.load(
         configPath: widget.initial.paths.outputOverride,
+        strict: true,
       );
       _apply(loaded);
+      return null;
     } on Object catch (error) {
       stderr.writeln('trickster: keeping last-good config: $error');
+      return '$error';
     }
   }
 
