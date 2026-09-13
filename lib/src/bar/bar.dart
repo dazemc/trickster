@@ -80,6 +80,9 @@ class TricksterBarStrip extends StatelessWidget {
                           accent: accent,
                           workspaces: state.workspaces,
                           horizontal: horizontal,
+                          onPressed: (workspace) => context
+                              .read<WorkspacesBloc>()
+                              .add(WorkspacesFocusRequested(workspace)),
                         ),
                       ),
                     ),

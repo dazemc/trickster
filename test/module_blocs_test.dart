@@ -70,6 +70,8 @@ class FakeMonitor extends WorkspaceMonitor {
   final controller = StreamController<List<Workspace>>.broadcast();
 
   var disposed = false;
+  var focusResult = true;
+  final focused = <Workspace>[];
 
   @override
   Stream<List<Workspace>> get snapshots => controller.stream;
@@ -81,6 +83,12 @@ class FakeMonitor extends WorkspaceMonitor {
   Future<void> dispose() async {
     disposed = true;
     await controller.close();
+  }
+
+  @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    focused.add(workspace);
+    return focusResult;
   }
 }
 
@@ -221,6 +229,9 @@ void main() {
   group('WorkspacesBloc', () {
     const first = Workspace(id: '1', name: '1', focused: true);
 
+    late FakeMonitor monitor;
+    late List<String> lines;
+
     test('started then sampled emits the list', () async {
       final monitor = FakeMonitor();
       final bloc = WorkspacesBloc(monitor: monitor);
@@ -274,6 +285,40 @@ void main() {
         await bloc.close();
       }
     });
+
+    blocTest<WorkspacesBloc, WorkspacesState>(
+      'focus success forwards to the monitor and emits nothing',
+      build: () {
+        monitor = FakeMonitor();
+        lines = <String>[];
+        return WorkspacesBloc(monitor: monitor, log: lines.add);
+      },
+      act: (bloc) => bloc.add(
+        const WorkspacesFocusRequested(Workspace(id: '2', name: 'web')),
+      ),
+      expect: () => const <WorkspacesState>[],
+      verify: (_) {
+        expect(monitor.focused.single.id, '2');
+        expect(lines, isEmpty);
+      },
+    );
+
+    blocTest<WorkspacesBloc, WorkspacesState>(
+      'focus failure logs and keeps state',
+      build: () {
+        monitor = FakeMonitor()..focusResult = false;
+        lines = <String>[];
+        return WorkspacesBloc(monitor: monitor, log: lines.add);
+      },
+      act: (bloc) => bloc.add(
+        const WorkspacesFocusRequested(Workspace(id: '2', name: 'web')),
+      ),
+      expect: () => const <WorkspacesState>[],
+      verify: (_) {
+        expect(monitor.focused.single.id, '2');
+        expect(lines.single, contains('web'));
+      },
+    );
 
     test('workspace json round-trips', () {
       const workspace = Workspace(

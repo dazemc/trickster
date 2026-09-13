@@ -97,6 +97,10 @@ abstract class WorkspaceBackend {
   Stream<List<Workspace>> get snapshots;
   Future<void> start();
   Future<void> dispose();
+
+  /// Focuses [workspace] through the compositor. Backends override this when
+  /// their compositor can switch workspaces; the default cannot.
+  Future<bool> focusWorkspace(Workspace workspace) async => false;
 }
 
 class WorkspaceMonitor {
@@ -121,6 +125,10 @@ class WorkspaceMonitor {
     _backend = null;
   }
 
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    return await _backend?.focusWorkspace(workspace) ?? false;
+  }
+
   static WorkspaceBackend? _detect() {
     if (Platform.environment.containsKey('HYPRLAND_INSTANCE_SIGNATURE')) {
       return HyprlandWorkspaces();
@@ -135,7 +143,7 @@ class WorkspaceMonitor {
   }
 }
 
-class HyprlandWorkspaces implements WorkspaceBackend {
+class HyprlandWorkspaces extends WorkspaceBackend {
   HyprlandWorkspaces({String? socketDir}) : _socketDir = socketDir ?? _dirFromEnvironment;
 
   static String? get _dirFromEnvironment {
@@ -346,16 +354,27 @@ class HyprlandWorkspaces implements WorkspaceBackend {
   }
 }
 
-class SwayWorkspaces implements WorkspaceBackend {
+class SwayWorkspaces extends WorkspaceBackend {
+  SwayWorkspaces({String? socketPath}) : _socketPath = socketPath;
+
+  /// Cap on a single command reply; the cap only bounds a runaway socket,
+  /// never real data.
+  static const _maxReplyBytes = 1 << 20;
+
+  static const _replyTimeout = Duration(seconds: 5);
+
+  final String? _socketPath;
   Socket? _socket;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
   Stream<List<Workspace>> get snapshots => _controller.stream;
 
+  String? get _path => _socketPath ?? Platform.environment['SWAYSOCK'];
+
   @override
   Future<void> start() async {
-    final path = Platform.environment['SWAYSOCK'];
+    final path = _path;
     if (path == null) {
       return;
     }
@@ -372,6 +391,54 @@ class SwayWorkspaces implements WorkspaceBackend {
     } on Object {
       return;
     }
+  }
+
+  /// Focuses a workspace over a one-shot command connection — the same
+  /// pattern `swaymsg` uses for single commands — keeping the event
+  /// connection dedicated to its subscription.
+  @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    final path = _path;
+    if (path == null) {
+      return false;
+    }
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress(path, type: InternetAddressType.unix),
+        0,
+      );
+      socket.add(_frame(0, utf8.encode('workspace ${workspace.name}')));
+      final buffer = BytesBuilder();
+      await for (final chunk in socket.timeout(_replyTimeout)) {
+        buffer.add(chunk);
+        final reply = _decodeReply(buffer.toBytes());
+        if (reply != null) {
+          return reply['success'] == true;
+        }
+        if (buffer.length > _maxReplyBytes) {
+          return false;
+        }
+      }
+      return false;
+    } on Object {
+      return false;
+    } finally {
+      await socket?.close();
+    }
+  }
+
+  static Map<String, dynamic>? _decodeReply(List<int> bytes) {
+    if (bytes.length < 14) {
+      return null;
+    }
+    final view = ByteData.sublistView(Uint8List.fromList(bytes));
+    final length = view.getUint32(6, Endian.little);
+    if (bytes.length < 14 + length) {
+      return null;
+    }
+    final decoded = jsonDecode(utf8.decode(bytes.sublist(14, 14 + length)));
+    return decoded is Map<String, dynamic> ? decoded : null;
   }
 
   Future<void> _subscribe() async {
@@ -404,7 +471,7 @@ class SwayWorkspaces implements WorkspaceBackend {
   }
 }
 
-class NiriWorkspaces implements WorkspaceBackend {
+class NiriWorkspaces extends WorkspaceBackend {
   Socket? _socket;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
