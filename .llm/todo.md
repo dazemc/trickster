@@ -48,13 +48,6 @@ a standalone settings application. It is its own Flutter process and bundle
 (file transport as fallback), and covers exactly the settings the bar has.
 The version stays 0.1.0 until the user calls a bump.
 
-- [ ] **8.2 settings transport wiring** (S). `lib/src/settings/`. Read and
-      write the settings document through `SocketSettingsTransport`
-      (`settings.read`/`settings.write`) with `FileSettingsTransport` as the
-      fallback when the bar is down, surfacing revision conflicts and
-      last-good errors. Done when: a test round-trips a document over a fake
-      socket, reports a conflict without losing data, and falls back to the
-      file.
 - [ ] **8.3 appearance page** (M). Accent presets plus the HSV wheel from
       Denial's settings, writing `accent` and following live bar updates.
       Done when: picking a color writes the document and the bar reloads it.
