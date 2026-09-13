@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,6 +11,7 @@ import '../locale.dart';
 import '../services/status_notifier.dart';
 import '../state/tray_bloc.dart';
 import '../state/tray_menu.dart';
+import '../state/tray_tooltip.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
@@ -66,6 +68,7 @@ class TrayItemButton extends StatefulWidget {
     required this.onActivate,
     this.side = SystemBarSide.top,
     this.thickness = 32,
+    this.tooltipDelay = const Duration(milliseconds: 500),
     super.key,
   });
 
@@ -78,6 +81,9 @@ class TrayItemButton extends StatefulWidget {
   final SystemBarSide side;
   final double thickness;
 
+  /// Hover intent delay before the tooltip appears.
+  final Duration tooltipDelay;
+
   @override
   State<TrayItemButton> createState() => _TrayItemButtonState();
 }
@@ -85,6 +91,67 @@ class TrayItemButton extends StatefulWidget {
 class _TrayItemButtonState extends State<TrayItemButton> {
   Offset? _primaryPosition;
   var _focused = false;
+  TrayTooltipController? _tooltip;
+  Timer? _tooltipTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tooltip = TrayTooltipScope.maybeOf(context);
+  }
+
+  @override
+  void dispose() {
+    _tooltipTimer?.cancel();
+    unawaited(_tooltip?.close(itemId: widget.item.id));
+    super.dispose();
+  }
+
+  String get _tooltipLabel {
+    final l10n = context.l10n;
+    return widget.item.title.isNotEmpty
+        ? widget.item.title
+        : widget.item.iconName.isNotEmpty
+        ? widget.item.iconName
+        : l10n.trayItemFallbackLabel;
+  }
+
+  void _handleEnter(PointerEnterEvent event) {
+    final tooltip = _tooltip;
+    if (tooltip == null) {
+      return;
+    }
+    _tooltipTimer?.cancel();
+    _tooltipTimer = Timer(widget.tooltipDelay, () {
+      _tooltipTimer = null;
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        tooltip.show(
+          barViewId: View.of(context).viewId,
+          itemId: widget.item.id,
+          label: _tooltipLabel,
+          accent: widget.accent,
+          click: _center(),
+          side: widget.side,
+          thickness: widget.thickness,
+        ),
+      );
+    });
+  }
+
+  void _handleExit(PointerExitEvent event) {
+    _tooltipTimer?.cancel();
+    _tooltipTimer = null;
+    unawaited(_tooltip?.close(itemId: widget.item.id));
+  }
+
+  void _hideTooltip() {
+    _tooltipTimer?.cancel();
+    _tooltipTimer = null;
+    unawaited(_tooltip?.close(itemId: widget.item.id));
+  }
 
   Offset _center() {
     final box = context.findRenderObject() as RenderBox?;
@@ -95,6 +162,7 @@ class _TrayItemButtonState extends State<TrayItemButton> {
   }
 
   Future<void> _openContextMenu(Offset position) async {
+    _hideTooltip();
     final menu = TrayMenuScope.maybeOf(context);
     final bloc = context.read<TrayBloc>();
     if (menu == null) {
@@ -135,6 +203,7 @@ class _TrayItemButtonState extends State<TrayItemButton> {
       await _openContextMenu(position);
       return;
     }
+    _hideTooltip();
     widget.onActivate(widget.item, position);
   }
 
@@ -160,69 +229,73 @@ class _TrayItemButtonState extends State<TrayItemButton> {
       hint: l10n.trayItemHint,
       onTap: () => unawaited(_activatePrimary(_center())),
       child: ExcludeSemantics(
-        child: FocusableActionDetector(
-          mouseCursor: SystemMouseCursors.click,
-          onShowFocusHighlight: (value) => setState(() => _focused = value),
-          actions: <Type, Action<Intent>>{
-            ActivateIntent: CallbackAction<ActivateIntent>(
-              onInvoke: (intent) {
-                unawaited(_activatePrimary(_center()));
-                return null;
-              },
-            ),
-            ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
-              onInvoke: (intent) {
-                unawaited(_activatePrimary(_center()));
-                return null;
-              },
-            ),
-          },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (details) => _primaryPosition = details.globalPosition,
-            onTap: () =>
-                unawaited(_activatePrimary(_primaryPosition ?? _center())),
-            onSecondaryTapDown: (details) =>
-                unawaited(_openContextMenu(details.globalPosition)),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: widget.accent.color.withValues(
-                  alpha: _focused ? 0.12 : 0.0,
-                ),
-                border: _focused
-                    ? Border.all(color: widget.accent.color, width: 1.5)
-                    : null,
+        child: MouseRegion(
+          onEnter: _handleEnter,
+          onExit: _handleExit,
+          child: FocusableActionDetector(
+            mouseCursor: SystemMouseCursors.click,
+            onShowFocusHighlight: (value) => setState(() => _focused = value),
+            actions: <Type, Action<Intent>>{
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (intent) {
+                  unawaited(_activatePrimary(_center()));
+                  return null;
+                },
               ),
-              child: SizedBox.square(
-                dimension: TrayItemButton.hitExtent,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Center(
-                      child: Opacity(
-                        opacity: passive ? 0.52 : 1,
-                        child: RepaintBoundary(
-                          child: SizedBox.square(
-                            dimension: TrayItemButton.iconExtent,
-                            child: _TrayIcon(item: item),
+              ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+                onInvoke: (intent) {
+                  unawaited(_activatePrimary(_center()));
+                  return null;
+                },
+              ),
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) => _primaryPosition = details.globalPosition,
+              onTap: () =>
+                  unawaited(_activatePrimary(_primaryPosition ?? _center())),
+              onSecondaryTapDown: (details) =>
+                  unawaited(_openContextMenu(details.globalPosition)),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.accent.color.withValues(
+                    alpha: _focused ? 0.12 : 0.0,
+                  ),
+                  border: _focused
+                      ? Border.all(color: widget.accent.color, width: 1.5)
+                      : null,
+                ),
+                child: SizedBox.square(
+                  dimension: TrayItemButton.hitExtent,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Center(
+                        child: Opacity(
+                          opacity: passive ? 0.52 : 1,
+                          child: RepaintBoundary(
+                            child: SizedBox.square(
+                              dimension: TrayItemButton.iconExtent,
+                              child: _TrayIcon(item: item),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    if (attention)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: widget.accent.color,
-                            shape: BoxShape.circle,
+                      if (attention)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: widget.accent.color,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const SizedBox.square(dimension: 4),
                           ),
-                          child: const SizedBox.square(dimension: 4),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

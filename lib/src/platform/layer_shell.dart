@@ -111,6 +111,30 @@ class LayerShell {
   Future<void> closeMenuSurface({required int viewId}) {
     return _channel.invokeMethod<void>('menuClose', {'viewId': viewId});
   }
+
+  /// Creates a hidden click-through overlay surface for a tray tooltip on the
+  /// same output as [barViewId]. Returns the new tooltip view id, or null
+  /// when no layer-shell surface could be created.
+  Future<int?> openTooltipSurface({
+    required int barViewId,
+    required String side,
+  }) {
+    return _channel.invokeMethod<int>('tooltipOpen', {
+      'barViewId': barViewId,
+      'side': side,
+    });
+  }
+
+  /// Maps a tooltip surface created with [openTooltipSurface] once its
+  /// session is ready to render.
+  Future<void> showTooltipSurface({required int viewId}) {
+    return _channel.invokeMethod<void>('tooltipShow', {'viewId': viewId});
+  }
+
+  /// Destroys a tooltip surface and its Flutter view.
+  Future<void> closeTooltipSurface({required int viewId}) {
+    return _channel.invokeMethod<void>('tooltipClose', {'viewId': viewId});
+  }
 }
 
 class LayerOutput {
