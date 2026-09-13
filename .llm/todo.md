@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.11 tricksterctl reload** (S). Same binary. Re-read configs through
-      the same path as the file watcher. Done when: reload applies a config
-      edit end to end.
 - [ ] **4.12 workspace options schema** (S). `lib/src/config/settings.dart`.
       Typed `show_empty`/`max` options, validated at decode, last-good on
       invalid, watched via `select`. Template for the rest. Done when:
