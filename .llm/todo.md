@@ -48,12 +48,6 @@ a standalone settings application. It is its own Flutter process and bundle
 (file transport as fallback), and covers exactly the settings the bar has.
 The version stays 0.1.0 until the user calls a bump.
 
-- [ ] **8.1 settings mode scaffold** (M). `lib/main.dart`, `linux/runner`,
-      `lib/src/settings/`. `trickster --settings` (and the
-      `trickster-settings` symlink) runs the same binary in settings mode:
-      one plain window with its own engine, no strip surfaces, no bar blocs,
-      painted in the shell's design language. Done when: it builds, opens,
-      and closes cleanly in the live session.
 - [ ] **8.2 settings transport wiring** (S). `lib/src/settings/`. Read and
       write the settings document through `SocketSettingsTransport`
       (`settings.read`/`settings.write`) with `FileSettingsTransport` as the
