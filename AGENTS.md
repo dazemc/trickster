@@ -217,29 +217,31 @@ Do not add features Denial's bar does not have until parity is real.
 ## Repository workflow
 
 - `main` is the stable branch. Exactly one working branch, `working`, exists
-  beside it and always carries the steps of the phase at the top of
-  `.llm/todo.md` that still has steps. Everything lands on `working` — never
-  on `main`, and no other branches exist (no per-phase `bar/phase-N`
-  branches).
+  beside it and carries the code steps of the phase at the top of
+  `.llm/todo.md` that still has steps. No other branches exist (no per-phase
+  `bar/phase-N` branches).
+- Code lands on `working`; markdown lands on `main`. `AGENTS.md`, every file
+  under `.llm/`, and docs pages commit directly on `main`, immediately, one
+  file per commit, and are pushed. After each markdown commit, merge `main`
+  back into `working` so the tree keeps reading current docs.
 - Never start a new phase without the user's explicit go-ahead in chat: no
   branch, no first step, until asked. Merging a finished phase likewise
   waits for confirmation.
-- Commit every finished TODO step on the working branch as a slice: one commit
-  for the code, then one commit per touched LLM-maintained markdown file
-  (`.llm/todo.md`, `.llm/suggestions.md`, docs). A step is finished only when
-  it is implemented, proven (`flutter analyze` clean, `flutter test` green),
-  and removed from `.llm/todo.md`. No direct pushes to `main` beyond initial
-  scaffolding.
-- When a phase's steps are all landed and removed, merge `working` into
-  `main` through a pull request, then reset `working` to the updated `main`
-  for the next phase. No branch is created per phase.
+- Commit every finished TODO step as a slice: one code commit on `working`,
+  then one commit per touched markdown file on `main` (switch to `main`,
+  commit, push, switch back, merge `main` into `working`). A step is
+  finished only when it is implemented, proven (`flutter analyze` clean,
+  `flutter test` green), and removed from `.llm/todo.md`. Markdown never
+  shares a commit with code or with another markdown file.
+- When a phase's steps are all landed and removed, merge `main` into
+  `working` first so the PR carries code only, merge `working` into `main`
+  through a pull request, then reset `working` to the updated `main` for
+  the next phase. No branch is created per phase.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
-- Any update to `AGENTS.md` itself is committed immediately, in its own
-  commit, in the same session — a constitution change never sits uncommitted
-  in the tree. The same applies to every file under `.llm/`: one file per
-  commit, committed in the same session as the edit, never bundled with
-  code or with each other.
+- Any update to `AGENTS.md` itself is committed immediately on `main`, in
+  its own commit, in the same session — a constitution change never sits
+  uncommitted in the tree. The same applies to every file under `.llm/`.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.
