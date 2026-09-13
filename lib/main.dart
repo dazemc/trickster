@@ -7,6 +7,7 @@ import 'src/app.dart';
 import 'src/bootstrap.dart';
 import 'src/cli.dart';
 import 'src/platform/layer_shell.dart';
+import 'src/state/observer.dart';
 
 Future<void> main(List<String> args) async {
   final cli = Cli.parse(args);
@@ -19,6 +20,7 @@ Future<void> main(List<String> args) async {
     return;
   }
   WidgetsFlutterBinding.ensureInitialized();
+  installObserver();
   final runtime = Bootstrap.load(
     configPath: cli.configPath,
     edge: cli.edge,
