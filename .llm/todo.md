@@ -34,13 +34,6 @@ silent per the logging rules.
       and `TrayMenuSurface`. Anchor math is Hyprland-verified only; check
       placement and dismissal on Sway, niri, and river. Done when: each
       opens the menu below the strip and every dismissal path works.
-- [ ] **4.20 bloc widget-test contract** (S). `docs_site/content/development.md`,
-      `test/`. Seed states via constructors, let providers own bloc
-      lifecycle, assert disposal with a close flag, and never await
-      `pumpEventQueue` under FakeAsync — today duplicated as test comments.
-      Document the contract and extract the shared pump harness used by
-      `widget_test.dart` and `gating_test.dart`. Done when: the docs section
-      and harness exist and both suites are green.
 - [ ] **4.21 keyboard tray menu** (S). `lib/src/bar/tray.dart`. The audit
       left the tray context menu pointer-only; bind a keyboard path (Menu
       key or Shift+F10) to open it for the focused item, and keep the
