@@ -6,8 +6,11 @@ and this file is corrected.
 
 ## What it is
 
-- One Flutter Linux process. One `wlr-layer-shell` surface per connected
-  output (layer, anchors, exclusive zone via `gtk-layer-shell` FFI).
+- One Flutter Linux process and engine. One `wlr-layer-shell` surface per
+  connected output (layer, anchors, exclusive zone via `gtk-layer-shell`
+  FFI), created as native multi-view windows (`fl_engine_new` +
+  `fl_view_new_for_engine`), never through Flutter's master-only,
+  private-import experimental windowing API.
 - Denial's desktop system bar: floating pill cards, wallpaper-derived or
   configured accent, spring entrance, trailing-edge module cluster.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
