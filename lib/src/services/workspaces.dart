@@ -72,6 +72,27 @@ class WorkspacesState extends Equatable {
       );
 }
 
+/// Orders workspaces for the rail: numeric ids first in numeric order, then
+/// named ids lexicographically. Compositor replies are not ordered — Hyprland
+/// iterates an unordered workspace map — so the rail must not trust them.
+int compareWorkspaces(Workspace left, Workspace right) {
+  final leftNumber = int.tryParse(left.id);
+  final rightNumber = int.tryParse(right.id);
+  if (leftNumber != null && rightNumber != null) {
+    return leftNumber.compareTo(rightNumber);
+  }
+  if (leftNumber != null) {
+    return -1;
+  }
+  if (rightNumber != null) {
+    return 1;
+  }
+  return left.id.compareTo(right.id);
+}
+
+List<Workspace> sortedWorkspaces(List<Workspace> workspaces) =>
+    [...workspaces]..sort(compareWorkspaces);
+
 abstract class WorkspaceBackend {
   Stream<List<Workspace>> get snapshots;
   Future<void> start();

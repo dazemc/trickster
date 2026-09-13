@@ -238,6 +238,43 @@ void main() {
       expect(monitor.disposed, isTrue);
     });
 
+    test('workspaces sort numerically, then by name', () {
+      final sorted = sortedWorkspaces(const [
+        Workspace(id: '10', name: '10'),
+        Workspace(id: 'web', name: 'web'),
+        Workspace(id: '2', name: '2'),
+        Workspace(id: '1', name: '1'),
+      ]);
+      expect(sorted.map((workspace) => workspace.id), [
+        '1',
+        '2',
+        '10',
+        'web',
+      ]);
+    });
+
+    test('sampled workspaces are ordered before emitting', () async {
+      final monitor = FakeMonitor();
+      final bloc = WorkspacesBloc(monitor: monitor);
+      try {
+        bloc.add(const WorkspacesStarted());
+        await pumpEventQueue();
+        monitor.controller.add(const [
+          Workspace(id: '10', name: '10'),
+          Workspace(id: '2', name: '2'),
+        ]);
+        await expectLater(
+          bloc.stream,
+          emits(const WorkspacesState([
+            Workspace(id: '2', name: '2'),
+            Workspace(id: '10', name: '10'),
+          ])),
+        );
+      } finally {
+        await bloc.close();
+      }
+    });
+
     test('workspace json round-trips', () {
       const workspace = Workspace(
         id: '2',
