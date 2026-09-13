@@ -8,7 +8,10 @@ without loading this file. Never read it for context.
 ## Entries
 
 <!-- append new entries below this line -->
-### 2026-09-12 — Create HISTORY.md
+### 2026-09-12 — Land config blocs (1.1)
+- USER_PROMPT: execute the next phase (Bloc migration first).
+- AGENT_INTERPRETATION: added flutter_bloc/bloc_test plus Settings/Session/Outputs blocs with explicit events and toJson/fromJson states from day one; added fromJson to all three config models; bloc_test event→state plus JSON round-trips; Riverpod untouched; proven analyze-clean, 35/35 green, clean 5s runtime.
+- COMMIT: b9aafe4 f6ff7d2
 - USER_PROMPT: create a HISTORY.md that will not be read by llm models so keep it out of .llm, update AGENTS.md with instructions to update this file, keep it in the root dir, follow the scheme USER_PROMPT -> AGENT_INTERPRETATION -> COMMIT_LINK, start now with this prompt.
 - AGENT_INTERPRETATION: root HISTORY.md as an append-only human changelog agents never load (format lives in AGENTS.md, anchored appends need no read); AGENTS.md gains the per-step append rule; first entry is this prompt.
 - COMMIT: 49f982f e1aca59
