@@ -1,4 +1,4 @@
-# Trickster Bar
+# Trickster
 
 A Flutter-native Wayland status bar.
 
@@ -23,18 +23,24 @@ surface, not a desktop app. Prefer a port of Denial's Dart over a rewrite
 whenever the code is compositor-agnostic. Do not invent a second design
 language.
 
-The work queue lives in `TODO.md`, in build order. Work it top-down one
+The work queue lives in `.llm/todo.md`, in build order. Work it top-down one
 step at a time, on the branch for its phase (see Repository workflow):
 
 1. Implement the step, nothing more.
-2. Prove it: `flutter analyze` clean, `flutter test` green (plus a release
-   build when native code changes).
-3. Re-read `SUGGESTIONS.md` and update it — but only if something is
-   absolutely needed. Silence is a valid review outcome; never add noise
-   to justify the read.
-4. Only then remove the step from `TODO.md`.
-5. Commit in slices: the code change is one commit; every LLM-maintained
-   markdown file (`TODO.md`, `SUGGESTIONS.md`, docs) gets its own commit.
+2. Prove it statically: `flutter analyze` clean, `flutter test` green
+   (plus a release build when native code changes).
+3. Prove it at runtime: launch the release bar in the live session, watch
+   for runtime errors (stderr exceptions, missing ancestors, dead pills),
+   exercise what the step changed, then kill only the Trickster process.
+   A step that passes tests but errors at runtime is not done. If the
+   done-criteria needs eyes on screen, hand the user the exact run-and-look
+   commands and wait for their verdict — never substitute screenshots.
+4. Re-read the topical notes under `.llm/` and update the matching file —
+   but only if something is absolutely needed. `.llm/suggestions.md' is a file for agents to write user reviewed suggestions to that may escalate to todo.md. Silence is a valid
+   review outcome; never add noise to justify the read.
+5. Only then remove the step from `.llm/todo.md`.
+6. Commit in slices: the code change is one commit; every LLM-maintained
+   markdown file (`.llm/todo.md`, `.llm/suggestions.md`, docs) gets its own commit.
    Markdown never shares a commit with code, and two markdown files never
    share a commit with each other.
 
@@ -72,7 +78,7 @@ trickster
   Dart bootstrap
     session.conf / outputs.conf / settings.json
     layer-shell surfaces (one per output)
-    Riverpod module graph
+    flutter_bloc module graph
     control socket (tricksterctl)
 
   Host compositor
@@ -88,8 +94,12 @@ resource, DRM fd, or client buffer.
 Resemble Denial at every seam that does not require compositor ownership:
 
 - Same widget split: strip paints nothing; modules are borderless pills.
-- Same Riverpod provider seams and `select` watches as
-  `desktop_system_bar.dart`.
+- Same widget split and per-module state seams as
+  `desktop_system_bar.dart`, carried by `flutter_bloc`: one `BlocProvider`
+  per configured module, explicit events and states, `watch` / `select` /
+  `BlocBuilder` reads — no Cubits.
+- Every bloc state ships `toJson`/`fromJson` from day one (convention only,
+  no HydratedBloc) so `tricksterctl status` reads real state later.
 - Same theme tokens, motion springs, and accent model.
 - Same config layers, file grammar, and CLI scheme.
 - Same D-Bus services (UPower, MPRIS, SNI, and later BlueZ/NetworkManager)
@@ -115,8 +125,8 @@ File style is Denial-style `KEY=VALUE` with `#` comments.
 - `$XDG_CONFIG_HOME/trickster/settings.json`: versioned settings document.
   Port Denial's `settings_store.dart` (`NativeSettingsStore` +
   `SettingsDocumentTransport`) nearly verbatim — one async write queue,
-  `expectedRevision` check-and-retry, full-document push into Riverpod.
-  Transport v1 is direct-file (single owner); keep the transport interface
+  `expectedRevision` check-and-retry, full-document push into the settings
+  bloc. Transport v1 is direct-file (single owner); keep the transport interface
   so a socket transport can slot in later unchanged. Retain only the current
   revision and one last-good snapshot. Never keep a document history.
 - CLI mirrors `denial-session`/`denialctl`: `trickster --check` (layer-shell
@@ -141,7 +151,7 @@ as first-class bugs.
   client against the control socket, never a second UI runtime.
 - Do not start a module that is not configured. Disabled modules have zero
   subscriptions, zero timers, zero D-Bus names.
-- Rebuild only the module whose data changed. Use Riverpod `select`,
+- Rebuild only the module whose data changed. Use bloc `select`,
   `RepaintBoundary` around each pill, and a clock that ticks inside its own
   widget — never rebuild the strip on a 1 Hz clock.
 - Prefer D-Bus signals and compositor IPC events over polling. `/proc` and
@@ -157,7 +167,9 @@ as first-class bugs.
 - Backdrop blur, shadows, and clips are opt-in and host-dependent. Default
   path is fill + border, matching Denial's pills when blur is unavailable.
 - Log in production only on state changes and errors. No per-frame or
-  per-sample logging.
+  per-sample logging. Debug/profile builds trace every bloc event,
+  transition, error, and lifecycle to stderr (`TricksterObserver`); release
+  stays silent.
 
 ## Memory
 
@@ -200,20 +212,29 @@ Do not add features Denial's bar does not have until parity is real.
 ## Repository workflow
 
 - `main` is the stable branch. Each TODO phase gets its own branch from
-  `main`: `bar/phase-a`, `bar/phase-b`, `bar/phase-c`, `bar/packaging`.
+  `main`: `bar/phase-1`, `bar/phase-2`, `bar/phase-3`, `bar/phase-4`,
+  `bar/phase-5`.
   All of the phase's steps land on that branch — never on `main`, never on
   another phase's branch.
+- Never start a new phase without the user's explicit go-ahead in chat: no
+  branch, no first step, until asked. Merging a finished phase likewise
+  waits for confirmation.
 - Commit every finished TODO step on the phase branch as a slice: one commit
   for the code, then one commit per touched LLM-maintained markdown file
-  (`TODO.md`, `SUGGESTIONS.md`, docs). A step is finished only when it is
-  implemented, proven (`flutter analyze` clean, `flutter test` green), and
-  removed from `TODO.md`. No direct pushes to `main` beyond initial
+  (`.llm/todo.md`, `.llm/suggestions.md`, docs). A step is finished only when
+  it is implemented, proven (`flutter analyze` clean, `flutter test` green),
+  and removed from `.llm/todo.md`. No direct pushes to `main` beyond initial
   scaffolding.
 - When a phase's steps are all landed and removed, merge the phase branch
   back into `main` through a pull request, then branch the next phase fresh
   from the updated `main`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
+- Any update to `AGENTS.md` itself is committed immediately, in its own
+  commit, in the same session — a constitution change never sits uncommitted
+  in the tree. The same applies to every file under `.llm/`: one file per
+  commit, committed in the same session as the edit, never bundled with
+  code or with each other.
 - Keep the tree `flutter analyze`-clean. Widget tests cover layout math,
   config parse/round-trip, settings revision retry, and module state
   mapping. Run `flutter analyze` and `flutter test` before pushing.

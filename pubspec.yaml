@@ -1,4 +1,4 @@
-name: trickster_bar
+name: trickster
 description: A Flutter-native Wayland status bar
 publish_to: "none"
 version: 0.1.0
@@ -9,13 +9,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^2.6.1
   dbus: ^0.7.11
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  flutter_bloc: ^9.1.1
+  bloc: ^9.2.1
+  equatable: ^2.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  bloc_test: ^10.0.0
 
 flutter:
   uses-material-design: false

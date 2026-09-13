@@ -2,17 +2,22 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'bar/bar.dart';
 import 'bootstrap.dart';
 import 'config/session.dart';
 import 'config/watcher.dart';
 import 'layout/system_bar.dart';
+import 'locale.dart';
 import 'platform/layer_shell.dart';
-import 'state/providers.dart';
+import 'state/module_scope.dart';
+import 'state/outputs_bloc.dart';
+import 'state/session_bloc.dart';
+import 'state/settings_bloc.dart';
 
-class TricksterApp extends ConsumerStatefulWidget {
+class TricksterApp extends StatefulWidget {
   const TricksterApp({
     required this.initial,
     this.layerShell,
@@ -23,10 +28,10 @@ class TricksterApp extends ConsumerStatefulWidget {
   final LayerShell? layerShell;
 
   @override
-  ConsumerState<TricksterApp> createState() => _TricksterAppState();
+  State<TricksterApp> createState() => _TricksterAppState();
 }
 
-class _TricksterAppState extends ConsumerState<TricksterApp> {
+class _TricksterAppState extends State<TricksterApp> {
   late final LayerShell _layerShell;
   ConfigWatcher? _watcher;
   OutputsConfig _lastOutputs = const OutputsConfig();
@@ -63,9 +68,9 @@ class _TricksterAppState extends ConsumerState<TricksterApp> {
   }
 
   void _apply(RuntimeConfig loaded) {
-    ref.read(sessionProvider.notifier).state = loaded.session;
-    ref.read(outputsProvider.notifier).state = loaded.outputs;
-    ref.read(settingsProvider.notifier).state = loaded.settings;
+    context.read<SessionBloc>().add(SessionLoaded(loaded.session));
+    context.read<OutputsBloc>().add(OutputsLoaded(loaded.outputs));
+    context.read<SettingsBloc>().add(SettingsLoaded(loaded.settings));
     final disruptive =
         loaded.outputs.side != _lastOutputs.side ||
         loaded.outputs.thickness != _lastOutputs.thickness ||
@@ -83,18 +88,32 @@ class _TricksterAppState extends ConsumerState<TricksterApp> {
 
   @override
   Widget build(BuildContext context) {
-    final outputs = ref.watch(outputsProvider);
-    if (!outputs.active) {
-      return const ColoredBox(color: Color(0x00000000));
-    }
-    // Bare widgets need an explicit text direction; there is no
-    // MaterialApp above the strip.
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: ColoredBox(
-        color: const Color(0x00000000),
-        child: TricksterBarStrip(side: outputs.side),
-      ),
+    return BlocBuilder<OutputsBloc, OutputsConfig>(
+      builder: (context, outputs) {
+        if (!outputs.active) {
+          return const ColoredBox(color: Color(0x00000000));
+        }
+        // Bare widgets need explicit directionality and locale; there is no
+        // MaterialApp above the strip. The device locale is reduced to one the
+        // widgets delegate supports (headless LANG=C environments crash
+        // resource resolution otherwise).
+        final locale = resolveAppLocale(
+          WidgetsBinding.instance.platformDispatcher.locale,
+        );
+        return Localizations(
+          locale: locale,
+          delegates: const [GlobalWidgetsLocalizations.delegate],
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: ColoredBox(
+              color: const Color(0x00000000),
+              child: ModuleScope(
+                child: TricksterBarStrip(side: outputs.side),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

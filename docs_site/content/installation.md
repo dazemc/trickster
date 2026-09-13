@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Build Trickster Bar from source and run your first bar.
+description: Build Trickster from source and run your first bar.
 ---
 
 ## Requirements

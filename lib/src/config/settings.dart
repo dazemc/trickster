@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:ui';
 
-class BarSettings {
+import 'package:equatable/equatable.dart';
+
+class BarSettings extends Equatable {
   const BarSettings({
     this.revision = 1,
     this.accent,
@@ -11,6 +13,11 @@ class BarSettings {
   final int revision;
   final Color? accent;
   final List<String> modules;
+
+  // Spread: Equatable compares props element-wise, so spreading gives deep
+  // equality over the module list.
+  @override
+  List<Object?> get props => [revision, accent, ...modules];
 
   bool includes(String module) => modules.contains(module);
 
@@ -41,6 +48,10 @@ class BarSettings {
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('settings.json must be an object');
     }
+    return BarSettings.fromJson(decoded);
+  }
+
+  static BarSettings fromJson(Map<String, dynamic> decoded) {
     final revision = decoded['revision'];
     if (revision is! int || revision <= 0) {
       throw const FormatException('settings.json revision must be a positive integer');

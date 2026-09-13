@@ -13,7 +13,7 @@ Parsed by the Dart bootstrap at startup. Packaged template, `backup=`-preserved.
 
 ```sh
 # TRICKSTER_LAYER=top
-# TRICKSTER_NAMESPACE=trickster-bar
+# TRICKSTER_NAMESPACE=trickster
 # TRICKSTER_KEYBOARD=on_demand
 # TRICKSTER_OUTPUT_CONFIG=/home/example/.config/trickster/outputs.conf
 # TRICKSTER_ACCENT=#d0bcff
@@ -23,7 +23,7 @@ Parsed by the Dart bootstrap at startup. Packaged template, `backup=`-preserved.
 | Key | Values | Default |
 | --- | --- | --- |
 | `TRICKSTER_LAYER` | `background`, `bottom`, `top`, `overlay` | `top` |
-| `TRICKSTER_NAMESPACE` | layer-shell namespace string | `trickster-bar` |
+| `TRICKSTER_NAMESPACE` | layer-shell namespace string | `trickster` |
 | `TRICKSTER_KEYBOARD` | `none`, `exclusive`, `on_demand` | `on_demand` |
 | `TRICKSTER_OUTPUT_CONFIG` | path to an `outputs.conf` | XDG default |
 | `TRICKSTER_ACCENT` | `#RRGGBB` machine accent override | unset |

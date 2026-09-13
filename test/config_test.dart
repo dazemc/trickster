@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trickster_bar/src/cli.dart';
-import 'package:trickster_bar/src/config/key_value.dart';
-import 'package:trickster_bar/src/config/session.dart';
-import 'package:trickster_bar/src/config/settings.dart';
-import 'package:trickster_bar/src/layout/system_bar.dart';
+import 'package:trickster/src/cli.dart';
+import 'package:trickster/src/config/key_value.dart';
+import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 
 void main() {
   group('KeyValueDocument', () {

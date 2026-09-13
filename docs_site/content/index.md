@@ -1,11 +1,11 @@
 ---
-title: Trickster Bar
+title: Trickster
 description: A Flutter-native Wayland status bar for other people's compositors.
 ---
 
 Denial owns the desktop. **Trickster just visits.**
 
-Trickster Bar takes Denial's system bar — the floating pills, the accent, the motion — and runs it as a guest on other compositors: one thin layer-shell strip per display, no compositor attached.
+Trickster takes Denial's system bar — the floating pills, the accent, the motion — and runs it as a guest on other compositors: one thin layer-shell strip per display, no compositor attached.
 
 ## At a glance
 

@@ -32,3 +32,11 @@ class WallpaperAccent {
   @override
   int get hashCode => Object.hash(color, isResolved);
 }
+
+/// Accent precedence shared by every consumer: explicit settings accent,
+/// then session accent, then the brand default. Pure so widget and bloc
+/// tests can pin it without a tree.
+WallpaperAccent resolveAccent({Color? settings, Color? session}) =>
+    WallpaperAccent(
+      settings ?? session ?? ShellBrandColors.defaultAccent,
+    );

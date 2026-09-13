@@ -1,12 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'src/app.dart';
 import 'src/bootstrap.dart';
 import 'src/cli.dart';
 import 'src/platform/layer_shell.dart';
+import 'src/state/observer.dart';
+import 'src/state/outputs_bloc.dart';
+import 'src/state/session_bloc.dart';
+import 'src/state/settings_bloc.dart';
 
 Future<void> main(List<String> args) async {
   final cli = Cli.parse(args);
@@ -19,11 +23,24 @@ Future<void> main(List<String> args) async {
     return;
   }
   WidgetsFlutterBinding.ensureInitialized();
+  installObserver();
   final runtime = Bootstrap.load(
     configPath: cli.configPath,
     edge: cli.edge,
   );
-  runApp(ProviderScope(child: TricksterApp(initial: runtime)));
+  // Config blocs live above the app; ModuleScope (inside TricksterApp)
+  // builds one provider per enabled module below SettingsBloc so live
+  // reloads can add and remove module blocs with the module list.
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => SettingsBloc(runtime.settings)),
+        BlocProvider(create: (_) => SessionBloc(runtime.session)),
+        BlocProvider(create: (_) => OutputsBloc(runtime.outputs)),
+      ],
+      child: TricksterApp(initial: runtime),
+    ),
+  );
 }
 
 Future<void> _check(Cli cli) async {

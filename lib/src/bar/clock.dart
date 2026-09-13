@@ -1,7 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
+import '../state/clock_bloc.dart';
 import '../theme/accent.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
@@ -16,58 +17,29 @@ class ClockPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return SystemBarCard(
       accent: accent,
-      child: _ClockModule(accent: accent),
+      child: BlocBuilder<ClockBloc, ClockState>(
+        builder: (context, state) => _ClockRow(accent: accent, now: state.now),
+      ),
     );
   }
 }
 
-class _ClockModule extends StatefulWidget {
-  const _ClockModule({required this.accent});
+class _ClockRow extends StatelessWidget {
+  const _ClockRow({required this.accent, required this.now});
 
   final WallpaperAccent accent;
-
-  @override
-  State<_ClockModule> createState() => _ClockModuleState();
-}
-
-class _ClockModuleState extends State<_ClockModule> {
-  DateTime _now = DateTime.now();
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _schedule();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _schedule() {
-    final now = DateTime.now();
-    final next = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
-    _timer = Timer(next.difference(now), () {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _now = DateTime.now());
-      _schedule();
-    });
-  }
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
-    final time = _formatTime(_now);
+    final time = _formatTime(context, now);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          _formatDate(_now),
+          _formatDate(context, now),
           style: ShellText.systemBarCaption.copyWith(
-            color: widget.accent.captionColor(),
+            color: accent.captionColor(),
           ),
         ),
         const SizedBox(width: 8),
@@ -95,27 +67,21 @@ class _ClockModuleState extends State<_ClockModule> {
     );
   }
 
-  String _formatTime(DateTime now) {
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  String _formatTime(BuildContext context, DateTime now) {
+    // Skeleton `jm` follows the locale's own hour cycle: 12h with day
+    // period where the locale prefers it, 24h where it does not.
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat.jm(locale).format(now);
   }
 
-  String _formatDate(DateTime now) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[now.month - 1]} ${now.day}';
+  String _formatDate(BuildContext context, DateTime now) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return formatBarDate(now, locale);
   }
+}
+
+/// Locale-aware date caption (`Sep 12` in `en_US`, `12. Sept.` in `de_DE`).
+/// Kept top-level and pure so unit tests can pin fixed dates.
+String formatBarDate(DateTime now, String locale) {
+  return DateFormat.MMMd(locale).format(now);
 }

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:equatable/equatable.dart';
+
 enum SystemBarSide { top, bottom, left, right, hidden }
 
 extension SystemBarSideGeometry on SystemBarSide {
@@ -19,7 +21,7 @@ extension SystemBarSideGeometry on SystemBarSide {
   }
 }
 
-class OutputsConfig {
+class OutputsConfig extends Equatable {
   const OutputsConfig({
     this.side = SystemBarSide.top,
     this.thickness = 32,
@@ -30,7 +32,30 @@ class OutputsConfig {
   final double thickness;
   final List<String> connectors;
 
+  // Spread: see BarSettings — deep equality over the connector list.
+  @override
+  List<Object?> get props => [side, thickness, ...connectors];
+
   bool get active => side != SystemBarSide.hidden && thickness > 0;
+
+  Map<String, Object?> toJson() => {
+    'side': side.name,
+    'thickness': thickness,
+    'connectors': connectors,
+  };
+
+  static OutputsConfig fromJson(Map<String, dynamic> json) {
+    return OutputsConfig(
+      side: SystemBarSideGeometry.parse(
+        (json['side'] as String?) ?? 'top',
+      ),
+      thickness: ((json['thickness'] as num?) ?? 32).toDouble(),
+      connectors: (json['connectors'] as List?)
+              ?.whereType<String>()
+              .toList(growable: false) ??
+          const <String>[],
+    );
+  }
 
   bool hosts(String connector) =>
       connectors.isEmpty || connectors.contains(connector);

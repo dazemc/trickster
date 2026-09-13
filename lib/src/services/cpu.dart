@@ -3,10 +3,20 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-class CpuSample {
+import 'package:equatable/equatable.dart';
+
+class CpuSample extends Equatable {
   const CpuSample(this.current);
 
   final double? current;
+
+  @override
+  List<Object?> get props => [current];
+
+  Map<String, Object?> toJson() => {'current': current};
+
+  static CpuSample fromJson(Map<String, dynamic> json) =>
+      CpuSample((json['current'] as num?)?.toDouble());
 }
 
 class CpuSampler {
