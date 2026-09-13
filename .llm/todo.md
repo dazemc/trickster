@@ -30,9 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.4 pill backdrop integration** (S). `lib/src/bar/pill.dart`. Blur
-      behind pills when capable, translucent fill otherwise. Done when:
-      exercised on compositors with and without the protocol.
 - [ ] **4.5 font bundle** (S). Measure painted glyphs; bundle the JetBrainsMono
       subset (or full file if subsetting costs more than it saves). Done
       when: bundle delta recorded, pills render offline with no system fonts.
