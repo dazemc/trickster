@@ -52,8 +52,10 @@ them. Do not let the queue rot.
 
 ## What it is
 
-- One Flutter Linux process. One `wlr-layer-shell` surface per connected
-  output (layer, anchors, exclusive zone via `gtk-layer-shell` FFI).
+- One Flutter Linux process. One `wlr-layer-shell` strip surface per
+  connected output (layer, anchors, exclusive zone via `gtk-layer-shell`
+  FFI), plus a transient overlay surface while a tray menu is open. Never a
+  second strip surface, never a second engine.
 - Denial's desktop system bar: floating pill cards, wallpaper-derived or
   configured accent, spring entrance, trailing-edge module cluster.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
@@ -80,7 +82,7 @@ them. Do not let the queue rot.
 trickster
   Dart bootstrap
     session.conf / outputs.conf / settings.json
-    layer-shell surfaces (one per output)
+    layer-shell surfaces (one strip per output, transient menu overlays)
     flutter_bloc module graph
     control socket (tricksterctl)
 
