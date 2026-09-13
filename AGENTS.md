@@ -76,7 +76,7 @@ trickster
   Dart bootstrap
     session.conf / outputs.conf / settings.json
     layer-shell surfaces (one per output)
-    Riverpod module graph
+    flutter_bloc module graph
     control socket (tricksterctl)
 
   Host compositor
@@ -92,8 +92,12 @@ resource, DRM fd, or client buffer.
 Resemble Denial at every seam that does not require compositor ownership:
 
 - Same widget split: strip paints nothing; modules are borderless pills.
-- Same Riverpod provider seams and `select` watches as
-  `desktop_system_bar.dart`.
+- Same widget split and per-module state seams as
+  `desktop_system_bar.dart`, carried by `flutter_bloc`: one `BlocProvider`
+  per configured module, explicit events and states, `watch` / `select` /
+  `BlocBuilder` reads — no Cubits.
+- Every bloc state ships `toJson`/`fromJson` from day one (convention only,
+  no HydratedBloc) so `tricksterctl status` reads real state later.
 - Same theme tokens, motion springs, and accent model.
 - Same config layers, file grammar, and CLI scheme.
 - Same D-Bus services (UPower, MPRIS, SNI, and later BlueZ/NetworkManager)
@@ -119,8 +123,8 @@ File style is Denial-style `KEY=VALUE` with `#` comments.
 - `$XDG_CONFIG_HOME/trickster/settings.json`: versioned settings document.
   Port Denial's `settings_store.dart` (`NativeSettingsStore` +
   `SettingsDocumentTransport`) nearly verbatim — one async write queue,
-  `expectedRevision` check-and-retry, full-document push into Riverpod.
-  Transport v1 is direct-file (single owner); keep the transport interface
+  `expectedRevision` check-and-retry, full-document push into the settings
+  bloc. Transport v1 is direct-file (single owner); keep the transport interface
   so a socket transport can slot in later unchanged. Retain only the current
   revision and one last-good snapshot. Never keep a document history.
 - CLI mirrors `denial-session`/`denialctl`: `trickster --check` (layer-shell
@@ -145,7 +149,7 @@ as first-class bugs.
   client against the control socket, never a second UI runtime.
 - Do not start a module that is not configured. Disabled modules have zero
   subscriptions, zero timers, zero D-Bus names.
-- Rebuild only the module whose data changed. Use Riverpod `select`,
+- Rebuild only the module whose data changed. Use bloc `select`,
   `RepaintBoundary` around each pill, and a clock that ticks inside its own
   widget — never rebuild the strip on a 1 Hz clock.
 - Prefer D-Bus signals and compositor IPC events over polling. `/proc` and
@@ -161,7 +165,9 @@ as first-class bugs.
 - Backdrop blur, shadows, and clips are opt-in and host-dependent. Default
   path is fill + border, matching Denial's pills when blur is unavailable.
 - Log in production only on state changes and errors. No per-frame or
-  per-sample logging.
+  per-sample logging. Debug/profile builds trace every bloc event,
+  transition, error, and lifecycle to stderr (`TricksterObserver`); release
+  stays silent.
 
 ## Memory
 
