@@ -786,10 +786,9 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
     // the engine starts. Dart modules open sockets to the compositor as soon
     // as they run; a request in flight while gtk-layer-shell blocks on the
     // initial configure stalls compositors that service IPC on their main
-    // loop (Hyprland accepts a connection and blocks in poll() until the
-    // command arrives), which pushes the configure past the map timeout and
-    // tears the surface down. Starting the engine after the handshake makes
-    // the race impossible.
+    // loop, which pushes the configure past the map timeout and tears the
+    // surface down. Starting the engine after the handshake makes the race
+    // impossible. Contract: `.llm/performance.md` -> Hyprland IPC.
     gtk_widget_show(GTK_WIDGET(window));
   } else {
     gtk_window_set_default_size(window, 1280, 32);

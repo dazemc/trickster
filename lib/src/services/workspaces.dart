@@ -169,6 +169,9 @@ class WorkspaceMonitor {
   }
 }
 
+/// Hyprland workspace state over its unix sockets. Transport follows the
+/// Hyprland IPC contract in `.llm/performance.md`: one turn per request,
+/// one-shot bounded connections, worker isolates only.
 class HyprlandWorkspaces extends WorkspaceBackend {
   HyprlandWorkspaces({String? socketDir})
     : _socketDir = socketDir ?? _dirFromEnvironment;
@@ -392,9 +395,8 @@ class HyprlandWorkspaces extends WorkspaceBackend {
   /// fails, keeping the previous snapshot.
   ///
   /// A transport failure (refused connection, reset mid-write) is retried
-  /// once on a fresh connection after a short settle delay: the compositor
-  /// serves IPC on its main loop, and a connection opened while it is still
-  /// tearing down the previous one can be refused.
+  /// once on a fresh connection after a short settle delay. Contract:
+  /// `.llm/performance.md` → Hyprland IPC.
   static Future<Object?> _query(String command, String dir) async {
     try {
       return await _attemptQuery(command, dir);
@@ -467,9 +469,8 @@ class HyprlandWorkspaces extends WorkspaceBackend {
       value.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
 
   /// Sends one command on a fresh connection and waits for the compositor's
-  /// reply. Like the `j/*` queries, this runs on a worker isolate: the
-  /// compositor serves `.socket.sock` on its main loop and accepts a
-  /// connection only when the command follows immediately.
+  /// reply. Contract: `.llm/performance.md` → Hyprland IPC (connect and write
+  /// in one turn; worker isolate, never the frame loop).
   static Future<String?> _sendCommand(String command, String dir) async {
     Socket? socket;
     try {
