@@ -20,7 +20,7 @@ session sees it.
 
 ## Open suggestions
 
-- **Settings models need value equality.** `BarSettings`/`OutputsConfig`/`SessionConfig` have no `==`, so every watcher fire resets all providers and restarts every sampler — including self-fires once anything writes `settings.json`. Add `==`/`hashCode` (or guard `_apply`) before 4.11/4.12 and tricksterctl, or reloads get expensive. (`lib/src/app.dart`, `lib/src/config/`.)
+- **Guard `_apply` against no-op reloads.** Models now have value equality, but every watcher fire still writes all providers unconditionally — including self-fires once anything writes `settings.json`. Skip the write (and the sampler restarts) when nothing changed, before 4.11/4.12 and tricksterctl. (`lib/src/app.dart`.)
 - **First frame renders defaults, not config.** `_apply(widget.initial)` runs post-frame, so frame one always shows default top/32/all-modules before the real config lands. Seed the providers synchronously or accept the flash explicitly. (`lib/src/app.dart`.)
 - **Directionality is hardcoded ltr.** RTL locales will mirror nothing until this follows the resolved locale. Fix inside C1, not after — otherwise every golden-free layout test written before then bakes in ltr. (`lib/src/app.dart`.)
 
