@@ -538,15 +538,26 @@ class SwayWorkspaces extends WorkspaceBackend {
 }
 
 class NiriWorkspaces extends WorkspaceBackend {
+  NiriWorkspaces({String? socketPath}) : _socketPath = socketPath;
+
+  /// Cap on a single action reply; the cap only bounds a runaway socket,
+  /// never real data.
+  static const _maxReplyBytes = 1 << 20;
+
+  static const _replyTimeout = Duration(seconds: 5);
+
+  final String? _socketPath;
   Socket? _socket;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
   Stream<List<Workspace>> get snapshots => _controller.stream;
 
+  String? get _path => _socketPath ?? Platform.environment['NIRI_SOCKET'];
+
   @override
   Future<void> start() async {
-    final path = Platform.environment['NIRI_SOCKET'];
+    final path = _path;
     if (path == null) {
       return;
     }
@@ -573,6 +584,48 @@ class NiriWorkspaces extends WorkspaceBackend {
       }, onError: (_) {});
     } on Object {
       return;
+    }
+  }
+
+  /// Focuses a workspace over a one-shot action connection — the same
+  /// pattern `niri msg` uses — keeping the event stream connection dedicated
+  /// to its subscription.
+  @override
+  Future<bool> focusWorkspace(Workspace workspace) async {
+    final path = _path;
+    if (path == null) {
+      return false;
+    }
+    final number = int.tryParse(workspace.id);
+    final reference = number != null
+        ? '{"Id":$number}'
+        : '{"Name":${jsonEncode(workspace.name)}}';
+    final request = '{"Action":{"FocusWorkspace":{"reference":$reference}}}\n';
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        InternetAddress(path, type: InternetAddressType.unix),
+        0,
+      );
+      socket.add(utf8.encode(request));
+      final buffer = BytesBuilder();
+      await for (final chunk in socket.timeout(_replyTimeout)) {
+        buffer.add(chunk);
+        if (buffer.length > _maxReplyBytes) {
+          return false;
+        }
+        try {
+          final decoded = jsonDecode(utf8.decode(buffer.toBytes()).trim());
+          return decoded is Map && decoded.containsKey('Ok');
+        } on FormatException {
+          continue; // Incomplete document (or split multibyte rune).
+        }
+      }
+      return false;
+    } on Object {
+      return false;
+    } finally {
+      await socket?.close();
     }
   }
 
