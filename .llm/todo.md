@@ -30,11 +30,6 @@ silent per the logging rules.
 
 ## Phase 4 — finish
 
-- [ ] **4.15 MPRIS stale-signal guard** (S). `lib/src/services/mpris.dart`.
-      The dbus package installs signal matches without awaiting the bus, so
-      a change emitted right after discovery can be lost until the recovery
-      scan. Done when: a test emits before the match installs and the
-      service converges without a second signal.
 - [ ] **4.17 tray tooltips** (S). `lib/src/bar/tray.dart`. Hover tooltips on
       a transient overlay surface, reusing the menu-surface mechanism;
       semantics stay as the accessible path. Done when: hover show/hide and
