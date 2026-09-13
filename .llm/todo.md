@@ -50,7 +50,9 @@ silent per the logging rules.
 
 - [ ] **4.1 arb pipeline + EN** (M). `lib/l10n/*.arb`, `flutter gen-l10n`
       in the build. Replace every hardcoded UI string including tooltips
-      and semantics. Done when: no raw UI strings remain, EN widget tests.
+      and semantics, and resolve `Directionality` from the locale instead
+      of hardcoded ltr. Done when: no raw UI strings remain, EN widget
+      tests.
 - [ ] **4.2 zh strings** (S). Port Denial's bar strings for clock, battery,
       tray status, workspace semantics. Done when: zh widget tests.
 - [ ] **4.3 blur capability probe** (S). Probe `ext-background-effect` once
@@ -83,7 +85,9 @@ silent per the logging rules.
       invalid, watched via `select`. Template for the rest. Done when:
       round-trip tested, documented in `docs_site/content/configuration.md`.
 - [ ] **4.12 remaining module options** (S). CPU thresholds, clock format,
-      battery warn levels, same discipline. Done when: tested + documented.
+      battery warn levels, and meter caption source (generic CPU/GPU tags
+      vs queried device names), same discipline. Done when: tested +
+      documented.
 - [ ] **4.13 accessibility audit** (S). Labels, values, hints, tap actions on
       everything; keyboard-only traversal of a full strip. File findings
       back here as new items.
