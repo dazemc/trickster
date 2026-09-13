@@ -22,9 +22,6 @@ silent per the logging rules.
 
 ## Phase 2 — feel (behaves like Denial)
 
-- [ ] **2.7 GPU sampler service** (S). `lib/src/services/gpu.dart` (new).
-      Per-GPU utilization series with stable ids, same sampler shape as CPU.
-      Done when: unit test covers multi-GPU mapping and the sampler cap.
 - [ ] **2.8 GPU cards in strip** (S). `lib/src/bar/bar.dart` + new
       `lib/src/bar/gpu.dart`. One meter card per GPU with stable keys,
       staggered entrance like Denial's `_GpuStatusCards`. Done when: cards
