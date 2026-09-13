@@ -29,3 +29,9 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
+- **The module guide predates the arb pipeline.** `docs_site/content/modules.md`
+  still builds a pill with raw strings and never mentions
+  `lib/l10n/app_en.arb`, so a module added from the guide would
+  reintroduce hardcoded UI text. Update the guide and
+  `docs_site/content/development.md` when 4.2 lands.
+
