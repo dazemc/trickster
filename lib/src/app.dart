@@ -8,8 +8,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'bar/bar.dart';
 import 'bar/tray_menu.dart';
+import 'control/control_handler.dart';
+import 'control/control_server.dart';
 import 'bootstrap.dart';
 import 'config/session.dart';
+import 'config/store.dart';
 import 'config/watcher.dart';
 import 'layout/system_bar.dart';
 import 'locale.dart';
@@ -37,6 +40,9 @@ class _TricksterAppState extends State<TricksterApp>
     with WidgetsBindingObserver {
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
+  late final FileSettingsTransport _settingsTransport;
+  ControlServer? _control;
+  BuildContext? _moduleContext;
   ConfigWatcher? _watcher;
   List<LayerOutput>? _outputs;
   final Set<int> _hiddenSurfaces = <int>{};
@@ -52,12 +58,23 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
+    _settingsTransport = FileSettingsTransport(
+      File(widget.initial.paths.settings),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
         onChanged: _reload,
       )..start();
+      _control = ControlServer(
+        handler: (request) => handleControlRequest(
+          context: _moduleContext ?? context,
+          settings: _settingsTransport,
+          request: request,
+        ),
+      );
+      unawaited(_control!.start());
     });
   }
 
@@ -65,6 +82,7 @@ class _TricksterAppState extends State<TricksterApp>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_watcher?.dispose());
+    unawaited(_control?.dispose());
     _menuController.dispose();
     super.dispose();
   }
@@ -187,22 +205,29 @@ class _TricksterAppState extends State<TricksterApp>
           return TrayMenuScope(
             notifier: _menuController,
             child: ModuleScope(
-              child: ViewCollection(
-                views: outputs.active
-                    ? <Widget>[
-                        for (final view in views)
-                          if (hostedViewIds == null ||
-                              hostedViewIds.contains(view.viewId))
-                            _ViewSurface(
-                              key: ValueKey<int>(view.viewId),
-                              view: view,
-                              menu: _menuController,
-                              layerShell: _layerShell,
-                              blur: blur,
-                              output: viewOutputs[view.viewId],
-                            ),
-                      ]
-                    : const <Widget>[],
+              // The control status handler needs a context below the module
+              // providers to read their states.
+              child: Builder(
+                builder: (context) {
+                  _moduleContext = context;
+                  return ViewCollection(
+                    views: outputs.active
+                        ? <Widget>[
+                            for (final view in views)
+                              if (hostedViewIds == null ||
+                                  hostedViewIds.contains(view.viewId))
+                                _ViewSurface(
+                                  key: ValueKey<int>(view.viewId),
+                                  view: view,
+                                  menu: _menuController,
+                                  layerShell: _layerShell,
+                                  blur: blur,
+                                  output: viewOutputs[view.viewId],
+                                ),
+                          ]
+                        : const <Widget>[],
+                  );
+                },
               ),
             ),
           );

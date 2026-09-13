@@ -11,7 +11,8 @@ class Cli {
   final String? configPath;
   final String? edge;
 
-  static const versionText = 'trickster 0.1.0';
+  static const appVersion = '0.1.0';
+  static const versionText = 'trickster $appVersion';
 
   static Cli parse(List<String> args) {
     var version = false;
