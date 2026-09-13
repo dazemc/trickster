@@ -37,6 +37,15 @@ silent per the logging rules.
 ## Phase 6 — follow-ups
 
 
+## Phase 7 — version sync
+
+- [ ] **7.1 one version owner** (S). `test/`. `pubspec.yaml`,
+      `Cli.appVersion`, `linux/runner/my_application.cc` (the native
+      `--version`), and both PKGBUILDs are bumped by hand. Add a test that
+      parses each and pins it to `Cli.appVersion`, like the man-page drift
+      test. Done when: the test fails when any one file is bumped alone and
+      the suite is green.
+
 ## Decisions pending
 
 - [ ] Lua configuration: full replacement vs. optional power layer vs.
