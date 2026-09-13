@@ -72,6 +72,7 @@ void main() {
                 links: [
                   SidebarLink(text: "Overview", href: '/'),
                   SidebarLink(text: "Installation", href: '/installation'),
+                  SidebarLink(text: "Status", href: '/status'),
                 ],
               ),
               SidebarGroup(
