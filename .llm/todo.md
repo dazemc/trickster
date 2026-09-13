@@ -13,9 +13,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase 1 — feel (behaves like Denial)
 
-- [ ] **1.2 clock locale date** (S). `lib/src/bar/clock.dart`. Localize the
-      date caption, replacing hardcoded English months. Done when: widget
-      test covers a non-English locale; minute-boundary timer untouched.
 - [ ] **1.3 shared action card** (S). `lib/src/bar/pill.dart`. Add
       `TricksterActionCard` mirroring Denial's `_BatteryActionCard`:
       `Semantics(button)`, tap, hover/focus highlight, accent focus ring.
