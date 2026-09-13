@@ -39,3 +39,7 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   pipeline needs real event-loop turns. Seed via constructors, let
   `BlocProvider(create:)` own lifecycle, and assert disposal with a close
   flag on an injected subclass — no `bloc-` transcript under FakeAsync.
+- **StatusNotifier D-Bus runs on the UI isolate.** Denial isolated the
+  service on a worker; `lib/src/services/status_notifier.dart` talks to the
+  session bus directly. Re-evaluate before 3.2 decodes pixmaps: a busy bus
+  would decode large RGBA arrays on the frame isolate.
