@@ -321,9 +321,14 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   ) {
     _apply((settings) {
       final zone = settings.zoneFor(event.module);
+      final missing = <String>{
+        for (final unavailable in state.unavailable) unavailable.module,
+      };
       final segment = [
         for (final candidate in settings.modules)
-          if (settings.zoneFor(candidate) == zone) candidate,
+          if (!missing.contains(candidate) &&
+              settings.zoneFor(candidate) == zone)
+            candidate,
       ];
       final index = segment.indexOf(event.module);
       final target = index + event.delta;
@@ -355,9 +360,16 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
         placement[dragged] = zone;
       }
       final modules = List<String>.of(settings.modules)..remove(dragged);
+      // Only rows the page actually renders count here: platform-unavailable
+      // modules stay in the document but are hidden, so they must not shift
+      // the insertion index the preview promised.
+      final missing = <String>{
+        for (final unavailable in state.unavailable) unavailable.module,
+      };
       final inZone = [
         for (final candidate in modules)
-          if ((placement[candidate] ?? defaultModuleZone(candidate)) == zone)
+          if (!missing.contains(candidate) &&
+              (placement[candidate] ?? defaultModuleZone(candidate)) == zone)
             candidate,
       ];
       final at = index.clamp(0, inZone.length);

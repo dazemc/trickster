@@ -691,6 +691,39 @@ void main() {
     expect(bloc.settings.modules.last, 'workspaces');
   });
 
+  testWidgets('a hidden module never shifts the drop index', (tester) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["battery", "cpu", "gpu"]}',
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(
+      tester,
+      bloc,
+      availabilityProbe: () => const [
+        ModuleAvailability(
+          module: 'battery',
+          reason: ModuleUnavailableReason.noBattery,
+        ),
+      ],
+    );
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    // Battery is hidden in the unavailable segment; cpu is the first visible
+    // trailing row. Dropping below the last visible row must append after
+    // gpu, not land one row early because battery still sits in the document.
+    await _dragModuleBelow(
+      tester,
+      'cpu',
+      find.byKey(const ValueKey<String>('module-gpu')),
+    );
+    expect(
+      bloc.settings.modules.indexOf('cpu'),
+      greaterThan(bloc.settings.modules.indexOf('gpu')),
+    );
+  });
+
   testWidgets('a disabled module drags to the end of trailing', (tester) async {
     file.writeAsStringSync(
       '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
