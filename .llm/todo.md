@@ -56,14 +56,6 @@ own block (main 4 → 1-4, next 3 → 5-7), with the display order
 user-configurable. This is bar numbering and click targets only; workspace
 ownership stays with the compositor.
 
-- **16.1 (M) Display order and range model.** Add `workspaces.display_order`
-  (ordered connectors, first is the main display) to the settings document
-  and compute each connected display's range as the cumulative per-display
-  counts: listed connectors first in list order, unlisted connected displays
-  appended in host order. Workspaces numbered beyond the chain total belong
-  to the main display. Done when the document round-trips the order and unit
-  tests pin the range math (empty order, custom order, unlisted append,
-  disconnected main, overflow total).
 - **16.2 (M) Rail shows its assigned range.** The strip renders its output's
   absolute range (main 4 → 1-4, next 3 → 5-7) in place of the fixed
   `1..count`, and the main display's rail also lists existing workspaces
