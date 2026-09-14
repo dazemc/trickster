@@ -104,8 +104,9 @@ flutter build linux --release
 ```
 
 At runtime it needs `gtk-layer-shell` and a compositor advertising
-`zwlr_layer_shell_v1`. Packaged releases and an AUR recipe are planned, not
-published.
+`zwlr_layer_shell_v1`. Packaged releases are published on
+[GitHub](https://github.com/dazemc/trickster/releases); the Arch and AUR
+recipes ship in-tree under `packaging/`.
 
 Smoke-test without starting anything:
 
