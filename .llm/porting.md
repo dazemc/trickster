@@ -13,8 +13,9 @@ service, CPU/GPU status, settings store shape, `system_bar=` grammar,
 layout strip math.
 
 Replace: `denial_bridge` workspaces → compositor IPC; wallpaper accent →
-configured color plus optional local sampler; XEmbed tray → omit; exclusive
-zone → layer-shell request.
+configured color plus the optional local sampler (`accent_source`, reading
+the host's awww/swww wallpaper cache); XEmbed tray → omit; exclusive zone →
+layer-shell request.
 
 Do not add features Denial's bar does not have until parity is real.
 
