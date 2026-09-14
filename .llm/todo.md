@@ -51,14 +51,4 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
-## Phase 10 — docs and install hygiene (proposed)
-
-Proposed by the agent after the Phase 9 walk; implementation waits for the
-user's explicit go-ahead, step by step as always.
-
-- **10.4 (M) Publish to the AUR from the release workflow.** The pin job
-  stops at the in-repo commit; add a final job that pushes the refreshed
-  recipe to `aur.archlinux.org/trickster-bin` (`master`) through a deploy
-  key secret, guarded like the release job (tags only, never dry runs).
-  Depends on the user provisioning the key. Done when a tag run publishes
-  the recipe and a fresh AUR clone matches the release asset.
+## Phase 10 — docs and install hygiene
