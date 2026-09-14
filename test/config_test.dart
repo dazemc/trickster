@@ -120,6 +120,36 @@ void main() {
       );
     });
 
+    test('module placement round-trips and validates', () {
+      const settings = BarSettings(
+        revision: 2,
+        modulePlacement: {
+          'tray': ModuleZone.trailing,
+          'clock': ModuleZone.leading,
+        },
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.modulePlacement, {
+        'tray': ModuleZone.trailing,
+        'clock': ModuleZone.leading,
+      });
+      expect(decoded.zoneFor('tray'), ModuleZone.trailing);
+      const bare = BarSettings();
+      expect(bare.zoneFor('tray'), ModuleZone.leading);
+      expect(bare.zoneFor('workspaces'), ModuleZone.center);
+      expect(bare.zoneFor('clock'), ModuleZone.trailing);
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "module_placement": {"tray": "left"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "module_placement": []}'),
+        throwsFormatException,
+      );
+    });
+
     test('module options round-trip and validate', () {
       const settings = BarSettings(
         revision: 4,

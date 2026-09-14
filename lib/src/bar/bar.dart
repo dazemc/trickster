@@ -135,6 +135,14 @@ class TricksterBarStrip extends StatelessWidget {
           );
         },
       ),
+      'workspaces': (_) => RepaintBoundary(
+        child: _WorkspacesRail(
+          accent: accent,
+          output: output,
+          thickness: thickness,
+          vertical: vertical,
+        ),
+      ),
       'gpu': (position) => BlocBuilder<GpuBloc, GpuState>(
         builder: (context, state) {
           if (state.loads.isEmpty) {
@@ -253,54 +261,31 @@ class TricksterBarStrip extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Flex(
-                direction: horizontal ? Axis.horizontal : Axis.vertical,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (settings.includes('tray'))
-                    Expanded(
-                      child: Align(
-                        alignment: horizontal
-                            ? Alignment.centerLeft
-                            : Alignment.topCenter,
-                        child: SingleChildScrollView(
-                          scrollDirection: horizontal
-                              ? Axis.horizontal
-                              : Axis.vertical,
-                          child: builders['tray']!.call(
-                            settings.modules.indexOf('tray'),
-                          ),
-                        ),
-                      ),
-                    ),
-                  for (
-                    var position = 0;
-                    position < settings.modules.length;
-                    position++
-                  )
-                    if (settings.modules[position] != 'workspaces' &&
-                        settings.modules[position] != 'tray')
-                      builders[settings.modules[position]]?.call(position) ??
-                          const SizedBox.shrink(),
-                ],
-              ),
+            _moduleZone(
+              settings: settings,
+              builders: builders,
+              zone: ModuleZone.leading,
+              alignment: horizontal
+                  ? Alignment.centerLeft
+                  : Alignment.topCenter,
+              horizontal: horizontal,
             ),
-            if (settings.includes('workspaces'))
-              Center(
-                child: SystemBarIndicatorSlot(
-                  horizontal: horizontal,
-                  child: RepaintBoundary(
-                    child: _WorkspacesRail(
-                      accent: accent,
-                      output: output,
-                      thickness: thickness,
-                      vertical: vertical,
-                    ),
-                  ),
-                ),
-              ),
+            _moduleZone(
+              settings: settings,
+              builders: builders,
+              zone: ModuleZone.center,
+              alignment: Alignment.center,
+              horizontal: horizontal,
+            ),
+            _moduleZone(
+              settings: settings,
+              builders: builders,
+              zone: ModuleZone.trailing,
+              alignment: horizontal
+                  ? Alignment.centerRight
+                  : Alignment.bottomCenter,
+              horizontal: horizontal,
+            ),
           ],
         ),
       ),
@@ -308,29 +293,45 @@ class TricksterBarStrip extends StatelessWidget {
   }
 }
 
-/// Shrink-wraps a centered indicator along the strip's main axis.
-///
-/// Cards fill the cross axis by design. Without this flex boundary the
-/// expanding [Stack] would also bound the centered card's main axis, letting
-/// its clip cover the whole strip.
-class SystemBarIndicatorSlot extends StatelessWidget {
-  const SystemBarIndicatorSlot({
-    required this.horizontal,
-    required this.child,
-    super.key,
-  });
-
-  final bool horizontal;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Flex(
+/// One placement zone: the modules assigned to [zone] in configured order,
+/// shrink-wrapped along the main axis and pinned to [alignment].
+Widget _moduleZone({
+  required BarSettings settings,
+  required Map<String, Widget Function(int position)> builders,
+  required ModuleZone zone,
+  required Alignment alignment,
+  required bool horizontal,
+}) {
+  return Align(
+    alignment: alignment,
+    child: Flex(
       direction: horizontal ? Axis.horizontal : Axis.vertical,
       mainAxisSize: MainAxisSize.min,
-      children: <Widget>[child],
-    );
+      children: [
+        for (var position = 0; position < settings.modules.length; position++)
+          if (settings.zoneFor(settings.modules[position]) == zone)
+            _zoneModule(
+              settings.modules[position],
+              builders[settings.modules[position]]?.call(position) ??
+                  const SizedBox.shrink(),
+              horizontal: horizontal,
+            ),
+      ],
+    ),
+  );
+}
+
+Widget _zoneModule(String module, Widget child, {required bool horizontal}) {
+  if (module != 'tray') {
+    return child;
   }
+  // The tray can outgrow its zone; scroll it instead of overflowing.
+  return Flexible(
+    child: SingleChildScrollView(
+      scrollDirection: horizontal ? Axis.horizontal : Axis.vertical,
+      child: child,
+    ),
+  );
 }
 
 class _WorkspacesRail extends StatelessWidget {
