@@ -752,6 +752,12 @@ abstract class AppLocalizations {
   /// **'Waiting for the wallpaper sample…'**
   String get settingsAccentWallpaperEmpty;
 
+  /// Hint beside the waiting message when no wallpaper sample exists.
+  ///
+  /// In en, this message translates to:
+  /// **'With grim installed, Trickster can sample the actual backdrop.'**
+  String get settingsAccentWallpaperGrim;
+
   /// Accessible label for copying an accent hex value.
   ///
   /// In en, this message translates to:

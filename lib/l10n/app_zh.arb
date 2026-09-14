@@ -462,6 +462,10 @@
   "@settingsAccentWallpaperEmpty": {
     "description": "Shown when the wallpaper sampler has produced no accent yet."
   },
+  "settingsAccentWallpaperGrim": "安装 grim 后，Trickster 可以采样此显示器的实际背景色。",
+  "@settingsAccentWallpaperGrim": {
+    "description": "Hint beside the waiting message when no wallpaper sample exists."
+  },
   "settingsCopyHex": "复制 {hex}",
   "@settingsCopyHex": {
     "description": "Accessible label for copying an accent hex value."

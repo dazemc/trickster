@@ -462,6 +462,10 @@
   "@settingsAccentWallpaperEmpty": {
     "description": "Shown when the wallpaper sampler has produced no accent yet."
   },
+  "settingsAccentWallpaperGrim": "With grim installed, Trickster can sample the actual backdrop.",
+  "@settingsAccentWallpaperGrim": {
+    "description": "Hint beside the waiting message when no wallpaper sample exists."
+  },
   "settingsCopyHex": "Copy {hex}",
   "@settingsCopyHex": {
     "description": "Accessible label for copying an accent hex value."

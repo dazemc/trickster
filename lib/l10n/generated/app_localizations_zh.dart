@@ -344,6 +344,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAccentWallpaperEmpty => '正在等待壁纸采样…';
 
   @override
+  String get settingsAccentWallpaperGrim =>
+      '安装 grim 后，Trickster 可以采样此显示器的实际背景色。';
+
+  @override
   String settingsCopyHex(Object hex) {
     return '复制 $hex';
   }

@@ -1003,6 +1003,8 @@ void main() {
       decoded.displayAppearance['HDMI-A-1']?.accentSource,
       AccentSource.wallpaper,
     );
+    // No sample exists in the test tree, so the waiting note points at grim.
+    expect(find.textContaining('grim'), findsOneWidget);
     // The global key and the other display stay untouched.
     expect(decoded.accentSource, AccentSource.custom);
     expect(decoded.accentSourceFor('eDP-1'), AccentSource.custom);

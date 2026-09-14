@@ -391,14 +391,23 @@ class _WallpaperAccents extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        if (candidates.isEmpty)
+        if (candidates.isEmpty) ...[
           Text(
             l10n.settingsAccentWallpaperEmpty,
             style: ShellText.systemBarCaption.copyWith(
               color: ShellMediaColors.lightForegroundSecondary,
             ),
-          )
-        else
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.settingsAccentWallpaperGrim,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary.withValues(
+                alpha: 0.7,
+              ),
+            ),
+          ),
+        ] else
           Wrap(
             spacing: 18,
             runSpacing: 12,

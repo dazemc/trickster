@@ -349,6 +349,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Waiting for the wallpaper sample…';
 
   @override
+  String get settingsAccentWallpaperGrim =>
+      'With grim installed, Trickster can sample the actual backdrop.';
+
+  @override
   String settingsCopyHex(Object hex) {
     return 'Copy $hex';
   }
