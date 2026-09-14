@@ -36,6 +36,14 @@ as first-class bugs.
   path is fill + border, matching Denial's pills when blur is unavailable.
 - Log in production only on state changes and errors. No per-frame or
   per-sample logging.
+- Linux frame pacing is out of our hands: the GTK embedder provides no
+  vsync callback, so the engine ticks on a fixed 60 Hz `VsyncWaiterFallback`
+  that is not phase-locked to the compositor's frame clock. Motion can
+  judder below 60 and cannot exceed it, at any monitor refresh. Upstream
+  tracking: `flutter/flutter#191245`, with the Wayland subsurface renderer
+  from `#191389`. Do not fork, patch, or pin a patched engine; revisit when
+  that work reaches a stable release. App-side rebuild cost is still ours to
+  fix (Phase 19).
 
 ### Hyprland IPC contract
 
