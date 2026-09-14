@@ -11,10 +11,12 @@ as first-class bugs.
 
 - Production builds are AOT release. Do not ship JIT, profile, or
   debug-engine artifacts in packages.
-- One Flutter engine, one UI isolate, one process. Blocking OS work that
-  must never stall the frame loop (Hyprland IPC, NVML) may run on worker
-  isolates; they host no widgets and no second engine. `tricksterctl` is a
-  short client against the control socket, never a second UI runtime.
+- One Flutter engine, one UI isolate, one process — per process. Blocking
+  OS work that must never stall the frame loop (Hyprland IPC, NVML) may run
+  on worker isolates; they host no widgets and no second engine.
+  `tricksterctl` is a short client against the control socket, never a
+  second UI runtime. The settings application hosts its own engine only
+  while it is open; it never hosts the bar.
 - Do not start a module that is not configured. Disabled modules have zero
   subscriptions, zero timers, zero D-Bus names.
 - Rebuild only the module whose data changed. Use bloc `select`,
