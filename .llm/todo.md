@@ -73,8 +73,3 @@ Denial pins the tray to the strip's leading edge, centers the workspace
 rail, and trails the rest. Trickster keeps every module in one trailing
 cluster. These steps give the strip the same three zones and let the
 settings application place each module.
-
-- **13.3 (S) Expose placement in the settings application.** The modules
-  page gains a per-module leading/center/trailing selector writing through
-  the same document. Done when the settings app test drives the selector
-  and the live settings window moves a pill.
