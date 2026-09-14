@@ -71,9 +71,9 @@ class _AppearancePageState extends State<AppearancePage> {
   void _applySource(SettingsAppController controller, AccentSource source) {
     final target = _target;
     if (target == null) {
-      _saverFor(controller).apply(
-        (settings) => settings.copyWith(accentSource: source),
-      );
+      _saverFor(
+        controller,
+      ).apply((settings) => settings.copyWith(accentSource: source));
       return;
     }
     _applyAppearance(
@@ -89,9 +89,9 @@ class _AppearancePageState extends State<AppearancePage> {
   void _applyPick(SettingsAppController controller, String? pick) {
     final target = _target;
     if (target == null) {
-      _saverFor(controller).apply(
-        (settings) => settings.withAccentWallpaperPick(pick),
-      );
+      _saverFor(
+        controller,
+      ).apply((settings) => settings.withAccentWallpaperPick(pick));
       return;
     }
     _applyAppearance(
@@ -210,8 +210,7 @@ class _AppearancePageState extends State<AppearancePage> {
                         ),
                         label: output.name,
                         selected: target == output.name,
-                        onPressed: () =>
-                            setState(() => _target = output.name),
+                        onPressed: () => setState(() => _target = output.name),
                       ),
                   ],
                 ),

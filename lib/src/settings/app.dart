@@ -44,9 +44,7 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
   }
 
   void _syncWallpaperAccent() {
-    _wallpaperAccent.update(
-      enabled: _controller.settings.usesWallpaperAccent,
-    );
+    _wallpaperAccent.update(enabled: _controller.settings.usesWallpaperAccent);
   }
 
   @override

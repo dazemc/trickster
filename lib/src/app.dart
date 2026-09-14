@@ -237,9 +237,8 @@ class _TricksterAppState extends State<TricksterApp>
       listenWhen: (previous, next) =>
           previous.accentSource != next.accentSource ||
           previous.displayAppearance != next.displayAppearance,
-      listener: (context, settings) => _wallpaperAccent.update(
-        enabled: settings.usesWallpaperAccent,
-      ),
+      listener: (context, settings) =>
+          _wallpaperAccent.update(enabled: settings.usesWallpaperAccent),
       child: WallpaperAccentScope(
         notifier: _wallpaperAccent,
         child: TricksterLocalizationScope(
