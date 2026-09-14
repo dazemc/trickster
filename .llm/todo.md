@@ -41,26 +41,28 @@ opaque window while the bar is glass. This phase fills the surface out.
   Done when the live window shows the blurred desktop on Hyprland and the
   fallback stays legible.
 
-## Phase 16 — workspace chain
+## Phase 16 — workspace rail (compositor-derived)
 
-Denial's rail is a fixed `1..count` on every display. The user wants a main
-display whose workspaces start at 1, each subsequent display appending its
-own block (main 4 → 1-4, next 3 → 5-7), with the display order
-user-configurable. This is bar numbering and click targets; pressing a pip
-asks the compositor to claim that workspace for the rail's display (16.4).
+Denial owns workspaces; Trickster is a guest. The user chose the honest
+replacement: the rail mirrors the compositor's own workspace-to-output
+placement, and compositor config (Hyprland persistent + monitor rules) owns
+placement, persistence, and which display is main. The chain settings
+retire. This reverses the chain steps 16.1-16.4; their code unwinds here.
 
-- **16.3 (M) Chain order controls.** The workspaces gear panel lists the
-  connected displays in chain order with drag handles and a Main badge on
-  the first row, each showing its resulting range; the top display is the
-  main display, so dragging is the only way to change it. Done when
-  reordering writes `display_order` and the live bars re-range.
-- **16.4 (S) Press claims the workspace for the rail's display.** The
-  Hyprland backend ignores the rail output today, so pressing a pip for a
-  workspace living on another monitor follows it there. Move the workspace
-  to the rail's output before focusing (Sway's `workspace N output OUT`
-  behavior), best-effort: older Hyprland uses `moveworkspacetomonitor`,
-  0.56 uses `hl.dsp.workspace.move({ workspace, monitor })`. Done when
-  pressing a pip on the main rail pulls that workspace to the main display.
+- **16.5 (M) Derive the rail from the compositor.** Each strip renders the
+  numbered workspaces the snapshot places on its output, ordered by id;
+  pressing focuses. Remove the chain/overflow rail math, the press-claim,
+  and the connected-output plumbing it needed. Done when the live rails
+  mirror `hyprctl workspaces` per output and widget tests cover the derive.
+- **16.6 (S) Retire the chain settings.** `workspace_count`, `per_output`,
+  and `display_order` become ignored keys and the workspaces gear drops its
+  order and per-display controls; old documents still decode. Done when the
+  document round-trips without the section and the live panel carries no
+  workspace controls.
+- **16.7 (S) Document compositor-owned placement.** The configuration page
+  and `porting.md` state that placement, persistence, and main-display
+  choice belong to the compositor (Hyprland persistent + monitor rule
+  example). Done when the docs and divergence notes match the derived rail.
 
 ## Phase 17 — workspace pip styles
 
