@@ -59,11 +59,6 @@ Denial v0.4.0 renders the workspace rail as a centered, numbered card in the
 strip with a liquid active lens. Trickster keeps its compositor-fed
 workspaces and module gate; these steps align the presentation.
 
-- **11.2 (S) Render numbered workspace pips.** Replace the state-colored
-  dots with Denial's indicator treatment: `Text` labels styled accent when
-  active, secondary when occupied, caption otherwise, over the active lens.
-  Done when pip visuals, tooltips, and semantics match the ported source and
-  tests cover the three states.
 - **11.3 (M) Deform the active lens on switch.** Port
   `_WorkspaceActiveLens`: scale 1 → 1.34 → 0.94 → 1 across
   `workspaceIndicatorTakeoff` 72ms / `Travel` 168ms / `Settle` 80ms with the
