@@ -272,6 +272,26 @@ void main() {
     expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
   });
 
+  testWidgets('language page writes the locale', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Language'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey<String>('language-zh')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(controller.settings.locale, 'zh');
+    expect(file.readAsStringSync(), contains('"locale": "zh"'));
+
+    await tester.tap(find.byKey(const ValueKey<String>('language-system')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.locale, isNull);
+  });
+
   testWidgets('the close control announces and fires', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);

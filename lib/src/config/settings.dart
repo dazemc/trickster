@@ -225,6 +225,7 @@ class BarSettings extends Equatable {
     this.revision = 1,
     this.accent,
     this.modules = knownModules,
+    this.locale,
     this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
@@ -232,9 +233,13 @@ class BarSettings extends Equatable {
     this.meter = const MeterOptions(),
   });
 
+  /// Supported UI language tag (`en`, `zh`); null follows the system.
+  static const List<String> knownLocales = ['en', 'zh'];
+
   final int revision;
   final Color? accent;
   final List<String> modules;
+  final String? locale;
   final WorkspaceOptions workspaces;
   final CpuOptions cpu;
   final ClockOptions clock;
@@ -247,6 +252,7 @@ class BarSettings extends Equatable {
   List<Object?> get props => [
     revision,
     accent,
+    locale,
     ...modules,
     workspaces,
     cpu,
@@ -263,6 +269,7 @@ class BarSettings extends Equatable {
       'accent':
           '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
     'modules': modules,
+    if (locale != null) 'locale': locale,
     'workspaces': workspaces.toJson(),
     'cpu': cpu.toJson(),
     'clock': clock.toJson(),
@@ -279,6 +286,23 @@ class BarSettings extends Equatable {
     return BarSettings(
       revision: revision,
       accent: accent,
+      locale: locale,
+      modules: modules,
+      workspaces: workspaces,
+      cpu: cpu,
+      clock: clock,
+      battery: battery,
+      meter: meter,
+    );
+  }
+
+  /// Same settings with the UI language replaced, clearing it when [locale]
+  /// is null (the system locale applies again).
+  BarSettings withLocale(String? locale) {
+    return BarSettings(
+      revision: revision,
+      accent: accent,
+      locale: locale,
       modules: modules,
       workspaces: workspaces,
       cpu: cpu,
@@ -297,10 +321,13 @@ class BarSettings extends Equatable {
     ClockOptions? clock,
     BatteryOptions? battery,
     MeterOptions? meter,
+    String? locale,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
       accent: accent ?? this.accent,
+      // copyWith cannot clear the locale; use withLocale(null).
+      locale: locale ?? this.locale,
       modules: modules ?? this.modules,
       workspaces: workspaces ?? this.workspaces,
       cpu: cpu ?? this.cpu,
@@ -326,9 +353,16 @@ class BarSettings extends Equatable {
       );
     }
     final modules = decoded['modules'];
+    final locale = decoded['locale'];
+    if (locale != null && !knownLocales.contains(locale)) {
+      throw FormatException(
+        'settings.locale must be one of ${knownLocales.join(', ')}',
+      );
+    }
     return BarSettings(
       revision: revision,
       accent: _color(decoded['accent']),
+      locale: locale is String ? locale : null,
       modules: modules is List
           ? modules.whereType<String>().toList(growable: false)
           : const [

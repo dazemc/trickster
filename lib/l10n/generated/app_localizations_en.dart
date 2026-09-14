@@ -255,4 +255,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsMeterCaptionDevice => 'Device name';
+
+  @override
+  String get settingsLanguageTitle => 'Language';
+
+  @override
+  String get settingsLanguageCaption => 'Language for the bar and this window.';
+
+  @override
+  String get settingsLanguageSystem => 'System';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsLanguageChinese => '中文';
 }

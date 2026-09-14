@@ -224,7 +224,9 @@ class _TricksterAppState extends State<TricksterApp>
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.select((SettingsBloc bloc) => bloc.state.locale);
     return TricksterLocalizationScope(
+      locale: localeFromTag(locale),
       child: BlocBuilder<OutputsBloc, OutputsConfig>(
         builder: (context, outputs) {
           final views = WidgetsBinding.instance.platformDispatcher.views;

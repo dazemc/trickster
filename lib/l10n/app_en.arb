@@ -335,5 +335,25 @@
   "settingsMeterCaptionDevice": "Device name",
   "@settingsMeterCaptionDevice": {
     "description": "Meter caption choice: queried device names."
+  },
+  "settingsLanguageTitle": "Language",
+  "@settingsLanguageTitle": {
+    "description": "Title of the language settings page."
+  },
+  "settingsLanguageCaption": "Language for the bar and this window.",
+  "@settingsLanguageCaption": {
+    "description": "Caption under the language page title."
+  },
+  "settingsLanguageSystem": "System",
+  "@settingsLanguageSystem": {
+    "description": "Language choice: follow the system locale."
+  },
+  "settingsLanguageEnglish": "English",
+  "@settingsLanguageEnglish": {
+    "description": "Language choice: English."
+  },
+  "settingsLanguageChinese": "中文",
+  "@settingsLanguageChinese": {
+    "description": "Language choice: Chinese."
   }
 }

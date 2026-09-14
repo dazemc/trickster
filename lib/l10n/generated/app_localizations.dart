@@ -577,6 +577,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device name'**
   String get settingsMeterCaptionDevice;
+
+  /// Title of the language settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguageTitle;
+
+  /// Caption under the language page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Language for the bar and this window.'**
+  String get settingsLanguageCaption;
+
+  /// Language choice: follow the system locale.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsLanguageSystem;
+
+  /// Language choice: English.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEnglish;
+
+  /// Language choice: Chinese.
+  ///
+  /// In en, this message translates to:
+  /// **'中文'**
+  String get settingsLanguageChinese;
 }
 
 class _AppLocalizationsDelegate

@@ -251,4 +251,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsMeterCaptionDevice => '设备名称';
+
+  @override
+  String get settingsLanguageTitle => '语言';
+
+  @override
+  String get settingsLanguageCaption => '状态栏与设置窗口使用的语言。';
+
+  @override
+  String get settingsLanguageSystem => '跟随系统';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsLanguageChinese => '中文';
 }

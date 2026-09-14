@@ -9,6 +9,7 @@ import '../theme/tokens.dart';
 import 'controller.dart';
 import 'pages/appearance.dart';
 import 'pages/displays.dart';
+import 'pages/language.dart';
 import 'pages/modules.dart';
 import 'pages/options.dart';
 import 'scope.dart';
@@ -52,20 +53,28 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
           for (final view in views)
             View(
               view: view,
-              child: TricksterLocalizationScope(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        SettingsColors.backgroundTop,
-                        SettingsColors.background,
-                      ],
+              child: Builder(
+                builder: (context) {
+                  // Depend on the controller so a language change rebuilds
+                  // the scope with the new catalog.
+                  final locale = SettingsAppScope.of(context).settings.locale;
+                  return TricksterLocalizationScope(
+                    locale: localeFromTag(locale),
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            SettingsColors.backgroundTop,
+                            SettingsColors.background,
+                          ],
+                        ),
+                      ),
+                      child: const SettingsHome(),
                     ),
-                  ),
-                  child: const SettingsHome(),
-                ),
+                  );
+                },
               ),
             ),
         ],
@@ -86,7 +95,7 @@ class SettingsHome extends StatefulWidget {
   State<SettingsHome> createState() => _SettingsHomeState();
 }
 
-enum SettingsSection { appearance, modules, displays, options }
+enum SettingsSection { appearance, modules, displays, options, language }
 
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
@@ -166,6 +175,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                             SettingsSection.modules => const ModulesPage(),
                             SettingsSection.displays => const DisplaysPage(),
                             SettingsSection.options => const OptionsPage(),
+                            SettingsSection.language => const LanguagePage(),
                           },
                         ),
                       ),
@@ -213,6 +223,11 @@ class SettingsNav extends StatelessWidget {
               label: l10n.settingsOptionsTitle,
               selected: section == SettingsSection.options,
               onPressed: () => onSelect(SettingsSection.options),
+            ),
+            _NavEntry(
+              label: l10n.settingsLanguageTitle,
+              selected: section == SettingsSection.language,
+              onPressed: () => onSelect(SettingsSection.language),
             ),
           ],
         ),
