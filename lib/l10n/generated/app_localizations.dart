@@ -290,6 +290,18 @@ abstract class AppLocalizations {
   /// **'Accent used across the bar.'**
   String get settingsAppearanceCaption;
 
+  /// Caption above the appearance target chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Per display'**
+  String get settingsAppearancePerDisplay;
+
+  /// Appearance target chip that edits the global keys.
+  ///
+  /// In en, this message translates to:
+  /// **'All displays'**
+  String get settingsAppearanceAllDisplays;
+
   /// Accessible label for the accent preset swatches.
   ///
   /// In en, this message translates to:

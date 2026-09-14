@@ -221,6 +221,55 @@ void main() {
     expect(pipColor(), const Color(0xff2050e0));
   });
 
+  testWidgets('each display resolves its own wallpaper pick', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final cacheFile = File('${directory.path}/awww/OUTPUT');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('/tmp/wall.png');
+
+    final controller = WallpaperAccentController(
+      cache: WallpaperCache(root: cacheFile.parent),
+      sampleCandidates: (_) async => const [
+        Color(0xffe01020),
+        Color(0xff2050e0),
+      ],
+      watch: false,
+    );
+    addTearDown(controller.dispose);
+    controller.update(enabled: true);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+    expect(controller.color, const Color(0xffe01020));
+
+    Future<Color?> accentFor(String output, String pick) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await pumpBarHarness(
+        tester,
+        settings: BarSettings(
+          modules: const ['workspaces'],
+          accentSource: AccentSource.wallpaper,
+          displayAppearance: {
+            output: DisplayAppearance(accentWallpaperPick: pick),
+          },
+        ),
+        output: output,
+        workspacesBuilder: () => WorkspacesBloc(
+          initial: WorkspacesState([
+            Workspace(id: '1', name: '1', output: output, focused: true),
+          ]),
+        ),
+        wallpaperAccent: controller,
+        settle: const Duration(milliseconds: 500),
+      );
+      return _pipStyle(tester, '1').color;
+    }
+
+    // Each display resolves its own pick from the shared candidates.
+    expect(await accentFor('HDMI-A-1', '#2050E0'), const Color(0xff2050e0));
+    expect(await accentFor('HDMI-A-2', '#E01020'), const Color(0xffe01020));
+  });
+
   testWidgets('rail mirrors the compositor placement per output', (
     tester,
   ) async {

@@ -144,6 +144,14 @@
   "@settingsAppearanceCaption": {
     "description": "Caption under the appearance page title."
   },
+  "settingsAppearancePerDisplay": "每个显示器",
+  "@settingsAppearancePerDisplay": {
+    "description": "Caption above the appearance target chips."
+  },
+  "settingsAppearanceAllDisplays": "所有显示器",
+  "@settingsAppearanceAllDisplays": {
+    "description": "Appearance target chip that edits the global keys."
+  },
   "settingsAccentPresets": "预设",
   "@settingsAccentPresets": {
     "description": "Accessible label for the accent preset swatches."

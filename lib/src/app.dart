@@ -12,8 +12,7 @@ import 'package:trickster/src/bar/tray_menu.dart';
 import 'package:trickster/src/bootstrap.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/session.dart';
-import 'package:trickster/src/config/settings.dart'
-    show AccentSource, BarSettings;
+import 'package:trickster/src/config/settings.dart' show BarSettings;
 import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/config/watcher.dart';
 import 'package:trickster/src/control/control_handler.dart';
@@ -79,7 +78,7 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
       _wallpaperAccent.update(
-        enabled: widget.initial.settings.accentSource == AccentSource.wallpaper,
+        enabled: widget.initial.settings.usesWallpaperAccent,
       );
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
@@ -236,9 +235,10 @@ class _TricksterAppState extends State<TricksterApp>
     final locale = context.select((SettingsBloc bloc) => bloc.state.locale);
     return BlocListener<SettingsBloc, BarSettings>(
       listenWhen: (previous, next) =>
-          previous.accentSource != next.accentSource,
+          previous.accentSource != next.accentSource ||
+          previous.displayAppearance != next.displayAppearance,
       listener: (context, settings) => _wallpaperAccent.update(
-        enabled: settings.accentSource == AccentSource.wallpaper,
+        enabled: settings.usesWallpaperAccent,
       ),
       child: WallpaperAccentScope(
         notifier: _wallpaperAccent,

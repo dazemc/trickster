@@ -144,6 +144,14 @@
   "@settingsAppearanceCaption": {
     "description": "Caption under the appearance page title."
   },
+  "settingsAppearancePerDisplay": "Per display",
+  "@settingsAppearancePerDisplay": {
+    "description": "Caption above the appearance target chips."
+  },
+  "settingsAppearanceAllDisplays": "All displays",
+  "@settingsAppearanceAllDisplays": {
+    "description": "Appearance target chip that edits the global keys."
+  },
   "settingsAccentPresets": "Presets",
   "@settingsAccentPresets": {
     "description": "Accessible label for the accent preset swatches."

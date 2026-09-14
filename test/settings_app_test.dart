@@ -918,6 +918,42 @@ void main() {
     expect(controller.settings.accentSource, AccentSource.custom);
   });
 
+  testWidgets('appearance target edits one display and resets', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+
+    // Select a display, switch its source, and open the picker.
+    await tester.tap(
+      find.byKey(const ValueKey<String>('appearance-target-HDMI-A-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-source-wallpaper')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(
+      decoded.displayAppearance['HDMI-A-1']?.accentSource,
+      AccentSource.wallpaper,
+    );
+    // The global key and the other display stay untouched.
+    expect(decoded.accentSource, AccentSource.custom);
+    expect(decoded.accentSourceFor('eDP-1'), AccentSource.custom);
+
+    // Resetting the display drops its overrides.
+    await tester.tap(
+      find.byKey(const ValueKey<String>('reset-appearance-HDMI-A-1')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(
+      BarSettings.decode(file.readAsStringSync()).displayAppearance,
+      isEmpty,
+    );
+  });
+
   testWidgets('wallpaper source swaps the wheel for the sampled list', (
     tester,
   ) async {

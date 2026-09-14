@@ -59,20 +59,29 @@ class TricksterBarStrip extends StatelessWidget {
     // The configured accent is the source unless the wallpaper is; the
     // sampled color is null until extraction lands, so the session and
     // brand colors still fall through. A stored pick selects the candidate
-    // closest to it in hue.
+    // closest to it in hue. Appearance resolves per display, falling back to
+    // the global keys.
     final wallpaperScope = WallpaperAccentScope.maybeOf(context);
-    final picked = colorFromHex(settings.accentWallpaperPick);
-    final sampled = settings.accentSource == AccentSource.wallpaper
+    final outputName = output;
+    final source = settings.accentSourceFor(outputName);
+    final picked = colorFromHex(settings.accentWallpaperPickFor(outputName));
+    final outputCandidates = outputName == null
+        ? wallpaperScope?.candidates ?? const <Color>[]
+        : wallpaperScope?.candidatesFor(outputName) ?? const <Color>[];
+    // A cache that does not name outputs falls back to the global sample.
+    final candidates = outputCandidates.isEmpty
+        ? wallpaperScope?.candidates ?? const <Color>[]
+        : outputCandidates;
+    final sampledWallpaper = outputName == null
+        ? wallpaperScope?.color
+        : wallpaperScope?.accentFor(outputName) ?? wallpaperScope?.color;
+    final sampled = source == AccentSource.wallpaper
         ? picked == null
-              ? wallpaperScope?.color
-              : closestAccentCandidate(
-                      wallpaperScope?.candidates ?? const <Color>[],
-                      picked,
-                    ) ??
-                    wallpaperScope?.color
+              ? sampledWallpaper
+              : closestAccentCandidate(candidates, picked) ?? sampledWallpaper
         : null;
     final accent = resolveAccent(
-      settings: sampled ?? settings.accent,
+      settings: sampled ?? settings.accentFor(outputName),
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
     final horizontal = side.isHorizontal;

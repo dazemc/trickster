@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:trickster/src/config/settings.dart' show AccentSource;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/availability.dart';
@@ -46,7 +45,7 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
 
   void _syncWallpaperAccent() {
     _wallpaperAccent.update(
-      enabled: _controller.settings.accentSource == AccentSource.wallpaper,
+      enabled: _controller.settings.usesWallpaperAccent,
     );
   }
 
