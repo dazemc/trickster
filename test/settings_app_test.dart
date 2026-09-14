@@ -718,6 +718,27 @@ void main() {
     );
   });
 
+  testWidgets('a disabled module drags out to a zone', (tester) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
+    );
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+    expect(controller.settings.modules, isNot(contains('gpu')));
+
+    // Drag the disabled GPU row to the empty leading zone.
+    await _dragModuleTo(
+      tester,
+      'gpu',
+      find.byKey(const ValueKey<String>('module-zone-leading')),
+    );
+    expect(controller.settings.modules, contains('gpu'));
+    expect(controller.settings.zoneFor('gpu'), ModuleZone.leading);
+  });
+
   testWidgets('appearance resets restore the accent defaults', (tester) async {
     file.writeAsStringSync(
       '{"revision": 1, "accent_source": "wallpaper", '

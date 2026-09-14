@@ -76,7 +76,6 @@ class _ModulesPageState extends State<ModulesPage> {
   int _previewIndex = 0;
   Offset? _lastPointer;
   bool _dropHandled = false;
-  bool _overDisabled = false;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
@@ -224,7 +223,7 @@ class _ModulesPageState extends State<ModulesPage> {
   /// section clears the preview when the pointer enters it.
   void _updateDrag(SettingsAppController controller, Offset position) {
     final dragging = _dragging;
-    if (dragging == null || _overDisabled) {
+    if (dragging == null) {
       return;
     }
     _lastPointer = position;
@@ -285,7 +284,7 @@ class _ModulesPageState extends State<ModulesPage> {
         continue;
       }
       final rect = box.localToGlobal(Offset.zero) & box.size;
-      if (rect.inflate(16).contains(position)) {
+      if (rect.inflate(_zoneDropReach).contains(position)) {
         return true;
       }
     }
@@ -299,7 +298,6 @@ class _ModulesPageState extends State<ModulesPage> {
     final pointer = _lastPointer;
     final handled = _dropHandled;
     _dropHandled = false;
-    _overDisabled = false;
     _lastPointer = null;
     setState(() {
       _dragging = null;
@@ -392,6 +390,7 @@ class _ModulesPageState extends State<ModulesPage> {
       required ModuleZone zone,
       required bool reorderable,
       required double feedbackWidth,
+      bool draggableOut = false,
     }) {
       final hasOptions = reorderable && moduleHasOptions(module);
       return _ModuleRow(
@@ -399,7 +398,7 @@ class _ModulesPageState extends State<ModulesPage> {
         module: module,
         label: moduleLabel(l10n, module),
         enabled: settings.includes(module),
-        reorderable: reorderable,
+        reorderable: reorderable || draggableOut,
         options: hasOptions ? ModuleOptionsPanel(module: module) : null,
         optionsExpanded: _expanded.contains(module),
         onToggleOptions: hasOptions
@@ -414,8 +413,12 @@ class _ModulesPageState extends State<ModulesPage> {
         onDragUpdate: (position) => _updateDrag(controller, position),
         onDragEnd: (accepted) => _endDrag(controller, accepted),
         onToggle: (value) => _toggle(controller, module, value),
-        onKeyboardMove: (delta) => _moveWithinZone(controller, module, delta),
-        onKeyboardZone: (delta) => _moveZoneBy(controller, module, delta),
+        onKeyboardMove: draggableOut
+            ? (_) {}
+            : (delta) => _moveWithinZone(controller, module, delta),
+        onKeyboardZone: draggableOut
+            ? (_) {}
+            : (delta) => _moveZoneBy(controller, module, delta),
       );
     }
 
@@ -550,16 +553,7 @@ class _ModulesPageState extends State<ModulesPage> {
             const SizedBox(height: 10),
             DragTarget<String>(
               key: const ValueKey<String>('module-zone-disabled-drop'),
-              onWillAcceptWithDetails: (_) {
-                if (!_overDisabled) {
-                  setState(() {
-                    _overDisabled = true;
-                    _previewZone = null;
-                  });
-                }
-                return true;
-              },
-              onLeave: (_) => _overDisabled = false,
+              onWillAcceptWithDetails: (_) => true,
               onAcceptWithDetails: (details) =>
                   _disableDropped(controller, details.data),
               builder: (context, candidates, rejected) => DecoratedBox(
@@ -586,6 +580,7 @@ class _ModulesPageState extends State<ModulesPage> {
                                 module,
                                 zone: settings.zoneFor(module),
                                 reorderable: false,
+                                draggableOut: true,
                                 feedbackWidth: constraints.maxWidth,
                               ),
                           ],
