@@ -48,9 +48,6 @@ a standalone settings application. It is its own Flutter process and bundle
 (file transport as fallback), and covers exactly the settings the bar has.
 The version stays 0.1.0 until the user calls a bump.
 
-- [ ] **8.3 appearance page** (M). Accent presets plus the HSV wheel from
-      Denial's settings, writing `accent` and following live bar updates.
-      Done when: picking a color writes the document and the bar reloads it.
 - [ ] **8.4 modules page** (S). Enable, disable, and reorder the configured
       module list. Done when: membership and order round-trip through the
       document and the bar rebuilds its providers.
