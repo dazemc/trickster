@@ -59,30 +59,22 @@ Denial v0.4.0 renders the workspace rail as a centered, numbered card in the
 strip with a liquid active lens. Trickster keeps its compositor-fed
 workspaces and module gate; these steps align the presentation.
 
-- **11.4 (M) Show the Denial workspace count on every rail.** Denial's
-  indicator always shows a fixed 1..N count on every monitor, with
-  active/occupied relative to that output; Trickster's per-output filter
-  hides a monitor's workspace 1 from the other strip. Add a
-  `workspace_count` option (2-9, default 4) and render 1..count on every
-  strip, resolving active/occupied from compositor state and switching (or
-  creating) through the backend; retire `show_empty`/`max` through a
-  decode-compatible transition. Done when both monitors' rails show the
-  full count, a widget test covers the per-output active/occupied mapping,
-  and the live multi-monitor session matches.
-- **11.4 (M) Show the Denial workspace count on every rail.** Denial's
-  indicator always shows a fixed 1..N count on every monitor, with
-  active/occupied relative to that output; Trickster's per-output filter
-  hides a monitor's workspace 1 from the other strip. Add a
-  `workspace_count` option (2-9, default 4) and render 1..count on every
-  strip, resolving active/occupied from compositor state and switching (or
-  creating) through the backend; retire `show_empty`/`max` through a
-  decode-compatible transition. Done when both monitors' rails show the
-  full count, a widget test covers the per-output active/occupied mapping,
-  and the live multi-monitor session matches.
-- **11.3 (M) Deform the active lens on switch.** Port
-  `_WorkspaceActiveLens`: scale 1 → 1.34 → 0.94 → 1 across
-  `workspaceIndicatorTakeoff` 72ms / `Travel` 168ms / `Settle` 80ms with the
-  MD3 emphasized accelerate/decelerate curves, honoring reduced motion; add
-  the tokens and curves to `lib/src/theme/motion.dart`. Done when a widget
-  test observes the sequence, reduced motion skips it, and the live bar
-  matches Denial's motion.
+## Phase 12 — pill glass
+
+Denial has no blurred bar background: each pill is a translucent card with
+the backdrop blurred behind its own bounds. Trickster asks the compositor
+for `ext-background-effect` with the whole strip surface as the region, so
+the entire band blurs. These steps move the blur to the pills and match
+Denial's glass density.
+
+- **12.1 (M) Blur only the pills.** Report each pill card's bounds per strip
+  surface and set the compositor's blur region to those rectangles instead
+  of the whole surface; a strip with no pills (or a host without
+  `ext-background-effect`) disables the effect. Done when a widget test
+  proves the reporter sends the card rectangles and clears them on unmount,
+  native builds the region from the list, and the live bar shows sharp gaps
+  between blurred pills.
+- **12.2 (S) Match Denial's glass fills.** With the blur confined to the
+  pills, lower the card fill alphas toward Denial's ~44% card opacity, and
+  keep the opaque fallback when the host has no blur. Done when the live
+  bar's pill density matches Denial and the no-blur path stays readable.
