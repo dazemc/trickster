@@ -350,10 +350,6 @@
   "@settingsWorkspacesMain": {
     "description": "Badge on the first display of the workspace chain."
   },
-  "settingsWorkspacesSetMain": "设为主显示器",
-  "@settingsWorkspacesSetMain": {
-    "description": "Action that moves a display to the front of the chain."
-  },
   "settingsClockSection": "时钟",
   "@settingsClockSection": {
     "description": "Section heading for clock options."

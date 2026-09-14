@@ -114,6 +114,40 @@ Future<void> _dragModuleTo(
   await tester.pump();
 }
 
+Future<void> _dragDisplayTo(
+  WidgetTester tester,
+  String display,
+  String targetDisplay,
+) async {
+  final handle = find.byKey(ValueKey<String>('display-drag-$display'));
+  final target = find.byKey(
+    ValueKey<String>('display-order-$targetDisplay'),
+  );
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(handle);
+  await tester.pumpAndSettle();
+  final start = tester.getCenter(handle);
+  final end = tester.getCenter(target);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(const Duration(milliseconds: 120));
+  final slop = Offset(0, end.dy >= start.dy ? 24 : -24);
+  await gesture.moveBy(slop);
+  await tester.pump(const Duration(milliseconds: 60));
+  final liveEnd = tester.getCenter(target);
+  var current = start + slop;
+  const steps = 8;
+  for (var step = 1; step <= steps; step++) {
+    current = Offset.lerp(start + slop, liveEnd, step / steps)!;
+    await gesture.moveTo(current);
+    await tester.pump(const Duration(milliseconds: 40));
+  }
+  await gesture.up();
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pump();
+}
+
 void main() {
   late Directory directory;
   late File file;
@@ -471,11 +505,8 @@ void main() {
     expect(find.text('1-4'), findsOneWidget);
     expect(find.text('5-8'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('display-set-main-HDMI-A-1')),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
+    // Dragging HDMI-A-1 onto the first row makes it main.
+    await _dragDisplayTo(tester, 'HDMI-A-1', 'eDP-1');
     expect(controller.settings.workspaces.displayOrder, ['HDMI-A-1', 'eDP-1']);
     expect(
       BarSettings.decode(file.readAsStringSync()).workspaces.displayOrder,
@@ -485,33 +516,11 @@ void main() {
       find.byKey(const ValueKey<String>('display-main-HDMI-A-1')),
       findsOneWidget,
     );
+    expect(find.text('1-4'), findsOneWidget);
+    expect(find.text('5-8'), findsOneWidget);
 
-    // Dragging eDP-1 onto the first row moves it back to the front.
-    final handle = find.byKey(const ValueKey<String>('display-drag-eDP-1'));
-    final target = find.byKey(const ValueKey<String>('display-order-HDMI-A-1'));
-    await tester.ensureVisible(target);
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(handle);
-    await tester.pumpAndSettle();
-    final start = tester.getCenter(handle);
-    final end = tester.getCenter(target);
-    final gesture = await tester.startGesture(start);
-    await tester.pump(const Duration(milliseconds: 120));
-    final slop = Offset(0, end.dy >= start.dy ? 24 : -24);
-    await gesture.moveBy(slop);
-    await tester.pump(const Duration(milliseconds: 60));
-    final liveEnd = tester.getCenter(target);
-    var current = start + slop;
-    const steps = 8;
-    for (var step = 1; step <= steps; step++) {
-      current = Offset.lerp(start + slop, liveEnd, step / steps)!;
-      await gesture.moveTo(current);
-      await tester.pump(const Duration(milliseconds: 40));
-    }
-    await gesture.up();
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
+    // Dragging eDP-1 back to the front reverses it.
+    await _dragDisplayTo(tester, 'eDP-1', 'HDMI-A-1');
     expect(controller.settings.workspaces.displayOrder, ['eDP-1', 'HDMI-A-1']);
   });
 

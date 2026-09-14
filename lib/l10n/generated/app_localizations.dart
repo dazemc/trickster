@@ -584,12 +584,6 @@ abstract class AppLocalizations {
   /// **'Main'**
   String get settingsWorkspacesMain;
 
-  /// Action that moves a display to the front of the chain.
-  ///
-  /// In en, this message translates to:
-  /// **'Set as main'**
-  String get settingsWorkspacesSetMain;
-
   /// Section heading for clock options.
   ///
   /// In en, this message translates to:

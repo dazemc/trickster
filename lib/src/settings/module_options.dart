@@ -85,8 +85,6 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       range: range == null ? '' : '${range.$1}-${range.$2}',
       dragLabel: l10n.settingsModuleDrag,
       mainLabel: l10n.settingsWorkspacesMain,
-      setMainLabel: l10n.settingsWorkspacesSetMain,
-      onSetMain: () => _reorderDisplay(controller, chain, display, 0),
       onMoveHere: (dragged) =>
           _reorderDisplay(controller, chain, dragged, index),
     );
@@ -530,8 +528,6 @@ class _DisplayOrderRow extends StatelessWidget {
     required this.range,
     required this.dragLabel,
     required this.mainLabel,
-    required this.setMainLabel,
-    required this.onSetMain,
     required this.onMoveHere,
     super.key,
   });
@@ -541,8 +537,6 @@ class _DisplayOrderRow extends StatelessWidget {
   final String range;
   final String dragLabel;
   final String mainLabel;
-  final String setMainLabel;
-  final VoidCallback onSetMain;
   final ValueChanged<String> onMoveHere;
 
   @override
@@ -589,13 +583,6 @@ class _DisplayOrderRow extends StatelessWidget {
                     _MainBadge(
                       key: ValueKey<String>('display-main-$display'),
                       label: mainLabel,
-                    )
-                  else
-                    SettingsChoiceChip(
-                      key: ValueKey<String>('display-set-main-$display'),
-                      label: setMainLabel,
-                      selected: false,
-                      onPressed: onSetMain,
                     ),
                   const SizedBox(width: 10),
                   Text(
