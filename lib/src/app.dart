@@ -22,12 +22,15 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/platform/power_settings.dart';
+import 'package:trickster/src/services/status_notifier.dart'
+    show SystemTrayAction;
 import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/tray_menu.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/backdrop_blur.dart';
@@ -45,8 +48,8 @@ class TricksterApp extends StatefulWidget {
 class _TricksterAppState extends State<TricksterApp>
     with WidgetsBindingObserver {
   late final LayerShell _layerShell;
-  late final TrayMenuController _menuController;
-  late final OverlayTooltipController _tooltipController;
+  late final TrayMenuBloc _menuBloc;
+  late final OverlayTooltipBloc _tooltipBloc;
   late final WallpaperAccentBloc _wallpaperAccent;
   late final FileSettingsTransport _settingsTransport;
   late final OutputsDocumentTransport _outputsTransport;
@@ -66,8 +69,23 @@ class _TricksterAppState extends State<TricksterApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
-    _menuController = TrayMenuController(layerShell: _layerShell);
-    _tooltipController = OverlayTooltipController(layerShell: _layerShell);
+    _menuBloc = TrayMenuBloc(
+      layerShell: _layerShell,
+      onUnavailable: (item, position) {
+        final context = _moduleContext;
+        if (context == null) {
+          return;
+        }
+        unawaited(
+          context.read<TrayBloc>().invoke(
+            item,
+            SystemTrayAction.contextMenu,
+            position,
+          ),
+        );
+      },
+    );
+    _tooltipBloc = OverlayTooltipBloc(layerShell: _layerShell);
     _wallpaperAccent = WallpaperAccentBloc();
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
@@ -104,8 +122,8 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_watcher?.dispose());
     unawaited(_control?.dispose());
-    _menuController.dispose();
-    _tooltipController.dispose();
+    unawaited(_menuBloc.close());
+    unawaited(_tooltipBloc.close());
     unawaited(_wallpaperAccent.close());
     super.dispose();
   }
@@ -118,13 +136,19 @@ class _TricksterAppState extends State<TricksterApp>
       return;
     }
     setState(() {});
-    // Menu surfaces add and remove views too; only bar-view changes matter.
-    final barViews = WidgetsBinding.instance.platformDispatcher.views
+    // Menu and tooltip surfaces add and remove views too; only bar-view
+    // changes matter. Their remembered views are trimmed to the live set so
+    // a reused id never keeps rendering an overlay.
+    final liveViewIds = WidgetsBinding.instance.platformDispatcher.views
         .map((view) => view.viewId)
+        .toSet();
+    _menuBloc.add(TrayMenuViewsRetained(liveViewIds));
+    _tooltipBloc.add(OverlayTooltipViewsRetained(liveViewIds));
+    final barViews = liveViewIds
         .where(
           (viewId) =>
-              !_menuController.isMenuView(viewId) &&
-              !_tooltipController.isTooltipView(viewId),
+              !_menuBloc.state.isMenuView(viewId) &&
+              !_tooltipBloc.state.isTooltipView(viewId),
         )
         .toSet();
     if (!setEquals(barViews, _lastBarViews)) {
@@ -249,9 +273,6 @@ class _TricksterAppState extends State<TricksterApp>
           child: BlocBuilder<OutputsBloc, OutputsConfig>(
             builder: (context, outputs) {
               final views = WidgetsBinding.instance.platformDispatcher.views;
-              final liveViewIds = views.map((view) => view.viewId).toSet();
-              _menuController.retainViews(liveViewIds);
-              _tooltipController.retainViews(liveViewIds);
               // One View per layer surface, all sharing this single engine and
               // the module blocs above the collection. A menu lives on its own
               // fullscreen overlay surface, so the strip surface never resizes.
@@ -268,18 +289,18 @@ class _TricksterAppState extends State<TricksterApp>
                       for (final output in hostedOutputs(_outputs!, outputs))
                         output.viewId,
                       for (final view in views)
-                        if (_menuController.isMenuView(view.viewId) ||
-                            _tooltipController.isTooltipView(view.viewId))
+                        if (_menuBloc.state.isMenuView(view.viewId) ||
+                            _tooltipBloc.state.isTooltipView(view.viewId))
                           view.viewId,
                     };
               final viewOutputs = <int, String>{
                 for (final output in _outputs ?? const <LayerOutput>[])
                   if (output.viewId >= 0) output.viewId: output.name,
               };
-              return TrayMenuScope(
-                notifier: _menuController,
-                child: OverlayTooltipScope(
-                  notifier: _tooltipController,
+              return BlocProvider<TrayMenuBloc>.value(
+                value: _menuBloc,
+                child: BlocProvider<OverlayTooltipBloc>.value(
+                  value: _tooltipBloc,
                   child: ModuleScope(
                     // The control status handler needs a context below the module
                     // providers to read their states.
@@ -295,8 +316,6 @@ class _TricksterAppState extends State<TricksterApp>
                                       _ViewSurface(
                                         key: ValueKey<int>(view.viewId),
                                         view: view,
-                                        menu: _menuController,
-                                        tooltip: _tooltipController,
                                         layerShell: _layerShell,
                                         blur: blur,
                                         output: viewOutputs[view.viewId],
@@ -322,8 +341,6 @@ class _TricksterAppState extends State<TricksterApp>
 class _ViewSurface extends StatefulWidget {
   const _ViewSurface({
     required this.view,
-    required this.menu,
-    required this.tooltip,
     required this.layerShell,
     required this.blur,
     required this.output,
@@ -331,8 +348,6 @@ class _ViewSurface extends StatefulWidget {
   });
 
   final FlutterView view;
-  final TrayMenuController menu;
-  final OverlayTooltipController tooltip;
   final LayerShell layerShell;
   final bool blur;
   final String? output;
@@ -358,11 +373,18 @@ class _ViewSurfaceState extends State<_ViewSurface> {
     }
   }
 
+  /// Whether this surface hosts an overlay instead of the strip.
+  bool get _isOverlayView {
+    return context.read<TrayMenuBloc>().state.isMenuView(widget.view.viewId) ||
+        context.read<OverlayTooltipBloc>().state.isTooltipView(
+          widget.view.viewId,
+        );
+  }
+
   void _syncBlur() {
     // Backdrop blur belongs to the strip only: overlay surfaces composite
     // their own glass and an effect on a hidden overlay black-screens it.
-    if (widget.menu.isMenuView(widget.view.viewId) ||
-        widget.tooltip.isTooltipView(widget.view.viewId)) {
+    if (_isOverlayView) {
       return;
     }
     if (widget.blur) {
@@ -393,28 +415,30 @@ class _ViewSurfaceState extends State<_ViewSurface> {
   }
 
   late final OverlayEntry _entry = OverlayEntry(
-    builder: (context) => ListenableBuilder(
-      listenable: Listenable.merge([widget.menu, widget.tooltip]),
-      builder: (context, _) {
-        if (widget.menu.isMenuView(widget.view.viewId)) {
-          final session = widget.menu.session;
-          if (session == null || session.viewId != widget.view.viewId) {
-            return const SizedBox.shrink();
-          }
-          return TrayMenuSurface(session: session, controller: widget.menu);
-        }
-        if (widget.tooltip.isTooltipView(widget.view.viewId)) {
-          final session = widget.tooltip.session;
-          if (session == null || session.viewId != widget.view.viewId) {
-            return const SizedBox.shrink();
-          }
-          return OverlayTooltipSurface(session: session);
-        }
-        return BlurRegionScope(
-          controller: _blurRegions,
-          child: _BarSurface(output: widget.output),
-        );
-      },
+    builder: (context) => BlocBuilder<TrayMenuBloc, TrayMenuState>(
+      builder: (context, menuState) =>
+          BlocBuilder<OverlayTooltipBloc, OverlayTooltipState>(
+            builder: (context, tooltipState) {
+              if (menuState.isMenuView(widget.view.viewId)) {
+                final session = menuState.session;
+                if (session == null || session.viewId != widget.view.viewId) {
+                  return const SizedBox.shrink();
+                }
+                return TrayMenuSurface(session: session);
+              }
+              if (tooltipState.isTooltipView(widget.view.viewId)) {
+                final session = tooltipState.session;
+                if (session == null || session.viewId != widget.view.viewId) {
+                  return const SizedBox.shrink();
+                }
+                return OverlayTooltipSurface(session: session);
+              }
+              return BlurRegionScope(
+                controller: _blurRegions,
+                child: _BarSurface(output: widget.output),
+              );
+            },
+          ),
     ),
   );
 

@@ -12,11 +12,13 @@ import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 const _zh = Locale('zh');
 
 Widget _scope(Widget child) =>
-    TricksterLocalizationScope(locale: _zh, child: child);
+    TricksterLocalizationScope(locale: _zh, child: withOverlayBlocs(child));
 
 void main() {
   testWidgets('battery pill announces the Chinese state and capacity', (

@@ -96,19 +96,19 @@ class TrayItemButton extends StatefulWidget {
 class _TrayItemButtonState extends State<TrayItemButton> {
   Offset? _primaryPosition;
   var _focused = false;
-  OverlayTooltipController? _tooltip;
+  OverlayTooltipBloc? _tooltip;
   Timer? _tooltipTimer;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tooltip = OverlayTooltipScope.maybeOf(context);
+    _tooltip = context.read<OverlayTooltipBloc>();
   }
 
   @override
   void dispose() {
     _tooltipTimer?.cancel();
-    unawaited(_tooltip?.close(itemId: widget.item.id));
+    _tooltip?.add(OverlayTooltipDismissed(itemId: widget.item.id));
     super.dispose();
   }
 
@@ -132,8 +132,8 @@ class _TrayItemButtonState extends State<TrayItemButton> {
       if (!mounted) {
         return;
       }
-      unawaited(
-        tooltip.show(
+      tooltip.add(
+        OverlayTooltipRequested(
           barViewId: View.of(context).viewId,
           itemId: widget.item.id,
           label: _tooltipLabel,
@@ -149,13 +149,13 @@ class _TrayItemButtonState extends State<TrayItemButton> {
   void _handleExit(PointerExitEvent event) {
     _tooltipTimer?.cancel();
     _tooltipTimer = null;
-    unawaited(_tooltip?.close(itemId: widget.item.id));
+    _tooltip?.add(OverlayTooltipDismissed(itemId: widget.item.id));
   }
 
   void _hideTooltip() {
     _tooltipTimer?.cancel();
     _tooltipTimer = null;
-    unawaited(_tooltip?.close(itemId: widget.item.id));
+    _tooltip?.add(OverlayTooltipDismissed(itemId: widget.item.id));
   }
 
   Offset _center() {
@@ -168,14 +168,10 @@ class _TrayItemButtonState extends State<TrayItemButton> {
 
   Future<void> _openContextMenu(Offset position) async {
     _hideTooltip();
-    final menu = TrayMenuScope.maybeOf(context);
+    final menu = context.read<TrayMenuBloc>();
     final bloc = context.read<TrayBloc>();
-    if (menu == null) {
-      await bloc.invoke(widget.item, SystemTrayAction.contextMenu, position);
-      return;
-    }
-    if (menu.isOpen) {
-      await menu.close();
+    if (menu.state.isOpen) {
+      menu.add(const TrayMenuDismissed());
       return;
     }
     final entries = await bloc.loadMenu(widget.item);
@@ -189,18 +185,17 @@ class _TrayItemButtonState extends State<TrayItemButton> {
       await bloc.invoke(widget.item, SystemTrayAction.contextMenu, position);
       return;
     }
-    final opened = await menu.show(
-      barViewId: View.of(context).viewId,
-      item: widget.item,
-      entries: visible,
-      accent: widget.accent,
-      click: position,
-      side: widget.side,
-      thickness: widget.thickness,
+    menu.add(
+      TrayMenuRequested(
+        barViewId: View.of(context).viewId,
+        item: widget.item,
+        entries: visible,
+        accent: widget.accent,
+        click: position,
+        side: widget.side,
+        thickness: widget.thickness,
+      ),
     );
-    if (!opened) {
-      await bloc.invoke(widget.item, SystemTrayAction.contextMenu, position);
-    }
   }
 
   Future<void> _activatePrimary(Offset position) async {

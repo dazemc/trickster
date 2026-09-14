@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -18,11 +20,55 @@ import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/tray_menu.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
+
+/// A layer shell whose surfaces live only inside the test binding.
+class SilentLayerShell extends LayerShell {
+  SilentLayerShell() : super(channel: const MethodChannel('test/trickster'));
+
+  @override
+  Future<int?> openMenuSurface({
+    required int barViewId,
+    required String side,
+  }) async => 1;
+
+  @override
+  Future<void> showMenuSurface({required int viewId}) async {}
+
+  @override
+  Future<void> closeMenuSurface({required int viewId}) async {}
+
+  @override
+  Future<int?> openTooltipSurface({
+    required int barViewId,
+    required String side,
+  }) async => 1;
+
+  @override
+  Future<void> showTooltipSurface({required int viewId}) async {}
+
+  @override
+  Future<void> closeTooltipSurface({required int viewId}) async {}
+}
+
+/// Wraps [child] in the overlay host blocs the strip always carries, for
+/// tests that pump one pill instead of the whole strip.
+Widget withOverlayBlocs(Widget child) {
+  final shell = SilentLayerShell();
+  return BlocProvider<TrayMenuBloc>(
+    create: (_) => TrayMenuBloc(layerShell: shell),
+    child: BlocProvider<OverlayTooltipBloc>(
+      create: (_) => OverlayTooltipBloc(layerShell: shell),
+      child: child,
+    ),
+  );
+}
 
 /// Workspaces every harnessed strip renders: one focused, one urgent.
 const harnessWorkspaces = [
@@ -62,45 +108,47 @@ Future<void> pumpBarHarness(
         BlocProvider(create: (_) => SessionBloc()),
         BlocProvider(create: (_) => OutputsBloc()),
       ],
-      child: TricksterLocalizationScope(
-        locale: locale,
-        child: ModuleScope(
-          clockBuilder: clockBuilder ?? ClockBloc.new,
-          cpuBuilder:
-              cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
-          gpuBuilder: gpuBuilder ?? () => GpuBloc(initial: const GpuState()),
-          trayBuilder:
-              trayBuilder ?? () => TrayBloc(initial: const TrayState()),
-          batteryBuilder:
-              batteryBuilder ??
-              () => BatteryBloc(
-                initial: const BatteryStatus(capacity: 87, charging: true),
-              ),
-          workspacesBuilder:
-              workspacesBuilder ??
-              () => WorkspacesBloc(
-                initial: const WorkspacesState(harnessWorkspaces),
-              ),
-          mediaBuilder:
-              mediaBuilder ??
-              () => MediaBloc(initial: MprisPlaybackState.unavailable()),
-          child: wallpaperAccent == null
-              ? BlocProvider<WallpaperAccentBloc>(
-                  create: (_) => WallpaperAccentBloc(watch: false),
-                  child: TricksterBarStrip(
-                    side: side,
-                    thickness: thickness,
-                    output: output,
-                  ),
-                )
-              : BlocProvider<WallpaperAccentBloc>.value(
-                  value: wallpaperAccent,
-                  child: TricksterBarStrip(
-                    side: side,
-                    thickness: thickness,
-                    output: output,
-                  ),
+      child: withOverlayBlocs(
+        TricksterLocalizationScope(
+          locale: locale,
+          child: ModuleScope(
+            clockBuilder: clockBuilder ?? ClockBloc.new,
+            cpuBuilder:
+                cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
+            gpuBuilder: gpuBuilder ?? () => GpuBloc(initial: const GpuState()),
+            trayBuilder:
+                trayBuilder ?? () => TrayBloc(initial: const TrayState()),
+            batteryBuilder:
+                batteryBuilder ??
+                () => BatteryBloc(
+                  initial: const BatteryStatus(capacity: 87, charging: true),
                 ),
+            workspacesBuilder:
+                workspacesBuilder ??
+                () => WorkspacesBloc(
+                  initial: const WorkspacesState(harnessWorkspaces),
+                ),
+            mediaBuilder:
+                mediaBuilder ??
+                () => MediaBloc(initial: MprisPlaybackState.unavailable()),
+            child: wallpaperAccent == null
+                ? BlocProvider<WallpaperAccentBloc>(
+                    create: (_) => WallpaperAccentBloc(watch: false),
+                    child: TricksterBarStrip(
+                      side: side,
+                      thickness: thickness,
+                      output: output,
+                    ),
+                  )
+                : BlocProvider<WallpaperAccentBloc>.value(
+                    value: wallpaperAccent,
+                    child: TricksterBarStrip(
+                      side: side,
+                      thickness: thickness,
+                      output: output,
+                    ),
+                  ),
+          ),
         ),
       ),
     ),

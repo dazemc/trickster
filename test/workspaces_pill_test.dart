@@ -6,6 +6,8 @@ import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 const _three = [
@@ -33,13 +35,15 @@ Future<void> _pump(
   return tester.pumpWidget(
     MediaQuery(
       data: MediaQueryData(disableAnimations: reduceMotion),
-      child: TricksterLocalizationScope(
-        child: Center(
-          child: WorkspacesPill(
-            accent: _accent,
-            workspaces: workspaces,
-            horizontal: horizontal,
-            onPressed: onPressed,
+      child: withOverlayBlocs(
+        TricksterLocalizationScope(
+          child: Center(
+            child: WorkspacesPill(
+              accent: _accent,
+              workspaces: workspaces,
+              horizontal: horizontal,
+              onPressed: onPressed,
+            ),
           ),
         ),
       ),

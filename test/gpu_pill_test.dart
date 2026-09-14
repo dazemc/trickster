@@ -7,20 +7,24 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/theme/accent.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 void main() {
   testWidgets('gpu meter shows the label and percentage', (tester) async {
     await tester.pumpWidget(
-      const TricksterLocalizationScope(
-        child: Center(
-          child: GpuPill(
-            accent: _accent,
-            load: GpuLoad(
-              id: 'card0',
-              label: 'AMD0',
-              usage: 0.42,
-              history: [0.1, 0.42],
+      withOverlayBlocs(
+        const TricksterLocalizationScope(
+          child: Center(
+            child: GpuPill(
+              accent: _accent,
+              load: GpuLoad(
+                id: 'card0',
+                label: 'AMD0',
+                usage: 0.42,
+                history: [0.1, 0.42],
+              ),
             ),
           ),
         ),
@@ -33,18 +37,20 @@ void main() {
 
   testWidgets('device caption source prefers the queried name', (tester) async {
     await tester.pumpWidget(
-      const TricksterLocalizationScope(
-        child: Center(
-          child: GpuPill(
-            accent: _accent,
-            load: GpuLoad(
-              id: 'card0',
-              label: 'AMD0',
-              name: 'NVIDIA GeForce RTX 4070 Ti',
-              usage: 0.42,
-              history: [0.42],
+      withOverlayBlocs(
+        const TricksterLocalizationScope(
+          child: Center(
+            child: GpuPill(
+              accent: _accent,
+              load: GpuLoad(
+                id: 'card0',
+                label: 'AMD0',
+                name: 'NVIDIA GeForce RTX 4070 Ti',
+                usage: 0.42,
+                history: [0.42],
+              ),
+              captionSource: MeterCaptionSource.device,
             ),
-            captionSource: MeterCaptionSource.device,
           ),
         ),
       ),

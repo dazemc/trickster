@@ -5,6 +5,8 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/theme/accent.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 SystemTrayItem _item(
@@ -30,9 +32,15 @@ Future<void> _pump(
   void Function(SystemTrayItem item, Offset position) onActivate,
 ) {
   return tester.pumpWidget(
-    TricksterLocalizationScope(
-      child: Center(
-        child: TrayPill(accent: _accent, items: items, onActivate: onActivate),
+    withOverlayBlocs(
+      TricksterLocalizationScope(
+        child: Center(
+          child: TrayPill(
+            accent: _accent,
+            items: items,
+            onActivate: onActivate,
+          ),
+        ),
       ),
     ),
   );

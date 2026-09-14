@@ -37,13 +37,15 @@ Future<void> _pumpClock(
   return tester.pumpWidget(
     MultiBlocProvider(
       providers: [BlocProvider(create: (_) => ClockBloc())],
-      child: TricksterLocalizationScope(
-        locale: locale,
-        child: Center(
-          child: ClockPill(
-            accent: const WallpaperAccent(Color(0xffd0bcff)),
-            format: format,
-            vertical: vertical,
+      child: withOverlayBlocs(
+        TricksterLocalizationScope(
+          locale: locale,
+          child: Center(
+            child: ClockPill(
+              accent: const WallpaperAccent(Color(0xffd0bcff)),
+              format: format,
+              vertical: vertical,
+            ),
           ),
         ),
       ),

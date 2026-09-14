@@ -8,6 +8,8 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 void main() {
@@ -57,12 +59,14 @@ void main() {
 
   testWidgets('vertical shows the caption and percent', (tester) async {
     await tester.pumpWidget(
-      const TricksterLocalizationScope(
-        child: Center(
-          child: CpuPill(
-            accent: _accent,
-            sample: CpuSample(0.42),
-            vertical: true,
+      withOverlayBlocs(
+        const TricksterLocalizationScope(
+          child: Center(
+            child: CpuPill(
+              accent: _accent,
+              sample: CpuSample(0.42),
+              vertical: true,
+            ),
           ),
         ),
       ),
@@ -110,12 +114,14 @@ Future<void> _pump(
   MeterCaptionSource captionSource = MeterCaptionSource.generic,
 }) {
   return tester.pumpWidget(
-    TricksterLocalizationScope(
-      child: Center(
-        child: CpuPill(
-          accent: _accent,
-          sample: sample,
-          captionSource: captionSource,
+    withOverlayBlocs(
+      TricksterLocalizationScope(
+        child: Center(
+          child: CpuPill(
+            accent: _accent,
+            sample: sample,
+            captionSource: captionSource,
+          ),
         ),
       ),
     ),
