@@ -49,7 +49,3 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
-- [ ] **8.11 packaging** (M). The Arch package builds and installs the second
-      bundle with a `trickster-settings.desktop`; extend the AUR recipe and
-      the version-sync test to the app. Done when: the package installs both
-      binaries and the desktop entry opens the app.
