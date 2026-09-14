@@ -84,6 +84,10 @@ rejected at decode, so a live reload keeps the last-good settings.
   from the compositor for each output; pressing a number switches to it and
   creates it where the compositor allows. The retired `show_empty`/`max`
   keys are ignored on decode.
+- `workspaces.per_output` (optional object) — per-display rail lengths by
+  connector, e.g. `{"HDMI-A-1": 6}`; displays without an entry use
+  `workspace_count`. The settings application exposes one slider per
+  connected display under the workspaces gear.
 - `cpu.warn` / `cpu.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
   the CPU load percent when it crosses each level; `warn` must stay below
   `critical`.
