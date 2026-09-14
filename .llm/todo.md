@@ -51,9 +51,16 @@ ownership stays with the compositor.
 
 - **16.3 (M) Chain order controls.** The workspaces gear panel lists the
   connected displays in chain order with drag handles and a Main badge on
-  the first row, each showing its resulting range; a set-as-main action
-  moves a display to the front, writing `display_order`. Done when
-  reordering or marking writes the document and the live bars re-range.
+  the first row, each showing its resulting range; the top display is the
+  main display, so dragging is the only way to change it. Done when
+  reordering writes `display_order` and the live bars re-range.
+- **16.4 (S) Press claims the workspace for the rail's display.** The
+  Hyprland backend ignores the rail output today, so pressing a pip for a
+  workspace living on another monitor follows it there. Move the workspace
+  to the rail's output before focusing (Sway's `workspace N output OUT`
+  behavior), best-effort: older Hyprland uses `moveworkspacetomonitor`,
+  0.56 uses `hl.dsp.workspace.move({ workspace, monitor })`. Done when
+  pressing a pip on the main rail pulls that workspace to the main display.
 
 ## Phase 17 — workspace pip styles
 
