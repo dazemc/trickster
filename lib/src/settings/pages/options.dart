@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -62,11 +64,22 @@ class _OptionsPageState extends State<OptionsPage> {
                 min: 2,
                 max: 9,
                 display: '${settings.workspaces.count}',
+                resetKey: const ValueKey<String>('reset-workspaces-count'),
+                resetLabel: l10n.settingsResetOption(
+                  l10n.settingsWorkspacesCount,
+                ),
+                resetEnabled:
+                    settings.workspaces.count != const WorkspaceOptions().count,
                 onChanged: (value) => _apply(
                   controller,
                   (settings) => settings.copyWith(
                     workspaces: WorkspaceOptions(count: value.round()),
                   ),
+                ),
+                onReset: () => _apply(
+                  controller,
+                  (settings) =>
+                      settings.copyWith(workspaces: const WorkspaceOptions()),
                 ),
               ),
             ],
@@ -79,11 +92,27 @@ class _OptionsPageState extends State<OptionsPage> {
             children: [
               SettingsHeading(title: l10n.settingsClockSection),
               const SizedBox(height: 12),
-              Text(
-                l10n.settingsClockFormat,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsClockFormat,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-clock-format'),
+                    label: l10n.settingsResetOption(l10n.settingsClockFormat),
+                    enabled: settings.clock.format != ClockFormat.locale,
+                    onPressed: () => _apply(
+                      controller,
+                      (settings) =>
+                          settings.copyWith(clock: const ClockOptions()),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -132,6 +161,23 @@ class _OptionsPageState extends State<OptionsPage> {
                     );
                   });
                 },
+                resetKey: const ValueKey<String>('reset-cpu-warn'),
+                resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+                resetEnabled: settings.cpu.warn != const CpuOptions().warn,
+                onReset: () => _apply(controller, (settings) {
+                  final warn = math
+                      .min(
+                        const CpuOptions().warn,
+                        settings.cpu.critical - 0.01,
+                      )
+                      .clamp(0.0, 0.99);
+                  return settings.copyWith(
+                    cpu: CpuOptions(
+                      warn: warn,
+                      critical: settings.cpu.critical,
+                    ),
+                  );
+                }),
               ),
               const SizedBox(height: 10),
               _SliderRow(
@@ -152,6 +198,26 @@ class _OptionsPageState extends State<OptionsPage> {
                     );
                   });
                 },
+                resetKey: const ValueKey<String>('reset-cpu-critical'),
+                resetLabel: l10n.settingsResetOption(
+                  l10n.settingsCriticalLabel,
+                ),
+                resetEnabled:
+                    settings.cpu.critical != const CpuOptions().critical,
+                onReset: () => _apply(controller, (settings) {
+                  final critical = math
+                      .max(
+                        const CpuOptions().critical,
+                        settings.cpu.warn + 0.01,
+                      )
+                      .clamp(0.01, 1.0);
+                  return settings.copyWith(
+                    cpu: CpuOptions(
+                      warn: settings.cpu.warn,
+                      critical: critical,
+                    ),
+                  );
+                }),
               ),
             ],
           ),
@@ -181,6 +247,24 @@ class _OptionsPageState extends State<OptionsPage> {
                     );
                   });
                 },
+                resetKey: const ValueKey<String>('reset-battery-warn'),
+                resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+                resetEnabled:
+                    settings.battery.warn != const BatteryOptions().warn,
+                onReset: () => _apply(controller, (settings) {
+                  final warn = math
+                      .max(
+                        const BatteryOptions().warn,
+                        settings.battery.critical + 1,
+                      )
+                      .clamp(1, 99);
+                  return settings.copyWith(
+                    battery: BatteryOptions(
+                      warn: warn,
+                      critical: settings.battery.critical,
+                    ),
+                  );
+                }),
               ),
               const SizedBox(height: 10),
               _SliderRow(
@@ -201,6 +285,27 @@ class _OptionsPageState extends State<OptionsPage> {
                     );
                   });
                 },
+                resetKey: const ValueKey<String>('reset-battery-critical'),
+                resetLabel: l10n.settingsResetOption(
+                  l10n.settingsCriticalLabel,
+                ),
+                resetEnabled:
+                    settings.battery.critical !=
+                    const BatteryOptions().critical,
+                onReset: () => _apply(controller, (settings) {
+                  final critical = math
+                      .min(
+                        const BatteryOptions().critical,
+                        settings.battery.warn - 1,
+                      )
+                      .clamp(1, 99);
+                  return settings.copyWith(
+                    battery: BatteryOptions(
+                      warn: settings.battery.warn,
+                      critical: critical,
+                    ),
+                  );
+                }),
               ),
             ],
           ),
@@ -212,11 +317,29 @@ class _OptionsPageState extends State<OptionsPage> {
             children: [
               SettingsHeading(title: l10n.settingsMeterSection),
               const SizedBox(height: 12),
-              Text(
-                l10n.settingsMeterCaption,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsMeterCaption,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-meter-caption'),
+                    label: l10n.settingsResetOption(l10n.settingsMeterCaption),
+                    enabled:
+                        settings.meter.captionSource !=
+                        const MeterOptions().captionSource,
+                    onPressed: () => _apply(
+                      controller,
+                      (settings) =>
+                          settings.copyWith(meter: const MeterOptions()),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -268,7 +391,11 @@ class _SliderRow extends StatelessWidget {
     required this.min,
     required this.max,
     required this.display,
+    required this.resetKey,
+    required this.resetLabel,
+    required this.resetEnabled,
     required this.onChanged,
+    required this.onReset,
   });
 
   final Key sliderKey;
@@ -277,7 +404,11 @@ class _SliderRow extends StatelessWidget {
   final double min;
   final double max;
   final String display;
+  final Key resetKey;
+  final String resetLabel;
+  final bool resetEnabled;
   final ValueChanged<double> onChanged;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -310,6 +441,13 @@ class _SliderRow extends StatelessWidget {
             textAlign: TextAlign.right,
             style: ShellText.systemBarValue,
           ),
+        ),
+        const SizedBox(width: 4),
+        SettingsResetButton(
+          key: resetKey,
+          label: resetLabel,
+          enabled: resetEnabled,
+          onPressed: onReset,
         ),
       ],
     );

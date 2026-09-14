@@ -133,6 +133,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose which pills the bar shows and in what order.';
 
   @override
+  String settingsResetOption(String option) {
+    return 'Reset $option';
+  }
+
+  @override
   String get settingsResetHint => 'Revert to the default value';
 
   @override

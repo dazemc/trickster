@@ -172,6 +172,15 @@
   "@settingsModulesCaption": {
     "description": "Caption under the modules page title."
   },
+  "settingsResetOption": "Reset {option}",
+  "@settingsResetOption": {
+    "description": "Accessible label for a control that reverts one option.",
+    "placeholders": {
+      "option": {
+        "type": "String"
+      }
+    }
+  },
   "settingsResetHint": "Revert to the default value",
   "@settingsResetHint": {
     "description": "Hint for a control that reverts one option to its default."
