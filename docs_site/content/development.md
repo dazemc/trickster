@@ -14,6 +14,16 @@ flutter build linux --release # production AOT
 
 A first build needs network (pubspec + Flutter SDK); later builds reuse the cache. Keep the tree `flutter analyze`-clean. Widget tests cover layout math, config parse/round-trip, settings revision retry, and module state mapping.
 
+## Documentation site
+
+`docs_site/` is a separate Jaspr project with its own `pubspec.yaml`, so the root `flutter pub get` does not fetch its dependencies and a fresh clone reports analyzer errors from `docs_site/**` until they are fetched once:
+
+```sh
+cd docs_site && dart pub get   # fresh clone, before flutter analyze
+```
+
+Its own commands run from that directory: `jaspr serve` (port 8080) and `jaspr build` (output in `build/jaspr/`).
+
 Code lands on the single `working` branch; every markdown file commits directly on `main` in its own commit and is merged back into `working`. Each step is committed separately as it lands proven and is removed from `.llm/todo.md`, and a finished phase merges back into `main` through a pull request. Commits follow `scope: summary` in the imperative.
 
 ## Localization
