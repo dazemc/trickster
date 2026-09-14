@@ -61,6 +61,9 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 
 ### Module options
 
+The `modules` list enables and orders the trailing cluster. One name is
+positional: a listed `workspaces` rail always renders centered in the strip.
+
 Each module reads typed options from the same document. Invalid values are
 rejected at decode, so a live reload keeps the last-good settings.
 
