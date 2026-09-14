@@ -65,13 +65,11 @@ class TricksterBarStrip extends StatelessWidget {
     final outputName = output;
     final source = settings.accentSourceFor(outputName);
     final picked = colorFromHex(settings.accentWallpaperPickFor(outputName));
-    final outputCandidates = outputName == null
+    // Per-output sampling falls back to the first sampled output, so a
+    // display sharing the wallpaper still gets candidates.
+    final candidates = outputName == null
         ? wallpaperScope?.candidates ?? const <Color>[]
         : wallpaperScope?.candidatesFor(outputName) ?? const <Color>[];
-    // A cache that does not name outputs falls back to the global sample.
-    final candidates = outputCandidates.isEmpty
-        ? wallpaperScope?.candidates ?? const <Color>[]
-        : outputCandidates;
     final sampledWallpaper = outputName == null
         ? wallpaperScope?.color
         : wallpaperScope?.accentFor(outputName) ?? wallpaperScope?.color;

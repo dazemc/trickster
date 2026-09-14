@@ -146,4 +146,33 @@ void main() {
     expect(controller.color, isNull);
     expect(controller.enabled, isFalse);
   });
+
+  test(
+    'an output without a cache file falls back to the sampled one',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('trickster-wall');
+      addTearDown(() => directory.delete(recursive: true));
+      final red = File('${directory.path}/red.png')
+        ..writeAsBytesSync(base64Decode(_redPng));
+      final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+      cacheFile.parent.createSync(recursive: true);
+      cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
+
+      final controller = WallpaperAccentController(
+        cache: WallpaperCache(root: cacheFile.parent),
+      );
+      addTearDown(controller.dispose);
+
+      controller.update(enabled: true);
+      await _waitFor(() => controller.color != null);
+
+      expect(controller.accentFor('HDMI-A-1'), controller.color);
+      expect(controller.accentFor('HDMI-A-2'), controller.color);
+      expect(controller.candidatesFor('HDMI-A-1'), isNotEmpty);
+      expect(
+        controller.candidatesFor('HDMI-A-2'),
+        controller.candidatesFor('HDMI-A-1'),
+      );
+    },
+  );
 }

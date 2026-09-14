@@ -45,12 +45,20 @@ class WallpaperAccentController extends ChangeNotifier {
   /// non-null entry is the active [color].
   Map<String, Color?> get accents => Map<String, Color?>.unmodifiable(_accents);
 
-  /// The sampled accent for [output], when the wallpaper cache names it.
-  Color? accentFor(String output) => _accents[output];
+  /// The sampled accent for [output], falling back to the first sampled
+  /// output when the cache does not name it (a display that shares the
+  /// wallpaper publishes no file of its own).
+  Color? accentFor(String output) => _accents[output] ?? _color;
 
-  /// [output]'s wallpaper candidates, strongest first; empty when unsampled.
-  List<Color> candidatesFor(String output) =>
-      _candidates[output] ?? const <Color>[];
+  /// [output]'s wallpaper candidates, strongest first; falls back to the
+  /// first sampled output's list when the cache does not name [output].
+  List<Color> candidatesFor(String output) {
+    final own = _candidates[output];
+    if (own != null && own.isNotEmpty) {
+      return List<Color>.unmodifiable(own);
+    }
+    return candidates;
+  }
 
   /// Every potential accent from the active output's wallpaper, strongest
   /// first. The first one is the dominant [color].
