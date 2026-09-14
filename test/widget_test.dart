@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
@@ -235,6 +236,32 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey<String>('workspace-pip-3')), findsNothing);
+  });
+
+  testWidgets('workspace rail centers independently of the cluster', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['workspaces', 'clock']),
+      settle: const Duration(milliseconds: 500),
+    );
+    final rail = find.byType(WorkspacesPill);
+    expect(rail, findsOneWidget);
+    expect(
+      find.ancestor(of: rail, matching: find.byType(SystemBarIndicatorSlot)),
+      findsOneWidget,
+    );
+    final stripCenter = tester.getCenter(find.byType(TricksterBarStrip)).dx;
+    expect(tester.getCenter(rail).dx, closeTo(stripCenter, 0.5));
+    expect(
+      tester.getCenter(rail).dx,
+      lessThan(tester.getCenter(find.byType(ClockPill)).dx),
+    );
   });
 
   testWidgets('strip renders modules in configured order', (tester) async {

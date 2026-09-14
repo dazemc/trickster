@@ -135,64 +135,6 @@ class TricksterBarStrip extends StatelessWidget {
           );
         },
       ),
-      'workspaces': (position) => BlocBuilder<WorkspacesBloc, WorkspacesState>(
-        builder: (context, state) {
-          final options = context.select(
-            (SettingsBloc bloc) => bloc.state.workspaces,
-          );
-          var workspaces = workspacesForOutput(state.workspaces, output);
-          if (!options.showEmpty) {
-            workspaces = [
-              for (final workspace in workspaces)
-                if (workspace.occupied || workspace.focused) workspace,
-            ];
-          }
-          if (workspaces.length > options.max) {
-            workspaces = workspaces.take(options.max).toList(growable: false);
-          }
-          if (workspaces.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          return SystemBarEntrance(
-            index: position,
-            horizontal: horizontal,
-            child: Padding(
-              padding: vertical
-                  ? const EdgeInsets.only(bottom: _cardGap)
-                  : const EdgeInsets.only(right: _cardGap),
-              child: RepaintBoundary(
-                child: vertical
-                    // Side strips scale the rail down so a longer row of
-                    // pips cannot clip.
-                    ? ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: thickness - 2 * _cardMargin,
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: WorkspacesPill(
-                            accent: accent,
-                            workspaces: workspaces,
-                            horizontal: true,
-                            onPressed: (workspace) => context
-                                .read<WorkspacesBloc>()
-                                .add(WorkspacesFocusRequested(workspace)),
-                          ),
-                        ),
-                      )
-                    : WorkspacesPill(
-                        accent: accent,
-                        workspaces: workspaces,
-                        horizontal: true,
-                        onPressed: (workspace) => context
-                            .read<WorkspacesBloc>()
-                            .add(WorkspacesFocusRequested(workspace)),
-                      ),
-              ),
-            ),
-          );
-        },
-      ),
       'gpu': (position) => BlocBuilder<GpuBloc, GpuState>(
         builder: (context, state) {
           if (state.loads.isEmpty) {
@@ -308,23 +250,125 @@ class TricksterBarStrip extends StatelessWidget {
                 horizontal: _cardMargin,
                 vertical: _edgePadding,
               ),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Flex(
-            direction: horizontal ? Axis.horizontal : Axis.vertical,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              for (
-                var position = 0;
-                position < settings.modules.length;
-                position++
-              )
-                builders[settings.modules[position]]?.call(position) ??
-                    const SizedBox.shrink(),
-            ],
-          ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: Flex(
+                direction: horizontal ? Axis.horizontal : Axis.vertical,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  for (
+                    var position = 0;
+                    position < settings.modules.length;
+                    position++
+                  )
+                    if (settings.modules[position] != 'workspaces')
+                      builders[settings.modules[position]]?.call(position) ??
+                          const SizedBox.shrink(),
+                ],
+              ),
+            ),
+            if (settings.includes('workspaces'))
+              Center(
+                child: SystemBarIndicatorSlot(
+                  horizontal: horizontal,
+                  child: RepaintBoundary(
+                    child: _WorkspacesRail(
+                      accent: accent,
+                      output: output,
+                      thickness: thickness,
+                      vertical: vertical,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+/// Shrink-wraps a centered indicator along the strip's main axis.
+///
+/// Cards fill the cross axis by design. Without this flex boundary the
+/// expanding [Stack] would also bound the centered card's main axis, letting
+/// its clip cover the whole strip.
+class SystemBarIndicatorSlot extends StatelessWidget {
+  const SystemBarIndicatorSlot({
+    required this.horizontal,
+    required this.child,
+    super.key,
+  });
+
+  final bool horizontal;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Flex(
+      direction: horizontal ? Axis.horizontal : Axis.vertical,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[child],
+    );
+  }
+}
+
+class _WorkspacesRail extends StatelessWidget {
+  const _WorkspacesRail({
+    required this.accent,
+    required this.output,
+    required this.thickness,
+    required this.vertical,
+  });
+
+  final WallpaperAccent accent;
+  final String? output;
+  final double thickness;
+  final bool vertical;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<WorkspacesBloc, WorkspacesState>(
+      builder: (context, state) {
+        final options = context.select(
+          (SettingsBloc bloc) => bloc.state.workspaces,
+        );
+        var workspaces = workspacesForOutput(state.workspaces, output);
+        if (!options.showEmpty) {
+          workspaces = [
+            for (final workspace in workspaces)
+              if (workspace.occupied || workspace.focused) workspace,
+          ];
+        }
+        if (workspaces.length > options.max) {
+          workspaces = workspaces.take(options.max).toList(growable: false);
+        }
+        if (workspaces.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final pill = WorkspacesPill(
+          accent: accent,
+          workspaces: workspaces,
+          horizontal: true,
+          onPressed: (workspace) => context.read<WorkspacesBloc>().add(
+            WorkspacesFocusRequested(workspace),
+          ),
+        );
+        if (!vertical) {
+          return pill;
+        }
+        // Side strips scale the rail down so a longer row of pips cannot
+        // clip.
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: thickness - 2 * TricksterBarStrip._cardMargin,
+          ),
+          child: FittedBox(fit: BoxFit.scaleDown, child: pill),
+        );
+      },
     );
   }
 }
