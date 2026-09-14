@@ -36,6 +36,18 @@ recipes build them directly:
 - `packaging/arch/PKGBUILD` builds from this checkout (`makepkg`).
 - `packaging/aur/trickster-bin/PKGBUILD` repackages a release asset.
 
+### Arch Linux (AUR)
+
+[`trickster-bin`](https://aur.archlinux.org/packages/trickster-bin)
+repackages the latest published release asset:
+
+```sh
+yay -S trickster-bin   # or any AUR helper
+```
+
+The recipe is updated by hand after each release;
+`packaging/aur/trickster-bin/PKGBUILD` holds the same sources.
+
 ## Preflight
 
 Before starting the bar, validate the environment without opening any surface:
