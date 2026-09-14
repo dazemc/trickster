@@ -1,15 +1,19 @@
-import 'package:flutter/widgets.dart';
+import 'dart:async';
 
-import '../../config/settings.dart';
-import '../../locale.dart';
-import '../../theme/motion.dart';
-import '../../theme/tokens.dart';
-import '../color_format.dart';
-import '../color_wheel.dart';
-import '../controller.dart';
-import '../scope.dart';
-import '../saver.dart';
-import '../settings_theme.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter/widgets.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/color_format.dart';
+import 'package:trickster/src/settings/color_wheel.dart';
+import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/saver.dart';
+import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
+import 'package:trickster/src/theme/wallpaper_accent.dart';
 
 /// Denial's accent presets, starting from the shell's default.
 const List<Color> accentPresets = <Color>[
@@ -99,61 +103,204 @@ class _AppearancePageState extends State<AppearancePage> {
                 ],
               ),
               const SizedBox(height: 22),
-              Text(
-                l10n.settingsAccentPresets,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
+              if (controller.settings.accentSource == AccentSource.wallpaper)
+                _WallpaperAccents(
+                  candidates:
+                      WallpaperAccentScope.maybeOf(context)?.candidates ??
+                      const <Color>[],
+                  picked: colorFromHex(controller.settings.accentWallpaperPick),
+                  onPick: (color) {
+                    final hex = formatOpaqueColorHex(color);
+                    _saver ??= DebouncedSaver(controller);
+                    _saver!.apply(
+                      (settings) => settings.copyWith(accentWallpaperPick: hex),
+                    );
+                  },
+                )
+              else ...[
+                Text(
+                  l10n.settingsAccentPresets,
+                  style: ShellText.systemBarCaption.copyWith(
+                    color: ShellMediaColors.lightForegroundSecondary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final preset in accentPresets)
-                    _SwatchButton(
-                      key: ValueKey<String>(
-                        'accent-preset-${formatOpaqueColorHex(preset)}',
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final preset in accentPresets)
+                      _SwatchButton(
+                        key: ValueKey<String>(
+                          'accent-preset-${formatOpaqueColorHex(preset)}',
+                        ),
+                        color: preset,
+                        selected: preset.toARGB32() == accent.toARGB32(),
+                        onPressed: () => _apply(controller, preset),
                       ),
-                      color: preset,
-                      selected: preset.toARGB32() == accent.toARGB32(),
-                      onPressed: () => _apply(controller, preset),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox.square(
+                      dimension: 176,
+                      child: HsvColorWheel(
+                        color: accent,
+                        onChanged: (color) => _apply(controller, color),
+                      ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox.square(
-                    dimension: 176,
-                    child: HsvColorWheel(
-                      color: accent,
-                      onChanged: (color) => _apply(controller, color),
+                    const SizedBox(width: 28),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          formatOpaqueColorHex(accent),
+                          style: ShellText.systemBarValue.copyWith(
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SettingsButton(
+                          label: l10n.settingsAccentReset,
+                          onPressed: () => _apply(controller, null),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 28),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        formatOpaqueColorHex(accent),
-                        style: ShellText.systemBarValue.copyWith(fontSize: 16),
-                      ),
-                      const SizedBox(height: 14),
-                      SettingsButton(
-                        label: l10n.settingsAccentReset,
-                        onPressed: () => _apply(controller, null),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// With the wallpaper as the accent source the wheel and presets would
+/// fight the sampler; the page lists the wallpaper's candidate accents and
+/// the picked one feeds the bar.
+class _WallpaperAccents extends StatelessWidget {
+  const _WallpaperAccents({
+    required this.candidates,
+    required this.picked,
+    required this.onPick,
+  });
+
+  final List<Color> candidates;
+  final Color? picked;
+  final ValueChanged<Color> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final active = picked == null
+        ? (candidates.isEmpty ? null : candidates.first)
+        : closestAccentCandidate(candidates, picked!) ??
+              (candidates.isEmpty ? null : candidates.first);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.settingsAccentWallpaperTitle,
+          style: ShellText.systemBarCaption.copyWith(
+            color: ShellMediaColors.lightForegroundSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (candidates.isEmpty)
+          Text(
+            l10n.settingsAccentWallpaperEmpty,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 18,
+            runSpacing: 12,
+            children: [
+              for (final candidate in candidates)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _SwatchButton(
+                      key: ValueKey<String>(
+                        'wallpaper-accent-${formatOpaqueColorHex(candidate)}',
+                      ),
+                      color: candidate,
+                      selected: candidate.toARGB32() == active?.toARGB32(),
+                      onPressed: () => onPick(candidate),
+                    ),
+                    const SizedBox(width: 8),
+                    _CopyHexButton(hex: formatOpaqueColorHex(candidate)),
+                  ],
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+/// The hex caption next to a candidate: tap to copy it.
+class _CopyHexButton extends StatefulWidget {
+  const _CopyHexButton({required this.hex});
+
+  final String hex;
+
+  @override
+  State<_CopyHexButton> createState() => _CopyHexButtonState();
+}
+
+class _CopyHexButtonState extends State<_CopyHexButton> {
+  Timer? _reset;
+  var _copied = false;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  void _copy() {
+    unawaited(Clipboard.setData(ClipboardData(text: widget.hex)));
+    setState(() => _copied = true);
+    _reset?.cancel();
+    _reset = Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() => _copied = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Semantics(
+      button: true,
+      label: l10n.settingsCopyHex(widget.hex),
+      onTap: _copy,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _copy,
+            child: Text(
+              _copied ? l10n.settingsCopied : widget.hex,
+              style: ShellText.systemBarValue.copyWith(
+                color: _copied
+                    ? ShellTelemetryColors.nominal
+                    : ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -16,6 +16,8 @@ const _redPng =
     'MCTmH2AAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMDktMTRUMDI6Mzc6MzgrMDA6'
     'MDBz8z6/AAAAC0lEQVQI12NggAAAAAgAAS8g3TEAAAAASUVORK5CYII=';
 
+const _redGif = 'R0lGODlhBAAEAPAAAOAwQAAAACH5BAAAAAAALAAAAAAEAAQAAAIEhI8JBQA7';
+
 const _grayPng =
     'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAAAAACMmsGiAAAAIGNIUk0AAHomAACAhAAA'
     '+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAD/h4/MvwAAAAd0SU1FB+oJ'
@@ -74,6 +76,32 @@ void main() {
       bytes[2] = 0;
       expect(dominantVibrantColor(ByteData.sublistView(bytes)), isNull);
     });
+  });
+
+  test('extracts from GIF wallpapers', () async {
+    final color = await extractWallpaperAccent(base64Decode(_redGif));
+    expect(color, isNotNull);
+    final hsv = HSVColor.fromColor(color!);
+    expect(hsv.hue, anyOf(closeTo(354, 8), closeTo(0, 8)));
+  });
+
+  test('distinct hues become separate candidates', () async {
+    // Half red, half blue: two hue buckets, both above the vote threshold.
+    final bytes = Uint8List(400 * 4);
+    for (var i = 0; i < 400; i += 1) {
+      final red = i < 200;
+      bytes[i * 4] = red ? 224 : 32;
+      bytes[i * 4 + 1] = 32;
+      bytes[i * 4 + 2] = red ? 32 : 224;
+      bytes[i * 4 + 3] = 255;
+    }
+    final candidates = vibrantCandidates(ByteData.sublistView(bytes));
+    expect(candidates, hasLength(2));
+    final hues = [
+      for (final candidate in candidates) HSVColor.fromColor(candidate).hue,
+    ];
+    expect(hues.any((hue) => hue < 30 || hue > 330), isTrue);
+    expect(hues.any((hue) => hue > 200 && hue < 260), isTrue);
   });
 
   group('parseWallpaperPath', () {

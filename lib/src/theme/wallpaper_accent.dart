@@ -8,7 +8,11 @@ import 'package:flutter/widgets.dart';
 ///
 /// Decodes [encoded] at thumbnail size and returns its dominant vibrant
 /// seed, or null for effectively monochrome images.
-Future<Color?> extractWallpaperAccent(Uint8List encoded) async {
+Future<Color?> extractWallpaperAccent(Uint8List encoded) async =>
+    (await extractWallpaperAccents(encoded)).firstOrNull;
+
+/// The wallpaper's potential accents, strongest first.
+Future<List<Color>> extractWallpaperAccents(Uint8List encoded) async {
   final codec = await ui.instantiateImageCodec(
     encoded,
     targetWidth: 64,
@@ -23,9 +27,9 @@ Future<Color?> extractWallpaperAccent(Uint8List encoded) async {
   try {
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (data == null) {
-      return null;
+      return const <Color>[];
     }
-    return dominantVibrantColor(data);
+    return vibrantCandidates(data);
   } finally {
     image.dispose();
   }
@@ -36,7 +40,13 @@ Future<Color?> extractWallpaperAccent(Uint8List encoded) async {
 /// near-black pixels carry no vote; when nothing votes the image has no
 /// usable accent.
 @visibleForTesting
-Color? dominantVibrantColor(ByteData rgba) {
+Color? dominantVibrantColor(ByteData rgba) =>
+    vibrantCandidates(rgba).firstOrNull;
+
+/// The wallpaper's potential accents, strongest first: the top hue buckets
+/// at least 24 degrees apart, each rebuilt as a canonical seed.
+@visibleForTesting
+List<Color> vibrantCandidates(ByteData rgba, {int max = 5}) {
   const bucketCount = 24;
   const bucketDegrees = 360.0 / bucketCount;
   final weights = Float64List(bucketCount);
@@ -81,24 +91,64 @@ Color? dominantVibrantColor(ByteData rgba) {
     saturations[bucket] += saturation * weight;
   }
 
-  var best = 0;
-  for (var bucket = 1; bucket < bucketCount; bucket += 1) {
-    if (weights[bucket] > weights[best]) {
-      best = bucket;
-    }
-  }
   // A vibrant accent needs a real constituency; a handful of stray colored
   // pixels in a gray image must not theme the whole shell.
-  if (pixelCount == 0 || weights[best] < pixelCount * 0.002) {
-    return null;
+  if (pixelCount == 0) {
+    return const <Color>[];
+  }
+  final threshold = pixelCount * 0.002;
+  final order = List<int>.generate(bucketCount, (bucket) => bucket)
+    ..sort((left, right) => weights[right].compareTo(weights[left]));
+
+  Color seedFor(int bucket) {
+    var hue = math.atan2(hueSin[bucket], hueCos[bucket]) * 180.0 / math.pi;
+    if (hue < 0.0) {
+      hue += 360.0;
+    }
+    final saturation = (saturations[bucket] / weights[bucket])
+        .clamp(0.35, 0.74)
+        .toDouble();
+    return HSVColor.fromAHSV(1.0, hue, saturation, 0.65).toColor();
   }
 
-  var hue = math.atan2(hueSin[best], hueCos[best]) * 180.0 / math.pi;
-  if (hue < 0.0) {
-    hue += 360.0;
+  final buckets = <int>[];
+  for (final bucket in order) {
+    if (weights[bucket] < threshold) {
+      break;
+    }
+    final hue = HSVColor.fromColor(seedFor(bucket)).hue;
+    final duplicate = buckets.any((picked) {
+      final other = HSVColor.fromColor(seedFor(picked)).hue;
+      final distance = (hue - other).abs();
+      return math.min(distance, 360.0 - distance) < 24.0;
+    });
+    if (duplicate) {
+      continue;
+    }
+    buckets.add(bucket);
+    if (buckets.length == max) {
+      break;
+    }
   }
-  final saturation = (saturations[best] / weights[best])
-      .clamp(0.35, 0.74)
-      .toDouble();
-  return HSVColor.fromAHSV(1.0, hue, saturation, 0.65).toColor();
+  return [for (final bucket in buckets) seedFor(bucket)];
+}
+
+/// The candidate closest in hue to [target], or null when there are none.
+Color? closestAccentCandidate(List<Color> candidates, Color target) {
+  if (candidates.isEmpty) {
+    return null;
+  }
+  final targetHue = HSVColor.fromColor(target).hue;
+  Color best = candidates.first;
+  var bestDistance = double.infinity;
+  for (final candidate in candidates) {
+    final hue = HSVColor.fromColor(candidate).hue;
+    final distance = (hue - targetHue).abs();
+    final wrapped = math.min(distance, 360.0 - distance);
+    if (wrapped < bestDistance) {
+      bestDistance = wrapped;
+      best = candidate;
+    }
+  }
+  return best;
 }

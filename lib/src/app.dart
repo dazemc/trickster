@@ -5,32 +5,31 @@ import 'dart:ui' show FlutterView;
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import 'bar/bar.dart';
-import 'bar/tray_menu.dart';
-import 'bar/overlay_tooltip.dart';
-import 'control/control_handler.dart';
-import 'control/control_server.dart';
-import 'bootstrap.dart';
-import 'config/session.dart';
-import 'config/outputs_store.dart';
-import 'config/store.dart';
-import 'config/watcher.dart';
-import 'layout/shell_keys.dart';
-import 'layout/system_bar.dart';
-import 'locale.dart';
-import 'platform/layer_shell.dart';
-import 'platform/power_settings.dart';
-import 'theme/backdrop_blur.dart';
-import 'state/capabilities_bloc.dart';
-import 'state/module_scope.dart';
-import 'state/outputs_bloc.dart';
-import 'state/session_bloc.dart';
-import 'state/settings_bloc.dart';
-import 'state/tray_menu.dart';
-import 'config/settings.dart' show AccentSource, BarSettings;
-import 'state/wallpaper_accent.dart';
-import 'state/overlay_tooltip.dart';
+import 'package:trickster/src/bar/bar.dart';
+import 'package:trickster/src/bar/overlay_tooltip.dart';
+import 'package:trickster/src/bar/tray_menu.dart';
+import 'package:trickster/src/bootstrap.dart';
+import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/config/settings.dart' show AccentSource, BarSettings;
+import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/config/watcher.dart';
+import 'package:trickster/src/control/control_handler.dart';
+import 'package:trickster/src/control/control_server.dart';
+import 'package:trickster/src/layout/shell_keys.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/platform/power_settings.dart';
+import 'package:trickster/src/state/capabilities_bloc.dart';
+import 'package:trickster/src/state/module_scope.dart';
+import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_menu.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
+import 'package:trickster/src/theme/backdrop_blur.dart';
 
 class TricksterApp extends StatefulWidget {
   const TricksterApp({required this.initial, this.layerShell, super.key});
@@ -82,7 +81,7 @@ class _TricksterAppState extends State<TricksterApp>
       );
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
-        onChanged: () => _reload(),
+        onChanged: _reload,
       )..start();
       _control = ControlServer(
         handler: (request) => handleControlRequest(

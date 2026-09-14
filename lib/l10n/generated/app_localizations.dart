@@ -667,6 +667,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Wallpaper'**
   String get settingsAccentSourceWallpaper;
+
+  /// Heading for the per-output wallpaper accent list.
+  ///
+  /// In en, this message translates to:
+  /// **'Sampled accents'**
+  String get settingsAccentWallpaperTitle;
+
+  /// Shown when the wallpaper sampler has produced no accent yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the wallpaper sample…'**
+  String get settingsAccentWallpaperEmpty;
+
+  /// Accessible label for copying an accent hex value.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy {hex}'**
+  String settingsCopyHex(Object hex);
+
+  /// Shown briefly after copying a hex value.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get settingsCopied;
 }
 
 class _AppLocalizationsDelegate

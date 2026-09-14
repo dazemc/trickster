@@ -152,6 +152,25 @@ void main() {
       );
     });
 
+    test('the wallpaper pick round-trips and rejects malformed hex', () {
+      const settings = BarSettings(
+        revision: 4,
+        accentSource: AccentSource.wallpaper,
+        accentWallpaperPick: '#2050e0',
+      );
+      expect(
+        BarSettings.decode(settings.encode()).accentWallpaperPick,
+        '#2050e0',
+      );
+      expect(const BarSettings().accentWallpaperPick, isNull);
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "accent_wallpaper_pick": "blue"}',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('the locale round-trips and rejects unknown tags', () {
       const settings = BarSettings(revision: 4, locale: 'zh');
       expect(BarSettings.decode(settings.encode()).locale, 'zh');

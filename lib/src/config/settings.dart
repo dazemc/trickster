@@ -234,6 +234,22 @@ int? _percent(Object? value, String key) {
   return value;
 }
 
+/// `#RRGGBB` (with or without the hash) to an opaque [Color].
+Color? colorFromHex(Object? value) {
+  if (value is! String || value.isEmpty) {
+    return null;
+  }
+  var hex = value;
+  if (hex.startsWith('#')) {
+    hex = hex.substring(1);
+  }
+  if (hex.length != 6) {
+    return null;
+  }
+  final parsed = int.tryParse(hex, radix: 16);
+  return parsed == null ? null : Color(0xff000000 | parsed);
+}
+
 class BarSettings extends Equatable {
   /// Every module the bar can run, in the default strip order.
   static const List<String> knownModules = [
@@ -252,6 +268,7 @@ class BarSettings extends Equatable {
     this.modules = knownModules,
     this.locale,
     this.accentSource = AccentSource.custom,
+    this.accentWallpaperPick,
     this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
@@ -267,6 +284,10 @@ class BarSettings extends Equatable {
   final List<String> modules;
   final String? locale;
   final AccentSource accentSource;
+
+  /// Hex accent chosen from the wallpaper's candidates; null uses the
+  /// dominant one.
+  final String? accentWallpaperPick;
   final WorkspaceOptions workspaces;
   final CpuOptions cpu;
   final ClockOptions clock;
@@ -281,6 +302,7 @@ class BarSettings extends Equatable {
     accent,
     locale,
     accentSource,
+    accentWallpaperPick,
     ...modules,
     workspaces,
     cpu,
@@ -299,6 +321,8 @@ class BarSettings extends Equatable {
     'modules': modules,
     if (locale != null) 'locale': locale,
     'accent_source': accentSource.wire,
+    if (accentWallpaperPick != null)
+      'accent_wallpaper_pick': accentWallpaperPick,
     'workspaces': workspaces.toJson(),
     'cpu': cpu.toJson(),
     'clock': clock.toJson(),
@@ -317,6 +341,7 @@ class BarSettings extends Equatable {
       accent: accent,
       locale: locale,
       accentSource: accentSource,
+      accentWallpaperPick: accentWallpaperPick,
       modules: modules,
       workspaces: workspaces,
       cpu: cpu,
@@ -334,6 +359,7 @@ class BarSettings extends Equatable {
       accent: accent,
       locale: locale,
       accentSource: accentSource,
+      accentWallpaperPick: accentWallpaperPick,
       modules: modules,
       workspaces: workspaces,
       cpu: cpu,
@@ -354,6 +380,7 @@ class BarSettings extends Equatable {
     MeterOptions? meter,
     String? locale,
     AccentSource? accentSource,
+    String? accentWallpaperPick,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
@@ -361,6 +388,7 @@ class BarSettings extends Equatable {
       // copyWith cannot clear the locale; use withLocale(null).
       locale: locale ?? this.locale,
       accentSource: accentSource ?? this.accentSource,
+      accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
       modules: modules ?? this.modules,
       workspaces: workspaces ?? this.workspaces,
       cpu: cpu ?? this.cpu,
@@ -397,6 +425,7 @@ class BarSettings extends Equatable {
       accent: _color(decoded['accent']),
       locale: locale is String ? locale : null,
       accentSource: AccentSource.parse(decoded['accent_source']),
+      accentWallpaperPick: _accentPick(decoded['accent_wallpaper_pick']),
       modules: modules is List
           ? modules.whereType<String>().toList(growable: false)
           : const [
@@ -417,16 +446,22 @@ class BarSettings extends Equatable {
   }
 
   static Color? _color(Object? value) {
-    if (value is! String || value.isEmpty) {
-      return null;
-    }
-    var hex = value;
-    if (hex.startsWith('#')) {
-      hex = hex.substring(1);
-    }
-    if (hex.length != 6) {
+    final color = colorFromHex(value);
+    if (value != null && color == null) {
       throw FormatException('accent must be #RRGGBB: $value');
     }
-    return Color(0xff000000 | int.parse(hex, radix: 16));
+    return color;
+  }
+
+  static String? _accentPick(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is! String || colorFromHex(value) == null) {
+      throw const FormatException(
+        'settings.accent_wallpaper_pick must be #RRGGBB',
+      );
+    }
+    return value;
   }
 }

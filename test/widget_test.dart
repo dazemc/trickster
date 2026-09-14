@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,14 +13,16 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
-import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/services/workspaces.dart';
+import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 import 'support/strip_harness.dart';
-import 'package:trickster/src/theme/tokens.dart';
 
 Future<void> _pumpClock(
   WidgetTester tester,
@@ -148,6 +152,65 @@ void main() {
     expect(find.byType(RotatedBox), findsNothing);
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%'), findsOneWidget);
+  });
+
+  testWidgets('wallpaper accent source colors the strip', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final cacheFile = File('${directory.path}/awww/OUTPUT');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('/tmp/wall.png');
+
+    final controller = WallpaperAccentController(
+      cache: WallpaperCache(root: cacheFile.parent),
+      sampleCandidates: (_) async => const [
+        Color(0xffe01020),
+        Color(0xff2050e0),
+      ],
+      watch: false,
+    );
+    addTearDown(controller.dispose);
+
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['workspaces'],
+        accentSource: AccentSource.wallpaper,
+      ),
+      wallpaperAccent: controller,
+      settle: const Duration(milliseconds: 500),
+    );
+    controller.update(enabled: true);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+    expect(controller.color, const Color(0xffe01020));
+
+    Color? pipColor() {
+      final pip = tester.widget<AnimatedContainer>(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('workspace-pip-1')),
+          matching: find.byType(AnimatedContainer),
+        ),
+      );
+      return (pip.decoration! as BoxDecoration).color;
+    }
+
+    // No pick: the dominant (first) candidate is the accent.
+    expect(pipColor(), const Color(0xffe01020));
+
+    // A stored pick chooses the candidate closest to it in hue.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['workspaces'],
+        accentSource: AccentSource.wallpaper,
+        accentWallpaperPick: '#2050E0',
+      ),
+      wallpaperAccent: controller,
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(pipColor(), const Color(0xff2050e0));
   });
 
   testWidgets('workspace options filter and cap the rail', (tester) async {

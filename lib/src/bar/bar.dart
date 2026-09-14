@@ -1,32 +1,34 @@
 import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import '../config/settings.dart';
-import '../layout/system_bar.dart';
-import '../services/battery.dart';
-import '../services/cpu.dart';
-import '../services/gpu.dart';
-import '../services/status_notifier.dart';
-import '../services/workspaces.dart';
-import '../state/battery_bloc.dart';
-import '../state/cpu_bloc.dart';
-import '../state/gpu_bloc.dart';
-import '../state/media_bloc.dart';
-import '../state/session_bloc.dart';
-import '../state/settings_bloc.dart';
-import '../state/tray_bloc.dart';
-import '../state/workspaces_bloc.dart';
-import '../theme/accent.dart';
-import 'battery.dart';
-import 'clock.dart';
-import 'cpu.dart';
-import 'gpu.dart';
-import 'media.dart';
-import 'pill.dart';
-import 'pill_tooltip.dart';
-import 'tray.dart';
-import 'workspaces.dart';
+import 'package:trickster/src/bar/battery.dart';
+import 'package:trickster/src/bar/clock.dart';
+import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/media.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/bar/workspaces.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/workspaces.dart';
+import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
+import 'package:trickster/src/state/workspaces_bloc.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/wallpaper_accent.dart';
 
 class TricksterBarStrip extends StatelessWidget {
   const TricksterBarStrip({
@@ -54,8 +56,23 @@ class TricksterBarStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsBloc>().state;
+    // The configured accent is the source unless the wallpaper is; the
+    // sampled color is null until extraction lands, so the session and
+    // brand colors still fall through. A stored pick selects the candidate
+    // closest to it in hue.
+    final wallpaperScope = WallpaperAccentScope.maybeOf(context);
+    final picked = colorFromHex(settings.accentWallpaperPick);
+    final sampled = settings.accentSource == AccentSource.wallpaper
+        ? picked == null
+              ? wallpaperScope?.color
+              : closestAccentCandidate(
+                      wallpaperScope?.candidates ?? const <Color>[],
+                      picked,
+                    ) ??
+                    wallpaperScope?.color
+        : null;
     final accent = resolveAccent(
-      settings: settings.accent,
+      settings: sampled ?? settings.accent,
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
     final horizontal = side.isHorizontal;

@@ -300,4 +300,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAccentSourceWallpaper => 'Wallpaper';
+
+  @override
+  String get settingsAccentWallpaperTitle => 'Sampled accents';
+
+  @override
+  String get settingsAccentWallpaperEmpty =>
+      'Waiting for the wallpaper sample…';
+
+  @override
+  String settingsCopyHex(Object hex) {
+    return 'Copy $hex';
+  }
+
+  @override
+  String get settingsCopied => 'Copied';
 }

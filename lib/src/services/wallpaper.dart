@@ -26,9 +26,16 @@ class WallpaperCache {
 
   /// Every wallpaper image currently set, most recently written first.
   List<String> wallpaperPaths() {
+    return [for (final entry in wallpaperEntries()) entry.path];
+  }
+
+  /// The wallpaper per output, most recently written first. The output name
+  /// is the daemon's cache-file name (`HDMI-A-1`); unknown for color-only
+  /// setups, which publish no file.
+  List<WallpaperEntry> wallpaperEntries() {
     final directory = root;
     if (directory == null || !directory.existsSync()) {
-      return const <String>[];
+      return const <WallpaperEntry>[];
     }
     final files = directory
         .listSync(recursive: true, followLinks: false)
@@ -41,7 +48,7 @@ class WallpaperCache {
         return 0;
       }
     });
-    final paths = <String>[];
+    final entries = <WallpaperEntry>[];
     for (final file in files) {
       try {
         // Rasterized wallpaper caches are hundreds of megabytes; the daemon's
@@ -51,14 +58,26 @@ class WallpaperCache {
         }
         final path = parseWallpaperPath(file.readAsStringSync());
         if (path != null) {
-          paths.add(path);
+          entries.add(
+            WallpaperEntry(output: file.uri.pathSegments.last, path: path),
+          );
         }
       } on FileSystemException {
         continue;
       }
     }
-    return paths;
+    return entries;
   }
+}
+
+/// One output's current wallpaper image.
+@immutable
+class WallpaperEntry {
+  const WallpaperEntry({required this.output, required this.path});
+
+  /// The daemon's cache-file name, usually the connector (`HDMI-A-1`).
+  final String output;
+  final String path;
 }
 
 /// The image path from one daemon cache file, or null for color-only setups.
