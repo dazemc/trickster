@@ -138,22 +138,11 @@ while other packages share the stock SDK.
 
 AGENTS now makes the rule explicit: `flutter_bloc` carries all state in both
 processes, and only per-frame ephemeral widget details may stay local. The
-settings application still runs a `ChangeNotifier` controller, and the bar
-still has `ChangeNotifier`/`InheritedNotifier` seams (wallpaper accent, tray
-menus, tooltips). Migrate them so the rule holds everywhere; the settings
-blocs also give the debug observer the state-change transcript the drag work
-needs.
+settings document and the wallpaper accent are migrated; the tray menu and
+tooltip seams still run `ChangeNotifier`. Finish the migration so the rule
+holds everywhere; the blocs also give the debug observer the state-change
+transcript the drag work needs.
 
-- **20.1 (M) Settings document as a bloc.** Replace `SettingsAppController`
-  and `SettingsAppScope` with a `SettingsAppBloc`: explicit load, preview,
-  save, reset, and outputs events; state carries the document, outputs,
-  availability, busy, and error; pages read via `watch`/`select`. Done when
-  the settings app runs entirely through bloc events and the live document
-  round-trips.
-- **20.2 (S) Wallpaper accent as a bloc.** Replace
-  `WallpaperAccentController`/`WallpaperAccentScope` with a bloc both
-  processes provide; sampling state and per-output candidates live in its
-  state. Done when both processes read accents through `context`.
 - **20.3 (M) Modules page state as a bloc.** Move drag, drop, expansion,
   and placement state into a `ModulesBloc` with explicit events, traced by
   the observer in debug/profile; remove `_ModulesPageState` ad-hoc state.
