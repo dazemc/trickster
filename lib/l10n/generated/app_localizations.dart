@@ -332,6 +332,30 @@ abstract class AppLocalizations {
   /// **'Choose which pills the bar shows and in what order.'**
   String get settingsModulesCaption;
 
+  /// Caption above the per-module placement chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Position'**
+  String get settingsModulePlacement;
+
+  /// Placement chip for the strip's leading edge.
+  ///
+  /// In en, this message translates to:
+  /// **'Leading'**
+  String get settingsPlacementLeading;
+
+  /// Placement chip for the strip's center.
+  ///
+  /// In en, this message translates to:
+  /// **'Center'**
+  String get settingsPlacementCenter;
+
+  /// Placement chip for the strip's trailing edge.
+  ///
+  /// In en, this message translates to:
+  /// **'Trailing'**
+  String get settingsPlacementTrailing;
+
   /// Accessible hint for a module toggle.
   ///
   /// In en, this message translates to:

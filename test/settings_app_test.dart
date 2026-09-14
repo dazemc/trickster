@@ -189,6 +189,24 @@ void main() {
     await tester.pump();
     final decoded = BarSettings.decode(file.readAsStringSync());
     expect(decoded.modules.indexOf('clock'), lessThan(before.indexOf('clock')));
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-placement-clock-leading')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('module-placement-clock-leading')),
+    );
+    await tester.pump();
+    expect(controller.settings.zoneFor('clock'), ModuleZone.leading);
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(file.readAsStringSync(), contains('"module_placement"'));
+    expect(
+      BarSettings.decode(file.readAsStringSync()).zoneFor('clock'),
+      ModuleZone.leading,
+    );
   });
 
   testWidgets('displays page writes placement and output selection', (

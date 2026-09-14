@@ -172,6 +172,22 @@
   "@settingsModulesCaption": {
     "description": "Caption under the modules page title."
   },
+  "settingsModulePlacement": "位置",
+  "@settingsModulePlacement": {
+    "description": "Caption above the per-module placement chips."
+  },
+  "settingsPlacementLeading": "起始",
+  "@settingsPlacementLeading": {
+    "description": "Placement chip for the strip's leading edge."
+  },
+  "settingsPlacementCenter": "居中",
+  "@settingsPlacementCenter": {
+    "description": "Placement chip for the strip's center."
+  },
+  "settingsPlacementTrailing": "末尾",
+  "@settingsPlacementTrailing": {
+    "description": "Placement chip for the strip's trailing edge."
+  },
   "settingsModuleToggleHint": "切换该模块",
   "@settingsModuleToggleHint": {
     "description": "Accessible hint for a module toggle."

@@ -23,6 +23,14 @@ String moduleLabel(AppLocalizations l10n, String module) {
   };
 }
 
+String _zoneLabel(AppLocalizations l10n, ModuleZone zone) {
+  return switch (zone) {
+    ModuleZone.leading => l10n.settingsPlacementLeading,
+    ModuleZone.center => l10n.settingsPlacementCenter,
+    ModuleZone.trailing => l10n.settingsPlacementTrailing,
+  };
+}
+
 /// Modules page: every module the bar knows, toggled on or off and ordered
 /// exactly as the strip renders it.
 class ModulesPage extends StatefulWidget {
@@ -55,6 +63,22 @@ class _ModulesPageState extends State<ModulesPage> {
         modules.remove(module);
       }
       return settings.copyWith(modules: modules);
+    });
+  }
+
+  void _place(
+    SettingsAppController controller,
+    String module,
+    ModuleZone zone,
+  ) {
+    _saverFor(controller).apply((settings) {
+      final placement = Map<String, ModuleZone>.of(settings.modulePlacement);
+      if (zone == defaultModuleZone(module)) {
+        placement.remove(module);
+      } else {
+        placement[module] = zone;
+      }
+      return settings.copyWith(modulePlacement: placement);
     });
   }
 
@@ -103,6 +127,8 @@ class _ModulesPageState extends State<ModulesPage> {
                   enabled: controller.settings.includes(module),
                   first: ordered.indexOf(module) == 0,
                   last: ordered.indexOf(module) == ordered.length - 1,
+                  zone: controller.settings.zoneFor(module),
+                  onPlace: (zone) => _place(controller, module, zone),
                   onToggle: (value) => _toggle(controller, module, value),
                   onMoveUp: () => _move(controller, module, -1),
                   onMoveDown: () => _move(controller, module, 1),
@@ -122,6 +148,8 @@ class _ModuleRow extends StatelessWidget {
     required this.enabled,
     required this.first,
     required this.last,
+    required this.zone,
+    required this.onPlace,
     required this.onToggle,
     required this.onMoveUp,
     required this.onMoveDown,
@@ -133,6 +161,8 @@ class _ModuleRow extends StatelessWidget {
   final bool enabled;
   final bool first;
   final bool last;
+  final ModuleZone zone;
+  final ValueChanged<ModuleZone> onPlace;
   final ValueChanged<bool> onToggle;
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
@@ -142,40 +172,72 @@ class _ModuleRow extends StatelessWidget {
     final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MoveButton(
-            key: ValueKey<String>('module-up-$module'),
-            label: l10n.settingsModuleMoveUp,
-            up: true,
-            enabled: !first,
-            onPressed: onMoveUp,
+          Row(
+            children: [
+              _MoveButton(
+                key: ValueKey<String>('module-up-$module'),
+                label: l10n.settingsModuleMoveUp,
+                up: true,
+                enabled: !first,
+                onPressed: onMoveUp,
+              ),
+              const SizedBox(width: 4),
+              _MoveButton(
+                key: ValueKey<String>('module-down-$module'),
+                label: l10n.settingsModuleMoveDown,
+                up: false,
+                enabled: !last,
+                onPressed: onMoveDown,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: ShellText.systemBarValue.copyWith(
+                    color: enabled
+                        ? ShellMediaColors.lightForeground
+                        : ShellMediaColors.lightForegroundSecondary,
+                  ),
+                ),
+              ),
+              _ModuleToggle(
+                key: ValueKey<String>('module-toggle-$module'),
+                label: label,
+                enabled: enabled,
+                onChanged: onToggle,
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          _MoveButton(
-            key: ValueKey<String>('module-down-$module'),
-            label: l10n.settingsModuleMoveDown,
-            up: false,
-            enabled: !last,
-            onPressed: onMoveDown,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: ShellText.systemBarValue.copyWith(
-                color: enabled
-                    ? ShellMediaColors.lightForeground
-                    : ShellMediaColors.lightForegroundSecondary,
+          if (enabled)
+            Padding(
+              padding: const EdgeInsets.only(left: 64, top: 8, bottom: 4),
+              child: Row(
+                children: [
+                  Text(
+                    l10n.settingsModulePlacement,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: ShellMediaColors.lightForegroundSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  for (final place in ModuleZone.values) ...[
+                    SettingsChoiceChip(
+                      key: ValueKey<String>(
+                        'module-placement-$module-${place.wire}',
+                      ),
+                      label: _zoneLabel(l10n, place),
+                      selected: zone == place,
+                      onPressed: () => onPlace(place),
+                    ),
+                    if (place != ModuleZone.values.last)
+                      const SizedBox(width: 6),
+                  ],
+                ],
               ),
             ),
-          ),
-          _ModuleToggle(
-            key: ValueKey<String>('module-toggle-$module'),
-            label: label,
-            enabled: enabled,
-            onChanged: onToggle,
-          ),
         ],
       ),
     );
