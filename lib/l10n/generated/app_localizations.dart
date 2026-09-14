@@ -566,6 +566,12 @@ abstract class AppLocalizations {
   /// **'Workspaces'**
   String get settingsWorkspacesSection;
 
+  /// Caption above the per-display workspace counts.
+  ///
+  /// In en, this message translates to:
+  /// **'Per display'**
+  String get settingsWorkspacesPerDisplay;
+
   /// Label for the workspace count slider.
   ///
   /// In en, this message translates to:

@@ -338,6 +338,10 @@
   "@settingsWorkspacesSection": {
     "description": "Section heading for workspace rail options."
   },
+  "settingsWorkspacesPerDisplay": "每个显示器",
+  "@settingsWorkspacesPerDisplay": {
+    "description": "Caption above the per-display workspace counts."
+  },
   "settingsWorkspacesCount": "工作区数量",
   "@settingsWorkspacesCount": {
     "description": "Label for the workspace count slider."

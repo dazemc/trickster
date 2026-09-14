@@ -52,27 +52,92 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     final controller = SettingsAppScope.of(context);
     final settings = controller.settings;
     return switch (widget.module) {
-      'workspaces' => _SliderRow(
-        sliderKey: const ValueKey<String>('options-workspaces-count'),
-        label: l10n.settingsWorkspacesCount,
-        value: settings.workspaces.count.toDouble(),
-        min: 2,
-        max: 9,
-        display: '${settings.workspaces.count}',
-        resetKey: const ValueKey<String>('reset-workspaces-count'),
-        resetLabel: l10n.settingsResetOption(l10n.settingsWorkspacesCount),
-        resetEnabled:
-            settings.workspaces.count != const WorkspaceOptions().count,
-        onChanged: (value) => _apply(
-          controller,
-          (settings) => settings.copyWith(
-            workspaces: WorkspaceOptions(count: value.round()),
+      'workspaces' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-workspaces-count'),
+            label: l10n.settingsWorkspacesCount,
+            value: settings.workspaces.count.toDouble(),
+            min: 2,
+            max: 9,
+            display: '${settings.workspaces.count}',
+            resetKey: const ValueKey<String>('reset-workspaces-count'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWorkspacesCount),
+            resetEnabled:
+                settings.workspaces.count != const WorkspaceOptions().count,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                workspaces: WorkspaceOptions(
+                  count: value.round(),
+                  perOutput: settings.workspaces.perOutput,
+                ),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                workspaces: WorkspaceOptions(
+                  perOutput: settings.workspaces.perOutput,
+                ),
+              ),
+            ),
           ),
-        ),
-        onReset: () => _apply(
-          controller,
-          (settings) => settings.copyWith(workspaces: const WorkspaceOptions()),
-        ),
+          if (controller.availableOutputs.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              l10n.settingsWorkspacesPerDisplay,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final output in controller.availableOutputs) ...[
+              _SliderRow(
+                sliderKey: ValueKey<String>(
+                  'options-workspaces-count-${output.name}',
+                ),
+                label: output.name,
+                value: settings.workspaces.countFor(output.name).toDouble(),
+                min: 2,
+                max: 9,
+                display: '${settings.workspaces.countFor(output.name)}',
+                resetKey: ValueKey<String>(
+                  'reset-workspaces-count-${output.name}',
+                ),
+                resetLabel: l10n.settingsResetOption(output.name),
+                resetEnabled: settings.workspaces.perOutput.containsKey(
+                  output.name,
+                ),
+                onChanged: (value) => _apply(controller, (settings) {
+                  final perOutput = Map<String, int>.of(
+                    settings.workspaces.perOutput,
+                  );
+                  perOutput[output.name] = value.round();
+                  return settings.copyWith(
+                    workspaces: WorkspaceOptions(
+                      count: settings.workspaces.count,
+                      perOutput: perOutput,
+                    ),
+                  );
+                }),
+                onReset: () => _apply(controller, (settings) {
+                  final perOutput = Map<String, int>.of(
+                    settings.workspaces.perOutput,
+                  )..remove(output.name);
+                  return settings.copyWith(
+                    workspaces: WorkspaceOptions(
+                      count: settings.workspaces.count,
+                      perOutput: perOutput,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ],
       ),
       'clock' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,

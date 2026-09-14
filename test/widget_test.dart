@@ -363,6 +363,32 @@ void main() {
     );
   });
 
+  testWidgets('per-output counts size the rails differently', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['workspaces'],
+        workspaces: WorkspaceOptions(count: 2, perOutput: {'HDMI-A-1': 3}),
+      ),
+      output: 'HDMI-A-1',
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('3'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['workspaces'],
+        workspaces: WorkspaceOptions(count: 2, perOutput: {'HDMI-A-1': 3}),
+      ),
+      output: 'HDMI-A-2',
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('3'), findsNothing);
+  });
+
   testWidgets('strip renders modules in configured order', (tester) async {
     await pumpBarHarness(
       tester,

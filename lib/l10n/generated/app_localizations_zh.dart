@@ -251,6 +251,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsWorkspacesSection => '工作区';
 
   @override
+  String get settingsWorkspacesPerDisplay => '每个显示器';
+
+  @override
   String get settingsWorkspacesCount => '工作区数量';
 
   @override

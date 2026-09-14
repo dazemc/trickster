@@ -354,7 +354,11 @@ class _WorkspacesRail extends StatelessWidget {
         final options = context.select(
           (SettingsBloc bloc) => bloc.state.workspaces,
         );
-        final workspaces = _countRail(state.workspaces, options.count, output);
+        final workspaces = _countRail(
+          state.workspaces,
+          options.countFor(output),
+          output,
+        );
         final pill = WorkspacesPill(
           accent: accent,
           workspaces: workspaces,

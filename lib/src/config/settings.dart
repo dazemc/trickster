@@ -5,16 +5,30 @@ import 'package:equatable/equatable.dart';
 
 /// Typed options for the workspace rail.
 class WorkspaceOptions extends Equatable {
-  const WorkspaceOptions({this.count = 4});
+  const WorkspaceOptions({this.count = 4, this.perOutput = const {}});
 
   /// Workspaces shown on every rail as 1..count, Denial's model. The old
   /// `show_empty`/`max` keys are retired and ignored on decode.
   final int count;
 
-  @override
-  List<Object?> get props => [count];
+  /// Per-display overrides by connector, since one monitor may want a longer
+  /// rail than another.
+  final Map<String, int> perOutput;
 
-  Map<String, Object?> toJson() => {'workspace_count': count};
+  /// The rail length for [output]: its override, else the shared count.
+  int countFor(String? output) =>
+      output == null ? count : (perOutput[output] ?? count);
+
+  @override
+  List<Object?> get props => [
+    count,
+    ...perOutput.entries.map((entry) => Object.hash(entry.key, entry.value)),
+  ];
+
+  Map<String, Object?> toJson() => {
+    'workspace_count': count,
+    if (perOutput.isNotEmpty) 'per_output': perOutput,
+  };
 
   static WorkspaceOptions fromJson(Object? json) {
     if (json == null) {
@@ -29,7 +43,25 @@ class WorkspaceOptions extends Equatable {
         'settings.workspaces.workspace_count must be 2..9',
       );
     }
-    return WorkspaceOptions(count: count as int? ?? 4);
+    final perOutput = json['per_output'];
+    if (perOutput != null && perOutput is! Map<String, dynamic>) {
+      throw const FormatException(
+        'settings.workspaces.per_output must be an object',
+      );
+    }
+    final overrides = <String, int>{};
+    if (perOutput is Map<String, dynamic>) {
+      for (final entry in perOutput.entries) {
+        final value = entry.value;
+        if (value is! int || value < 2 || value > 9) {
+          throw const FormatException(
+            'settings.workspaces.per_output values must be 2..9',
+          );
+        }
+        overrides[entry.key] = value;
+      }
+    }
+    return WorkspaceOptions(count: count as int? ?? 4, perOutput: overrides);
   }
 }
 

@@ -402,6 +402,52 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
+  testWidgets('workspace counts override per display', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-options-workspaces')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('module-options-workspaces')),
+    );
+    await tester.pumpAndSettle();
+
+    final slider = find.byKey(
+      const ValueKey<String>('options-workspaces-count-HDMI-A-1'),
+    );
+    await tester.ensureVisible(slider);
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(slider);
+    await tester.tapAt(Offset(rect.right - 2, rect.center.dy));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.workspaces.countFor('HDMI-A-1'), 9);
+    expect(
+      BarSettings.decode(
+        file.readAsStringSync(),
+      ).workspaces.perOutput['HDMI-A-1'],
+      9,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('reset-workspaces-count-HDMI-A-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('reset-workspaces-count-HDMI-A-1')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.workspaces.perOutput, isEmpty);
+    expect(controller.settings.workspaces.countFor('HDMI-A-1'), 4);
+  });
+
   testWidgets('drag preview follows the hovered half of the row', (
     tester,
   ) async {

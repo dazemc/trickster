@@ -120,6 +120,30 @@ void main() {
       );
     });
 
+    test('per-display workspace counts round-trip', () {
+      const settings = BarSettings(
+        revision: 5,
+        workspaces: WorkspaceOptions(count: 4, perOutput: {'HDMI-A-1': 6}),
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.workspaces.count, 4);
+      expect(decoded.workspaces.countFor('HDMI-A-1'), 6);
+      expect(decoded.workspaces.countFor('eDP-1'), 4);
+      expect(decoded.workspaces.countFor(null), 4);
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"per_output": {"HDMI-A-1": 1}}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"per_output": []}}',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('module placement round-trips and validates', () {
       const settings = BarSettings(
         revision: 2,
