@@ -165,7 +165,7 @@ void main() {
     cacheFile.parent.createSync(recursive: true);
     cacheFile.writeAsStringSync('/tmp/wall.png');
 
-    final controller = WallpaperAccentController(
+    final controller = WallpaperAccentBloc(
       cache: WallpaperCache(root: cacheFile.parent),
       sampleCandidates: (_) async => const [
         Color(0xffe01020),
@@ -173,7 +173,7 @@ void main() {
       ],
       watch: false,
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await pumpBarHarness(
       tester,
@@ -185,10 +185,10 @@ void main() {
       wallpaperAccent: controller,
       settle: const Duration(milliseconds: 500),
     );
-    controller.update(enabled: true);
+    controller.add(const WallpaperAccentEnabled(enabled: true));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
-    expect(controller.color, const Color(0xffe01020));
+    expect(controller.state.color, const Color(0xffe01020));
 
     Color? pipColor() {
       final pip = tester.widget<AnimatedDefaultTextStyle>(
@@ -228,7 +228,7 @@ void main() {
     cacheFile.parent.createSync(recursive: true);
     cacheFile.writeAsStringSync('/tmp/wall.png');
 
-    final controller = WallpaperAccentController(
+    final controller = WallpaperAccentBloc(
       cache: WallpaperCache(root: cacheFile.parent),
       sampleCandidates: (_) async => const [
         Color(0xffe01020),
@@ -236,11 +236,11 @@ void main() {
       ],
       watch: false,
     );
-    addTearDown(controller.dispose);
-    controller.update(enabled: true);
+    addTearDown(controller.close);
+    controller.add(const WallpaperAccentEnabled(enabled: true));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
-    expect(controller.color, const Color(0xffe01020));
+    expect(controller.state.color, const Color(0xffe01020));
 
     Future<Color?> accentFor(String output, String pick) async {
       await tester.pumpWidget(const SizedBox.shrink());

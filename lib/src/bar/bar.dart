@@ -61,18 +61,18 @@ class TricksterBarStrip extends StatelessWidget {
     // brand colors still fall through. A stored pick selects the candidate
     // closest to it in hue. Appearance resolves per display, falling back to
     // the global keys.
-    final wallpaperScope = WallpaperAccentScope.maybeOf(context);
+    final wallpaper = context.watch<WallpaperAccentBloc>().state;
     final outputName = output;
     final source = settings.accentSourceFor(outputName);
     final picked = colorFromHex(settings.accentWallpaperPickFor(outputName));
     // Per-output sampling falls back to the first sampled output, so a
     // display sharing the wallpaper still gets candidates.
     final candidates = outputName == null
-        ? wallpaperScope?.candidates ?? const <Color>[]
-        : wallpaperScope?.candidatesFor(outputName) ?? const <Color>[];
+        ? wallpaper.topCandidates
+        : wallpaper.candidatesFor(outputName);
     final sampledWallpaper = outputName == null
-        ? wallpaperScope?.color
-        : wallpaperScope?.accentFor(outputName) ?? wallpaperScope?.color;
+        ? wallpaper.color
+        : wallpaper.accentFor(outputName) ?? wallpaper.color;
     final sampled = source == AccentSource.wallpaper
         ? picked == null
               ? sampledWallpaper

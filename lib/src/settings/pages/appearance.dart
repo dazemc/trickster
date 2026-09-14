@@ -151,13 +151,13 @@ class _AppearancePageState extends State<AppearancePage> {
     final settings = controller.settings;
     final outputs = controller.availableOutputs;
     final target = _target;
-    final wallpaperScope = WallpaperAccentScope.maybeOf(context);
+    final wallpaper = context.watch<WallpaperAccentBloc>().state;
     final source = settings.accentSourceFor(target);
     final accent = settings.accentFor(target) ?? ShellBrandColors.defaultAccent;
     final picked = colorFromHex(settings.accentWallpaperPickFor(target));
     final candidates = target == null
-        ? wallpaperScope?.candidates ?? const <Color>[]
-        : wallpaperScope?.candidatesFor(target) ?? const <Color>[];
+        ? wallpaper.topCandidates
+        : wallpaper.candidatesFor(target);
     final override = target == null ? null : settings.displayAppearance[target];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

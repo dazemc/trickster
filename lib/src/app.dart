@@ -47,7 +47,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
   late final OverlayTooltipController _tooltipController;
-  late final WallpaperAccentController _wallpaperAccent;
+  late final WallpaperAccentBloc _wallpaperAccent;
   late final FileSettingsTransport _settingsTransport;
   late final OutputsDocumentTransport _outputsTransport;
   ControlServer? _control;
@@ -68,7 +68,7 @@ class _TricksterAppState extends State<TricksterApp>
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
     _tooltipController = OverlayTooltipController(layerShell: _layerShell);
-    _wallpaperAccent = WallpaperAccentController();
+    _wallpaperAccent = WallpaperAccentBloc();
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
     );
@@ -77,8 +77,10 @@ class _TricksterAppState extends State<TricksterApp>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
-      _wallpaperAccent.update(
-        enabled: widget.initial.settings.usesWallpaperAccent,
+      _wallpaperAccent.add(
+        WallpaperAccentEnabled(
+          enabled: widget.initial.settings.usesWallpaperAccent,
+        ),
       );
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
@@ -104,7 +106,7 @@ class _TricksterAppState extends State<TricksterApp>
     unawaited(_control?.dispose());
     _menuController.dispose();
     _tooltipController.dispose();
-    _wallpaperAccent.dispose();
+    unawaited(_wallpaperAccent.close());
     super.dispose();
   }
 
@@ -237,10 +239,11 @@ class _TricksterAppState extends State<TricksterApp>
       listenWhen: (previous, next) =>
           previous.accentSource != next.accentSource ||
           previous.displayAppearance != next.displayAppearance,
-      listener: (context, settings) =>
-          _wallpaperAccent.update(enabled: settings.usesWallpaperAccent),
-      child: WallpaperAccentScope(
-        notifier: _wallpaperAccent,
+      listener: (context, settings) => _wallpaperAccent.add(
+        WallpaperAccentEnabled(enabled: settings.usesWallpaperAccent),
+      ),
+      child: BlocProvider.value(
+        value: _wallpaperAccent,
         child: TricksterLocalizationScope(
           locale: localeFromTag(locale),
           child: BlocBuilder<OutputsBloc, OutputsConfig>(

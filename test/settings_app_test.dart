@@ -58,21 +58,25 @@ Future<void> _pump(
   return tester.pumpWidget(
     BlocProvider.value(
       value: bloc,
-      child: TricksterLocalizationScope(
-        child: MediaQuery(
-          data: const MediaQueryData(size: Size(980, 720)),
-          child: Directionality(
-            textDirection: TextDirection.ltr,
-            child: Overlay(
-              initialEntries: [
-                OverlayEntry(
-                  builder: (context) => SettingsHome(
-                    onClose: onClose,
-                    availabilityProbe:
-                        availabilityProbe ?? () => const <ModuleAvailability>[],
+      child: BlocProvider<WallpaperAccentBloc>(
+        create: (_) => WallpaperAccentBloc(watch: false),
+        child: TricksterLocalizationScope(
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(980, 720)),
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (context) => SettingsHome(
+                      onClose: onClose,
+                      availabilityProbe:
+                          availabilityProbe ??
+                          () => const <ModuleAvailability>[],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1059,23 +1063,23 @@ void main() {
     final cache = Directory('${directory.path}/awww')..createSync();
     File('${cache.path}/HDMI-A-1').writeAsStringSync('/tmp/a.png');
     File('${cache.path}/HDMI-A-2').writeAsStringSync('/tmp/b.png');
-    final accents = WallpaperAccentController(
+    final accents = WallpaperAccentBloc(
       cache: WallpaperCache(root: cache),
       sampleCandidates: (path) async => path.endsWith('a.png')
           ? const [Color(0xffe01020), Color(0xff2050e0)]
           : const <Color>[],
       watch: false,
     );
-    addTearDown(accents.dispose);
-    accents.update(enabled: true);
+    addTearDown(accents.close);
+    accents.add(const WallpaperAccentEnabled(enabled: true));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
 
     await tester.pumpWidget(
       BlocProvider.value(
         value: bloc,
-        child: WallpaperAccentScope(
-          notifier: accents,
+        child: BlocProvider.value(
+          value: accents,
           child: TricksterLocalizationScope(
             child: MediaQuery(
               data: const MediaQueryData(size: Size(980, 720)),

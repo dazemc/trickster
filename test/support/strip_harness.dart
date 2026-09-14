@@ -45,7 +45,7 @@ Future<void> pumpBarHarness(
   SystemBarSide side = SystemBarSide.top,
   double thickness = 32,
   String? output,
-  WallpaperAccentController? wallpaperAccent,
+  WallpaperAccentBloc? wallpaperAccent,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
   GpuBloc Function()? gpuBuilder,
@@ -85,13 +85,16 @@ Future<void> pumpBarHarness(
               mediaBuilder ??
               () => MediaBloc(initial: MprisPlaybackState.unavailable()),
           child: wallpaperAccent == null
-              ? TricksterBarStrip(
-                  side: side,
-                  thickness: thickness,
-                  output: output,
+              ? BlocProvider<WallpaperAccentBloc>(
+                  create: (_) => WallpaperAccentBloc(watch: false),
+                  child: TricksterBarStrip(
+                    side: side,
+                    thickness: thickness,
+                    output: output,
+                  ),
                 )
-              : WallpaperAccentScope(
-                  notifier: wallpaperAccent,
+              : BlocProvider<WallpaperAccentBloc>.value(
+                  value: wallpaperAccent,
                   child: TricksterBarStrip(
                     side: side,
                     thickness: thickness,

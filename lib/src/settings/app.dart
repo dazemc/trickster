@@ -30,19 +30,19 @@ class TricksterSettingsApp extends StatefulWidget {
 
 class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
   late final SettingsAppBloc _bloc;
-  late final WallpaperAccentController _wallpaperAccent;
+  late final WallpaperAccentBloc _wallpaperAccent;
 
   @override
   void initState() {
     super.initState();
     _bloc = SettingsAppBloc()..add(const SettingsAppLoadRequested());
-    _wallpaperAccent = WallpaperAccentController();
+    _wallpaperAccent = WallpaperAccentBloc();
   }
 
   @override
   void dispose() {
     unawaited(_bloc.close());
-    _wallpaperAccent.dispose();
+    unawaited(_wallpaperAccent.close());
     super.dispose();
   }
 
@@ -57,11 +57,11 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
         listenWhen: (previous, next) =>
             previous.settings.usesWallpaperAccent !=
             next.settings.usesWallpaperAccent,
-        listener: (context, state) => _wallpaperAccent.update(
-          enabled: state.settings.usesWallpaperAccent,
+        listener: (context, state) => _wallpaperAccent.add(
+          WallpaperAccentEnabled(enabled: state.settings.usesWallpaperAccent),
         ),
-        child: WallpaperAccentScope(
-          notifier: _wallpaperAccent,
+        child: BlocProvider.value(
+          value: _wallpaperAccent,
           child: ViewCollection(
             views: [
               for (final view in views)
