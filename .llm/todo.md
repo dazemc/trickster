@@ -42,11 +42,6 @@ silent per the logging rules.
 
 ## Phase 9 — parity and release hygiene
 
-- [ ] **9.2 pin the Denial porting reference** (S). `.llm/porting.md`.
-      Record the revision (or tag) of the Denial `dart_shell` tree the
-      ports were taken from and where the checkout is expected, so a
-      future session does not port against a drifted tree. Done when: the
-      note carries the revision and the path convention.
 - [ ] **9.3 wallpaper accent sampler** (M). `lib/src/theme/`, settings.
       Denial derives the accent from the wallpaper; Trickster only reads
       `accent`/`TRICKSTER_ACCENT`. Add an opt-in sampler that reads the

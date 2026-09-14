@@ -25,3 +25,11 @@ Deliberate, user-reviewed divergences:
   kept in state for the future caption option; AMD/Intel pips keep their
   vendor tags. NVIDIA therefore diverges from Denial's `NV`. Do not restore
   `NV`, or make device names the default, without asking.
+
+## Reference tree
+
+Ports were taken from the Denial checkout at
+`85b2303e2f09ae7b7b993641f90061a200f03d53` (`v0.3.1`, 2026-08-31), expected
+at `~/GitHub/denial` (`dart_shell/`, `settings_app/`). Record a new revision
+here whenever a port comes from a different tree, so a later session never
+ports against drift.
