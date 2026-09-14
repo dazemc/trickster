@@ -60,6 +60,10 @@ class ModulesPage extends StatefulWidget {
 }
 
 class _ModulesPageState extends State<ModulesPage> {
+  /// How far past a zone's card still counts as that zone's drop area, so
+  /// releasing below the last row appends instead of snapping back.
+  static const double _zoneDropReach = 48;
+
   DebouncedSaver? _saver;
   late final List<ModuleAvailability> _unavailable = widget.availabilityProbe();
 
@@ -72,6 +76,7 @@ class _ModulesPageState extends State<ModulesPage> {
   int _previewIndex = 0;
   Offset? _lastPointer;
   bool _dropHandled = false;
+  bool _overDisabled = false;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
@@ -213,15 +218,19 @@ class _ModulesPageState extends State<ModulesPage> {
 
   /// Tracks the pointer over the segment geometry so the gap follows the
   /// drag before release.
+  ///
+  /// The nearest zone wins within [_zoneDropReach], so releasing under the
+  /// last row still appends there instead of snapping back; the Disabled
+  /// section clears the preview when the pointer enters it.
   void _updateDrag(SettingsAppController controller, Offset position) {
     final dragging = _dragging;
-    if (dragging == null) {
+    if (dragging == null || _overDisabled) {
       return;
     }
     _lastPointer = position;
     final groups = _groupsFor(controller.settings, exclude: dragging);
     ModuleZone? zone;
-    var index = 0;
+    var bestDistance = _zoneDropReach;
     for (final entry in groups.entries) {
       final box =
           _zoneKey(entry.key).currentContext?.findRenderObject() as RenderBox?;
@@ -229,25 +238,35 @@ class _ModulesPageState extends State<ModulesPage> {
         continue;
       }
       final rect = box.localToGlobal(Offset.zero) & box.size;
-      if (!rect.inflate(16).contains(position)) {
+      final distance = position.dy < rect.top
+          ? rect.top - position.dy
+          : position.dy > rect.bottom
+          ? position.dy - rect.bottom
+          : 0.0;
+      if (distance > _zoneDropReach) {
         continue;
       }
-      zone = entry.key;
-      index = 0;
-      for (final candidate in entry.value) {
-        final rowBox =
-            _rowKey(candidate).currentContext?.findRenderObject() as RenderBox?;
-        if (rowBox == null) {
-          continue;
-        }
-        final rowRect = rowBox.localToGlobal(Offset.zero) & rowBox.size;
-        if (position.dy > rowRect.center.dy) {
-          index += 1;
-        }
+      if (zone == null || distance < bestDistance) {
+        bestDistance = distance;
+        zone = entry.key;
       }
-      break;
     }
-    if (zone == null || (zone == _previewZone && index == _previewIndex)) {
+    if (zone == null) {
+      return;
+    }
+    var index = 0;
+    for (final candidate in groups[zone]!) {
+      final rowBox =
+          _rowKey(candidate).currentContext?.findRenderObject() as RenderBox?;
+      if (rowBox == null) {
+        continue;
+      }
+      final rowRect = rowBox.localToGlobal(Offset.zero) & rowBox.size;
+      if (position.dy > rowRect.center.dy) {
+        index += 1;
+      }
+    }
+    if (zone == _previewZone && index == _previewIndex) {
       return;
     }
     setState(() {
@@ -280,6 +299,7 @@ class _ModulesPageState extends State<ModulesPage> {
     final pointer = _lastPointer;
     final handled = _dropHandled;
     _dropHandled = false;
+    _overDisabled = false;
     _lastPointer = null;
     setState(() {
       _dragging = null;
@@ -294,17 +314,6 @@ class _ModulesPageState extends State<ModulesPage> {
       return;
     }
     _dropOn(controller, module, zone: zone, index: index);
-  }
-
-  /// Appends [module] to [zone] from a zone's end-of-list drop target.
-  void _dropAtEnd(
-    SettingsAppController controller,
-    String module,
-    ModuleZone zone,
-  ) {
-    _dropHandled = true;
-    final groups = _groupsFor(controller.settings, exclude: module);
-    _dropOn(controller, module, zone: zone, index: groups[zone]!.length);
   }
 
   /// Turns [module] off from the Disabled section's drop target.
@@ -441,16 +450,6 @@ class _ModulesPageState extends State<ModulesPage> {
               ),
             ),
         ],
-        DragTarget<String>(
-          key: ValueKey<String>('module-drop-end-${zone.wire}'),
-          onWillAcceptWithDetails: (_) => true,
-          onAcceptWithDetails: (details) =>
-              _dropAtEnd(controller, details.data, zone),
-          builder: (context, candidates, rejected) => _dropHere(
-            label: l10n.settingsModulesEmptyZone,
-            active: candidates.isNotEmpty,
-          ),
-        ),
       ];
     }
 
@@ -505,13 +504,18 @@ class _ModulesPageState extends State<ModulesPage> {
                 ),
                 child: SettingsCard(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    children: segmentChildren(
-                      entry.key,
-                      entry.value,
-                      constraints.maxWidth,
-                    ),
-                  ),
+                  child: entry.value.isEmpty && _previewZone != entry.key
+                      ? _dropHere(
+                          label: l10n.settingsModulesEmptyZone,
+                          active: false,
+                        )
+                      : Column(
+                          children: segmentChildren(
+                            entry.key,
+                            entry.value,
+                            constraints.maxWidth,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -546,7 +550,16 @@ class _ModulesPageState extends State<ModulesPage> {
             const SizedBox(height: 10),
             DragTarget<String>(
               key: const ValueKey<String>('module-zone-disabled-drop'),
-              onWillAcceptWithDetails: (_) => true,
+              onWillAcceptWithDetails: (_) {
+                if (!_overDisabled) {
+                  setState(() {
+                    _overDisabled = true;
+                    _previewZone = null;
+                  });
+                }
+                return true;
+              },
+              onLeave: (_) => _overDisabled = false,
               onAcceptWithDetails: (details) =>
                   _disableDropped(controller, details.data),
               builder: (context, candidates, rejected) => DecoratedBox(

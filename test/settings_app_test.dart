@@ -114,6 +114,38 @@ Future<void> _dragModuleTo(
   await tester.pump();
 }
 
+/// Drags [module] to just below [target]'s bottom edge, the append gesture.
+Future<void> _dragModuleBelow(
+  WidgetTester tester,
+  String module,
+  Finder target,
+) async {
+  final handle = find.byKey(ValueKey<String>('module-drag-$module'));
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(handle);
+  await tester.pumpAndSettle();
+  final start = tester.getCenter(handle);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(const Duration(milliseconds: 120));
+  const slop = Offset(0, 24);
+  await gesture.moveBy(slop);
+  await tester.pump(const Duration(milliseconds: 60));
+  final rect = tester.getRect(target);
+  final end = Offset(rect.center.dx, rect.bottom + 12);
+  var current = start + slop;
+  const steps = 8;
+  for (var step = 1; step <= steps; step++) {
+    current = Offset.lerp(start + slop, end, step / steps)!;
+    await gesture.moveTo(current);
+    await tester.pump(const Duration(milliseconds: 40));
+  }
+  await gesture.up();
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pump();
+}
+
 void main() {
   late Directory directory;
   late File file;
@@ -632,31 +664,26 @@ void main() {
     expect(gpuY, greaterThan(disabledY));
   });
 
-  testWidgets('zone end targets append below the last row', (tester) async {
+  testWidgets('dropping below the last row appends', (tester) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
+    );
     final controller = await _controller(file);
     addTearDown(controller.dispose);
     await _pump(tester, controller);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
-    // Every zone keeps its end target, populated or not.
-    expect(
-      find.byKey(const ValueKey<String>('module-drop-end-trailing')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('module-drop-end-leading')),
-      findsOneWidget,
-    );
+    // The empty leading zone carries the hint; populated zones do not.
+    expect(find.text('Drop a module here'), findsWidgets);
 
-    // Dragging the leading tray onto the trailing end appends it last.
-    await _dragModuleTo(
+    await _dragModuleBelow(
       tester,
-      'tray',
-      find.byKey(const ValueKey<String>('module-drop-end-trailing')),
+      'workspaces',
+      find.byKey(const ValueKey<String>('module-battery')),
     );
-    expect(controller.settings.zoneFor('tray'), ModuleZone.trailing);
-    expect(controller.settings.modules.last, 'tray');
+    expect(controller.settings.zoneFor('workspaces'), ModuleZone.trailing);
+    expect(controller.settings.modules.last, 'workspaces');
   });
 
   testWidgets('the disabled section stays visible and accepts a drop', (
