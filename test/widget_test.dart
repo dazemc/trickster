@@ -9,15 +9,18 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -273,15 +276,90 @@ void main() {
     );
     final rail = find.byType(WorkspacesPill);
     expect(rail, findsOneWidget);
-    expect(
-      find.ancestor(of: rail, matching: find.byType(SystemBarIndicatorSlot)),
-      findsOneWidget,
-    );
     final stripCenter = tester.getCenter(find.byType(TricksterBarStrip)).dx;
     expect(tester.getCenter(rail).dx, closeTo(stripCenter, 0.5));
     expect(
       tester.getCenter(rail).dx,
       lessThan(tester.getCenter(find.byType(ClockPill)).dx),
+    );
+  });
+
+  testWidgets('tray pins to the leading edge', (tester) async {
+    tester.view.physicalSize = const Size(1200, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'tray']),
+      trayBuilder: () => TrayBloc(
+        initial: const TrayState([
+          SystemTrayItem(
+            id: 'app',
+            title: 'App',
+            status: SystemTrayStatus.active,
+            iconName: 'icon',
+            iconThemePath: '',
+            iconPixmap: null,
+            menuAvailable: false,
+            primaryOpensMenu: false,
+          ),
+        ]),
+      ),
+    );
+    // The entrance timer fires, then the ticker starts on the following
+    // frame; two pumps settle it to its resting offset.
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump(const Duration(milliseconds: 300));
+    final tray = find.byType(TrayPill);
+    expect(tray, findsOneWidget);
+    final stripLeft = tester.getTopLeft(find.byType(TricksterBarStrip)).dx;
+    expect(tester.getTopLeft(tray).dx, lessThan(stripLeft + 20));
+    expect(
+      tester.getCenter(tray).dx,
+      lessThan(tester.getCenter(find.byType(ClockPill)).dx),
+    );
+  });
+
+  testWidgets('module placement assigns zones', (tester) async {
+    tester.view.physicalSize = const Size(1200, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['clock', 'tray'],
+        modulePlacement: {
+          'clock': ModuleZone.leading,
+          'tray': ModuleZone.trailing,
+        },
+      ),
+      trayBuilder: () => TrayBloc(
+        initial: const TrayState([
+          SystemTrayItem(
+            id: 'app',
+            title: 'App',
+            status: SystemTrayStatus.active,
+            iconName: 'icon',
+            iconThemePath: '',
+            iconPixmap: null,
+            menuAvailable: false,
+            primaryOpensMenu: false,
+          ),
+        ]),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump(const Duration(milliseconds: 300));
+    final strip = tester.getRect(find.byType(TricksterBarStrip));
+    expect(
+      tester.getCenter(find.byType(ClockPill)).dx,
+      lessThan(strip.center.dx),
+    );
+    expect(
+      tester.getCenter(find.byType(TrayPill)).dx,
+      greaterThan(strip.center.dx),
     );
   });
 

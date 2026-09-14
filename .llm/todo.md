@@ -73,3 +73,42 @@ Denial pins the tray to the strip's leading edge, centers the workspace
 rail, and trails the rest. Trickster keeps every module in one trailing
 cluster. These steps give the strip the same three zones and let the
 settings application place each module.
+
+## Phase 14 — settings depth
+
+The settings window covers the bar's documents but not every knob, has no
+per-option reset, orders modules with arrow buttons only, offers
+hardware-dependent modules unconditionally, and is an opaque window while
+the bar is glass. This phase fills the surface out.
+
+- **14.1 (S) Reset-to-default control.** Add a small circular-arrow
+  `SettingsResetButton` with hover, focus, tooltip, and semantics; every
+  later step reuses it. Done when component tests cover the tap firing once,
+  the disabled state, and the accessible label.
+- **14.2 (M) Reset on every module option.** Put a reset next to workspace
+  count, clock format, CPU warn/critical, battery warn/critical, meter
+  captions, and locale; each resets exactly its own field to the shipped
+  default. Done when a widget test changes each option, taps its reset, and
+  reads the default back from the document.
+- **14.3 (M) Reset on appearance, modules, and displays.** Reset for accent
+  source, custom accent, wallpaper pick, module list/order, per-module
+  placement, bar edge, thickness, and output selection. Done when a widget
+  test reverts each and the document round-trips the defaults.
+- **14.4 (M) Drag-and-drop module order.** Replace the up/down arrows with
+  a drag handle (keyboard reordering kept for accessibility), persisting
+  through the same saver. Done when a widget test drags a module across
+  others and the document lists the new order.
+- **14.5 (S) Grey out undetectable modules.** Probe `/sys/class/power_supply`
+  (injected for tests) so a battery-less system shows the Battery row
+  dimmed, disabled, and explained; the control refuses changes. Done when
+  tests cover present and absent probes.
+- **14.6 (M) Bar display options.** User-requested additions the bar can
+  honor without a new design language: `clock.show_date` (hide the date
+  caption), `appearance.blur` (force the opaque fill even when the host can
+  blur), and `meter.sparkline` (hide CPU/GPU history). Done when each
+  renders on the bar, resets, and has config plus widget tests.
+- **14.7 (M) Glass settings window.** Make the settings toplevel translucent
+  (GTK RGBA visual plus translucent Flutter surfaces) so the host blurs
+  behind it, with an opaque fallback when the compositor cannot. Done when
+  the live window shows the blurred desktop on Hyprland and the fallback
+  stays legible.

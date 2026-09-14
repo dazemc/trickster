@@ -133,6 +133,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose which pills the bar shows and in what order.';
 
   @override
+  String get settingsModulePlacement => 'Position';
+
+  @override
+  String get settingsPlacementLeading => 'Leading';
+
+  @override
+  String get settingsPlacementCenter => 'Center';
+
+  @override
+  String get settingsPlacementTrailing => 'Trailing';
+
+  @override
   String get settingsModuleToggleHint => 'Toggles the module';
 
   @override

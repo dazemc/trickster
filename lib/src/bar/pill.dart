@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart'
     show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
+import 'package:trickster/src/bar/blur_region.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/backdrop_blur.dart';
 import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 class SystemBarCard extends StatelessWidget {
   const SystemBarCard({
@@ -17,6 +20,8 @@ class SystemBarCard extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 12),
     super.key,
   });
+
+  static const Key sheenKey = ValueKey<String>('pill-sheen');
 
   final WallpaperAccent accent;
   final Widget child;
@@ -33,22 +38,35 @@ class SystemBarCard extends StatelessWidget {
         ? Color.lerp(accent.cardFill(), accent.color, 0.08)!
         : accent.cardFill();
     final blurred = BackdropBlur.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            topFill.withValues(alpha: blurred ? 0.74 : 0.92),
-            bottomFill.withValues(alpha: blurred ? 0.66 : 0.88),
-          ],
+    final content = Padding(
+      padding: padding,
+      child: Align(child: child),
+    );
+    return BlurRegion(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              blurred
+                  ? ShellMediaColors.darkness.withValues(alpha: 0.3)
+                  : topFill.withValues(alpha: 0.92),
+              blurred
+                  ? ShellMediaColors.darkness.withValues(alpha: 0.26)
+                  : bottomFill.withValues(alpha: 0.88),
+            ],
+          ),
+          borderRadius: const BorderRadius.all(Radius.circular(999)),
+          border: focused ? Border.all(color: accent.color, width: 1.5) : null,
         ),
-        borderRadius: const BorderRadius.all(Radius.circular(999)),
-        border: focused ? Border.all(color: accent.color, width: 1.5) : null,
-      ),
-      child: Padding(
-        padding: padding,
-        child: Align(child: child),
+        child: blurred
+            ? CustomPaint(
+                key: sheenKey,
+                painter: const _GlassSheenPainter(),
+                child: content,
+              )
+            : content,
       ),
     );
   }
@@ -190,4 +208,40 @@ class _SystemBarEntranceState extends State<SystemBarEntrance>
       child: widget.child,
     );
   }
+}
+
+/// A painted rim light for the dark glass backing: a bright top-left edge
+/// fading to a faint opposite edge at the bottom-right, approximating the
+/// compositor glass engine's specular rim a guest bar cannot run itself.
+class _GlassSheenPainter extends CustomPainter {
+  const _GlassSheenPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shader = ui.Gradient.linear(
+      rect.topLeft,
+      rect.bottomRight,
+      const <Color>[
+        Color(0x47ffffff),
+        Color(0x08ffffff),
+        Color(0x05ffffff),
+        Color(0x1fffffff),
+      ],
+      const <double>[0, 0.42, 0.58, 1],
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        rect.deflate(0.75),
+        Radius.circular(size.shortestSide / 2),
+      ),
+      Paint()
+        ..shader = shader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GlassSheenPainter oldDelegate) => false;
 }

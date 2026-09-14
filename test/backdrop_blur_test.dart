@@ -41,8 +41,15 @@ void main() {
     expect(_topAlpha(tester), closeTo(0.92, 0.001));
   });
 
-  testWidgets('translucent fill when the backdrop is blurred', (tester) async {
+  testWidgets('dark glass fill when the backdrop is blurred', (tester) async {
     await _pump(tester, blur: true);
-    expect(_topAlpha(tester), closeTo(0.74, 0.001));
+    expect(_topAlpha(tester), closeTo(0.3, 0.001));
+  });
+
+  testWidgets('painted sheen rides the blurred fill only', (tester) async {
+    await _pump(tester, blur: true);
+    expect(find.byKey(SystemBarCard.sheenKey), findsOneWidget);
+    await _pump(tester, blur: false);
+    expect(find.byKey(SystemBarCard.sheenKey), findsNothing);
   });
 }

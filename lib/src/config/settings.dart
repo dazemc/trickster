@@ -58,6 +58,39 @@ enum AccentSource {
   }
 }
 
+/// Where a module sits along the strip's main axis.
+enum ModuleZone {
+  leading('leading'),
+  center('center'),
+  trailing('trailing');
+
+  const ModuleZone(this.wire);
+
+  final String wire;
+
+  static ModuleZone parse(Object? value) {
+    for (final zone in ModuleZone.values) {
+      if (zone.wire == value) {
+        return zone;
+      }
+    }
+    throw FormatException(
+      'settings.module_placement values must be one of '
+      '${ModuleZone.values.map((zone) => zone.wire).join(', ')}',
+    );
+  }
+}
+
+/// The zone a module takes when `module_placement` does not name it,
+/// mirroring Denial's bar: tray leading, workspaces centered, rest trailing.
+ModuleZone defaultModuleZone(String module) {
+  return switch (module) {
+    'tray' => ModuleZone.leading,
+    'workspaces' => ModuleZone.center,
+    _ => ModuleZone.trailing,
+  };
+}
+
 /// Typed options for the CPU meter.
 class CpuOptions extends Equatable {
   const CpuOptions({this.warn = 0.85, this.critical = 0.95});
@@ -260,6 +293,7 @@ class BarSettings extends Equatable {
     this.revision = 1,
     this.accent,
     this.modules = knownModules,
+    this.modulePlacement = const {},
     this.locale,
     this.accentSource = AccentSource.custom,
     this.accentWallpaperPick,
@@ -276,6 +310,10 @@ class BarSettings extends Equatable {
   final int revision;
   final Color? accent;
   final List<String> modules;
+
+  /// Explicit zone per module; absent names fall back to
+  /// [defaultModuleZone].
+  final Map<String, ModuleZone> modulePlacement;
   final String? locale;
   final AccentSource accentSource;
 
@@ -307,12 +345,21 @@ class BarSettings extends Equatable {
 
   bool includes(String module) => modules.contains(module);
 
+  /// The zone [module] renders in: the explicit placement or the default.
+  ModuleZone zoneFor(String module) =>
+      modulePlacement[module] ?? defaultModuleZone(module);
+
   Map<String, Object?> toJson() => {
     'revision': revision,
     if (accent != null)
       'accent':
           '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
     'modules': modules,
+    if (modulePlacement.isNotEmpty)
+      'module_placement': {
+        for (final entry in modulePlacement.entries)
+          entry.key: entry.value.wire,
+      },
     if (locale != null) 'locale': locale,
     'accent_source': accentSource.wire,
     if (accentWallpaperPick != null)
@@ -337,6 +384,7 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
       modules: modules,
+      modulePlacement: modulePlacement,
       workspaces: workspaces,
       cpu: cpu,
       clock: clock,
@@ -367,6 +415,7 @@ class BarSettings extends Equatable {
     int? revision,
     Color? accent,
     List<String>? modules,
+    Map<String, ModuleZone>? modulePlacement,
     WorkspaceOptions? workspaces,
     CpuOptions? cpu,
     ClockOptions? clock,
@@ -384,6 +433,7 @@ class BarSettings extends Equatable {
       accentSource: accentSource ?? this.accentSource,
       accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
       modules: modules ?? this.modules,
+      modulePlacement: modulePlacement ?? this.modulePlacement,
       workspaces: workspaces ?? this.workspaces,
       cpu: cpu ?? this.cpu,
       clock: clock ?? this.clock,
@@ -431,12 +481,28 @@ class BarSettings extends Equatable {
               'battery',
               'clock',
             ],
+      modulePlacement: _modulePlacement(decoded['module_placement']),
       workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
       cpu: CpuOptions.fromJson(decoded['cpu']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       meter: MeterOptions.fromJson(decoded['meter']),
     );
+  }
+
+  static Map<String, ModuleZone> _modulePlacement(Object? value) {
+    if (value == null) {
+      return const {};
+    }
+    if (value is! Map<String, dynamic>) {
+      throw const FormatException(
+        'settings.module_placement must be an object',
+      );
+    }
+    return {
+      for (final entry in value.entries)
+        entry.key: ModuleZone.parse(entry.value),
+    };
   }
 
   static Color? _color(Object? value) {

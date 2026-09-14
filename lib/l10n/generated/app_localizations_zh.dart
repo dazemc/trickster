@@ -130,6 +130,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsModulesCaption => '选择状态栏显示的组件及其顺序。';
 
   @override
+  String get settingsModulePlacement => '位置';
+
+  @override
+  String get settingsPlacementLeading => '起始';
+
+  @override
+  String get settingsPlacementCenter => '居中';
+
+  @override
+  String get settingsPlacementTrailing => '末尾';
+
+  @override
   String get settingsModuleToggleHint => '切换该模块';
 
   @override

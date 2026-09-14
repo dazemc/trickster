@@ -172,6 +172,22 @@
   "@settingsModulesCaption": {
     "description": "Caption under the modules page title."
   },
+  "settingsModulePlacement": "Position",
+  "@settingsModulePlacement": {
+    "description": "Caption above the per-module placement chips."
+  },
+  "settingsPlacementLeading": "Leading",
+  "@settingsPlacementLeading": {
+    "description": "Placement chip for the strip's leading edge."
+  },
+  "settingsPlacementCenter": "Center",
+  "@settingsPlacementCenter": {
+    "description": "Placement chip for the strip's center."
+  },
+  "settingsPlacementTrailing": "Trailing",
+  "@settingsPlacementTrailing": {
+    "description": "Placement chip for the strip's trailing edge."
+  },
   "settingsModuleToggleHint": "Toggles the module",
   "@settingsModuleToggleHint": {
     "description": "Accessible hint for a module toggle."
