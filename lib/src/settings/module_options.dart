@@ -89,6 +89,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     workspaces: WorkspaceOptions(
                       count: settings.workspaces.count,
                       perOutput: perOutput,
+                      displayOrder: settings.workspaces.displayOrder,
                     ),
                   );
                 }),
@@ -100,6 +101,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     workspaces: WorkspaceOptions(
                       count: settings.workspaces.count,
                       perOutput: perOutput,
+                      displayOrder: settings.workspaces.displayOrder,
                     ),
                   );
                 }),

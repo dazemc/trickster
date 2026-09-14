@@ -5,29 +5,76 @@ import 'package:equatable/equatable.dart';
 
 /// Typed options for the workspace rail.
 class WorkspaceOptions extends Equatable {
-  const WorkspaceOptions({this.count = 4, this.perOutput = const {}});
+  const WorkspaceOptions({
+    this.count = 4,
+    this.perOutput = const {},
+    this.displayOrder = const [],
+  });
 
-  /// Workspaces shown on every rail as 1..count, Denial's model. The old
-  /// `show_empty`/`max` keys are retired and ignored on decode.
+  /// Fallback rail length for displays without a per-output override. The
+  /// old `show_empty`/`max` keys are retired and ignored on decode.
   final int count;
 
   /// Per-display overrides by connector, since one monitor may want a longer
   /// rail than another.
   final Map<String, int> perOutput;
 
+  /// The chain order by connector. The first connected entry is the main
+  /// display and owns the range starting at 1; each next display appends its
+  /// own count. Connected displays not listed append in host order.
+  final List<String> displayOrder;
+
   /// The rail length for [output]: its override, else the shared count.
   int countFor(String? output) =>
       output == null ? count : (perOutput[output] ?? count);
+
+  /// The effective chain for [connected]: listed connectors that are present,
+  /// then the unlisted ones in host order.
+  List<String> chainFor(List<String> connected) {
+    final seen = <String>{};
+    return <String>[
+      for (final output in displayOrder)
+        if (connected.contains(output) && seen.add(output)) output,
+      for (final output in connected)
+        if (seen.add(output)) output,
+    ];
+  }
+
+  /// The 1-based inclusive workspace range [output] owns in the chain, or
+  /// null when [output] is not connected.
+  (int, int)? rangeFor(String output, List<String> connected) {
+    var start = 1;
+    for (final candidate in chainFor(connected)) {
+      final end = start + countFor(candidate) - 1;
+      if (candidate == output) {
+        return (start, end);
+      }
+      start = end + 1;
+    }
+    return null;
+  }
+
+  /// The number of workspaces the chain assigns; numbered workspaces above it
+  /// belong to the main display's rail.
+  int chainTotal(List<String> connected) {
+    var total = 0;
+    for (final output in chainFor(connected)) {
+      total += countFor(output);
+    }
+    return total;
+  }
 
   @override
   List<Object?> get props => [
     count,
     ...perOutput.entries.map((entry) => Object.hash(entry.key, entry.value)),
+    ...displayOrder,
   ];
 
   Map<String, Object?> toJson() => {
     'workspace_count': count,
     if (perOutput.isNotEmpty) 'per_output': perOutput,
+    if (displayOrder.isNotEmpty) 'display_order': displayOrder,
   };
 
   static WorkspaceOptions fromJson(Object? json) {
@@ -61,7 +108,31 @@ class WorkspaceOptions extends Equatable {
         overrides[entry.key] = value;
       }
     }
-    return WorkspaceOptions(count: count as int? ?? 4, perOutput: overrides);
+    final order = json['display_order'];
+    if (order != null && order is! List) {
+      throw const FormatException(
+        'settings.workspaces.display_order must be a list',
+      );
+    }
+    final displayOrder = <String>[];
+    final listed = <String>{};
+    if (order is List) {
+      for (final name in order) {
+        if (name is! String || name.isEmpty) {
+          throw const FormatException(
+            'settings.workspaces.display_order entries must be connectors',
+          );
+        }
+        if (listed.add(name)) {
+          displayOrder.add(name);
+        }
+      }
+    }
+    return WorkspaceOptions(
+      count: count as int? ?? 4,
+      perOutput: overrides,
+      displayOrder: displayOrder,
+    );
   }
 }
 

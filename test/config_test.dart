@@ -144,6 +144,70 @@ void main() {
       );
     });
 
+    test('workspace display order round-trips and maps ranges', () {
+      const settings = BarSettings(
+        revision: 6,
+        workspaces: WorkspaceOptions(
+          count: 4,
+          perOutput: {'HDMI-A-1': 4, 'HDMI-A-2': 3},
+          displayOrder: ['HDMI-A-2', 'HDMI-A-1'],
+        ),
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.workspaces.displayOrder, ['HDMI-A-2', 'HDMI-A-1']);
+      // The main display takes the first block; the next appends its count.
+      expect(
+        decoded.workspaces.rangeFor('HDMI-A-2', ['HDMI-A-1', 'HDMI-A-2']),
+        (1, 3),
+      );
+      expect(
+        decoded.workspaces.rangeFor('HDMI-A-1', ['HDMI-A-1', 'HDMI-A-2']),
+        (4, 7),
+      );
+      expect(
+        decoded.workspaces.chainTotal(['HDMI-A-1', 'HDMI-A-2']),
+        7,
+      );
+    });
+
+    test('unlisted displays append in host order and absent entries drop', () {
+      const workspaces = WorkspaceOptions(
+        count: 2,
+        perOutput: {'HDMI-A-1': 4, 'DP-1': 3},
+        displayOrder: ['eDP-1', 'DP-1'],
+      );
+      const connected = ['HDMI-A-1', 'DP-1'];
+      // eDP-1 is listed but absent; DP-1 leads and HDMI-A-1 appends in host
+      // order.
+      expect(workspaces.chainFor(connected), ['DP-1', 'HDMI-A-1']);
+      expect(workspaces.rangeFor('DP-1', connected), (1, 3));
+      expect(workspaces.rangeFor('HDMI-A-1', connected), (4, 7));
+      expect(workspaces.rangeFor('eDP-1', connected), isNull);
+      expect(workspaces.chainTotal(connected), 7);
+      // Without an order, the host's order is the chain.
+      expect(
+        const WorkspaceOptions(
+          count: 4,
+        ).rangeFor('HDMI-A-2', ['HDMI-A-1', 'HDMI-A-2']),
+        (5, 8),
+      );
+    });
+
+    test('display order rejects malformed shapes', () {
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"display_order": "HDMI-A-1"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"display_order": [7]}}',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('module placement round-trips and validates', () {
       const settings = BarSettings(
         revision: 2,
