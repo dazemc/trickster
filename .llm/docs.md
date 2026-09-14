@@ -41,4 +41,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 5 — packaging | `working` | done | Source PKGBUILD, man pages, AUR -bin recipe, v0.1.0 release asset |
 | 6 — follow-ups | `working` | done | Direct and SVG tray icon sources, single `--check` implementation |
 | 7 — version sync | `working` | done | One test pinning every version field to `Cli.appVersion` |
-| 8 — settings application | `working` | queued | Standalone `trickster-settings` at Denial parity: transport, appearance, modules, displays, options, language, about, packaging |
+| 8 — settings application | `working` | done | Same binary in settings mode: transport, appearance, modules, displays (live edge/thickness), options, language, about; vertical compact pills and pill tooltips; 0.2.0 release |
