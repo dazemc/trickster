@@ -44,3 +44,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 8 — settings application | `working` | done | Same binary in settings mode: transport, appearance, modules, displays (live edge/thickness), options, language, about; vertical compact pills and pill tooltips; 0.2.0 release |
 | 9 — parity and release hygiene | `working` | done | Docs reality pass, Denial porting pin, wallpaper accent sampler (candidate palette, click-to-copy hex), AUR recipe kept in tree, tag-driven release workflow with package/pin automation |
 | 10 — docs and install hygiene | `working` | done | Docs-site analyzer boundary documented, AUR install path, manual release runbook, AUR publishing automated in the release workflow |
+| 11 — workspace rail parity | `working` | done | Centered numbered rail (Denial's indicator slot), state-styled numbers with a deforming lens, fixed workspace count on every monitor (`workspaces.workspace_count`) |
