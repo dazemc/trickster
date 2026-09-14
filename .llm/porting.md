@@ -42,11 +42,12 @@ accent, theme tokens, or the `system_bar=` grammar. What moved:
 
 - The bar gained a centered workspace rail
   (`desktop_workspace_indicator.dart`, added in `fdb986e`, 2026-09-02):
-  numbered pips in a card with a liquid active lens. Trickster's pip rail
-  already mirrors its geometry and `Motion.workspaceSwitch` timing (its real
-  source is this line of Denial, not v0.3.1), but renders state-colored dots
-  in the module cluster and omits the lens deformation — see
-  `.llm/suggestions.md`.
+  numbered pips in a card with a liquid active lens. Trickster ported it
+  (centered indicator slot, numbered pips, dark lens,
+  takeoff/travel/settle deformation). The remaining divergence is
+  visibility: Denial always shows its configured count on every monitor,
+  while Trickster filters workspaces per output; that parity step sits in
+  `.llm/todo.md`.
 - `Motion` gained `workspaceIndicatorTakeoff` / `Travel` / `Settle` and the
   MD3 emphasized accelerate/decelerate curves; `springTo` now passes
   `snapToEnd: true` (Trickster has no spring paths to fix).
