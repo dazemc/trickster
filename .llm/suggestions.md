@@ -29,18 +29,8 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
-- **AUR publishing is paused by the user's call, and the published recipe
-  is stale.** aur.archlinux.org/trickster-bin HEAD (`e70aa23`) is titled
-  "Initial import: trickster-bin 0.2.0-1" but its PKGBUILD is the 0.1.0
-  recipe (hash `f1097607…`); the 0.2.0 recipe with hash `875ed281…` sits
-  ready in `packaging/aur/trickster-bin`. AUR users still install 0.1.0.
-  Do not push the correction without an explicit go-ahead, and add the AUR
-  link to `docs_site/content/installation.md` when publishing resumes.
+- **AUR updates stay manual.** `trickster-bin` now serves 0.2.0-1
+  (`efb3b37`, hash `875ed281…`, matching `packaging/aur/trickster-bin`).
+  Future version bumps are published only on explicit go-ahead; the release
+  workflow deliberately stops at the in-repo pin commit.
 
-- **Root `flutter analyze` needs `docs_site` dependencies.** The docs site is
-  a separate Jaspr project; a fresh clone that only runs the root
-  `flutter pub get` sees ~72 errors from `docs_site/**` until its own
-  `dart pub get` runs. The release workflow now scopes analysis to
-  `lib bin test`; either document the site's pub get in
-  `docs_site/content/development.md` or give the site its own analyzer
-  boundary.
