@@ -315,8 +315,11 @@ flutter build linux --release # production AOT
 ```
 
 A first build requires network access (pubspec + Flutter SDK); subsequent
-builds reuse the cache. The runtime requires `gtk-layer-shell` and a
-compositor advertising `zwlr_layer_shell_v1`.
+builds reuse the cache. On a fresh clone, fetch the separate docs-site
+project once (`(cd docs_site && dart pub get)`) before running
+`flutter analyze`, or its unfetched dependencies show up as analyzer
+errors. The runtime requires `gtk-layer-shell` and a compositor
+advertising `zwlr_layer_shell_v1`.
 
 Never force the bar onto X11 (`GDK_BACKEND=x11`): it renders as a managed
 client with no exclusive zone and no anchoring, proving nothing and
