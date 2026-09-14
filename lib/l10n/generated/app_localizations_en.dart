@@ -201,4 +201,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsOutputsUnavailable => 'No outputs reported by the host.';
+
+  @override
+  String get settingsOptionsTitle => 'Module options';
+
+  @override
+  String get settingsOptionsCaption => 'Tune the values each pill uses.';
+
+  @override
+  String get settingsWorkspacesSection => 'Workspaces';
+
+  @override
+  String get settingsWorkspacesShowEmpty => 'Show empty workspaces';
+
+  @override
+  String get settingsWorkspacesMax => 'Maximum workspaces';
+
+  @override
+  String get settingsClockSection => 'Clock';
+
+  @override
+  String get settingsClockFormat => 'Format';
+
+  @override
+  String get settingsClockFormatLocale => 'Locale default';
+
+  @override
+  String get settingsClockFormat24 => '24-hour';
+
+  @override
+  String get settingsClockFormat12 => '12-hour';
+
+  @override
+  String get settingsCpuSection => 'CPU thresholds';
+
+  @override
+  String get settingsBatterySection => 'Battery thresholds';
+
+  @override
+  String get settingsWarnLabel => 'Warn';
+
+  @override
+  String get settingsCriticalLabel => 'Critical';
+
+  @override
+  String get settingsMeterSection => 'Meter captions';
+
+  @override
+  String get settingsMeterCaption => 'Caption source';
+
+  @override
+  String get settingsMeterCaptionGeneric => 'Generic';
+
+  @override
+  String get settingsMeterCaptionDevice => 'Device name';
 }

@@ -12,7 +12,9 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 import 'support/strip_harness.dart';
@@ -146,6 +148,30 @@ void main() {
     expect(find.byType(RotatedBox), findsNothing);
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%'), findsOneWidget);
+  });
+
+  testWidgets('workspace options filter and cap the rail', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['workspaces'],
+        workspaces: WorkspaceOptions(showEmpty: false, max: 1),
+      ),
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '1', name: '1'),
+          Workspace(id: '2', name: '2', occupied: true),
+          Workspace(id: '3', name: '3', occupied: true),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.byKey(const ValueKey<String>('workspace-pip-1')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('workspace-pip-2')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('workspace-pip-3')), findsNothing);
   });
 
   testWidgets('strip renders modules in configured order', (tester) async {

@@ -241,6 +241,37 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32'));
   });
 
+  testWidgets('options page round-trips typed options', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Module options'));
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel('Show empty workspaces'));
+    await tester.pump();
+    expect(controller.settings.workspaces.showEmpty, isFalse);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(file.readAsStringSync(), contains('"show_empty": false'));
+
+    await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.clock.format, ClockFormat.hour24);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('meter-caption-device')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('meter-caption-device')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
+  });
+
   testWidgets('the close control announces and fires', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);

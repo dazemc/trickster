@@ -469,6 +469,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No outputs reported by the host.'**
   String get settingsOutputsUnavailable;
+
+  /// Title of the module options settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Module options'**
+  String get settingsOptionsTitle;
+
+  /// Caption under the module options page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Tune the values each pill uses.'**
+  String get settingsOptionsCaption;
+
+  /// Section heading for workspace rail options.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspaces'**
+  String get settingsWorkspacesSection;
+
+  /// Toggle for keeping empty workspaces in the rail.
+  ///
+  /// In en, this message translates to:
+  /// **'Show empty workspaces'**
+  String get settingsWorkspacesShowEmpty;
+
+  /// Label for the workspace count slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum workspaces'**
+  String get settingsWorkspacesMax;
+
+  /// Section heading for clock options.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get settingsClockSection;
+
+  /// Label above the clock format choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get settingsClockFormat;
+
+  /// Clock format choice: follow the locale.
+  ///
+  /// In en, this message translates to:
+  /// **'Locale default'**
+  String get settingsClockFormatLocale;
+
+  /// Clock format choice: 24-hour.
+  ///
+  /// In en, this message translates to:
+  /// **'24-hour'**
+  String get settingsClockFormat24;
+
+  /// Clock format choice: 12-hour.
+  ///
+  /// In en, this message translates to:
+  /// **'12-hour'**
+  String get settingsClockFormat12;
+
+  /// Section heading for CPU threshold options.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU thresholds'**
+  String get settingsCpuSection;
+
+  /// Section heading for battery threshold options.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery thresholds'**
+  String get settingsBatterySection;
+
+  /// Label for the warning threshold slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Warn'**
+  String get settingsWarnLabel;
+
+  /// Label for the critical threshold slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical'**
+  String get settingsCriticalLabel;
+
+  /// Section heading for meter caption options.
+  ///
+  /// In en, this message translates to:
+  /// **'Meter captions'**
+  String get settingsMeterSection;
+
+  /// Label above the meter caption choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Caption source'**
+  String get settingsMeterCaption;
+
+  /// Meter caption choice: generic CPU/GPU tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic'**
+  String get settingsMeterCaptionGeneric;
+
+  /// Meter caption choice: queried device names.
+  ///
+  /// In en, this message translates to:
+  /// **'Device name'**
+  String get settingsMeterCaptionDevice;
 }
 
 class _AppLocalizationsDelegate

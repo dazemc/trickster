@@ -197,4 +197,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsOutputsUnavailable => '宿主未报告任何输出。';
+
+  @override
+  String get settingsOptionsTitle => '模块选项';
+
+  @override
+  String get settingsOptionsCaption => '调整各组件的具体数值。';
+
+  @override
+  String get settingsWorkspacesSection => '工作区';
+
+  @override
+  String get settingsWorkspacesShowEmpty => '显示空闲工作区';
+
+  @override
+  String get settingsWorkspacesMax => '最大工作区数';
+
+  @override
+  String get settingsClockSection => '时钟';
+
+  @override
+  String get settingsClockFormat => '格式';
+
+  @override
+  String get settingsClockFormatLocale => '跟随区域设置';
+
+  @override
+  String get settingsClockFormat24 => '24 小时制';
+
+  @override
+  String get settingsClockFormat12 => '12 小时制';
+
+  @override
+  String get settingsCpuSection => 'CPU 阈值';
+
+  @override
+  String get settingsBatterySection => '电池阈值';
+
+  @override
+  String get settingsWarnLabel => '警告';
+
+  @override
+  String get settingsCriticalLabel => '严重';
+
+  @override
+  String get settingsMeterSection => '仪表标签';
+
+  @override
+  String get settingsMeterCaption => '标签来源';
+
+  @override
+  String get settingsMeterCaptionGeneric => '通用';
+
+  @override
+  String get settingsMeterCaptionDevice => '设备名称';
 }

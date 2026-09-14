@@ -263,5 +263,77 @@
   "settingsOutputsUnavailable": "No outputs reported by the host.",
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
+  },
+  "settingsOptionsTitle": "Module options",
+  "@settingsOptionsTitle": {
+    "description": "Title of the module options settings page."
+  },
+  "settingsOptionsCaption": "Tune the values each pill uses.",
+  "@settingsOptionsCaption": {
+    "description": "Caption under the module options page title."
+  },
+  "settingsWorkspacesSection": "Workspaces",
+  "@settingsWorkspacesSection": {
+    "description": "Section heading for workspace rail options."
+  },
+  "settingsWorkspacesShowEmpty": "Show empty workspaces",
+  "@settingsWorkspacesShowEmpty": {
+    "description": "Toggle for keeping empty workspaces in the rail."
+  },
+  "settingsWorkspacesMax": "Maximum workspaces",
+  "@settingsWorkspacesMax": {
+    "description": "Label for the workspace count slider."
+  },
+  "settingsClockSection": "Clock",
+  "@settingsClockSection": {
+    "description": "Section heading for clock options."
+  },
+  "settingsClockFormat": "Format",
+  "@settingsClockFormat": {
+    "description": "Label above the clock format choices."
+  },
+  "settingsClockFormatLocale": "Locale default",
+  "@settingsClockFormatLocale": {
+    "description": "Clock format choice: follow the locale."
+  },
+  "settingsClockFormat24": "24-hour",
+  "@settingsClockFormat24": {
+    "description": "Clock format choice: 24-hour."
+  },
+  "settingsClockFormat12": "12-hour",
+  "@settingsClockFormat12": {
+    "description": "Clock format choice: 12-hour."
+  },
+  "settingsCpuSection": "CPU thresholds",
+  "@settingsCpuSection": {
+    "description": "Section heading for CPU threshold options."
+  },
+  "settingsBatterySection": "Battery thresholds",
+  "@settingsBatterySection": {
+    "description": "Section heading for battery threshold options."
+  },
+  "settingsWarnLabel": "Warn",
+  "@settingsWarnLabel": {
+    "description": "Label for the warning threshold slider."
+  },
+  "settingsCriticalLabel": "Critical",
+  "@settingsCriticalLabel": {
+    "description": "Label for the critical threshold slider."
+  },
+  "settingsMeterSection": "Meter captions",
+  "@settingsMeterSection": {
+    "description": "Section heading for meter caption options."
+  },
+  "settingsMeterCaption": "Caption source",
+  "@settingsMeterCaption": {
+    "description": "Label above the meter caption choices."
+  },
+  "settingsMeterCaptionGeneric": "Generic",
+  "@settingsMeterCaptionGeneric": {
+    "description": "Meter caption choice: generic CPU/GPU tags."
+  },
+  "settingsMeterCaptionDevice": "Device name",
+  "@settingsMeterCaptionDevice": {
+    "description": "Meter caption choice: queried device names."
   }
 }

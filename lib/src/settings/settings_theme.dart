@@ -169,6 +169,7 @@ class SettingsSlider extends StatefulWidget {
     required this.max,
     required this.onChanged,
     required this.onChangeEnd,
+    this.label,
     super.key,
   });
 
@@ -177,6 +178,9 @@ class SettingsSlider extends StatefulWidget {
   final double max;
   final ValueChanged<double>? onChanged;
   final ValueChanged<double>? onChangeEnd;
+
+  /// Semantics label; the thickness slider keeps its own default.
+  final String? label;
 
   @override
   State<SettingsSlider> createState() => _SettingsSliderState();
@@ -214,7 +218,7 @@ class _SettingsSliderState extends State<SettingsSlider> {
     return Semantics(
       slider: true,
       enabled: _enabled,
-      label: context.l10n.settingsThicknessLabel,
+      label: widget.label ?? context.l10n.settingsThicknessLabel,
       value: '${value.round()}',
       increasedValue: '${(value + 1).clamp(widget.min, widget.max).round()}',
       decreasedValue: '${(value - 1).clamp(widget.min, widget.max).round()}',
@@ -306,6 +310,59 @@ class _SettingsSliderState extends State<SettingsSlider> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// A pill-shaped choice in the settings window.
+class SettingsChoiceChip extends StatelessWidget {
+  const SettingsChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: Motion.pill,
+              curve: Motion.standard,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(999)),
+                color: selected
+                    ? ShellBrandColors.defaultAccent
+                    : SettingsColors.surfaceHigh,
+                border: Border.all(color: SettingsColors.outline),
+              ),
+              child: Text(
+                label,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: selected
+                      ? SettingsColors.background
+                      : ShellMediaColors.lightForeground,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

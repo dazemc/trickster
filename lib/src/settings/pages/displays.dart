@@ -6,7 +6,6 @@ import '../../../l10n/generated/app_localizations.dart';
 import '../../layout/system_bar.dart';
 import '../../locale.dart';
 import '../../platform/layer_shell.dart';
-import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
 import '../controller.dart';
 import '../scope.dart';
@@ -98,7 +97,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
                     SystemBarSide.right,
                     SystemBarSide.hidden,
                   ])
-                    _ChoiceChip(
+                    SettingsChoiceChip(
                       key: ValueKey<String>('side-${side.name}'),
                       label: _sideLabel(l10n, side),
                       selected: outputs.side == side,
@@ -263,58 +262,6 @@ String _sideLabel(AppLocalizations l10n, SystemBarSide side) {
     SystemBarSide.right => l10n.settingsSideRight,
     SystemBarSide.hidden => l10n.settingsSideHidden,
   };
-}
-
-class _ChoiceChip extends StatelessWidget {
-  const _ChoiceChip({
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-    super.key,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      onTap: onPressed,
-      child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPressed,
-            child: AnimatedContainer(
-              duration: Motion.pill,
-              curve: Motion.standard,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(999)),
-                color: selected
-                    ? ShellBrandColors.defaultAccent
-                    : SettingsColors.surfaceHigh,
-                border: Border.all(color: SettingsColors.outline),
-              ),
-              child: Text(
-                label,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: selected
-                      ? SettingsColors.background
-                      : ShellMediaColors.lightForeground,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _OutputRow extends StatelessWidget {

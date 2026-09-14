@@ -10,6 +10,7 @@ import 'controller.dart';
 import 'pages/appearance.dart';
 import 'pages/displays.dart';
 import 'pages/modules.dart';
+import 'pages/options.dart';
 import 'scope.dart';
 import 'settings_theme.dart';
 
@@ -85,7 +86,7 @@ class SettingsHome extends StatefulWidget {
   State<SettingsHome> createState() => _SettingsHomeState();
 }
 
-enum SettingsSection { appearance, modules, displays }
+enum SettingsSection { appearance, modules, displays, options }
 
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
@@ -164,6 +165,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                               const AppearancePage(),
                             SettingsSection.modules => const ModulesPage(),
                             SettingsSection.displays => const DisplaysPage(),
+                            SettingsSection.options => const OptionsPage(),
                           },
                         ),
                       ),
@@ -206,6 +208,11 @@ class SettingsNav extends StatelessWidget {
               label: l10n.settingsDisplaysTitle,
               selected: section == SettingsSection.displays,
               onPressed: () => onSelect(SettingsSection.displays),
+            ),
+            _NavEntry(
+              label: l10n.settingsOptionsTitle,
+              selected: section == SettingsSection.options,
+              onPressed: () => onSelect(SettingsSection.options),
             ),
           ],
         ),
