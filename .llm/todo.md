@@ -133,3 +133,36 @@ while other packages share the stock SDK.
   read it (section-scoped listenables; the shell keeps to locale and
   load/error). Done when a drag's build times fit the frame budget and the
   settings tests stay green.
+
+## Phase 20 — bloc-only state
+
+AGENTS now makes the rule explicit: `flutter_bloc` carries all state in both
+processes, and only per-frame ephemeral widget details may stay local. The
+settings application still runs a `ChangeNotifier` controller, and the bar
+still has `ChangeNotifier`/`InheritedNotifier` seams (wallpaper accent, tray
+menus, tooltips). Migrate them so the rule holds everywhere; the settings
+blocs also give the debug observer the state-change transcript the drag work
+needs.
+
+- **20.1 (M) Settings document as a bloc.** Replace `SettingsAppController`
+  and `SettingsAppScope` with a `SettingsAppBloc`: explicit load, preview,
+  save, reset, and outputs events; state carries the document, outputs,
+  availability, busy, and error; pages read via `watch`/`select`. Done when
+  the settings app runs entirely through bloc events and the live document
+  round-trips.
+- **20.2 (S) Wallpaper accent as a bloc.** Replace
+  `WallpaperAccentController`/`WallpaperAccentScope` with a bloc both
+  processes provide; sampling state and per-output candidates live in its
+  state. Done when both processes read accents through `context`.
+- **20.3 (M) Modules page state as a bloc.** Move drag, drop, expansion,
+  and placement state into a `ModulesBloc` with explicit events, traced by
+  the observer in debug/profile; remove `_ModulesPageState` ad-hoc state.
+  Done when the debug transcript shows every drag decision and appending
+  below a zone's last row works.
+- **20.4 (S) Overlay controllers as blocs.** Tray menu and tooltip sessions
+  become blocs read by the overlay surfaces. Done when no `ChangeNotifier`
+  remains on those paths.
+- **20.5 (S) Enforce the rule.** A test fails on `ChangeNotifier`,
+  `InheritedNotifier`, or `Cubit` usage under `lib/`, with the approved
+  ephemeral exceptions listed. Done when the check runs with `flutter test`
+  and passes.
