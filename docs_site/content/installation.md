@@ -22,6 +22,13 @@ The bundle lands at `build/linux/x64/release/bundle/trickster`. Run it directly 
 ./build/linux/x64/release/bundle/trickster
 ```
 
+The same binary runs the settings application:
+
+```sh
+./build/linux/x64/release/bundle/trickster --settings
+# packaged installs also provide: trickster-settings
+```
+
 First-party packages and an AUR recipe are planned but not published. The
 in-tree recipes can be built directly:
 
