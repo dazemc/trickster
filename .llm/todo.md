@@ -71,3 +71,9 @@ user's explicit go-ahead, step by step as always.
   clone AUR, push to `master` — the branch is `master`, not `main`). Add
   the runbook; done when the documented steps reproduce the 0.2.0 publish
   without prior session knowledge.
+- **10.4 (M) Publish to the AUR from the release workflow.** The pin job
+  stops at the in-repo commit; add a final job that pushes the refreshed
+  recipe to `aur.archlinux.org/trickster-bin` (`master`) through a deploy
+  key secret, guarded like the release job (tags only, never dry runs).
+  Depends on the user provisioning the key. Done when a tag run publishes
+  the recipe and a fresh AUR clone matches the release asset.
