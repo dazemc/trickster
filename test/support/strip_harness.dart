@@ -41,6 +41,8 @@ Future<void> pumpBarHarness(
   WidgetTester tester, {
   BarSettings settings = const BarSettings(),
   Locale locale = const Locale('en', 'US'),
+  SystemBarSide side = SystemBarSide.top,
+  double thickness = 32,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
   GpuBloc Function()? gpuBuilder,
@@ -79,7 +81,7 @@ Future<void> pumpBarHarness(
           mediaBuilder:
               mediaBuilder ??
               () => MediaBloc(initial: MprisPlaybackState.unavailable()),
-          child: const TricksterBarStrip(side: SystemBarSide.top),
+          child: TricksterBarStrip(side: side, thickness: thickness),
         ),
       ),
     ),

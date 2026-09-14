@@ -15,6 +15,7 @@ class CpuPill extends StatelessWidget {
     this.warn = 0.85,
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.vertical = false,
     super.key,
   });
 
@@ -23,6 +24,7 @@ class CpuPill extends StatelessWidget {
   final double warn;
   final double critical;
   final MeterCaptionSource captionSource;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +45,7 @@ class CpuPill extends StatelessWidget {
         : context.l10n.metricCpu;
     return SystemBarCard(
       accent: accent,
+      padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
       child: LoadMeter(
         accent: accent,
         label: label,
@@ -50,6 +53,7 @@ class CpuPill extends StatelessWidget {
         history: sample.history,
         capacity: CpuSample.capacity,
         valueColor: valueColor,
+        vertical: vertical,
       ),
     );
   }

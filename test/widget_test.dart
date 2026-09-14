@@ -8,6 +8,7 @@ import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
@@ -21,6 +22,7 @@ Future<void> _pumpClock(
   WidgetTester tester,
   Locale locale, {
   ClockFormat format = ClockFormat.locale,
+  bool vertical = false,
 }) {
   return tester.pumpWidget(
     MultiBlocProvider(
@@ -31,6 +33,7 @@ Future<void> _pumpClock(
           child: ClockPill(
             accent: const WallpaperAccent(Color(0xffd0bcff)),
             format: format,
+            vertical: vertical,
           ),
         ),
       ),
@@ -123,6 +126,26 @@ void main() {
       ),
     );
     expect(caption.style?.color, expected);
+  });
+
+  testWidgets('vertical clock drops the date', (tester) async {
+    await _pumpClock(tester, const Locale('en', 'US'), vertical: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    final texts = tester.widgetList<RichText>(find.byType(RichText)).length;
+    expect(texts, 1);
+  });
+
+  testWidgets('vertical strips stack upright pills', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'cpu']),
+      side: SystemBarSide.left,
+      thickness: 72,
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.byType(RotatedBox), findsNothing);
+    expect(find.text('CPU'), findsOneWidget);
+    expect(find.text('42%'), findsOneWidget);
   });
 
   testWidgets('strip renders modules in configured order', (tester) async {

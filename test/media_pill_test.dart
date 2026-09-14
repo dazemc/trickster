@@ -56,21 +56,34 @@ MprisPlaybackState _state({
 Future<void> _pump(
   WidgetTester tester,
   MprisPlaybackState state,
-  _FakeMediaPlayerService service,
-) async {
+  _FakeMediaPlayerService service, {
+  bool vertical = false,
+}) async {
   final bloc = MediaBloc(service: service, initial: state);
   addTearDown(bloc.close);
   await tester.pumpWidget(
     BlocProvider<MediaBloc>.value(
       value: bloc,
       child: TricksterLocalizationScope(
-        child: Center(child: MediaPill(accent: _accent)),
+        child: Center(
+          child: MediaPill(accent: _accent, vertical: vertical),
+        ),
       ),
     ),
   );
 }
 
 void main() {
+  testWidgets('vertical shows only the controls', (tester) async {
+    final service = _FakeMediaPlayerService();
+    await _pump(tester, _state(), service, vertical: true);
+
+    expect(find.text('Test Song'), findsNothing);
+    expect(find.bySemanticsLabel('Previous track'), findsOneWidget);
+    expect(find.bySemanticsLabel('Pause'), findsOneWidget);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+  });
+
   testWidgets('shows the now-playing text and taps reveal controls', (
     tester,
   ) async {

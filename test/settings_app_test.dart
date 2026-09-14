@@ -216,6 +216,31 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
+  testWidgets('each orientation keeps its own thickness', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Displays'));
+    await tester.pump();
+
+    final outputs = File('${directory.path}/outputs.conf');
+    await tester.tap(find.byKey(const ValueKey<String>('side-left')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('system_bar=left,72'));
+    expect(
+      tester
+          .widget<SettingsSlider>(
+            find.byKey(const ValueKey<String>('thickness-slider')),
+          )
+          .min,
+      72,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('side-bottom')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('system_bar=bottom,32'));
+  });
+
   testWidgets('the close control announces and fires', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);

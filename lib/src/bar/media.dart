@@ -12,12 +12,16 @@ import 'pill.dart';
 /// tap. Only the fields it paints are selected, so position ticks and
 /// `observedAt` churn never rebuild the strip.
 class MediaPill extends StatefulWidget {
-  const MediaPill({required this.accent, super.key});
+  const MediaPill({required this.accent, this.vertical = false, super.key});
 
   static const double maxTitleWidth = 190;
   static const double maxSecondaryWidth = 130;
 
   final WallpaperAccent accent;
+
+  /// Vertical strips show only the transport controls, stacked and always
+  /// visible.
+  final bool vertical;
 
   @override
   State<MediaPill> createState() => _MediaPillState();
@@ -66,6 +70,58 @@ class _MediaPillState extends State<MediaPill> {
       if (title.isNotEmpty) title,
       if (secondary.isNotEmpty && secondary != title) secondary,
     ].join(', ');
+    final controls = [
+      _MediaControlButton(
+        compact: widget.vertical,
+        label: l10n.mediaPrevious,
+        glyph: _TransportGlyph.previous,
+        color: widget.accent.color,
+        enabled: media.canGoPrevious,
+        onPressed: bloc.previous,
+      ),
+      const SizedBox(width: 4),
+      _MediaControlButton(
+        compact: widget.vertical,
+        label: media.playing ? l10n.mediaPause : l10n.mediaPlay,
+        glyph: media.playing ? _TransportGlyph.pause : _TransportGlyph.play,
+        color: widget.accent.color,
+        enabled: media.playing ? media.canPause : media.canPlay,
+        prominent: true,
+        onPressed: bloc.playPause,
+      ),
+      const SizedBox(width: 4),
+      _MediaControlButton(
+        compact: widget.vertical,
+        label: l10n.mediaNext,
+        glyph: _TransportGlyph.next,
+        color: widget.accent.color,
+        enabled: media.canGoNext,
+        onPressed: bloc.next,
+      ),
+    ];
+    if (widget.vertical) {
+      // No card-level tap and no ExcludeSemantics: the transport buttons'
+      // own semantics are the interaction.
+      return Semantics(
+        label: label,
+        value: value,
+        hint: l10n.mediaHint,
+        child: SystemBarCard(
+          accent: widget.accent,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              controls[0],
+              const SizedBox(width: 2),
+              controls[2],
+              const SizedBox(width: 2),
+              controls[4],
+            ],
+          ),
+        ),
+      );
+    }
     // Hand-rolled rather than a TricksterActionCard: its ExcludeSemantics
     // would swallow the transport buttons' own semantics.
     return Semantics(
@@ -139,35 +195,7 @@ class _MediaPillState extends State<MediaPill> {
                     ],
                   ),
                 ),
-                if (_expanded) ...[
-                  const SizedBox(width: 9),
-                  _MediaControlButton(
-                    label: l10n.mediaPrevious,
-                    glyph: _TransportGlyph.previous,
-                    color: widget.accent.color,
-                    enabled: media.canGoPrevious,
-                    onPressed: bloc.previous,
-                  ),
-                  const SizedBox(width: 4),
-                  _MediaControlButton(
-                    label: media.playing ? l10n.mediaPause : l10n.mediaPlay,
-                    glyph: media.playing
-                        ? _TransportGlyph.pause
-                        : _TransportGlyph.play,
-                    color: widget.accent.color,
-                    enabled: media.playing ? media.canPause : media.canPlay,
-                    prominent: true,
-                    onPressed: bloc.playPause,
-                  ),
-                  const SizedBox(width: 4),
-                  _MediaControlButton(
-                    label: l10n.mediaNext,
-                    glyph: _TransportGlyph.next,
-                    color: widget.accent.color,
-                    enabled: media.canGoNext,
-                    onPressed: bloc.next,
-                  ),
-                ],
+                if (_expanded) ...[const SizedBox(width: 9), ...controls],
               ],
             ),
           ),
@@ -185,6 +213,7 @@ class _MediaControlButton extends StatefulWidget {
     required this.enabled,
     required this.onPressed,
     this.prominent = false,
+    this.compact = false,
   });
 
   final String label;
@@ -193,6 +222,7 @@ class _MediaControlButton extends StatefulWidget {
   final bool enabled;
   final VoidCallback onPressed;
   final bool prominent;
+  final bool compact;
 
   @override
   State<_MediaControlButton> createState() => _MediaControlButtonState();
@@ -234,8 +264,8 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
             },
             child: AnimatedContainer(
               duration: Motion.pill,
-              width: 20,
-              height: 20,
+              width: widget.compact ? 16 : 20,
+              height: widget.compact ? 16 : 20,
               decoration: BoxDecoration(
                 color: background,
                 shape: BoxShape.circle,

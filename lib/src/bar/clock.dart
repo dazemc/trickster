@@ -14,19 +14,28 @@ class ClockPill extends StatelessWidget {
   const ClockPill({
     required this.accent,
     this.format = ClockFormat.locale,
+    this.vertical = false,
     super.key,
   });
 
   final WallpaperAccent accent;
   final ClockFormat format;
 
+  /// Vertical strips drop the date caption and show only the time.
+  final bool vertical;
+
   @override
   Widget build(BuildContext context) {
     return SystemBarCard(
       accent: accent,
+      padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
       child: BlocBuilder<ClockBloc, ClockState>(
-        builder: (context, state) =>
-            _ClockRow(accent: accent, now: state.now, format: format),
+        builder: (context, state) => _ClockRow(
+          accent: accent,
+          now: state.now,
+          format: format,
+          vertical: vertical,
+        ),
       ),
     );
   }
@@ -37,11 +46,13 @@ class _ClockRow extends StatelessWidget {
     required this.accent,
     required this.now,
     required this.format,
+    required this.vertical,
   });
 
   final WallpaperAccent accent;
   final DateTime now;
   final ClockFormat format;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -54,13 +65,15 @@ class _ClockRow extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              date,
-              style: ShellText.systemBarCaption.copyWith(
-                color: accent.captionColor(),
+            if (!vertical) ...[
+              Text(
+                date,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: accent.captionColor(),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
+              const SizedBox(width: 8),
+            ],
             AnimatedSwitcher(
               duration: Motion.cardSettle,
               switchInCurve: Motion.standard,
@@ -78,6 +91,9 @@ class _ClockRow extends StatelessWidget {
               child: Text(
                 time,
                 key: ValueKey<String>(time),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
                 style: ShellText.systemBarValue,
               ),
             ),

@@ -13,6 +13,7 @@ class BatteryPill extends StatelessWidget {
     required this.onPressed,
     this.warn = 20,
     this.critical = 10,
+    this.vertical = false,
     super.key,
   });
 
@@ -23,6 +24,9 @@ class BatteryPill extends StatelessWidget {
   final VoidCallback onPressed;
   final int warn;
   final int critical;
+
+  /// Side strips stack the gauge over the percent.
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {

@@ -12,18 +12,23 @@ class GpuPill extends StatelessWidget {
     required this.accent,
     required this.load,
     this.captionSource = MeterCaptionSource.generic,
+    this.vertical = false,
     super.key,
   });
 
   final WallpaperAccent accent;
   final GpuLoad load;
   final MeterCaptionSource captionSource;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
     final name = load.name;
+    // Vertical pills keep the short identity label (`GPU`, `AMD0`, ...):
+    // a queried device name would not fit a side strip.
     final label =
-        captionSource == MeterCaptionSource.device &&
+        !vertical &&
+            captionSource == MeterCaptionSource.device &&
             name != null &&
             name.isNotEmpty
         ? name
@@ -32,12 +37,14 @@ class GpuPill extends StatelessWidget {
         : load.label;
     return SystemBarCard(
       accent: accent,
+      padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
       child: LoadMeter(
         accent: accent,
         label: label,
         current: load.usage,
         history: load.history,
         capacity: GpuLoad.capacity,
+        vertical: vertical,
       ),
     );
   }

@@ -24,6 +24,17 @@ class DisplaysPage extends StatefulWidget {
 class _DisplaysPageState extends State<DisplaysPage> {
   Timer? _saveTimer;
 
+  /// Horizontal and vertical strips keep their own thickness so switching
+  /// edges never drags the other orientation's band along. Remembered for
+  /// this app session; the file stores only the current one.
+  double? _horizontalThickness;
+  double? _verticalThickness;
+
+  /// Vertical strips need room for the inline caption and value or the
+  /// media controls; below this the pills clip.
+  static const double _verticalMinThickness = 72;
+  static const double _horizontalDefault = 32;
+
   @override
   void dispose() {
     _saveTimer?.cancel();
@@ -95,14 +106,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
                         controller,
                         outputs.copyWith(
                           side: side,
-                          // `hidden` parses to thickness 0; leaving it
-                          // hidden would make the next visible choice a
-                          // zero-thickness bar.
-                          thickness: side == SystemBarSide.hidden
-                              ? outputs.thickness
-                              : (outputs.thickness > 0
-                                    ? outputs.thickness
-                                    : 32),
+                          thickness: _thicknessForSide(side, outputs),
                         ),
                       ),
                     ),
@@ -127,8 +131,8 @@ class _DisplaysPageState extends State<DisplaysPage> {
               const SizedBox(height: 8),
               SettingsSlider(
                 key: const ValueKey<String>('thickness-slider'),
-                value: outputs.thickness.clamp(20, 80),
-                min: 20,
+                value: outputs.thickness.clamp(_minThickness(outputs.side), 80),
+                min: _minThickness(outputs.side),
                 max: 80,
                 onChanged: outputs.side == SystemBarSide.hidden
                     ? null
@@ -190,6 +194,29 @@ class _DisplaysPageState extends State<DisplaysPage> {
     );
   }
 
+  /// The thickness a newly selected edge should use: the current band is
+  /// remembered for its own orientation, and the target orientation gets
+  /// the band it last had (or a safe default).
+  double _thicknessForSide(SystemBarSide side, OutputsConfig outputs) {
+    final current = outputs.side;
+    if (current.isHorizontal) {
+      _horizontalThickness = outputs.thickness;
+    } else if (current != SystemBarSide.hidden) {
+      _verticalThickness = outputs.thickness;
+    }
+    if (side == SystemBarSide.hidden) {
+      return outputs.thickness;
+    }
+    if (side.isHorizontal) {
+      final thickness = _horizontalThickness ?? _horizontalDefault;
+      return thickness < 20 ? 20 : thickness;
+    }
+    final thickness = _verticalThickness ?? _verticalMinThickness;
+    return thickness < _verticalMinThickness
+        ? _verticalMinThickness
+        : thickness;
+  }
+
   void _toggleOutput(
     SettingsAppController controller,
     OutputsConfig outputs,
@@ -221,6 +248,11 @@ class _DisplaysPageState extends State<DisplaysPage> {
       ),
     );
   }
+}
+
+/// The smallest band that does not clip that orientation's pills.
+double _minThickness(SystemBarSide side) {
+  return side.isHorizontal ? 20 : _DisplaysPageState._verticalMinThickness;
 }
 
 String _sideLabel(AppLocalizations l10n, SystemBarSide side) {
