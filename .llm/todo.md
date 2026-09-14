@@ -49,9 +49,6 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
-- [ ] **8.10 about page** (S). Bar and protocol versions plus repository
-      links, degrading cleanly when the bar is not running. Done when: it
-      reads versions from a live bar and from a stopped one.
 - [ ] **8.11 packaging** (M). The Arch package builds and installs the second
       bundle with a `trickster-settings.desktop`; extend the AUR recipe and
       the version-sync test to the app. Done when: the package installs both
