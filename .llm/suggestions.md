@@ -29,9 +29,3 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
-- **The AUR recipe pulls the release asset from a private repository.**
-  `trickster-bin`'s `source=` points at the GitHub release download
-  endpoint, which requires authentication while `dazemc/trickster` is
-  private, so the public cannot build the package. Make the repository
-  public at the first public release, or mirror the asset somewhere that
-  allows anonymous downloads.
