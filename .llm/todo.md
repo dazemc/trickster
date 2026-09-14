@@ -41,25 +41,6 @@ opaque window while the bar is glass. This phase fills the surface out.
   Done when the live window shows the blurred desktop on Hyprland and the
   fallback stays legible.
 
-## Phase 16 — workspace rail (compositor-derived)
-
-Denial owns workspaces; Trickster is a guest. The user chose the honest
-replacement: the rail mirrors the compositor's own workspace-to-output
-placement, and compositor config (Hyprland persistent + monitor rules) owns
-placement, persistence, and which display is main. The chain settings
-retire. This reverses the chain steps 16.1-16.4; their code unwinds here.
-
-- **16.5 (M) Derive the rail from the compositor.** Each strip renders the
-  numbered workspaces the snapshot places on its output, ordered by id;
-  pressing focuses. Remove the chain/overflow rail math, the press-claim,
-  and the connected-output plumbing it needed. Done when the live rails
-  mirror `hyprctl workspaces` per output and widget tests cover the derive.
-- **16.6 (S) Retire the chain settings.** `workspace_count`, `per_output`,
-  and `display_order` become ignored keys and the workspaces gear drops its
-  order and per-display controls; old documents still decode. Done when the
-  document round-trips without the section and the live panel carries no
-  workspace controls.
-
 ## Phase 17 — workspace pip styles
 
 The rail draws numbers today. The user wants a style choice: dots, numbers,
