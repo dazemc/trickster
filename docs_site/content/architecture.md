@@ -29,13 +29,13 @@ The widget split mirrors Denial: the strip paints nothing, modules are borderles
 
 ## State
 
-One `BlocProvider` per configured module, explicit events and states, no Cubits. `ModuleScope` builds providers only for listed modules, so a disabled module owns no bloc, no subscription, and no timer. Every state ships `toJson`/`fromJson` from day one (convention only, no HydratedBloc) so `tricksterctl status` reads real state later.
+`flutter_bloc` carries all state in both processes: explicit events and states, no Cubits, no `ChangeNotifier` application state. In the bar, `ModuleScope` builds one provider per configured module, so a disabled module owns no bloc, no subscription, and no timer; the settings application carries its own blocs under the same rule. Every state ships `toJson`/`fromJson` from day one (convention only, no HydratedBloc) so `tricksterctl status` reads real state later.
 
 ## Ported vs. replaced
 
 Ported from Denial's `dart_shell` (GPL-3.0-or-later, attribution preserved): pill cards, theme tokens, motion springs, clock behavior, UPower/MPRIS/SNI service shapes, CPU/GPU status, settings-store shape, `system_bar=` grammar, strip math.
 
-Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-socket backends; wallpaper accent → configured color; XEmbed tray → omitted; exclusive zone → layer-shell request.
+Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-socket backends; wallpaper accent → configured color plus the optional local sampler; XEmbed tray → omitted; exclusive zone → layer-shell request.
 
 ## Performance rules
 
