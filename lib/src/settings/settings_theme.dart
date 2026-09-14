@@ -109,6 +109,58 @@ class _ClosePainter extends CustomPainter {
   bool shouldRepaint(covariant _ClosePainter oldDelegate) => false;
 }
 
+/// A small text button in the settings window.
+class SettingsButton extends StatefulWidget {
+  const SettingsButton({
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  State<SettingsButton> createState() => _SettingsButtonState();
+}
+
+class _SettingsButtonState extends State<SettingsButton> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.label,
+      onTap: widget.onPressed,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onPressed,
+            child: AnimatedContainer(
+              duration: Motion.pill,
+              curve: Motion.standard,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _hovered
+                    ? SettingsColors.surfaceHigh
+                    : SettingsColors.surface,
+                borderRadius: const BorderRadius.all(Radius.circular(999)),
+                border: Border.all(color: SettingsColors.outline),
+              ),
+              child: Text(widget.label, style: ShellText.systemBarCaption),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A section heading inside the settings window.
 class SettingsHeading extends StatelessWidget {
   const SettingsHeading({required this.title, this.caption, super.key});

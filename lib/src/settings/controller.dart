@@ -28,11 +28,15 @@ class SettingsAppController extends ChangeNotifier {
   String? _error;
   var _busy = false;
   var _usingSocket = false;
+  var _loaded = false;
   var _disposed = false;
 
   BarSettings get settings => _settings;
   String? get error => _error;
   bool get busy => _busy;
+
+  /// Whether at least one load finished (successfully or not).
+  bool get loaded => _loaded;
 
   /// Whether the running bar owns the document this session.
   bool get usingSocket => _usingSocket;
@@ -62,6 +66,14 @@ class SettingsAppController extends ChangeNotifier {
     _store = store;
     _usingSocket = usingSocket;
     _busy = false;
+    _loaded = true;
+    _notify();
+  }
+
+  /// Updates the in-memory settings without writing, for live previews while
+  /// a control is being dragged.
+  void preview(BarSettings settings) {
+    _settings = settings;
     _notify();
   }
 

@@ -98,4 +98,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsClose => '关闭设置';
+
+  @override
+  String get settingsLoading => '正在加载配置…';
+
+  @override
+  String get settingsAppearanceTitle => '外观';
+
+  @override
+  String get settingsAppearanceCaption => '状态栏使用的强调色。';
+
+  @override
+  String get settingsAccentPresets => '预设';
+
+  @override
+  String get settingsAccentReset => '重置';
+
+  @override
+  String get settingsColorWheelSemanticsLabel => '强调色';
+
+  @override
+  String get settingsColorWheelNextHue => '下一个色相';
+
+  @override
+  String get settingsColorWheelPreviousHue => '上一个色相';
 }

@@ -131,5 +131,37 @@
   "settingsClose": "Close settings",
   "@settingsClose": {
     "description": "Accessible label for the settings close button."
+  },
+  "settingsLoading": "Loading configuration…",
+  "@settingsLoading": {
+    "description": "Shown while the settings document loads."
+  },
+  "settingsAppearanceTitle": "Appearance",
+  "@settingsAppearanceTitle": {
+    "description": "Title of the appearance settings page."
+  },
+  "settingsAppearanceCaption": "Accent used across the bar.",
+  "@settingsAppearanceCaption": {
+    "description": "Caption under the appearance page title."
+  },
+  "settingsAccentPresets": "Presets",
+  "@settingsAccentPresets": {
+    "description": "Accessible label for the accent preset swatches."
+  },
+  "settingsAccentReset": "Reset",
+  "@settingsAccentReset": {
+    "description": "Button that clears the custom accent."
+  },
+  "settingsColorWheelSemanticsLabel": "Accent color",
+  "@settingsColorWheelSemanticsLabel": {
+    "description": "Accessible label for the accent color wheel."
+  },
+  "settingsColorWheelNextHue": "Next hue",
+  "@settingsColorWheelNextHue": {
+    "description": "Screen-reader value after increasing hue on the color wheel."
+  },
+  "settingsColorWheelPreviousHue": "Previous hue",
+  "@settingsColorWheelPreviousHue": {
+    "description": "Screen-reader value after decreasing hue on the color wheel."
   }
 }

@@ -100,4 +100,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsClose => 'Close settings';
+
+  @override
+  String get settingsLoading => 'Loading configuration…';
+
+  @override
+  String get settingsAppearanceTitle => 'Appearance';
+
+  @override
+  String get settingsAppearanceCaption => 'Accent used across the bar.';
+
+  @override
+  String get settingsAccentPresets => 'Presets';
+
+  @override
+  String get settingsAccentReset => 'Reset';
+
+  @override
+  String get settingsColorWheelSemanticsLabel => 'Accent color';
+
+  @override
+  String get settingsColorWheelNextHue => 'Next hue';
+
+  @override
+  String get settingsColorWheelPreviousHue => 'Previous hue';
 }

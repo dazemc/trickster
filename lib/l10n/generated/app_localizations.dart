@@ -271,6 +271,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close settings'**
   String get settingsClose;
+
+  /// Shown while the settings document loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading configuration…'**
+  String get settingsLoading;
+
+  /// Title of the appearance settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearanceTitle;
+
+  /// Caption under the appearance page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent used across the bar.'**
+  String get settingsAppearanceCaption;
+
+  /// Accessible label for the accent preset swatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get settingsAccentPresets;
+
+  /// Button that clears the custom accent.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get settingsAccentReset;
+
+  /// Accessible label for the accent color wheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get settingsColorWheelSemanticsLabel;
+
+  /// Screen-reader value after increasing hue on the color wheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Next hue'**
+  String get settingsColorWheelNextHue;
+
+  /// Screen-reader value after decreasing hue on the color wheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous hue'**
+  String get settingsColorWheelPreviousHue;
 }
 
 class _AppLocalizationsDelegate

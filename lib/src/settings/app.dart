@@ -5,6 +5,9 @@ import 'package:flutter/widgets.dart';
 import '../locale.dart';
 import '../platform/layer_shell.dart';
 import '../theme/tokens.dart';
+import 'controller.dart';
+import 'pages/appearance.dart';
+import 'scope.dart';
 import 'settings_theme.dart';
 
 /// Root of the settings application: the same binary in settings mode, its
@@ -12,34 +15,57 @@ import 'settings_theme.dart';
 ///
 /// The engine hosts one non-implicit view, so like the bar it must build a
 /// [View] per reported view; a bare widget tree would render nothing.
-class TricksterSettingsApp extends StatelessWidget {
+class TricksterSettingsApp extends StatefulWidget {
   const TricksterSettingsApp({super.key});
+
+  @override
+  State<TricksterSettingsApp> createState() => _TricksterSettingsAppState();
+}
+
+class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
+  late final SettingsAppController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = SettingsAppController();
+    unawaited(_controller.load());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final views = WidgetsBinding.instance.platformDispatcher.views;
-    return ViewCollection(
-      views: [
-        for (final view in views)
-          View(
-            view: view,
-            child: TricksterLocalizationScope(
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      SettingsColors.backgroundTop,
-                      SettingsColors.background,
-                    ],
+    return SettingsAppScope(
+      notifier: _controller,
+      child: ViewCollection(
+        views: [
+          for (final view in views)
+            View(
+              view: view,
+              child: TricksterLocalizationScope(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        SettingsColors.backgroundTop,
+                        SettingsColors.background,
+                      ],
+                    ),
                   ),
+                  child: const SettingsHome(),
                 ),
-                child: const SettingsHome(),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -55,6 +81,7 @@ class SettingsHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final controller = SettingsAppScope.of(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -88,18 +115,30 @@ class SettingsHome extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: SettingsCard(
-              child: Center(
-                child: Text(
-                  l10n.settingsPlaceholder,
-                  style: ShellText.systemBarCaption.copyWith(
-                    color: ShellMediaColors.lightForegroundSecondary,
-                  ),
+          if (controller.error != null) ...[
+            const SizedBox(height: 16),
+            SettingsCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text(
+                controller.error!,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: ShellTelemetryColors.danger,
                 ),
               ),
             ),
+          ],
+          const SizedBox(height: 24),
+          Expanded(
+            child: !controller.loaded
+                ? Center(
+                    child: Text(
+                      l10n.settingsLoading,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  )
+                : const SingleChildScrollView(child: AppearancePage()),
           ),
         ],
       ),

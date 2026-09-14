@@ -270,6 +270,21 @@ class BarSettings extends Equatable {
   String encode() =>
       '${const JsonEncoder.withIndent('  ').convert(toJson())}\n';
 
+  /// Same settings with the accent replaced, clearing it when [accent] is
+  /// null (the default accent applies again).
+  BarSettings withAccent(Color? accent) {
+    return BarSettings(
+      revision: revision,
+      accent: accent,
+      modules: modules,
+      workspaces: workspaces,
+      cpu: cpu,
+      clock: clock,
+      battery: battery,
+      meter: meter,
+    );
+  }
+
   BarSettings copyWith({
     int? revision,
     Color? accent,

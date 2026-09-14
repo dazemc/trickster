@@ -131,5 +131,37 @@
   "settingsClose": "关闭设置",
   "@settingsClose": {
     "description": "Accessible label for the settings close button."
+  },
+  "settingsLoading": "正在加载配置…",
+  "@settingsLoading": {
+    "description": "Shown while the settings document loads."
+  },
+  "settingsAppearanceTitle": "外观",
+  "@settingsAppearanceTitle": {
+    "description": "Title of the appearance settings page."
+  },
+  "settingsAppearanceCaption": "状态栏使用的强调色。",
+  "@settingsAppearanceCaption": {
+    "description": "Caption under the appearance page title."
+  },
+  "settingsAccentPresets": "预设",
+  "@settingsAccentPresets": {
+    "description": "Accessible label for the accent preset swatches."
+  },
+  "settingsAccentReset": "重置",
+  "@settingsAccentReset": {
+    "description": "Button that clears the custom accent."
+  },
+  "settingsColorWheelSemanticsLabel": "强调色",
+  "@settingsColorWheelSemanticsLabel": {
+    "description": "Accessible label for the accent color wheel."
+  },
+  "settingsColorWheelNextHue": "下一个色相",
+  "@settingsColorWheelNextHue": {
+    "description": "Screen-reader value after increasing hue on the color wheel."
+  },
+  "settingsColorWheelPreviousHue": "上一个色相",
+  "@settingsColorWheelPreviousHue": {
+    "description": "Screen-reader value after decreasing hue on the color wheel."
   }
 }
