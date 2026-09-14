@@ -8,6 +8,7 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/module_options.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
@@ -65,10 +66,12 @@ class _ModulesPageState extends State<ModulesPage> {
   final Map<String, GlobalKey> _rowKeys = <String, GlobalKey>{};
   final Map<ModuleZone, GlobalKey> _zoneKeys = <ModuleZone, GlobalKey>{};
 
+  final Set<String> _expanded = <String>{};
   String? _dragging;
   ModuleZone? _previewZone;
   int _previewIndex = 0;
   double _dragWidth = 0;
+  Offset? _lastPointer;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
@@ -217,6 +220,7 @@ class _ModulesPageState extends State<ModulesPage> {
     if (dragging == null) {
       return;
     }
+    _lastPointer = position;
     final groups = _groupsFor(controller.settings, exclude: dragging);
     ModuleZone? zone;
     var index = 0;
@@ -254,15 +258,39 @@ class _ModulesPageState extends State<ModulesPage> {
     });
   }
 
+  /// True when [position] sits inside a placement segment; used when the
+  /// target's acceptance did not register but the release clearly landed.
+  bool _withinSegment(Offset position) {
+    for (final zone in ModuleZone.values) {
+      final box =
+          _zoneKey(zone).currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) {
+        continue;
+      }
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      if (rect.inflate(16).contains(position)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _endDrag(SettingsAppController controller, bool accepted) {
     final module = _dragging;
     final zone = _previewZone;
     final index = _previewIndex;
+    final pointer = _lastPointer;
+    _lastPointer = null;
     setState(() {
       _dragging = null;
       _previewZone = null;
     });
-    if (!accepted || module == null || zone == null) {
+    if (module == null || zone == null) {
+      return;
+    }
+    // The target usually accepts; fall back to the release position so a
+    // first drag never silently reverts.
+    if (!accepted && (pointer == null || !_withinSegment(pointer))) {
       return;
     }
     _dropOn(controller, module, zone: zone, index: index);
@@ -305,12 +333,22 @@ class _ModulesPageState extends State<ModulesPage> {
       required ModuleZone zone,
       required bool reorderable,
     }) {
+      final hasOptions = reorderable && moduleHasOptions(module);
       return _ModuleRow(
         key: ValueKey<String>('module-$module'),
         module: module,
         label: moduleLabel(l10n, module),
         enabled: settings.includes(module),
         reorderable: reorderable,
+        options: hasOptions ? ModuleOptionsPanel(module: module) : null,
+        optionsExpanded: _expanded.contains(module),
+        onToggleOptions: hasOptions
+            ? () => setState(() {
+                if (!_expanded.remove(module)) {
+                  _expanded.add(module);
+                }
+              })
+            : null,
         feedbackWidth: _dragWidth,
         onDragStart: () => _startDrag(controller, module, zone),
         onDragUpdate: (position) => _updateDrag(controller, position),
@@ -494,6 +532,9 @@ class _ModuleRow extends StatelessWidget {
     required this.label,
     required this.enabled,
     required this.reorderable,
+    required this.options,
+    required this.optionsExpanded,
+    required this.onToggleOptions,
     required this.feedbackWidth,
     required this.onDragStart,
     required this.onDragUpdate,
@@ -508,6 +549,9 @@ class _ModuleRow extends StatelessWidget {
   final String label;
   final bool enabled;
   final bool reorderable;
+  final Widget? options;
+  final bool optionsExpanded;
+  final VoidCallback? onToggleOptions;
   final double feedbackWidth;
   final VoidCallback onDragStart;
   final ValueChanged<Offset> onDragUpdate;
@@ -519,7 +563,7 @@ class _ModuleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final row = Padding(
+    final header = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
@@ -541,6 +585,15 @@ class _ModuleRow extends StatelessWidget {
               ),
             ),
           ),
+          if (onToggleOptions != null) ...[
+            _ModuleOptionsButton(
+              key: ValueKey<String>('module-options-$module'),
+              label: l10n.settingsModuleOptions(label),
+              expanded: optionsExpanded,
+              onPressed: onToggleOptions!,
+            ),
+            const SizedBox(width: 8),
+          ],
           _ModuleToggle(
             key: ValueKey<String>('module-toggle-$module'),
             label: label,
@@ -550,23 +603,83 @@ class _ModuleRow extends StatelessWidget {
         ],
       ),
     );
-    if (!reorderable) {
-      return row;
-    }
-    // The row travels whole and its slot closes behind it; the proxy keeps
-    // the segment's width so the move previews its landing shape.
-    return Draggable<String>(
-      data: module,
-      maxSimultaneousDrags: 1,
-      feedback: SizedBox(
-        width: feedbackWidth,
-        child: _DragFeedback(label: label),
+    final Widget top = !reorderable
+        ? header
+        // The row travels whole and its slot closes behind it; the proxy
+        // keeps the segment's width so the move previews its landing shape.
+        : Draggable<String>(
+            data: module,
+            maxSimultaneousDrags: 1,
+            feedback: SizedBox(
+              width: feedbackWidth,
+              child: _DragFeedback(label: label),
+            ),
+            childWhenDragging: const SizedBox.shrink(),
+            onDragStarted: onDragStart,
+            onDragUpdate: (details) => onDragUpdate(details.globalPosition),
+            onDragEnd: (details) => onDragEnd(details.wasAccepted),
+            child: header,
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        top,
+        if (options != null && optionsExpanded)
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 64,
+              right: 16,
+              top: 4,
+              bottom: 12,
+            ),
+            child: options,
+          ),
+      ],
+    );
+  }
+}
+
+/// The gear that reveals one module's typed options.
+class _ModuleOptionsButton extends StatelessWidget {
+  const _ModuleOptionsButton({
+    required this.label,
+    required this.expanded,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final bool expanded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      label: label,
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: SizedBox.square(
+              dimension: 24,
+              child: Center(
+                child: Icon(
+                  LucideIcons.settings,
+                  size: 15,
+                  color: expanded
+                      ? ShellBrandColors.defaultAccent
+                      : ShellMediaColors.lightForegroundSecondary,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
-      childWhenDragging: const SizedBox.shrink(),
-      onDragStarted: onDragStart,
-      onDragUpdate: (details) => onDragUpdate(details.globalPosition),
-      onDragEnd: (details) => onDragEnd(details.wasAccepted),
-      child: row,
     );
   }
 }

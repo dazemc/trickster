@@ -11,7 +11,6 @@ import 'package:trickster/src/settings/pages/appearance.dart';
 import 'package:trickster/src/settings/pages/displays.dart';
 import 'package:trickster/src/settings/pages/language.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
-import 'package:trickster/src/settings/pages/options.dart';
 import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
@@ -127,7 +126,7 @@ class SettingsHome extends StatefulWidget {
   State<SettingsHome> createState() => _SettingsHomeState();
 }
 
-enum SettingsSection { appearance, modules, displays, options, language, about }
+enum SettingsSection { appearance, modules, displays, language, about }
 
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
@@ -208,7 +207,6 @@ class _SettingsHomeState extends State<SettingsHome> {
                               availabilityProbe: widget.availabilityProbe,
                             ),
                             SettingsSection.displays => const DisplaysPage(),
-                            SettingsSection.options => const OptionsPage(),
                             SettingsSection.language => const LanguagePage(),
                             SettingsSection.about => const AboutPage(),
                           },
@@ -253,11 +251,6 @@ class SettingsNav extends StatelessWidget {
               label: l10n.settingsDisplaysTitle,
               selected: section == SettingsSection.displays,
               onPressed: () => onSelect(SettingsSection.displays),
-            ),
-            _NavEntry(
-              label: l10n.settingsOptionsTitle,
-              selected: section == SettingsSection.options,
-              onPressed: () => onSelect(SettingsSection.options),
             ),
             _NavEntry(
               label: l10n.settingsLanguageTitle,

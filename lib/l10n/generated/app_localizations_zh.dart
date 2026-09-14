@@ -144,6 +144,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoBattery => '未检测到电池';
 
   @override
+  String settingsModuleOptions(String module) {
+    return '$module 选项';
+  }
+
+  @override
   String get settingsModulesEmptyZone => '将模块拖到这里';
 
   @override

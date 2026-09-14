@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -264,12 +265,20 @@ void main() {
     final controller = await _controller(file);
     addTearDown(controller.dispose);
     await _pump(tester, controller);
-    await tester.tap(find.bySemanticsLabel('Module options'));
+    await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
+    }
+
+    Future<void> openOptions(String module) async {
+      final gear = find.byKey(ValueKey<String>('module-options-$module'));
+      await tester.ensureVisible(gear);
+      await tester.pumpAndSettle();
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
     }
 
     Future<void> nudgeToMax(String sliderKey) async {
@@ -289,6 +298,7 @@ void main() {
       await settle();
     }
 
+    await openOptions('workspaces');
     await nudgeToMax('options-workspaces-count');
     expect(controller.settings.workspaces.count, 9);
     await reset('reset-workspaces-count');
@@ -297,6 +307,7 @@ void main() {
       const WorkspaceOptions().count,
     );
 
+    await openOptions('clock');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('clock-format-24h')),
     );
@@ -308,12 +319,14 @@ void main() {
     await reset('reset-clock-format');
     expect(controller.settings.clock.format, const ClockOptions().format);
 
+    await openOptions('cpu');
     await nudgeToMax('options-cpu-warn');
     await reset('reset-cpu-warn');
     expect(controller.settings.cpu.warn, const CpuOptions().warn);
     await reset('reset-cpu-critical');
     expect(controller.settings.cpu.critical, const CpuOptions().critical);
 
+    await openOptions('battery');
     await nudgeToMax('options-battery-warn');
     await reset('reset-battery-warn');
     expect(controller.settings.battery.warn, const BatteryOptions().warn);
@@ -323,6 +336,7 @@ void main() {
       const BatteryOptions().critical,
     );
 
+    await openOptions('gpu');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('meter-caption-device')),
     );
@@ -386,6 +400,40 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
     await tester.pumpAndSettle();
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
+  });
+
+  testWidgets('mouse drag from the row body reorders', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    final before = List<String>.of(controller.settings.modules);
+    final row = find.byKey(const ValueKey<String>('module-clock'));
+    await tester.ensureVisible(row);
+    await tester.pumpAndSettle();
+    final start = tester.getCenter(row);
+    final target = tester.getCenter(
+      find.byKey(const ValueKey<String>('module-battery')),
+    );
+    final gesture = await tester.startGesture(
+      start,
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    await gesture.moveBy(const Offset(0, -24));
+    await tester.pump(const Duration(milliseconds: 60));
+    await gesture.moveTo(target);
+    await tester.pump(const Duration(milliseconds: 60));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(
+      controller.settings.modules.indexOf('clock'),
+      lessThan(before.indexOf('clock')),
+    );
   });
 
   testWidgets('dragging previews the landing slot before release', (
@@ -694,13 +742,22 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32'));
   });
 
-  testWidgets('options page round-trips typed options', (tester) async {
+  testWidgets('module gears round-trip typed options', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);
     await _pump(tester, controller);
-    await tester.tap(find.bySemanticsLabel('Module options'));
+    await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
+    Future<void> openOptions(String module) async {
+      final gear = find.byKey(ValueKey<String>('module-options-$module'));
+      await tester.ensureVisible(gear);
+      await tester.pumpAndSettle();
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
+    }
+
+    await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('options-workspaces-count')),
     );
@@ -715,11 +772,17 @@ void main() {
     expect(controller.settings.workspaces.count, 9);
     expect(file.readAsStringSync(), contains('"workspace_count": 9'));
 
+    await openOptions('clock');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('clock-format-24h')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(controller.settings.clock.format, ClockFormat.hour24);
 
+    await openOptions('gpu');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('meter-caption-device')),
     );

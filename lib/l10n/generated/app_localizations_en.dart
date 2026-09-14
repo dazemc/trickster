@@ -147,6 +147,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUnavailableNoBattery => 'No battery detected';
 
   @override
+  String settingsModuleOptions(String module) {
+    return '$module options';
+  }
+
+  @override
   String get settingsModulesEmptyZone => 'Drop a module here';
 
   @override

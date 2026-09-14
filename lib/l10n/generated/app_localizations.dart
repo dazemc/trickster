@@ -356,6 +356,12 @@ abstract class AppLocalizations {
   /// **'No battery detected'**
   String get settingsUnavailableNoBattery;
 
+  /// Gear label revealing one module's options.
+  ///
+  /// In en, this message translates to:
+  /// **'{module} options'**
+  String settingsModuleOptions(String module);
+
   /// Hint shown inside an empty placement segment.
   ///
   /// In en, this message translates to:

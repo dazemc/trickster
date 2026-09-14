@@ -193,6 +193,15 @@
   "@settingsUnavailableNoBattery": {
     "description": "Reason shown when no battery is detected."
   },
+  "settingsModuleOptions": "{module} 选项",
+  "@settingsModuleOptions": {
+    "description": "Gear label revealing one module's options.",
+    "placeholders": {
+      "module": {
+        "type": "String"
+      }
+    }
+  },
   "settingsModulesEmptyZone": "将模块拖到这里",
   "@settingsModulesEmptyZone": {
     "description": "Hint shown inside an empty placement segment."
