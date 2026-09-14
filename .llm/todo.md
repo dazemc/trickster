@@ -42,13 +42,6 @@ silent per the logging rules.
 
 ## Phase 9 — parity and release hygiene
 
-- [ ] **9.3 wallpaper accent sampler** (M). `lib/src/theme/`, settings.
-      Denial derives the accent from the wallpaper; Trickster only reads
-      `accent`/`TRICKSTER_ACCENT`. Add an opt-in sampler that reads the
-      host wallpaper (swww/awww state or a configured path), decodes one
-      downscaled buffer off the UI isolate, derives the accent, frees it,
-      and re-samples when the wallpaper changes. Done when: the setting is
-      honored, bounded, and verified live on Hyprland.
 - [ ] **9.4 AUR submission** (S). `packaging/aur/trickster-bin`. The recipe
       is verified and pinned but not published to aur.archlinux.org; submit
       it (needs the user's AUR account and SSH key) and confirm the package
