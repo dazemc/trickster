@@ -52,3 +52,28 @@ fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
 ## Phase 10 — docs and install hygiene
+
+## Phase 11 — workspace rail parity
+
+Denial v0.4.0 renders the workspace rail as a centered, numbered card in the
+strip with a liquid active lens. Trickster keeps its compositor-fed
+workspaces and module gate; these steps align the presentation.
+
+- **11.1 (M) Center the workspace rail in the strip.** Move the workspaces
+  pill out of the trailing module cluster and center it over the strip
+  (Denial's `DesktopSystemBarIndicatorSlot`: a shrink-wrapped main-axis item
+  centered in a `Stack`), keeping the module gate, per-output surfaces, and
+  exclusive-zone math. Done when a widget test proves the rail centers
+  independently of the cluster and the live bar matches.
+- **11.2 (S) Render numbered workspace pips.** Replace the state-colored
+  dots with Denial's indicator treatment: `Text` labels styled accent when
+  active, secondary when occupied, caption otherwise, over the active lens.
+  Done when pip visuals, tooltips, and semantics match the ported source and
+  tests cover the three states.
+- **11.3 (M) Deform the active lens on switch.** Port
+  `_WorkspaceActiveLens`: scale 1 → 1.34 → 0.94 → 1 across
+  `workspaceIndicatorTakeoff` 72ms / `Travel` 168ms / `Settle` 80ms with the
+  MD3 emphasized accelerate/decelerate curves, honoring reduced motion; add
+  the tokens and curves to `lib/src/theme/motion.dart`. Done when a widget
+  test observes the sequence, reduced motion skips it, and the live bar
+  matches Denial's motion.
