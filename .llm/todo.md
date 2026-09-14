@@ -81,40 +81,31 @@ per-option reset, orders modules with arrow buttons only, offers
 hardware-dependent modules unconditionally, and is an opaque window while
 the bar is glass. This phase fills the surface out.
 
-- **14.3 (M) Reset on appearance, modules, and displays.** Reset for accent
+- **14.3 (S) Use Lucide for every icon.** Add the `lucide_icons` package
+  and replace the hand-painted glyphs (reset arrow, window close, module
+  move chevrons, media transport controls, tray menu toggles) with Lucide
+  widgets; charts and the color wheel stay painted because they are data,
+  not icons. Done when no widget paints its own icon, the dependency
+  resolves, and tests plus the live settings window render the glyphs.
+- **14.4 (M) Reset on appearance, modules, and displays.** Reset for accent
   source, custom accent, wallpaper pick, module list/order, per-module
   placement, bar edge, thickness, and output selection. Done when a widget
   test reverts each and the document round-trips the defaults.
-- **14.4 (M) Drag-and-drop module order.** Replace the up/down arrows with
+- **14.5 (M) Drag-and-drop module order.** Replace the up/down arrows with
   a drag handle (keyboard reordering kept for accessibility), persisting
   through the same saver. Done when a widget test drags a module across
   others and the document lists the new order.
-- **14.5 (S) Grey out undetectable modules.** Probe `/sys/class/power_supply`
+- **14.6 (S) Grey out undetectable modules.** Probe `/sys/class/power_supply`
   (injected for tests) so a battery-less system shows the Battery row
   dimmed, disabled, and explained; the control refuses changes. Done when
   tests cover present and absent probes.
-- **14.6 (M) Bar display options.** User-requested additions the bar can
+- **14.7 (M) Bar display options.** User-requested additions the bar can
   honor without a new design language: `clock.show_date` (hide the date
   caption), `appearance.blur` (force the opaque fill even when the host can
   blur), and `meter.sparkline` (hide CPU/GPU history). Done when each
   renders on the bar, resets, and has config plus widget tests.
-- **14.7 (M) Glass settings window.** Make the settings toplevel translucent
+- **14.8 (M) Glass settings window.** Make the settings toplevel translucent
   (GTK RGBA visual plus translucent Flutter surfaces) so the host blurs
   behind it, with an opaque fallback when the compositor cannot. Done when
   the live window shows the blurred desktop on Hyprland and the fallback
   stays legible.
-
-## Phase 15 — docs site delivery
-
-The docs site builds locally but is not published, and it still ships the
-Jaspr starter icon. Deliver it to GitHub Pages with the Trickster mark.
-
-- **15.1 (S) Replace the docs icon.** Swap the Jaspr starter asset for the
-  user's `Denia's_Doll.webp` (converted to the formats the site's head and
-  manifest reference), keyed by the same paths so nothing else changes.
-  Done when the built site's icon requests resolve to the new mark.
-- **15.2 (M) Deploy the docs site to GitHub Pages.** Add a workflow that
-  fetches the site's deps, runs `jaspr build`, uploads `build/jaspr`, and
-  deploys through `actions/deploy-pages`; enable Pages with the workflow
-  source. Done when the published URL serves the rendered docs and a fresh
-  push to `main` updates it.
