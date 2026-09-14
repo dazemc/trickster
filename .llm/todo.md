@@ -81,10 +81,6 @@ per-option reset, orders modules with arrow buttons only, offers
 hardware-dependent modules unconditionally, and is an opaque window while
 the bar is glass. This phase fills the surface out.
 
-- **14.1 (S) Reset-to-default control.** Add a small circular-arrow
-  `SettingsResetButton` with hover, focus, tooltip, and semantics; every
-  later step reuses it. Done when component tests cover the tap firing once,
-  the disabled state, and the accessible label.
 - **14.2 (M) Reset on every module option.** Put a reset next to workspace
   count, clock format, CPU warn/critical, battery warn/critical, meter
   captions, and locale; each resets exactly its own field to the shipped
