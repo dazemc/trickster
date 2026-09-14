@@ -29,3 +29,10 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
+- **The workspace rail diverges from Denial v0.4.0.** Denial centers a
+  numbered workspace card in the strip and deforms the active lens on
+  switch (`workspaceIndicatorTakeoff` 72ms / `Travel` 168ms / `Settle` 80ms,
+  MD3 emphasized curves); Trickster renders state-colored dots in the
+  trailing module cluster with a plain aligned lens. Port the centered rail,
+  or record the dots/cluster choice as a deliberate divergence in
+  `.llm/porting.md`.
