@@ -21,6 +21,9 @@ Do not add features Denial's bar does not have until parity is real.
 
 Deliberate, user-reviewed divergences:
 
+- **Per-module placement.** The user asked for a settings control that
+  assigns each module to the strip's leading, center, or trailing zone;
+  Denial hardcodes tray/workspaces/the rest. Do not remove it for parity.
 - **Meter captions.** CPU and NVIDIA GPU meters default to `CPU`/`GPU`,
   with queried device names (`/proc/cpuinfo` model name, NVML device name)
   kept in state for the future caption option; AMD/Intel pips keep their
@@ -55,3 +58,11 @@ accent, theme tokens, or the `system_bar=` grammar. What moved:
   percent field. Both are compositor/glass work outside the honest
   layer-shell replacement, as are the new compositor layout settings
   (scrolling layout, workspace count/orientation, suspend mode).
+
+Denial's glass cards come from its compositor glass engine (refraction,
+dispersion, rim light at ~20% black backing). A layer-shell guest cannot
+run that engine, so Trickster approximates it: the background effect's
+blur region is the pill's scanline-rounded bounds, the blurred fill is
+black at 30/26%, and a painted gradient rim stands in for the specular
+light. Do not raise the fill back toward opaque, and do not delete the
+sheen, without asking.
