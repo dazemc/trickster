@@ -6,6 +6,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/bloc.dart';
+import 'package:trickster/src/settings/modules_bloc.dart';
 import 'package:trickster/src/settings/pages/about.dart';
 import 'package:trickster/src/settings/pages/appearance.dart';
 import 'package:trickster/src/settings/pages/displays.dart';
@@ -205,9 +206,14 @@ class _SettingsHomeState extends State<SettingsHome> {
                           child: switch (_section) {
                             SettingsSection.appearance =>
                               const AppearancePage(),
-                            SettingsSection.modules => ModulesPage(
-                              availabilityProbe: widget.availabilityProbe,
-                            ),
+                            SettingsSection.modules =>
+                              BlocProvider<ModulesBloc>(
+                                create: (context) => ModulesBloc(
+                                  settings: context.read<SettingsAppBloc>(),
+                                  availabilityProbe: widget.availabilityProbe,
+                                ),
+                                child: const ModulesPage(),
+                              ),
                             SettingsSection.displays => const DisplaysPage(),
                             SettingsSection.language => const LanguagePage(),
                             SettingsSection.about => const AboutPage(),

@@ -10,7 +10,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/module_options.dart';
-import 'package:trickster/src/settings/saver.dart';
+import 'package:trickster/src/settings/modules_bloc.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -47,13 +47,7 @@ String _zoneLabel(AppLocalizations l10n, ModuleZone zone) {
 /// ordered as the strip renders it. Dragging a row lifts it whole, opens a
 /// live gap where it would land, and commits on release.
 class ModulesPage extends StatefulWidget {
-  const ModulesPage({
-    this.availabilityProbe = probeModuleAvailability,
-    super.key,
-  });
-
-  /// Hardware probe; injected by the shell and faked in tests.
-  final List<ModuleAvailability> Function() availabilityProbe;
+  const ModulesPage({super.key});
 
   @override
   State<ModulesPage> createState() => _ModulesPageState();
@@ -64,19 +58,10 @@ class _ModulesPageState extends State<ModulesPage> {
   /// target did not register the drop.
   static const double _zoneDropReach = 120;
 
-  DebouncedSaver? _saver;
-  late final List<ModuleAvailability> _unavailable = widget.availabilityProbe();
-
   final Map<String, GlobalKey> _rowKeys = <String, GlobalKey>{};
   final Map<ModuleZone, GlobalKey> _zoneKeys = <ModuleZone, GlobalKey>{};
 
-  final Set<String> _expanded = <String>{};
   final GlobalKey _disabledKey = GlobalKey();
-  String? _dragging;
-  ModuleZone? _previewZone;
-  int _previewIndex = 0;
-  Offset? _lastPointer;
-  bool _dropHandled = false;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
@@ -84,153 +69,40 @@ class _ModulesPageState extends State<ModulesPage> {
   GlobalKey _zoneKey(ModuleZone zone) =>
       _zoneKeys.putIfAbsent(zone, GlobalKey.new);
 
-  @override
-  void dispose() {
-    _saver?.dispose();
-    super.dispose();
-  }
-
-  DebouncedSaver _saverFor(SettingsAppBloc controller) =>
-      _saver ??= DebouncedSaver(controller);
-
-  /// The configured modules per zone, in strip order; [exclude] removes the
-  /// row currently under the pointer.
-  Map<ModuleZone, List<String>> _groupsFor(
-    BarSettings settings, {
-    String? exclude,
-  }) {
-    final unavailable = <String>{
-      for (final unavailable in _unavailable) unavailable.module,
-    };
-    return <ModuleZone, List<String>>{
-      for (final zone in ModuleZone.values)
-        zone: [
-          for (final module in settings.modules)
-            if (module != exclude &&
-                !unavailable.contains(module) &&
-                settings.zoneFor(module) == zone)
-              module,
-        ],
-    };
-  }
-
-  void _toggle(SettingsAppBloc controller, String module, bool enabled) {
-    _saverFor(controller).apply((settings) {
-      final modules = List<String>.of(settings.modules);
-      if (enabled) {
-        if (!modules.contains(module)) {
-          modules.add(module);
-        }
-      } else {
-        modules.remove(module);
-      }
-      return settings.copyWith(modules: modules);
-    });
-  }
-
-  /// Keyboard reorder within a zone: swaps [module] with its neighbour.
-  void _moveWithinZone(SettingsAppBloc controller, String module, int delta) {
-    _saverFor(controller).apply((settings) {
-      final zone = settings.zoneFor(module);
-      final segment = [
-        for (final candidate in settings.modules)
-          if (settings.zoneFor(candidate) == zone) candidate,
-      ];
-      final index = segment.indexOf(module);
-      final target = index + delta;
-      if (index < 0 || target < 0 || target >= segment.length) {
-        return settings;
-      }
-      final modules = List<String>.of(settings.modules);
-      final other = segment[target];
-      final a = modules.indexOf(module);
-      final b = modules.indexOf(other);
-      modules[a] = other;
-      modules[b] = module;
-      return settings.copyWith(modules: modules);
-    });
-  }
-
-  /// Places [dragged] at [index] within [zone] (clamped); the rest of the
-  /// strip keeps its order.
-  void _dropOn(
-    SettingsAppBloc controller,
-    String dragged, {
-    required ModuleZone zone,
-    required int index,
-  }) {
-    _saverFor(controller).apply((settings) {
-      final placement = Map<String, ModuleZone>.of(settings.modulePlacement);
-      if (zone == defaultModuleZone(dragged)) {
-        placement.remove(dragged);
-      } else {
-        placement[dragged] = zone;
-      }
-      final modules = List<String>.of(settings.modules)..remove(dragged);
-      final inZone = [
-        for (final candidate in modules)
-          if ((placement[candidate] ?? defaultModuleZone(candidate)) == zone)
-            candidate,
-      ];
-      final at = index.clamp(0, inZone.length);
-      final insertAt = inZone.isEmpty
-          ? modules.length
-          : at < inZone.length
-          ? modules.indexOf(inZone[at])
-          : modules.indexOf(inZone.last) + 1;
-      modules.insert(insertAt, dragged);
-      return settings.copyWith(modulePlacement: placement, modules: modules);
-    });
-  }
-
-  void _moveZoneBy(SettingsAppBloc controller, String module, int delta) {
-    final current = controller.settings.zoneFor(module);
-    final next = ModuleZone.values.indexOf(current) + delta;
-    if (next < 0 || next >= ModuleZone.values.length) {
-      return;
-    }
-    final target = ModuleZone.values[next];
-    final groups = _groupsFor(controller.settings, exclude: module);
-    _dropOn(
-      controller,
-      module,
-      zone: target,
-      index: groups[target]?.length ?? 0,
-    );
-  }
-
-  void _startDrag(SettingsAppBloc controller, String module, ModuleZone zone) {
-    final current = _groupsFor(controller.settings)[zone] ?? const <String>[];
-    final index = current.indexOf(module).clamp(0, current.length);
-    setState(() {
-      _dragging = module;
-      _previewZone = zone;
-      _previewIndex = index;
-    });
-  }
-
   /// Tracks the pointer over the segment geometry so the gap follows the
   /// drag before release.
   ///
   /// The nearest zone wins wherever the pointer is, so releasing under the
   /// last row appends there. Hovering the Disabled area leaves the preview
-  /// alone: that card is the drag-to-disable gesture.
-  void _updateDrag(SettingsAppBloc controller, Offset position) {
-    final dragging = _dragging;
+  /// alone (only the pointer is recorded): that card is the
+  /// drag-to-disable gesture.
+  void _updateDrag(ModulesBloc modules, Offset position) {
+    final state = modules.state;
+    final dragging = state.dragging;
     if (dragging == null) {
       return;
     }
-    _lastPointer = position;
     final disabledBox =
         _disabledKey.currentContext?.findRenderObject() as RenderBox?;
     if (disabledBox != null) {
       final disabledRect =
           disabledBox.localToGlobal(Offset.zero) & disabledBox.size;
       if (disabledRect.contains(position)) {
+        modules.add(
+          ModulesDragPreviewed(
+            zone: state.previewZone,
+            index: state.previewIndex,
+            position: position,
+          ),
+        );
         return;
       }
     }
-    final groups = _groupsFor(controller.settings, exclude: dragging);
+    final groups = moduleGroups(
+      context.read<SettingsAppBloc>().settings,
+      state.unavailable,
+      exclude: dragging,
+    );
     ModuleZone? zone;
     var bestDistance = double.infinity;
     for (final entry in groups.entries) {
@@ -265,13 +137,9 @@ class _ModulesPageState extends State<ModulesPage> {
         index += 1;
       }
     }
-    if (zone == _previewZone && index == _previewIndex) {
-      return;
-    }
-    setState(() {
-      _previewZone = zone;
-      _previewIndex = index;
-    });
+    modules.add(
+      ModulesDragPreviewed(zone: zone, index: index, position: position),
+    );
   }
 
   /// True when [position] sits inside a placement segment; used when the
@@ -291,43 +159,10 @@ class _ModulesPageState extends State<ModulesPage> {
     return false;
   }
 
-  void _endDrag(SettingsAppBloc controller, bool accepted) {
-    final module = _dragging;
-    final zone = _previewZone;
-    final index = _previewIndex;
-    final pointer = _lastPointer;
-    final handled = _dropHandled;
-    _dropHandled = false;
-    _lastPointer = null;
-    setState(() {
-      _dragging = null;
-      _previewZone = null;
-    });
-    if (handled || module == null || zone == null) {
-      return;
-    }
-    // The target usually accepts; fall back to the release position so a
-    // first drag never silently reverts.
-    if (!accepted && (pointer == null || !_withinSegment(pointer))) {
-      return;
-    }
-    _dropOn(controller, module, zone: zone, index: index);
-  }
-
-  /// Turns [module] off from the Disabled section's drop target.
-  void _disableDropped(SettingsAppBloc controller, String module) {
-    _dropHandled = true;
-    _saverFor(controller).apply((settings) {
-      final modules = List<String>.of(settings.modules)..remove(module);
-      return settings.copyWith(modules: modules);
-    });
-  }
-
   /// The zone's rows without the module currently in flight; the dragged row
   /// stays in the tree (collapsed) so the drag survives rebuilds, but an
   /// emptied zone still shows its drop hint.
-  List<String> _visibleModules(List<String> modules) {
-    final dragging = _dragging;
+  List<String> _visibleModules(List<String> modules, String? dragging) {
     if (dragging == null) {
       return modules;
     }
@@ -375,13 +210,14 @@ class _ModulesPageState extends State<ModulesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = context.watch<SettingsAppBloc>();
-    final settings = controller.settings;
+    final settings = context.watch<SettingsAppBloc>().settings;
+    final modules = context.watch<ModulesBloc>();
+    final state = modules.state;
     // The dragged row stays in the tree (its Draggable collapses it to a
     // zero-height slot) so the drag survives the preview rebuilds.
-    final groups = _groupsFor(settings);
+    final groups = moduleGroups(settings, state.unavailable);
     final unavailableModules = <String>{
-      for (final unavailable in _unavailable) unavailable.module,
+      for (final unavailable in state.unavailable) unavailable.module,
     };
     final disabled = <String>[
       for (final module in BarSettings.knownModules)
@@ -404,25 +240,34 @@ class _ModulesPageState extends State<ModulesPage> {
         enabled: settings.includes(module),
         reorderable: reorderable || draggableOut,
         options: hasOptions ? ModuleOptionsPanel(module: module) : null,
-        optionsExpanded: _expanded.contains(module),
+        optionsExpanded: state.expanded.contains(module),
         onToggleOptions: hasOptions
-            ? () => setState(() {
-                if (!_expanded.remove(module)) {
-                  _expanded.add(module);
-                }
-              })
+            ? () => modules.add(ModulesOptionsToggled(module))
             : null,
         feedbackWidth: feedbackWidth,
-        onDragStart: () => _startDrag(controller, module, zone),
-        onDragUpdate: (position) => _updateDrag(controller, position),
-        onDragEnd: (accepted) => _endDrag(controller, accepted),
-        onToggle: (value) => _toggle(controller, module, value),
+        onDragStart: () =>
+            modules.add(ModulesDragStarted(module: module, zone: zone)),
+        onDragUpdate: (position) => _updateDrag(modules, position),
+        onDragEnd: (accepted) {
+          final pointer = modules.state.lastPointer;
+          modules.add(
+            ModulesDragEnded(
+              accepted: accepted,
+              withinSegment: pointer != null && _withinSegment(pointer),
+            ),
+          );
+        },
+        onToggle: (value) =>
+            modules.add(ModulesToggled(module: module, enabled: value)),
         onKeyboardMove: draggableOut
             ? (_) {}
-            : (delta) => _moveWithinZone(controller, module, delta),
+            : (delta) => modules.add(
+                ModulesMovedWithinZone(module: module, delta: delta),
+              ),
         onKeyboardZone: draggableOut
             ? (_) {}
-            : (delta) => _moveZoneBy(controller, module, delta),
+            : (delta) =>
+                  modules.add(ModulesMovedZoneBy(module: module, delta: delta)),
       );
     }
 
@@ -431,12 +276,12 @@ class _ModulesPageState extends State<ModulesPage> {
       List<String> modules,
       double feedbackWidth,
     ) {
-      final dragging = _dragging;
-      final showPreview = dragging != null && _previewZone == zone;
+      final dragging = state.dragging;
+      final showPreview = dragging != null && state.previewZone == zone;
       // The preview index counts the rows without the lifted one, while the
       // rendered list still holds its collapsed slot; step past that slot
       // so the gap lands under the half of the row the pointer is on.
-      var previewAt = _previewIndex.clamp(0, modules.length);
+      var previewAt = state.previewIndex.clamp(0, modules.length);
       if (showPreview) {
         final sourceIndex = modules.indexOf(dragging);
         if (sourceIndex >= 0 && sourceIndex < previewAt) {
@@ -484,12 +329,7 @@ class _ModulesPageState extends State<ModulesPage> {
                   enabled:
                       !listEquals(settings.modules, BarSettings.knownModules) ||
                       settings.modulePlacement.isNotEmpty,
-                  onPressed: () => _saverFor(controller).apply(
-                    (settings) => settings.copyWith(
-                      modules: BarSettings.knownModules,
-                      modulePlacement: const <String, ModuleZone>{},
-                    ),
-                  ),
+                  onPressed: () => modules.add(const ModulesReset()),
                 ),
               ],
             ),
@@ -504,7 +344,8 @@ class _ModulesPageState extends State<ModulesPage> {
                 key: _zoneKey(entry.key),
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.all(Radius.circular(18)),
-                  border: _dragging != null && _previewZone == entry.key
+                  border:
+                      state.dragging != null && state.previewZone == entry.key
                       ? Border.all(
                           color: ShellBrandColors.defaultAccent,
                           width: 1.5,
@@ -524,10 +365,10 @@ class _ModulesPageState extends State<ModulesPage> {
                       // drag survives; an emptied zone keeps its hint for the
                       // whole drag so the layout never toggles under the
                       // pointer.
-                      if (_visibleModules(entry.value).isEmpty)
+                      if (_visibleModules(entry.value, state.dragging).isEmpty)
                         _dropHere(
                           label: l10n.settingsModulesEmptyZone,
-                          active: _previewZone == entry.key,
+                          active: state.previewZone == entry.key,
                         ),
                     ],
                   ),
@@ -535,7 +376,7 @@ class _ModulesPageState extends State<ModulesPage> {
               ),
               const SizedBox(height: 16),
             ],
-            if (_unavailable.isNotEmpty) ...[
+            if (state.unavailable.isNotEmpty) ...[
               SettingsHeading(
                 key: const ValueKey<String>('module-zone-unavailable'),
                 title: l10n.settingsModulesUnavailable,
@@ -545,7 +386,7 @@ class _ModulesPageState extends State<ModulesPage> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   children: [
-                    for (final unavailable in _unavailable)
+                    for (final unavailable in state.unavailable)
                       _UnavailableRow(
                         key: ValueKey<String>(
                           'module-unavailable-${unavailable.module}',
@@ -567,7 +408,7 @@ class _ModulesPageState extends State<ModulesPage> {
               key: const ValueKey<String>('module-zone-disabled-drop'),
               onWillAcceptWithDetails: (_) => true,
               onAcceptWithDetails: (details) =>
-                  _disableDropped(controller, details.data),
+                  modules.add(ModulesDroppedOnDisabled(details.data)),
               builder: (context, candidates, rejected) => DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.all(Radius.circular(18)),
@@ -594,7 +435,7 @@ class _ModulesPageState extends State<ModulesPage> {
                           draggableOut: true,
                           feedbackWidth: constraints.maxWidth,
                         ),
-                      if (_visibleModules(disabled).isEmpty)
+                      if (_visibleModules(disabled, state.dragging).isEmpty)
                         _dropHere(
                           label: l10n.settingsModulesEmptyZone,
                           active: candidates.isNotEmpty,
