@@ -29,8 +29,29 @@ Deliberate, user-reviewed divergences:
 
 ## Reference tree
 
-Ports were taken from the Denial checkout at
-`85b2303e2f09ae7b7b993641f90061a200f03d53` (`v0.3.1`, 2026-08-31), expected
-at `~/GitHub/denial` (`dart_shell/`, `settings_app/`). Record a new revision
-here whenever a port comes from a different tree, so a later session never
-ports against drift.
+Reviewed against the Denial checkout at `271aecd` (`v0.4.0`, 2026-09-13),
+expected at `~/GitHub/denial` (`dart_shell/`, `settings_app/`). The original
+ports came from the `v0.3.1` line; a checkout may still sit at
+`85b2303` (`v0.3.1`, 2026-08-31) — fetch tags before porting. Record a new
+revision here whenever a port comes from a different tree, so a later
+session never ports against drift.
+
+The v0.4.0 review found no drift in the ported services (UPower/battery,
+MPRIS, StatusNotifier, CPU/GPU), the settings store, localization, wallpaper
+accent, theme tokens, or the `system_bar=` grammar. What moved:
+
+- The bar gained a centered workspace rail
+  (`desktop_workspace_indicator.dart`, added in `fdb986e`, 2026-09-02):
+  numbered pips in a card with a liquid active lens. Trickster's pip rail
+  already mirrors its geometry and `Motion.workspaceSwitch` timing (its real
+  source is this line of Denial, not v0.3.1), but renders state-colored dots
+  in the module cluster and omits the lens deformation — see
+  `.llm/suggestions.md`.
+- `Motion` gained `workspaceIndicatorTakeoff` / `Travel` / `Settle` and the
+  MD3 emphasized accelerate/decelerate curves; `springTo` now passes
+  `snapToEnd: true` (Trickster has no spring paths to fix).
+- Appearance moved to `ShellTransparencyMode` (off/blur/glass) with a glass
+  engine, and the displays page's scale control became a canonicalized
+  percent field. Both are compositor/glass work outside the honest
+  layer-shell replacement, as are the new compositor layout settings
+  (scrolling layout, workspace count/orientation, suspend mode).
