@@ -60,7 +60,7 @@ void main() {
   testWidgets('strip shows clock, cpu, battery, and workspaces', (
     tester,
   ) async {
-    await pumpBarHarness(tester);
+    await pumpBarHarness(tester, output: 'HDMI-A-1');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%', findRichText: true), findsOneWidget);
@@ -181,6 +181,7 @@ void main() {
         modules: ['workspaces'],
         accentSource: AccentSource.wallpaper,
       ),
+      output: 'HDMI-A-1',
       wallpaperAccent: controller,
       settle: const Duration(milliseconds: 500),
     );
@@ -213,13 +214,16 @@ void main() {
         accentSource: AccentSource.wallpaper,
         accentWallpaperPick: '#2050E0',
       ),
+      output: 'HDMI-A-1',
       wallpaperAccent: controller,
       settle: const Duration(milliseconds: 500),
     );
     expect(pipColor(), const Color(0xff2050e0));
   });
 
-  testWidgets('count rail maps active and occupied per output', (tester) async {
+  testWidgets('rail mirrors the compositor placement per output', (
+    tester,
+  ) async {
     const accent = Color(0xffd0bcff);
     final handle = tester.ensureSemantics();
     await pumpBarHarness(
@@ -227,7 +231,6 @@ void main() {
       settings: const BarSettings(
         accent: accent,
         modules: ['workspaces'],
-        workspaces: WorkspaceOptions(count: 3),
       ),
       output: 'HDMI-A-1',
       workspacesBuilder: () => WorkspacesBloc(
@@ -239,26 +242,30 @@ void main() {
             focused: true,
             occupied: true,
           ),
-          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
-          Workspace(id: '3', name: '3', output: 'HDMI-A-1', occupied: true),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1'),
+          Workspace(id: '3', name: '3', output: 'HDMI-A-1', focused: true),
+          Workspace(id: '4', name: '4', output: 'HDMI-A-1', occupied: true),
         ]),
       ),
       settle: const Duration(milliseconds: 500),
     );
-    expect(find.text('1'), findsOneWidget);
+    // The foreign workspace stays off this rail; the output's own are shown
+    // in place, with empty/active/occupied each reading differently.
+    expect(find.text('1'), findsNothing);
     expect(find.text('2'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
     expect(
-      _pipStyle(tester, '1').color,
+      _pipStyle(tester, '2').color,
       ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3),
     );
-    expect(_pipStyle(tester, '2').color, accent);
-    expect(_pipStyle(tester, '3').color, ShellMediaColors.lightForeground);
+    expect(_pipStyle(tester, '3').color, accent);
+    expect(_pipStyle(tester, '4').color, ShellMediaColors.lightForeground);
     final lens = tester.widget<AnimatedAlign>(
       find.byKey(WorkspacesPill.lensKey),
     );
     expect(lens.alignment, Alignment.center);
-    expect(find.bySemanticsLabel('Workspace 1, empty'), findsOneWidget);
+    expect(find.bySemanticsLabel('Workspace 2, empty'), findsOneWidget);
     handle.dispose();
   });
 
@@ -363,123 +370,57 @@ void main() {
     );
   });
 
-  testWidgets('per-output counts size the rails differently', (tester) async {
-    await pumpBarHarness(
-      tester,
-      settings: const BarSettings(
-        modules: ['workspaces'],
-        workspaces: WorkspaceOptions(count: 2, perOutput: {'HDMI-A-1': 3}),
-      ),
-      output: 'HDMI-A-1',
-      settle: const Duration(milliseconds: 500),
-    );
-    expect(find.text('3'), findsOneWidget);
+  testWidgets('each rail shows only its output workspaces', (tester) async {
+    const settings = BarSettings(modules: ['workspaces']);
+    const workspaces = WorkspacesState([
+      Workspace(id: '1', name: '1', output: 'HDMI-A-2'),
+      Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
+    ]);
 
-    await tester.pumpWidget(const SizedBox.shrink());
     await pumpBarHarness(
       tester,
-      settings: const BarSettings(
-        modules: ['workspaces'],
-        workspaces: WorkspaceOptions(count: 2, perOutput: {'HDMI-A-1': 3}),
-      ),
-      output: 'HDMI-A-2',
+      settings: settings,
+      output: 'HDMI-A-1',
+      workspacesBuilder: () => WorkspacesBloc(initial: workspaces),
       settle: const Duration(milliseconds: 500),
     );
     expect(find.text('2'), findsOneWidget);
-    expect(find.text('3'), findsNothing);
-  });
+    expect(find.text('1'), findsNothing);
 
-  testWidgets('workspace rails split the chain by display order', (
-    tester,
-  ) async {
-    const settings = BarSettings(
-      modules: ['workspaces'],
-      workspaces: WorkspaceOptions(
-        count: 4,
-        perOutput: {'HDMI-A-1': 4, 'HDMI-A-2': 3},
-        displayOrder: ['HDMI-A-1', 'HDMI-A-2'],
-      ),
-    );
-    const outputs = ['HDMI-A-1', 'HDMI-A-2'];
-
+    await tester.pumpWidget(const SizedBox.shrink());
     await pumpBarHarness(
       tester,
       settings: settings,
-      output: 'HDMI-A-1',
-      outputs: outputs,
-      workspacesBuilder: () => WorkspacesBloc(
-        initial: const WorkspacesState([
-          Workspace(id: '1', name: '1', output: 'HDMI-A-1', focused: true),
-          Workspace(id: '5', name: '5', output: 'HDMI-A-2'),
-        ]),
-      ),
+      output: 'HDMI-A-2',
+      workspacesBuilder: () => WorkspacesBloc(initial: workspaces),
       settle: const Duration(milliseconds: 500),
     );
     expect(find.text('1'), findsOneWidget);
-    expect(find.text('4'), findsOneWidget);
-    expect(find.text('5'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await pumpBarHarness(
-      tester,
-      settings: settings,
-      output: 'HDMI-A-2',
-      outputs: outputs,
-      workspacesBuilder: () => WorkspacesBloc(
-        initial: const WorkspacesState([
-          Workspace(id: '1', name: '1', output: 'HDMI-A-1'),
-          Workspace(id: '5', name: '5', output: 'HDMI-A-2', focused: true),
-          Workspace(id: '7', name: '7', output: 'HDMI-A-2'),
-        ]),
-      ),
-      settle: const Duration(milliseconds: 500),
-    );
-    expect(find.text('5'), findsOneWidget);
-    expect(find.text('7'), findsOneWidget);
-    expect(find.text('4'), findsNothing);
+    expect(find.text('2'), findsNothing);
   });
 
-  testWidgets('main rail carries workspaces beyond the chain total', (
-    tester,
-  ) async {
-    const settings = BarSettings(
-      modules: ['workspaces'],
-      workspaces: WorkspaceOptions(
-        count: 4,
-        perOutput: {'HDMI-A-1': 4, 'HDMI-A-2': 3},
-        displayOrder: ['HDMI-A-1', 'HDMI-A-2'],
-      ),
-    );
-    const outputs = ['HDMI-A-1', 'HDMI-A-2'];
-
+  testWidgets('numbered rails keep numbers and drop specials', (tester) async {
     await pumpBarHarness(
       tester,
-      settings: settings,
+      settings: const BarSettings(modules: ['workspaces']),
       output: 'HDMI-A-1',
-      outputs: outputs,
       workspacesBuilder: () => WorkspacesBloc(
         initial: const WorkspacesState([
-          Workspace(id: '9', name: '9', output: 'HDMI-A-1', focused: true),
+          Workspace(id: '1', name: '1:web', output: 'HDMI-A-1'),
+          Workspace(id: '-99', name: 'special:magic', output: 'HDMI-A-1'),
+          Workspace(id: '3', name: '3', output: 'HDMI-A-2'),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
         ]),
       ),
       settle: const Duration(milliseconds: 500),
     );
-    expect(find.text('9'), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await pumpBarHarness(
-      tester,
-      settings: settings,
-      output: 'HDMI-A-2',
-      outputs: outputs,
-      workspacesBuilder: () => WorkspacesBloc(
-        initial: const WorkspacesState([
-          Workspace(id: '9', name: '9', output: 'HDMI-A-1'),
-        ]),
-      ),
-      settle: const Duration(milliseconds: 500),
-    );
-    expect(find.text('9'), findsNothing);
+    // Decorated names keep their number; named/special and foreign
+    // workspaces stay off the numbered rail.
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('1:web'), findsNothing);
+    expect(find.text('special:magic'), findsNothing);
+    expect(find.text('3'), findsNothing);
   });
 
   testWidgets('strip renders modules in configured order', (tester) async {

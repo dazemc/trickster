@@ -26,8 +26,8 @@ import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// Workspaces every harnessed strip renders: one focused, one urgent.
 const harnessWorkspaces = [
-  Workspace(id: '1', name: '1', focused: true),
-  Workspace(id: '2', name: '2', urgent: true),
+  Workspace(id: '1', name: '1', output: 'HDMI-A-1', focused: true),
+  Workspace(id: '2', name: '2', output: 'HDMI-A-1', urgent: true),
 ];
 
 /// Pumps the production nesting — config providers above a [ModuleScope]
@@ -45,7 +45,6 @@ Future<void> pumpBarHarness(
   SystemBarSide side = SystemBarSide.top,
   double thickness = 32,
   String? output,
-  List<String> outputs = const [],
   WallpaperAccentController? wallpaperAccent,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
@@ -90,7 +89,6 @@ Future<void> pumpBarHarness(
                   side: side,
                   thickness: thickness,
                   output: output,
-                  outputs: outputs,
                 )
               : WallpaperAccentScope(
                   notifier: wallpaperAccent,
@@ -98,7 +96,6 @@ Future<void> pumpBarHarness(
                     side: side,
                     thickness: thickness,
                     output: output,
-                    outputs: outputs,
                   ),
                 ),
         ),

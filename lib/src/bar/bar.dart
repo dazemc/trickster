@@ -35,7 +35,6 @@ class TricksterBarStrip extends StatelessWidget {
     required this.side,
     this.thickness = 32,
     this.output,
-    this.outputs = const [],
     this.onOpenPowerSettings = _noop,
     super.key,
   });
@@ -48,10 +47,6 @@ class TricksterBarStrip extends StatelessWidget {
   /// Connector this strip is on, so per-output modules (workspaces) can
   /// filter their state. Null before the output enumeration lands.
   final String? output;
-
-  /// Connected connectors in host order; the workspace chain appends the
-  /// displays it does not list explicitly.
-  final List<String> outputs;
   final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
@@ -144,7 +139,6 @@ class TricksterBarStrip extends StatelessWidget {
         child: _WorkspacesRail(
           accent: accent,
           output: output,
-          outputs: outputs,
           thickness: thickness,
           vertical: vertical,
         ),
@@ -344,14 +338,12 @@ class _WorkspacesRail extends StatelessWidget {
   const _WorkspacesRail({
     required this.accent,
     required this.output,
-    required this.outputs,
     required this.thickness,
     required this.vertical,
   });
 
   final WallpaperAccent accent;
   final String? output;
-  final List<String> outputs;
   final double thickness;
   final bool vertical;
 
@@ -359,15 +351,7 @@ class _WorkspacesRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<WorkspacesBloc, WorkspacesState>(
       builder: (context, state) {
-        final options = context.select(
-          (SettingsBloc bloc) => bloc.state.workspaces,
-        );
-        final workspaces = _rangeRail(
-          state.workspaces,
-          options,
-          outputs,
-          output,
-        );
+        final workspaces = _outputRail(state.workspaces, output);
         final pill = WorkspacesPill(
           accent: accent,
           workspaces: workspaces,
@@ -392,66 +376,32 @@ class _WorkspacesRail extends StatelessWidget {
   }
 }
 
-/// The output's slice of the workspace chain: its absolute range, with the
-/// main display also carrying existing workspaces numbered beyond the chain
-/// total. Active and occupied stay resolved against [output]; a number living
-/// on another output renders empty here and the backends move or create it
-/// when pressed.
-List<Workspace> _rangeRail(
-  List<Workspace> workspaces,
-  WorkspaceOptions options,
-  List<String> connected,
-  String? output,
-) {
-  final byId = <String, Workspace>{
-    for (final workspace in workspaces) workspace.id: workspace,
-  };
-  final knownOutput = output != null && output.isNotEmpty;
-  final range = knownOutput ? options.rangeFor(output, connected) : null;
-  if (range == null) {
-    // No chain yet (output enumeration pending): keep the fixed 1..count.
-    return [
-      for (var number = 1; number <= options.countFor(output); number++)
-        _railEntry(byId['$number'], number, knownOutput ? output : null),
-    ];
+/// The workspaces the compositor places on [output], ordered by id, with the
+/// numeric id as the printed label (decorated names keep their number). The
+/// rail mirrors the compositor; Trickster neither synthesizes numbers nor
+/// moves workspaces.
+List<Workspace> _outputRail(List<Workspace> workspaces, String? output) {
+  if (output == null || output.isEmpty) {
+    return const <Workspace>[];
   }
-  final numbers = <int>[
-    for (var number = range.$1; number <= range.$2; number++) number,
-  ];
-  if (range.$1 == 1) {
-    final total = options.chainTotal(connected);
-    final overflow = <int>[];
-    for (final workspace in workspaces) {
-      final number = int.tryParse(workspace.id);
-      if (number != null && number > total) {
-        overflow.add(number);
-      }
+  final rail = <Workspace>[];
+  for (final workspace in workspaces) {
+    final number = int.tryParse(workspace.id);
+    if (workspace.output != output || number == null || number <= 0) {
+      continue;
     }
-    overflow.sort();
-    numbers.addAll(overflow);
+    rail.add(
+      Workspace(
+        id: workspace.id,
+        name: '$number',
+        output: workspace.output,
+        focused: workspace.focused,
+        occupied: workspace.occupied,
+        urgent: workspace.urgent,
+      ),
+    );
   }
-  return [
-    for (final number in numbers)
-      _railEntry(byId['$number'], number, knownOutput ? output : null),
-  ];
-}
-
-Workspace _railEntry(Workspace? existing, int number, String? output) {
-  if (existing == null) {
-    return Workspace(id: '$number', name: '$number', output: output ?? '');
-  }
-  if (output != null &&
-      existing.output.isNotEmpty &&
-      existing.output != output) {
-    return Workspace(id: '$number', name: '$number', output: output);
-  }
-  return Workspace(
-    id: '$number',
-    name: '$number',
-    output: output ?? '',
-    focused: existing.focused,
-    occupied: existing.occupied,
-  );
+  return rail;
 }
 
 class TricksterBar {
