@@ -24,6 +24,31 @@ read through `context.l10n` (`lib/src/locale.dart`). `generate: true` in
 test; the generated files are committed. Never hardcode user-visible text,
 including accessible labels, values, and hints.
 
+## Releases
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`:
+
+1. The tag is checked against `pubspec.yaml`, then `flutter analyze` and
+   `flutter test` run.
+2. The Linux release bundle is built (including the AOT `tricksterctl`) and
+   handed to an Arch container, where the source `PKGBUILD` packages it via
+   `TRICKSTER_PREBUILT_BUNDLE` and the AUR recipe's `pkgver` and `sha256sums`
+   are refreshed from the built artifact.
+3. The package is attached to the GitHub release and the refreshed pin is
+   committed to the default branch.
+
+Submitting the updated recipe to aur.archlinux.org is deliberately manual
+and paused by the maintainer; the workflow only keeps the in-tree recipe
+installable. A `workflow_dispatch` run builds and uploads both artifacts
+without releasing or committing.
+
+Locally, the same package can be produced with
+
+```sh
+makepkg --nodeps --nocheck   # in packaging/arch, after a release build
+makepkg -f                   # in packaging/aur/trickster-bin, from the asset
+```
+
 ## Widget test contract
 
 Strip and module widget tests follow one contract, implemented by
