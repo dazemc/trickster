@@ -259,12 +259,29 @@ class TricksterBarStrip extends StatelessWidget {
                 direction: horizontal ? Axis.horizontal : Axis.vertical,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (settings.includes('tray'))
+                    Expanded(
+                      child: Align(
+                        alignment: horizontal
+                            ? Alignment.centerLeft
+                            : Alignment.topCenter,
+                        child: SingleChildScrollView(
+                          scrollDirection: horizontal
+                              ? Axis.horizontal
+                              : Axis.vertical,
+                          child: builders['tray']!.call(
+                            settings.modules.indexOf('tray'),
+                          ),
+                        ),
+                      ),
+                    ),
                   for (
                     var position = 0;
                     position < settings.modules.length;
                     position++
                   )
-                    if (settings.modules[position] != 'workspaces')
+                    if (settings.modules[position] != 'workspaces' &&
+                        settings.modules[position] != 'tray')
                       builders[settings.modules[position]]?.call(position) ??
                           const SizedBox.shrink(),
                 ],
