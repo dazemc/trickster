@@ -64,6 +64,14 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 Each module reads typed options from the same document. Invalid values are
 rejected at decode, so a live reload keeps the last-good settings.
 
+- `accent_source` (`custom` or `wallpaper`, default `custom`) — where the
+  accent comes from. `wallpaper` samples the host wallpaper's dominant
+  color from the awww/swww cache and follows wallpaper changes; the bar
+  starts no sampler unless this source asks for one.
+- `accent_wallpaper_pick` (`#RRGGBB`, optional) — with the wallpaper
+  source, the extracted candidate closest in hue; the dominant candidate
+  applies when absent. The settings application lists the palette with
+  copyable hex values.
 - `workspaces.show_empty` (bool, default `true`) — keep workspaces with no
   open windows in the rail; the focused workspace always stays. The
   compositor only reports workspaces that exist, so uncreated workspace
