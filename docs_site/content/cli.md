@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: trickster flags and the planned tricksterctl client.
+description: trickster flags and the tricksterctl client.
 ---
 
 ## `trickster`
@@ -8,14 +8,14 @@ description: trickster flags and the planned tricksterctl client.
 | Flag | Effect |
 | --- | --- |
 | `--check` | Preflight (wayland, configs, layer-shell, blur, outputs) and exit; non-zero on any failure |
-| `--version` | Print `trickster 0.1.0` and exit |
+| `--version` | Print `trickster <version>` and exit |
 | `-h`, `--help` | Print usage and exit |
 | `--config PATH` | Use PATH as the `outputs.conf` override for this run |
 | `--edge SIDE` | One-shot `top`, `bottom`, `left`, or `right` override |
 
 With no flags the bar starts normally. Unknown flags are a startup error, not a silent ignore.
 
-## `tricksterctl` (planned)
+## `tricksterctl`
 
 A short-lived client against `$XDG_RUNTIME_DIR/trickster/control.sock`, mirroring `denialctl`:
 
