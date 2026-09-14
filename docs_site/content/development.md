@@ -44,12 +44,12 @@ Pushing a `v*` tag runs `.github/workflows/release.yml`:
    handed to an Arch container, where the source `PKGBUILD` packages it via
    `TRICKSTER_PREBUILT_BUNDLE` and the AUR recipe's `pkgver` and `sha256sums`
    are refreshed from the built artifact.
-3. The package is attached to the GitHub release and the refreshed pin is
-   committed to the default branch.
+3. The package is attached to the GitHub release, the refreshed pin is
+   committed to the default branch, and the recipe is pushed to
+   aur.archlinux.org's `master` with the `AUR_SSH_KEY` deploy key.
 
-The workflow deliberately stops at the in-repo pin; it never talks to the
-AUR. A `workflow_dispatch` run builds and uploads both artifacts without
-releasing or committing.
+A `workflow_dispatch` run builds and uploads both artifacts without
+releasing, pinning, or publishing.
 
 Locally, the same package can be produced with
 
@@ -58,9 +58,11 @@ makepkg --nodeps --nocheck   # in packaging/arch, after a release build
 makepkg -f                   # in packaging/aur/trickster-bin, from the asset
 ```
 
-### Publishing to the AUR
+### Publishing to the AUR by hand
 
-After a release, push the refreshed recipe by hand:
+The `aur` job covers releases; provision `AUR_SSH_KEY` (an SSH private key
+registered with the AUR account) in the repository secrets. Without it, or
+for a one-off, push the refreshed recipe by hand:
 
 ```sh
 git clone ssh://aur@aur.archlinux.org/trickster-bin.git
