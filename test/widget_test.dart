@@ -228,10 +228,7 @@ void main() {
     final handle = tester.ensureSemantics();
     await pumpBarHarness(
       tester,
-      settings: const BarSettings(
-        accent: accent,
-        modules: ['workspaces'],
-      ),
+      settings: const BarSettings(accent: accent, modules: ['workspaces']),
       output: 'HDMI-A-1',
       workspacesBuilder: () => WorkspacesBloc(
         initial: const WorkspacesState([

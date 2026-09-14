@@ -560,30 +560,6 @@ abstract class AppLocalizations {
   /// **'Tune the values each pill uses.'**
   String get settingsOptionsCaption;
 
-  /// Section heading for workspace rail options.
-  ///
-  /// In en, this message translates to:
-  /// **'Workspaces'**
-  String get settingsWorkspacesSection;
-
-  /// Caption above the per-display workspace counts.
-  ///
-  /// In en, this message translates to:
-  /// **'Per display'**
-  String get settingsWorkspacesPerDisplay;
-
-  /// Caption above the workspace chain order list.
-  ///
-  /// In en, this message translates to:
-  /// **'Display order'**
-  String get settingsWorkspacesDisplayOrder;
-
-  /// Badge on the first display of the workspace chain.
-  ///
-  /// In en, this message translates to:
-  /// **'Main'**
-  String get settingsWorkspacesMain;
-
   /// Section heading for clock options.
   ///
   /// In en, this message translates to:

@@ -334,22 +334,6 @@
   "@settingsOptionsCaption": {
     "description": "Caption under the module options page title."
   },
-  "settingsWorkspacesSection": "Workspaces",
-  "@settingsWorkspacesSection": {
-    "description": "Section heading for workspace rail options."
-  },
-  "settingsWorkspacesPerDisplay": "Per display",
-  "@settingsWorkspacesPerDisplay": {
-    "description": "Caption above the per-display workspace counts."
-  },
-  "settingsWorkspacesDisplayOrder": "Display order",
-  "@settingsWorkspacesDisplayOrder": {
-    "description": "Caption above the workspace chain order list."
-  },
-  "settingsWorkspacesMain": "Main",
-  "@settingsWorkspacesMain": {
-    "description": "Badge on the first display of the workspace chain."
-  },
   "settingsClockSection": "Clock",
   "@settingsClockSection": {
     "description": "Section heading for clock options."

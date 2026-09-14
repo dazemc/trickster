@@ -114,40 +114,6 @@ Future<void> _dragModuleTo(
   await tester.pump();
 }
 
-Future<void> _dragDisplayTo(
-  WidgetTester tester,
-  String display,
-  String targetDisplay,
-) async {
-  final handle = find.byKey(ValueKey<String>('display-drag-$display'));
-  final target = find.byKey(
-    ValueKey<String>('display-order-$targetDisplay'),
-  );
-  await tester.ensureVisible(target);
-  await tester.pumpAndSettle();
-  await tester.ensureVisible(handle);
-  await tester.pumpAndSettle();
-  final start = tester.getCenter(handle);
-  final end = tester.getCenter(target);
-  final gesture = await tester.startGesture(start);
-  await tester.pump(const Duration(milliseconds: 120));
-  final slop = Offset(0, end.dy >= start.dy ? 24 : -24);
-  await gesture.moveBy(slop);
-  await tester.pump(const Duration(milliseconds: 60));
-  final liveEnd = tester.getCenter(target);
-  var current = start + slop;
-  const steps = 8;
-  for (var step = 1; step <= steps; step++) {
-    current = Offset.lerp(start + slop, liveEnd, step / steps)!;
-    await gesture.moveTo(current);
-    await tester.pump(const Duration(milliseconds: 40));
-  }
-  await gesture.up();
-  await tester.pumpAndSettle();
-  await tester.pump(const Duration(milliseconds: 400));
-  await tester.pump();
-}
-
 void main() {
   late Directory directory;
   late File file;
@@ -379,7 +345,6 @@ void main() {
     );
 
     final decoded = BarSettings.decode(file.readAsStringSync());
-    expect(decoded.workspaces.count, const WorkspaceOptions().count);
     expect(decoded.clock.format, const ClockOptions().format);
     expect(decoded.cpu.warn, const CpuOptions().warn);
     expect(decoded.cpu.critical, const CpuOptions().critical);
@@ -425,103 +390,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
     await tester.pumpAndSettle();
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
-  });
-
-  testWidgets('workspace counts override per display', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
-    await tester.tap(find.bySemanticsLabel('Modules'));
-    await tester.pump();
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-options-workspaces')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('module-options-workspaces')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey<String>('options-workspaces-count')),
-      findsNothing,
-    );
-
-    final slider = find.byKey(
-      const ValueKey<String>('options-workspaces-count-HDMI-A-1'),
-    );
-    await tester.ensureVisible(slider);
-    await tester.pumpAndSettle();
-    final rect = tester.getRect(slider);
-    await tester.tapAt(Offset(rect.right - 2, rect.center.dy));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    expect(controller.settings.workspaces.countFor('HDMI-A-1'), 9);
-    expect(
-      BarSettings.decode(
-        file.readAsStringSync(),
-      ).workspaces.perOutput['HDMI-A-1'],
-      9,
-    );
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('reset-workspaces-count-HDMI-A-1')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('reset-workspaces-count-HDMI-A-1')),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    expect(controller.settings.workspaces.perOutput, isEmpty);
-    expect(controller.settings.workspaces.countFor('HDMI-A-1'), 4);
-  });
-
-  testWidgets('workspace display order marks main and reorders', (
-    tester,
-  ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
-    await tester.tap(find.bySemanticsLabel('Modules'));
-    await tester.pump();
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-options-workspaces')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('module-options-workspaces')),
-    );
-    await tester.pumpAndSettle();
-
-    // The host order chains the displays and the first row is main.
-    expect(controller.settings.workspaces.displayOrder, isEmpty);
-    expect(
-      find.byKey(const ValueKey<String>('display-main-eDP-1')),
-      findsOneWidget,
-    );
-    expect(find.text('1-4'), findsOneWidget);
-    expect(find.text('5-8'), findsOneWidget);
-
-    // Dragging HDMI-A-1 onto the first row makes it main.
-    await _dragDisplayTo(tester, 'HDMI-A-1', 'eDP-1');
-    expect(controller.settings.workspaces.displayOrder, ['HDMI-A-1', 'eDP-1']);
-    expect(
-      BarSettings.decode(file.readAsStringSync()).workspaces.displayOrder,
-      ['HDMI-A-1', 'eDP-1'],
-    );
-    expect(
-      find.byKey(const ValueKey<String>('display-main-HDMI-A-1')),
-      findsOneWidget,
-    );
-    expect(find.text('1-4'), findsOneWidget);
-    expect(find.text('5-8'), findsOneWidget);
-
-    // Dragging eDP-1 back to the front reverses it.
-    await _dragDisplayTo(tester, 'eDP-1', 'HDMI-A-1');
-    expect(controller.settings.workspaces.displayOrder, ['eDP-1', 'HDMI-A-1']);
   });
 
   testWidgets('drag preview follows the hovered half of the row', (

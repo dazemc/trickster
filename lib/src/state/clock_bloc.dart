@@ -27,9 +27,7 @@ class ClockState extends Equatable {
   @override
   List<Object?> get props => [now];
 
-  Map<String, Object?> toJson() => {
-    'now': now.millisecondsSinceEpoch,
-  };
+  Map<String, Object?> toJson() => {'now': now.millisecondsSinceEpoch};
 
   static ClockState fromJson(Map<String, dynamic> json) => ClockState(
     DateTime.fromMillisecondsSinceEpoch((json['now'] as num?)?.toInt() ?? 0),

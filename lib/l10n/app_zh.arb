@@ -334,22 +334,6 @@
   "@settingsOptionsCaption": {
     "description": "Caption under the module options page title."
   },
-  "settingsWorkspacesSection": "工作区",
-  "@settingsWorkspacesSection": {
-    "description": "Section heading for workspace rail options."
-  },
-  "settingsWorkspacesPerDisplay": "每个显示器",
-  "@settingsWorkspacesPerDisplay": {
-    "description": "Caption above the per-display workspace counts."
-  },
-  "settingsWorkspacesDisplayOrder": "显示器顺序",
-  "@settingsWorkspacesDisplayOrder": {
-    "description": "Caption above the workspace chain order list."
-  },
-  "settingsWorkspacesMain": "主显示器",
-  "@settingsWorkspacesMain": {
-    "description": "Badge on the first display of the workspace chain."
-  },
   "settingsClockSection": "时钟",
   "@settingsClockSection": {
     "description": "Section heading for clock options."

@@ -3,139 +3,6 @@ import 'dart:ui';
 
 import 'package:equatable/equatable.dart';
 
-/// Typed options for the workspace rail.
-class WorkspaceOptions extends Equatable {
-  const WorkspaceOptions({
-    this.count = 4,
-    this.perOutput = const {},
-    this.displayOrder = const [],
-  });
-
-  /// Fallback rail length for displays without a per-output override. The
-  /// old `show_empty`/`max` keys are retired and ignored on decode.
-  final int count;
-
-  /// Per-display overrides by connector, since one monitor may want a longer
-  /// rail than another.
-  final Map<String, int> perOutput;
-
-  /// The chain order by connector. The first connected entry is the main
-  /// display and owns the range starting at 1; each next display appends its
-  /// own count. Connected displays not listed append in host order.
-  final List<String> displayOrder;
-
-  /// The rail length for [output]: its override, else the shared count.
-  int countFor(String? output) =>
-      output == null ? count : (perOutput[output] ?? count);
-
-  /// The effective chain for [connected]: listed connectors that are present,
-  /// then the unlisted ones in host order.
-  List<String> chainFor(List<String> connected) {
-    final seen = <String>{};
-    return <String>[
-      for (final output in displayOrder)
-        if (connected.contains(output) && seen.add(output)) output,
-      for (final output in connected)
-        if (seen.add(output)) output,
-    ];
-  }
-
-  /// The 1-based inclusive workspace range [output] owns in the chain, or
-  /// null when [output] is not connected.
-  (int, int)? rangeFor(String output, List<String> connected) {
-    var start = 1;
-    for (final candidate in chainFor(connected)) {
-      final end = start + countFor(candidate) - 1;
-      if (candidate == output) {
-        return (start, end);
-      }
-      start = end + 1;
-    }
-    return null;
-  }
-
-  /// The number of workspaces the chain assigns; numbered workspaces above it
-  /// belong to the main display's rail.
-  int chainTotal(List<String> connected) {
-    var total = 0;
-    for (final output in chainFor(connected)) {
-      total += countFor(output);
-    }
-    return total;
-  }
-
-  @override
-  List<Object?> get props => [
-    count,
-    ...perOutput.entries.map((entry) => Object.hash(entry.key, entry.value)),
-    ...displayOrder,
-  ];
-
-  Map<String, Object?> toJson() => {
-    'workspace_count': count,
-    if (perOutput.isNotEmpty) 'per_output': perOutput,
-    if (displayOrder.isNotEmpty) 'display_order': displayOrder,
-  };
-
-  static WorkspaceOptions fromJson(Object? json) {
-    if (json == null) {
-      return const WorkspaceOptions();
-    }
-    if (json is! Map<String, dynamic>) {
-      throw const FormatException('settings.workspaces must be an object');
-    }
-    final count = json['workspace_count'];
-    if (count != null && (count is! int || count < 2 || count > 9)) {
-      throw const FormatException(
-        'settings.workspaces.workspace_count must be 2..9',
-      );
-    }
-    final perOutput = json['per_output'];
-    if (perOutput != null && perOutput is! Map<String, dynamic>) {
-      throw const FormatException(
-        'settings.workspaces.per_output must be an object',
-      );
-    }
-    final overrides = <String, int>{};
-    if (perOutput is Map<String, dynamic>) {
-      for (final entry in perOutput.entries) {
-        final value = entry.value;
-        if (value is! int || value < 2 || value > 9) {
-          throw const FormatException(
-            'settings.workspaces.per_output values must be 2..9',
-          );
-        }
-        overrides[entry.key] = value;
-      }
-    }
-    final order = json['display_order'];
-    if (order != null && order is! List) {
-      throw const FormatException(
-        'settings.workspaces.display_order must be a list',
-      );
-    }
-    final displayOrder = <String>[];
-    final listed = <String>{};
-    if (order is List) {
-      for (final name in order) {
-        if (name is! String || name.isEmpty) {
-          throw const FormatException(
-            'settings.workspaces.display_order entries must be connectors',
-          );
-        }
-        if (listed.add(name)) {
-          displayOrder.add(name);
-        }
-      }
-    }
-    return WorkspaceOptions(
-      count: count as int? ?? 4,
-      perOutput: overrides,
-      displayOrder: displayOrder,
-    );
-  }
-}
-
 /// Where the bar's accent comes from.
 enum AccentSource {
   custom('custom'),
@@ -380,6 +247,9 @@ Color? colorFromHex(Object? value) {
   return parsed == null ? null : Color(0xff000000 | parsed);
 }
 
+/// The versioned settings document. The retired `workspaces` section
+/// (counts, per-output overrides, display order) is ignored on decode:
+/// workspace placement belongs to the compositor.
 class BarSettings extends Equatable {
   /// Every module the bar can run, in the default strip order.
   static const List<String> knownModules = [
@@ -400,7 +270,6 @@ class BarSettings extends Equatable {
     this.locale,
     this.accentSource = AccentSource.custom,
     this.accentWallpaperPick,
-    this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
@@ -423,7 +292,6 @@ class BarSettings extends Equatable {
   /// Hex accent chosen from the wallpaper's candidates; null uses the
   /// dominant one.
   final String? accentWallpaperPick;
-  final WorkspaceOptions workspaces;
   final CpuOptions cpu;
   final ClockOptions clock;
   final BatteryOptions battery;
@@ -439,7 +307,6 @@ class BarSettings extends Equatable {
     accentSource,
     accentWallpaperPick,
     ...modules,
-    workspaces,
     cpu,
     clock,
     battery,
@@ -467,7 +334,6 @@ class BarSettings extends Equatable {
     'accent_source': accentSource.wire,
     if (accentWallpaperPick != null)
       'accent_wallpaper_pick': accentWallpaperPick,
-    'workspaces': workspaces.toJson(),
     'cpu': cpu.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
@@ -488,7 +354,6 @@ class BarSettings extends Equatable {
       accentWallpaperPick: accentWallpaperPick,
       modules: modules,
       modulePlacement: modulePlacement,
-      workspaces: workspaces,
       cpu: cpu,
       clock: clock,
       battery: battery,
@@ -507,7 +372,6 @@ class BarSettings extends Equatable {
       accentWallpaperPick: accentWallpaperPick,
       modules: modules,
       modulePlacement: modulePlacement,
-      workspaces: workspaces,
       cpu: cpu,
       clock: clock,
       battery: battery,
@@ -526,7 +390,6 @@ class BarSettings extends Equatable {
       accentWallpaperPick: pick,
       modules: modules,
       modulePlacement: modulePlacement,
-      workspaces: workspaces,
       cpu: cpu,
       clock: clock,
       battery: battery,
@@ -539,7 +402,6 @@ class BarSettings extends Equatable {
     Color? accent,
     List<String>? modules,
     Map<String, ModuleZone>? modulePlacement,
-    WorkspaceOptions? workspaces,
     CpuOptions? cpu,
     ClockOptions? clock,
     BatteryOptions? battery,
@@ -557,7 +419,6 @@ class BarSettings extends Equatable {
       accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
       modules: modules ?? this.modules,
       modulePlacement: modulePlacement ?? this.modulePlacement,
-      workspaces: workspaces ?? this.workspaces,
       cpu: cpu ?? this.cpu,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
@@ -605,7 +466,6 @@ class BarSettings extends Equatable {
               'clock',
             ],
       modulePlacement: _modulePlacement(decoded['module_placement']),
-      workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
       cpu: CpuOptions.fromJson(decoded['cpu']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),

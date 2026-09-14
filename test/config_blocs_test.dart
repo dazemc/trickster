@@ -32,10 +32,7 @@ void main() {
       },
       expect: () => [
         const BarSettings(modules: ['clock']),
-        const BarSettings(
-          modules: ['clock'],
-          accent: Color(0xffff0000),
-        ),
+        const BarSettings(modules: ['clock'], accent: Color(0xffff0000)),
       ],
     );
 
@@ -59,14 +56,10 @@ void main() {
       'emits configs equal by value, not identity',
       build: SessionBloc.new,
       act: (bloc) => bloc.add(
-        const SessionLoaded(
-          SessionConfig(namespace: 'trickster-test'),
-        ),
+        const SessionLoaded(SessionConfig(namespace: 'trickster-test')),
       ),
       // Distinct instance from the one added above: passes only with ==.
-      expect: () => [
-        SessionConfig(namespace: 'trickster-test'),
-      ],
+      expect: () => [SessionConfig(namespace: 'trickster-test')],
     );
 
     test('session json round-trips', () {

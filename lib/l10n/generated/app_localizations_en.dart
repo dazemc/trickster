@@ -252,18 +252,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOptionsCaption => 'Tune the values each pill uses.';
 
   @override
-  String get settingsWorkspacesSection => 'Workspaces';
-
-  @override
-  String get settingsWorkspacesPerDisplay => 'Per display';
-
-  @override
-  String get settingsWorkspacesDisplayOrder => 'Display order';
-
-  @override
-  String get settingsWorkspacesMain => 'Main';
-
-  @override
   String get settingsClockSection => 'Clock';
 
   @override

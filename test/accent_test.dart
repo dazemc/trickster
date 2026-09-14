@@ -11,10 +11,7 @@ void main() {
       resolveAccent(settings: settings, session: session),
       const WallpaperAccent(settings),
     );
-    expect(
-      resolveAccent(session: session),
-      const WallpaperAccent(session),
-    );
+    expect(resolveAccent(session: session), const WallpaperAccent(session));
     expect(
       resolveAccent(),
       const WallpaperAccent(ShellBrandColors.defaultAccent),
