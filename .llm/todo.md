@@ -81,12 +81,6 @@ per-option reset, orders modules with arrow buttons only, offers
 hardware-dependent modules unconditionally, and is an opaque window while
 the bar is glass. This phase fills the surface out.
 
-- **14.3 (S) Use Lucide for every icon.** Add the `lucide_icons` package
-  and replace the hand-painted glyphs (reset arrow, window close, module
-  move chevrons, media transport controls, tray menu toggles) with Lucide
-  widgets; charts and the color wheel stay painted because they are data,
-  not icons. Done when no widget paints its own icon, the dependency
-  resolves, and tests plus the live settings window render the glyphs.
 - **14.4 (M) Reset on appearance, modules, and displays.** Reset for accent
   source, custom accent, wallpaper pick, module list/order, per-module
   placement, bar edge, thickness, and output selection. Done when a widget
