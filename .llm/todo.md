@@ -81,11 +81,6 @@ per-option reset, orders modules with arrow buttons only, offers
 hardware-dependent modules unconditionally, and is an opaque window while
 the bar is glass. This phase fills the surface out.
 
-- **14.2 (M) Reset on every module option.** Put a reset next to workspace
-  count, clock format, CPU warn/critical, battery warn/critical, meter
-  captions, and locale; each resets exactly its own field to the shipped
-  default. Done when a widget test changes each option, taps its reset, and
-  reads the default back from the document.
 - **14.3 (M) Reset on appearance, modules, and displays.** Reset for accent
   source, custom accent, wallpaper pick, module list/order, per-module
   placement, bar edge, thickness, and output selection. Done when a widget
@@ -108,3 +103,18 @@ the bar is glass. This phase fills the surface out.
   behind it, with an opaque fallback when the compositor cannot. Done when
   the live window shows the blurred desktop on Hyprland and the fallback
   stays legible.
+
+## Phase 15 — docs site delivery
+
+The docs site builds locally but is not published, and it still ships the
+Jaspr starter icon. Deliver it to GitHub Pages with the Trickster mark.
+
+- **15.1 (S) Replace the docs icon.** Swap the Jaspr starter asset for the
+  user's `Denia's_Doll.webp` (converted to the formats the site's head and
+  manifest reference), keyed by the same paths so nothing else changes.
+  Done when the built site's icon requests resolve to the new mark.
+- **15.2 (M) Deploy the docs site to GitHub Pages.** Add a workflow that
+  fetches the site's deps, runs `jaspr build`, uploads `build/jaspr`, and
+  deploys through `actions/deploy-pages`; enable Pages with the workflow
+  source. Done when the published URL serves the rendered docs and a fresh
+  push to `main` updates it.
