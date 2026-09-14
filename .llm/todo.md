@@ -103,3 +103,8 @@ the bar is glass. This phase fills the surface out.
   behind it, with an opaque fallback when the compositor cannot. Done when
   the live window shows the blurred desktop on Hyprland and the fallback
   stays legible.
+
+## Phase 15 — docs site delivery
+
+The docs site builds locally but is not published, and it still ships the
+Jaspr starter icon. Deliver it to GitHub Pages with the Trickster mark.
