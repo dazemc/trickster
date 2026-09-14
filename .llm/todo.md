@@ -49,12 +49,6 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
-- [ ] **8.6 vertical compact modules** (M). `lib/src/bar/`. On left and
-      right edges the pills rotate upright but still carry their full
-      horizontal layout; give them compact variants: CPU/GPU show only
-      `NN%`, the clock shows only the time, and media shows only its
-      previous/play/next controls. Done when: a vertical strip shows the
-      compact pills and the horizontal layouts are unchanged.
 - [ ] **8.7 pill hover tooltips** (M). `lib/src/bar/`. Hovering any pill
       shows a detail tooltip on the transient overlay surface the tray
       tooltips already use (full clock date and time, CPU/GPU caption and
