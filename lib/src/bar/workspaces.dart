@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart'
     show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
@@ -52,22 +54,10 @@ class WorkspacesPill extends StatelessWidget {
                 duration: reduceMotion ? Duration.zero : Motion.workspaceSwitch,
                 curve: Motion.md3Emphasized,
                 alignment: _activeAlignment(active, count, horizontal),
-                child: SizedBox(
-                  width: horizontal ? _itemExtent : _crossExtent,
-                  height: horizontal ? _crossExtent : _itemExtent,
-                  child: Center(
-                    child: SizedBox.square(
-                      dimension: _lensSize,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: ShellMediaColors.darkness.withValues(
-                            alpha: 0.36,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                child: _WorkspaceActiveLens(
+                  workspace: active,
+                  horizontal: horizontal,
+                  reduceMotion: reduceMotion,
                 ),
               ),
             ),
@@ -182,4 +172,119 @@ Alignment _activeAlignment(int active, int count, bool horizontal) {
   final index = active < 0 ? 0 : active;
   final position = count <= 1 ? 0.0 : -1.0 + (2.0 * index / (count - 1));
   return horizontal ? Alignment(position, 0) : Alignment(0, position);
+}
+
+class _WorkspaceActiveLens extends StatefulWidget {
+  const _WorkspaceActiveLens({
+    required this.workspace,
+    required this.horizontal,
+    required this.reduceMotion,
+  });
+
+  final int workspace;
+  final bool horizontal;
+  final bool reduceMotion;
+
+  @override
+  State<_WorkspaceActiveLens> createState() => _WorkspaceActiveLensState();
+}
+
+class _WorkspaceActiveLensState extends State<_WorkspaceActiveLens>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shape = AnimationController.unbounded(
+    vsync: this,
+    value: 1,
+  );
+  var _generation = 0;
+
+  @override
+  void didUpdateWidget(_WorkspaceActiveLens oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.reduceMotion) {
+      _generation++;
+      _shape.stop();
+      _shape.value = 1;
+    } else if (widget.workspace != oldWidget.workspace) {
+      _generation++;
+      unawaited(_animateLiquid(_generation));
+    }
+  }
+
+  Future<void> _animateLiquid(int generation) async {
+    _shape.stop();
+    try {
+      await _shape
+          .animateTo(
+            1.34,
+            duration: Motion.workspaceIndicatorTakeoff,
+            curve: Motion.md3EmphasizedAccelerate,
+          )
+          .orCancel;
+      if (generation != _generation) {
+        return;
+      }
+      await _shape
+          .animateTo(
+            0.94,
+            duration: Motion.workspaceIndicatorTravel,
+            curve: Motion.standard,
+          )
+          .orCancel;
+      if (generation != _generation) {
+        return;
+      }
+      await _shape
+          .animateTo(
+            1,
+            duration: Motion.workspaceIndicatorSettle,
+            curve: Motion.md3EmphasizedDecelerate,
+          )
+          .orCancel;
+    } on TickerCanceled {
+      // A newer workspace target continues from the current deformation.
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation++;
+    _shape.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shape,
+      builder: (context, child) {
+        final mainScale = _shape.value;
+        final delta = mainScale - 1;
+        final crossScale = delta >= 0 ? 1 - (delta * 0.34) : 1 - (delta * 0.72);
+        return Transform.scale(
+          scaleX: widget.horizontal ? mainScale : crossScale,
+          scaleY: widget.horizontal ? crossScale : mainScale,
+          child: child,
+        );
+      },
+      child: SizedBox(
+        width: widget.horizontal
+            ? WorkspacesPill._itemExtent
+            : WorkspacesPill._crossExtent,
+        height: widget.horizontal
+            ? WorkspacesPill._crossExtent
+            : WorkspacesPill._itemExtent,
+        child: Center(
+          child: SizedBox.square(
+            dimension: WorkspacesPill._lensSize,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: ShellMediaColors.darkness.withValues(alpha: 0.36),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

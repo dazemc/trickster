@@ -133,6 +133,45 @@ void main() {
     expect(empty.fontSize, ShellText.systemBarCaption.fontSize! + 2);
   });
 
+  testWidgets('active lens deforms on switch and settles', (tester) async {
+    await _pump(tester, _focused('1'));
+    await _pump(tester, _focused('2'));
+    await tester.pump();
+    final scales = <double>[];
+    for (var step = 0; step < 50; step++) {
+      await tester.pump(const Duration(milliseconds: 8));
+      scales.add(_lensScale(tester).$1);
+    }
+    expect(scales.reduce((a, b) => a > b ? a : b), closeTo(1.34, 0.02));
+    expect(scales.reduce((a, b) => a < b ? a : b), closeTo(0.94, 0.02));
+    expect(scales.last, closeTo(1.0, 0.001));
+  });
+
+  testWidgets('vertical lens trades the deformation axes', (tester) async {
+    await _pump(tester, _focused('1'), horizontal: false);
+    await _pump(tester, _focused('3'), horizontal: false);
+    await tester.pump();
+    var peak = (scaleX: 1.0, scaleY: 1.0);
+    for (var step = 0; step < 50; step++) {
+      await tester.pump(const Duration(milliseconds: 8));
+      final (scaleX, scaleY) = _lensScale(tester);
+      if (scaleY > peak.scaleY) {
+        peak = (scaleX: scaleX, scaleY: scaleY);
+      }
+    }
+    expect(peak.scaleY, closeTo(1.34, 0.02));
+    expect(peak.scaleX, closeTo(1 - 0.34 * 0.34, 0.02));
+  });
+
+  testWidgets('reduced motion keeps the lens at rest', (tester) async {
+    await _pump(tester, _focused('1'), reduceMotion: true);
+    await _pump(tester, _focused('2'), reduceMotion: true);
+    for (var step = 0; step < 50; step++) {
+      await tester.pump(const Duration(milliseconds: 8));
+      expect(_lensScale(tester).$1, 1);
+    }
+  });
+
   testWidgets('active lens uses the ported dark fill', (tester) async {
     await _pump(tester, _focused('2'));
     final lens = tester.widget<DecoratedBox>(
@@ -163,6 +202,16 @@ void main() {
     const unknown = <Workspace>[Workspace(id: '1', name: '1')];
     expect(workspacesForOutput(unknown, 'HDMI-A-1'), unknown);
   });
+}
+
+(double, double) _lensScale(WidgetTester tester) {
+  final transform = tester.widget<Transform>(
+    find.descendant(
+      of: find.byKey(WorkspacesPill.lensKey),
+      matching: find.byType(Transform),
+    ),
+  );
+  return (transform.transform.entry(0, 0), transform.transform.entry(1, 1));
 }
 
 TextStyle _pipStyle(WidgetTester tester, String id) {
