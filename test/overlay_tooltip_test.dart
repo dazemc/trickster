@@ -4,12 +4,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/tray.dart';
-import 'package:trickster/src/bar/tray_tooltip.dart';
+import 'package:trickster/src/bar/overlay_tooltip.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/status_notifier.dart';
-import 'package:trickster/src/state/tray_tooltip.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
@@ -59,11 +59,11 @@ class _FakeLayerShell extends LayerShell {
 
 Future<void> _pumpButton(
   WidgetTester tester,
-  TrayTooltipController controller,
+  OverlayTooltipController controller,
 ) {
   return tester.pumpWidget(
     TricksterLocalizationScope(
-      child: TrayTooltipScope(
+      child: OverlayTooltipScope(
         notifier: controller,
         child: const Center(
           child: TrayItemButton(
@@ -84,7 +84,7 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = TrayTooltipController(layerShell: shell);
+    final controller = OverlayTooltipController(layerShell: shell);
     addTearDown(controller.dispose);
 
     await controller.show(
@@ -121,7 +121,7 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell()..failOpen = true;
-    final controller = TrayTooltipController(layerShell: shell);
+    final controller = OverlayTooltipController(layerShell: shell);
     addTearDown(controller.dispose);
 
     await controller.show(
@@ -141,7 +141,7 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = TrayTooltipController(layerShell: shell);
+    final controller = OverlayTooltipController(layerShell: shell);
     addTearDown(controller.dispose);
     await _pumpButton(tester, controller);
 
@@ -168,7 +168,7 @@ void main() {
   testWidgets('the pill sits below the bar, centered on the item', (
     tester,
   ) async {
-    const session = TrayTooltipSession(
+    const session = OverlayTooltipSession(
       viewId: 100,
       itemId: 'item',
       label: 'qBittorrent',
@@ -182,7 +182,7 @@ void main() {
         data: MediaQueryData(size: Size(800, 600)),
         child: Directionality(
           textDirection: TextDirection.ltr,
-          child: TrayTooltipSurface(session: session),
+          child: OverlayTooltipSurface(session: session),
         ),
       ),
     );
@@ -197,8 +197,31 @@ void main() {
     expect(pill.height, lessThan(32));
   });
 
+  testWidgets('side bars place the pill beside the bar', (tester) async {
+    const session = OverlayTooltipSession(
+      viewId: 100,
+      itemId: 'item',
+      label: 'qBittorrent',
+      accent: _accent,
+      click: Offset(20, 300),
+      side: SystemBarSide.left,
+      thickness: 72,
+    );
+    await tester.pumpWidget(
+      const MediaQuery(
+        data: MediaQueryData(size: Size(800, 600)),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: OverlayTooltipSurface(session: session),
+        ),
+      ),
+    );
+    expect(tester.getTopLeft(find.byType(SystemBarCard)).dx, 76);
+    expect(tester.getCenter(find.byType(SystemBarCard)).dy, closeTo(300, 0.5));
+  });
+
   testWidgets('the pill clamps inside the output edge', (tester) async {
-    const session = TrayTooltipSession(
+    const session = OverlayTooltipSession(
       viewId: 100,
       itemId: 'item',
       label: 'qBittorrent',
@@ -212,7 +235,7 @@ void main() {
         data: MediaQueryData(size: Size(800, 600)),
         child: Directionality(
           textDirection: TextDirection.ltr,
-          child: TrayTooltipSurface(session: session),
+          child: OverlayTooltipSurface(session: session),
         ),
       ),
     );

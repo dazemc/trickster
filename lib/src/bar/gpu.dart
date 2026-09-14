@@ -5,6 +5,7 @@ import '../locale.dart';
 import '../services/gpu.dart';
 import '../theme/accent.dart';
 import 'meter.dart';
+import 'pill_tooltip.dart';
 import 'pill.dart';
 
 class GpuPill extends StatelessWidget {
@@ -35,16 +36,20 @@ class GpuPill extends StatelessWidget {
         : load.label == GpuLoad.genericLabel
         ? context.l10n.desktopGpuLabel
         : load.label;
-    return SystemBarCard(
+    return PillTooltip(
       accent: accent,
-      padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
-      child: LoadMeter(
+      label: '$label ${((load.usage ?? 0.0) * 100).round()}%',
+      child: SystemBarCard(
         accent: accent,
-        label: label,
-        current: load.usage,
-        history: load.history,
-        capacity: GpuLoad.capacity,
-        vertical: vertical,
+        padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
+        child: LoadMeter(
+          accent: accent,
+          label: label,
+          current: load.usage,
+          history: load.history,
+          capacity: GpuLoad.capacity,
+          vertical: vertical,
+        ),
       ),
     );
   }

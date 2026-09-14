@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'bar/bar.dart';
 import 'bar/tray_menu.dart';
-import 'bar/tray_tooltip.dart';
+import 'bar/overlay_tooltip.dart';
 import 'control/control_handler.dart';
 import 'control/control_server.dart';
 import 'bootstrap.dart';
@@ -28,7 +28,7 @@ import 'state/outputs_bloc.dart';
 import 'state/session_bloc.dart';
 import 'state/settings_bloc.dart';
 import 'state/tray_menu.dart';
-import 'state/tray_tooltip.dart';
+import 'state/overlay_tooltip.dart';
 
 class TricksterApp extends StatefulWidget {
   const TricksterApp({required this.initial, this.layerShell, super.key});
@@ -44,7 +44,7 @@ class _TricksterAppState extends State<TricksterApp>
     with WidgetsBindingObserver {
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
-  late final TrayTooltipController _tooltipController;
+  late final OverlayTooltipController _tooltipController;
   late final FileSettingsTransport _settingsTransport;
   late final OutputsDocumentTransport _outputsTransport;
   ControlServer? _control;
@@ -64,7 +64,7 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
-    _tooltipController = TrayTooltipController(layerShell: _layerShell);
+    _tooltipController = OverlayTooltipController(layerShell: _layerShell);
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
     );
@@ -257,7 +257,7 @@ class _TricksterAppState extends State<TricksterApp>
           };
           return TrayMenuScope(
             notifier: _menuController,
-            child: TrayTooltipScope(
+            child: OverlayTooltipScope(
               notifier: _tooltipController,
               child: ModuleScope(
                 // The control status handler needs a context below the module
@@ -309,7 +309,7 @@ class _ViewSurface extends StatefulWidget {
 
   final FlutterView view;
   final TrayMenuController menu;
-  final TrayTooltipController tooltip;
+  final OverlayTooltipController tooltip;
   final LayerShell layerShell;
   final bool blur;
   final String? output;
@@ -364,7 +364,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
           if (session == null || session.viewId != widget.view.viewId) {
             return const SizedBox.shrink();
           }
-          return TrayTooltipSurface(session: session);
+          return OverlayTooltipSurface(session: session);
         }
         return _BarSurface(output: widget.output);
       },

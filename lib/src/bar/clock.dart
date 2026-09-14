@@ -9,6 +9,7 @@ import '../theme/accent.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 
 class ClockPill extends StatelessWidget {
   const ClockPill({
@@ -58,46 +59,50 @@ class _ClockRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final time = _formatTime(context, now);
     final date = _formatDate(context, now);
-    return Semantics(
-      label: context.l10n.clockTitle,
-      value: '$date, $time',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!vertical) ...[
-              Text(
-                date,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: accent.captionColor(),
+    return PillTooltip(
+      accent: accent,
+      label: '$date $time',
+      child: Semantics(
+        label: context.l10n.clockTitle,
+        value: '$date, $time',
+        child: ExcludeSemantics(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!vertical) ...[
+                Text(
+                  date,
+                  style: ShellText.systemBarCaption.copyWith(
+                    color: accent.captionColor(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              AnimatedSwitcher(
+                duration: Motion.cardSettle,
+                switchInCurve: Motion.standard,
+                switchOutCurve: Motion.standard,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.25),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: Text(
+                  time,
+                  key: ValueKey<String>(time),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: ShellText.systemBarValue,
                 ),
               ),
-              const SizedBox(width: 8),
             ],
-            AnimatedSwitcher(
-              duration: Motion.cardSettle,
-              switchInCurve: Motion.standard,
-              switchOutCurve: Motion.standard,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.25),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              ),
-              child: Text(
-                time,
-                key: ValueKey<String>(time),
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.visible,
-                style: ShellText.systemBarValue,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

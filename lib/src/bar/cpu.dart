@@ -6,6 +6,7 @@ import '../services/cpu.dart';
 import '../theme/tokens.dart';
 import '../theme/accent.dart';
 import 'meter.dart';
+import 'pill_tooltip.dart';
 import 'pill.dart';
 
 class CpuPill extends StatelessWidget {
@@ -43,17 +44,21 @@ class CpuPill extends StatelessWidget {
             name.isNotEmpty
         ? name
         : context.l10n.metricCpu;
-    return SystemBarCard(
+    return PillTooltip(
       accent: accent,
-      padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
-      child: LoadMeter(
+      label: '$label ${((current ?? 0.0) * 100).round()}%',
+      child: SystemBarCard(
         accent: accent,
-        label: label,
-        current: current,
-        history: sample.history,
-        capacity: CpuSample.capacity,
-        valueColor: valueColor,
-        vertical: vertical,
+        padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
+        child: LoadMeter(
+          accent: accent,
+          label: label,
+          current: current,
+          history: sample.history,
+          capacity: CpuSample.capacity,
+          valueColor: valueColor,
+          vertical: vertical,
+        ),
       ),
     );
   }

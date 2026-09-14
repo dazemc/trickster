@@ -24,6 +24,7 @@ import 'cpu.dart';
 import 'gpu.dart';
 import 'media.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 import 'tray.dart';
 import 'workspaces.dart';
 
@@ -277,30 +278,34 @@ class TricksterBarStrip extends StatelessWidget {
       ),
     };
 
-    return Padding(
-      padding: horizontal
-          ? const EdgeInsets.symmetric(
-              horizontal: _edgePadding,
-              vertical: _cardMargin,
-            )
-          : const EdgeInsets.symmetric(
-              horizontal: _cardMargin,
-              vertical: _edgePadding,
-            ),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Flex(
-          direction: horizontal ? Axis.horizontal : Axis.vertical,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            for (
-              var position = 0;
-              position < settings.modules.length;
-              position++
-            )
-              builders[settings.modules[position]]?.call(position) ??
-                  const SizedBox.shrink(),
-          ],
+    return StripGeometry(
+      side: side,
+      thickness: thickness,
+      child: Padding(
+        padding: horizontal
+            ? const EdgeInsets.symmetric(
+                horizontal: _edgePadding,
+                vertical: _cardMargin,
+              )
+            : const EdgeInsets.symmetric(
+                horizontal: _cardMargin,
+                vertical: _edgePadding,
+              ),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Flex(
+            direction: horizontal ? Axis.horizontal : Axis.vertical,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              for (
+                var position = 0;
+                position < settings.modules.length;
+                position++
+              )
+                builders[settings.modules[position]]?.call(position) ??
+                    const SizedBox.shrink(),
+            ],
+          ),
         ),
       ),
     );

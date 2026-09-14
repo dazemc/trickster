@@ -7,6 +7,7 @@ import '../theme/accent.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 
 /// Inline media pill: now-playing text while idle, transport controls after a
 /// tap. Only the fields it paints are selected, so position ticks and
@@ -102,101 +103,110 @@ class _MediaPillState extends State<MediaPill> {
     if (widget.vertical) {
       // No card-level tap and no ExcludeSemantics: the transport buttons'
       // own semantics are the interaction.
-      return Semantics(
-        label: label,
-        value: value,
-        hint: l10n.mediaHint,
-        child: SystemBarCard(
-          accent: widget.accent,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              controls[0],
-              const SizedBox(width: 2),
-              controls[2],
-              const SizedBox(width: 2),
-              controls[4],
-            ],
+      return PillTooltip(
+        accent: widget.accent,
+        label: value,
+        child: Semantics(
+          label: label,
+          value: value,
+          hint: l10n.mediaHint,
+          child: SystemBarCard(
+            accent: widget.accent,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                controls[0],
+                const SizedBox(width: 2),
+                controls[2],
+                const SizedBox(width: 2),
+                controls[4],
+              ],
+            ),
           ),
         ),
       );
     }
     // Hand-rolled rather than a TricksterActionCard: its ExcludeSemantics
     // would swallow the transport buttons' own semantics.
-    return Semantics(
-      button: true,
-      label: label,
-      value: value,
-      hint: l10n.mediaHint,
-      onTap: _toggle,
-      child: FocusableActionDetector(
-        focusNode: _focusNode,
-        mouseCursor: SystemMouseCursors.click,
-        onShowHoverHighlight: (value) => setState(() => _hovered = value),
-        onShowFocusHighlight: (value) => setState(() => _focused = value),
-        actions: <Type, Action<Intent>>{
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (intent) {
-              _toggle();
-              return null;
-            },
-          ),
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggle,
-          child: SystemBarCard(
-            accent: widget.accent,
-            highlighted: _hovered || _focused,
-            focused: _focused,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ExcludeSemantics(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CustomPaint(
-                        size: const Size(14, 14),
-                        painter: _MediaIndicatorPainter(
-                          playing: media.playing,
-                          color: widget.accent.color,
+    return PillTooltip(
+      accent: widget.accent,
+      label: value,
+      child: Semantics(
+        button: true,
+        label: label,
+        value: value,
+        hint: l10n.mediaHint,
+        onTap: _toggle,
+        child: FocusableActionDetector(
+          focusNode: _focusNode,
+          mouseCursor: SystemMouseCursors.click,
+          onShowHoverHighlight: (value) => setState(() => _hovered = value),
+          onShowFocusHighlight: (value) => setState(() => _focused = value),
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (intent) {
+                _toggle();
+                return null;
+              },
+            ),
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggle,
+            child: SystemBarCard(
+              accent: widget.accent,
+              highlighted: _hovered || _focused,
+              focused: _focused,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExcludeSemantics(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CustomPaint(
+                          size: const Size(14, 14),
+                          painter: _MediaIndicatorPainter(
+                            playing: media.playing,
+                            color: widget.accent.color,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 7),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: MediaPill.maxTitleWidth,
-                        ),
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: ShellText.systemBarValue,
-                        ),
-                      ),
-                      if (secondary.isNotEmpty && secondary != title) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 7),
                         ConstrainedBox(
                           constraints: const BoxConstraints(
-                            maxWidth: MediaPill.maxSecondaryWidth,
+                            maxWidth: MediaPill.maxTitleWidth,
                           ),
                           child: Text(
-                            secondary,
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: ShellText.systemBarCaption.copyWith(
-                              color: ShellMediaColors.lightForegroundSecondary,
-                            ),
+                            style: ShellText.systemBarValue,
                           ),
                         ),
+                        if (secondary.isNotEmpty && secondary != title) ...[
+                          const SizedBox(width: 6),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: MediaPill.maxSecondaryWidth,
+                            ),
+                            child: Text(
+                              secondary,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: ShellText.systemBarCaption.copyWith(
+                                color:
+                                    ShellMediaColors.lightForegroundSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (_expanded) ...[const SizedBox(width: 9), ...controls],
-              ],
+                  if (_expanded) ...[const SizedBox(width: 9), ...controls],
+                ],
+              ),
             ),
           ),
         ),

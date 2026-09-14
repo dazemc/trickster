@@ -5,6 +5,7 @@ import '../services/battery.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 
 class BatteryPill extends StatelessWidget {
   const BatteryPill({
@@ -42,32 +43,38 @@ class BatteryPill extends StatelessWidget {
         : capacity <= warn
         ? ShellTelemetryColors.warning
         : null;
-    return TricksterActionCard(
+    return PillTooltip(
       accent: accent,
       label:
           '${l10n.batteryTitle}, '
           '${l10n.batteryStateAndPercent(state, capacity)}',
-      hint: l10n.batteryHint,
-      onPressed: onPressed,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CustomPaint(
-            key: gaugeKey,
-            size: const Size(24, 14),
-            painter: _BatteryPainter(
-              capacity: capacity / 100.0,
-              charging: status.charging,
-              accent: accent.color,
-              levelColor: levelColor,
+      child: TricksterActionCard(
+        accent: accent,
+        label:
+            '${l10n.batteryTitle}, '
+            '${l10n.batteryStateAndPercent(state, capacity)}',
+        hint: l10n.batteryHint,
+        onPressed: onPressed,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomPaint(
+              key: gaugeKey,
+              size: const Size(24, 14),
+              painter: _BatteryPainter(
+                capacity: capacity / 100.0,
+                charging: status.charging,
+                accent: accent.color,
+                levelColor: levelColor,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$capacity%',
-            style: ShellText.systemBarValue.copyWith(color: levelColor),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              '$capacity%',
+              style: ShellText.systemBarValue.copyWith(color: levelColor),
+            ),
+          ],
+        ),
       ),
     );
   }

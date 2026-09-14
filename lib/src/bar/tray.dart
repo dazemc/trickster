@@ -12,7 +12,7 @@ import '../locale.dart';
 import '../services/status_notifier.dart';
 import '../state/tray_bloc.dart';
 import '../state/tray_menu.dart';
-import '../state/tray_tooltip.dart';
+import '../state/overlay_tooltip.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
@@ -97,13 +97,13 @@ class TrayItemButton extends StatefulWidget {
 class _TrayItemButtonState extends State<TrayItemButton> {
   Offset? _primaryPosition;
   var _focused = false;
-  TrayTooltipController? _tooltip;
+  OverlayTooltipController? _tooltip;
   Timer? _tooltipTimer;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tooltip = TrayTooltipScope.maybeOf(context);
+    _tooltip = OverlayTooltipScope.maybeOf(context);
   }
 
   @override
