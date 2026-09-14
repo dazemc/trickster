@@ -426,12 +426,16 @@ class HyprlandWorkspaces extends WorkspaceBackend {
       return false;
     }
     final name = workspace.name;
+    final output = workspace.output;
     final number = int.tryParse(workspace.id);
     final luaSelector = number != null && number > 0
         ? '$number'
         : '"${_escapeLua(name)}"';
     try {
       return await Isolate.run(() async {
+        if (output.isNotEmpty) {
+          await _claimOnOutput(name, output, luaSelector, dir);
+        }
         // Hyprland 0.56 made dispatch evaluate Lua (`hl.dsp.*`); older
         // releases use the classic `workspace` dispatcher. Try the classic
         // form first and fall back when the reply reports the Lua error.
@@ -444,6 +448,31 @@ class HyprlandWorkspaces extends WorkspaceBackend {
     } on Object {
       return false;
     }
+  }
+
+  /// Best-effort: claims [name] for [output] before focusing, mirroring
+  /// Sway's `workspace N output OUT`. Hyprland has no such form, so the
+  /// workspace moves first; 0.56 dropped the classic
+  /// `moveworkspacetomonitor` for `hl.dsp.workspace.move`. A workspace that
+  /// does not exist yet is left to the focus that follows.
+  static Future<void> _claimOnOutput(
+    String name,
+    String output,
+    String luaSelector,
+    String dir,
+  ) async {
+    final classic = await _sendCommand(
+      'dispatch moveworkspacetomonitor $name $output',
+      dir,
+    );
+    if (classic == 'ok') {
+      return;
+    }
+    await _sendCommand(
+      'dispatch hl.dsp.workspace.move({ workspace = $luaSelector, '
+      'monitor = "${_escapeLua(output)}" })',
+      dir,
+    );
   }
 
   static String _escapeLua(String value) =>

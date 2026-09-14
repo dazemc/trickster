@@ -439,4 +439,72 @@ void main() {
       await dir.delete(recursive: true);
     }
   });
+
+  test('focus claims the workspace for the rail output first', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+    server.replies['dispatch moveworkspacetomonitor 2 HDMI-A-1'] = utf8.encode(
+      'ok',
+    );
+    server.replies['dispatch workspace 2'] = utf8.encode('ok');
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: '2', output: 'HDMI-A-1'),
+      );
+      expect(focused, isTrue);
+      expect(server.commands, [
+        'dispatch moveworkspacetomonitor 2 HDMI-A-1',
+        'dispatch workspace 2',
+      ]);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('lua fallback claims when the classic move dispatcher is gone', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+    server.replies['dispatch moveworkspacetomonitor 2 HDMI-A-1'] = utf8.encode(
+      'error: return hl.dispatch(moveworkspacetomonitor):1',
+    );
+    server.replies['dispatch hl.dsp.workspace.move({ workspace = 2, '
+        'monitor = "HDMI-A-1" })'] = utf8.encode(
+      'ok',
+    );
+    server.replies['dispatch workspace 2'] = utf8.encode('ok');
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: '2', output: 'HDMI-A-1'),
+      );
+      expect(focused, isTrue);
+      expect(server.commands, [
+        'dispatch moveworkspacetomonitor 2 HDMI-A-1',
+        'dispatch hl.dsp.workspace.move({ workspace = 2, monitor = "HDMI-A-1" })',
+        'dispatch workspace 2',
+      ]);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('a refused claim does not block focusing', () async {
+    final server = await _FakeHyprlandServer.bind(keepOpen: false);
+    server.replies['dispatch moveworkspacetomonitor 2 HDMI-A-1'] = utf8.encode(
+      'error: Workspace not found',
+    );
+    server.replies['dispatch hl.dsp.workspace.move({ workspace = 2, '
+        'monitor = "HDMI-A-1" })'] = utf8.encode(
+      'error: Workspace not found',
+    );
+    server.replies['dispatch workspace 2'] = utf8.encode('ok');
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: '2', output: 'HDMI-A-1'),
+      );
+      expect(focused, isTrue);
+    } finally {
+      await server.dispose();
+    }
+  });
 }
