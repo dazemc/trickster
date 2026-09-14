@@ -403,6 +403,26 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
       modules: modules,
+      modulePlacement: modulePlacement,
+      workspaces: workspaces,
+      cpu: cpu,
+      clock: clock,
+      battery: battery,
+      meter: meter,
+    );
+  }
+
+  /// Same settings with the wallpaper pick replaced; null clears it so the
+  /// dominant candidate applies again.
+  BarSettings withAccentWallpaperPick(String? pick) {
+    return BarSettings(
+      revision: revision,
+      accent: accent,
+      locale: locale,
+      accentSource: accentSource,
+      accentWallpaperPick: pick,
+      modules: modules,
+      modulePlacement: modulePlacement,
       workspaces: workspaces,
       cpu: cpu,
       clock: clock,

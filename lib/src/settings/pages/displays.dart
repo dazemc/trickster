@@ -85,29 +85,52 @@ class _DisplaysPageState extends State<DisplaysPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final side in const [
-                    SystemBarSide.top,
-                    SystemBarSide.bottom,
-                    SystemBarSide.left,
-                    SystemBarSide.right,
-                    SystemBarSide.hidden,
-                  ])
-                    SettingsChoiceChip(
-                      key: ValueKey<String>('side-${side.name}'),
-                      label: _sideLabel(l10n, side),
-                      selected: outputs.side == side,
-                      onPressed: () => _applyNow(
-                        controller,
-                        outputs.copyWith(
-                          side: side,
-                          thickness: _thicknessForSide(side, outputs),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final side in const [
+                          SystemBarSide.top,
+                          SystemBarSide.bottom,
+                          SystemBarSide.left,
+                          SystemBarSide.right,
+                          SystemBarSide.hidden,
+                        ])
+                          SettingsChoiceChip(
+                            key: ValueKey<String>('side-${side.name}'),
+                            label: _sideLabel(l10n, side),
+                            selected: outputs.side == side,
+                            onPressed: () => _applyNow(
+                              controller,
+                              outputs.copyWith(
+                                side: side,
+                                thickness: _thicknessForSide(side, outputs),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-side'),
+                    label: l10n.settingsResetOption(l10n.settingsSideLabel),
+                    enabled: outputs.side != SystemBarSide.top,
+                    onPressed: () => _applyNow(
+                      controller,
+                      outputs.copyWith(
+                        side: SystemBarSide.top,
+                        thickness: _thicknessForSide(
+                          SystemBarSide.top,
+                          outputs,
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -123,6 +146,23 @@ class _DisplaysPageState extends State<DisplaysPage> {
                   Text(
                     '${outputs.thickness.round()}',
                     style: ShellText.systemBarValue,
+                  ),
+                  const Spacer(),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-thickness'),
+                    label: l10n.settingsResetOption(
+                      l10n.settingsThicknessLabel,
+                    ),
+                    enabled:
+                        outputs.side != SystemBarSide.hidden &&
+                        outputs.thickness.round() !=
+                            _defaultThickness(outputs.side).round(),
+                    onPressed: () => _applyNow(
+                      controller,
+                      outputs.copyWith(
+                        thickness: _defaultThickness(outputs.side),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -146,11 +186,26 @@ class _DisplaysPageState extends State<DisplaysPage> {
                       ),
               ),
               const SizedBox(height: 22),
-              Text(
-                l10n.settingsOutputsLabel,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsOutputsLabel,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-outputs'),
+                    label: l10n.settingsResetOption(l10n.settingsOutputsLabel),
+                    enabled: outputs.connectors.isNotEmpty,
+                    onPressed: () => _applyNow(
+                      controller,
+                      outputs.copyWith(connectors: const <String>[]),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               if (available.isEmpty)
@@ -249,6 +304,8 @@ class _DisplaysPageState extends State<DisplaysPage> {
 }
 
 /// The smallest band that does not clip that orientation's pills.
+double _defaultThickness(SystemBarSide side) => side.isHorizontal ? 32 : 72;
+
 double _minThickness(SystemBarSide side) {
   return side.isHorizontal ? 20 : _DisplaysPageState._verticalMinThickness;
 }

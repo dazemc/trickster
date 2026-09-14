@@ -72,11 +72,25 @@ class _AppearancePageState extends State<AppearancePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                l10n.settingsAccentSource,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsAccentSource,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-accent-source'),
+                    label: l10n.settingsResetOption(l10n.settingsAccentSource),
+                    enabled:
+                        controller.settings.accentSource != AccentSource.custom,
+                    onPressed: () =>
+                        _applySource(controller, AccentSource.custom),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -114,6 +128,12 @@ class _AppearancePageState extends State<AppearancePage> {
                     _saver ??= DebouncedSaver(controller);
                     _saver!.apply(
                       (settings) => settings.copyWith(accentWallpaperPick: hex),
+                    );
+                  },
+                  onReset: () {
+                    _saver ??= DebouncedSaver(controller);
+                    _saver!.apply(
+                      (settings) => settings.withAccentWallpaperPick(null),
                     );
                   },
                 )
@@ -163,8 +183,12 @@ class _AppearancePageState extends State<AppearancePage> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        SettingsButton(
-                          label: l10n.settingsAccentReset,
+                        SettingsResetButton(
+                          key: const ValueKey<String>('reset-accent'),
+                          label: l10n.settingsResetOption(
+                            l10n.settingsAccentColor,
+                          ),
+                          enabled: controller.settings.accent != null,
                           onPressed: () => _apply(controller, null),
                         ),
                       ],
@@ -188,11 +212,13 @@ class _WallpaperAccents extends StatelessWidget {
     required this.candidates,
     required this.picked,
     required this.onPick,
+    required this.onReset,
   });
 
   final List<Color> candidates;
   final Color? picked;
   final ValueChanged<Color> onPick;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -204,11 +230,25 @@ class _WallpaperAccents extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n.settingsAccentWallpaperTitle,
-          style: ShellText.systemBarCaption.copyWith(
-            color: ShellMediaColors.lightForegroundSecondary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.settingsAccentWallpaperTitle,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: ShellMediaColors.lightForegroundSecondary,
+                ),
+              ),
+            ),
+            SettingsResetButton(
+              key: const ValueKey<String>('reset-wallpaper-pick'),
+              label: l10n.settingsResetOption(
+                l10n.settingsAccentWallpaperTitle,
+              ),
+              enabled: picked != null,
+              onPressed: onReset,
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (candidates.isEmpty)
