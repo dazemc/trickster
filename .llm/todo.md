@@ -67,3 +67,27 @@ ownership stays with the compositor.
   the first row, each showing its resulting range; a set-as-main action
   moves a display to the front, writing `display_order`. Done when
   reordering or marking writes the document and the live bars re-range.
+
+## Phase 17 — workspace pip styles
+
+The rail draws numbers today. The user wants a style choice: dots, numbers,
+Roman numerals, an SVG from a link, or a local image browsed from the
+settings application. One chosen asset applies to every pip unless the user
+asks for per-workspace mapping. Every style keeps the active lens,
+occupied/empty tinting, and the accessibility labels.
+
+- **17.1 (S) Pip style option.** Add `workspaces.pip_style` (`number`
+  default, `dot`, `roman`, `svg`, `image`) and the svg/image source keys to
+  the settings document. Done when the document round-trips every style and
+  decode rejects unknown values.
+- **17.2 (M) Dots and Roman numerals.** The rail paints the configured
+  glyph for every pip, keeping the lens, tints, and labels. Done when the
+  live bar shows each style and widget tests pin the glyphs and tints.
+- **17.3 (M) SVG link pips.** An SVG fetched from the configured link
+  renders as pip artwork, decoded off the frame loop and cached at display
+  size with eviction, falling back to numbers when a load fails. Done when
+  the live rail paints a linked SVG.
+- **17.4 (M) Local image pips.** A browsed local image renders as pip
+  artwork through the same decode/cache path, with the settings application
+  offering a file browse control. Done when the live rail paints a browsed
+  image.
