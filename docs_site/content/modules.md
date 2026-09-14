@@ -17,6 +17,8 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `media` | Title + artist with a playing indicator; tap reveals previous/play/pause/next | MPRIS (`org.mpris.MediaPlayer2.*`), event-driven properties | Hidden with no playing or paused player |
 | `tray` | Icon per StatusNotifier item; right-click opens the D-Bus menu | StatusNotifier watcher (SNI) and `com.canonical.dbusmenu` | Hidden with no items |
 
+By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
+
 <Info>
 Tray is StatusNotifier only. Denial's XEmbed merge came from owning Xwayland, which a guest cannot borrow.
 </Info>
