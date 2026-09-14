@@ -13,7 +13,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer | Hidden if unreadable |
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler | Hidden with no reading |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
-| `workspaces` | Pip rail with a sliding lens; occupied and urgent pips | Sway/Hyprland/niri IPC sockets, auto-detected | Hidden when empty |
+| `workspaces` | Numbered pip rail with a sliding lens; active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Hidden when empty |
 | `media` | Title + artist with a playing indicator; tap reveals previous/play/pause/next | MPRIS (`org.mpris.MediaPlayer2.*`), event-driven properties | Hidden with no playing or paused player |
 | `tray` | Icon per StatusNotifier item; right-click opens the D-Bus menu | StatusNotifier watcher (SNI) and `com.canonical.dbusmenu` | Hidden with no items |
 
