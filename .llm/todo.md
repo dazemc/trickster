@@ -23,8 +23,10 @@ opaque window while the bar is glass. This phase fills the surface out.
 - **14.11 (M) Workspaces configured per display.** The workspace count
   becomes per-output (each monitor may want a different rail length) in the
   settings document and the settings UI; the strip honors each output's
-  count. Done when the document round-trips per-output counts and the live
-  multi-monitor bars show different rail lengths.
+  count, and the panel carries no redundant global slider (`workspace_count`
+  stays the document fallback). Done when the document round-trips per-output
+  counts, the live multi-monitor bars show different rail lengths, and the
+  settings UI shows only per-display controls.
 - **14.12 (M) Wallpaper accent per display.** Monitors can run different
   wallpapers, so the wallpaper-accent pick becomes per-output too: the
   settings UI lists each display's candidates and each strip resolves its
