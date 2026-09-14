@@ -298,6 +298,12 @@ class _TricksterAppState extends State<TricksterApp>
                                         layerShell: _layerShell,
                                         blur: blur,
                                         output: viewOutputs[view.viewId],
+                                        outputs: <String>[
+                                          for (final output
+                                              in _outputs ??
+                                                  const <LayerOutput>[])
+                                            output.name,
+                                        ],
                                       ),
                                 ]
                               : const <Widget>[],
@@ -325,6 +331,7 @@ class _ViewSurface extends StatefulWidget {
     required this.layerShell,
     required this.blur,
     required this.output,
+    required this.outputs,
     super.key,
   });
 
@@ -334,6 +341,7 @@ class _ViewSurface extends StatefulWidget {
   final LayerShell layerShell;
   final bool blur;
   final String? output;
+  final List<String> outputs;
 
   @override
   State<_ViewSurface> createState() => _ViewSurfaceState();
@@ -410,7 +418,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
         }
         return BlurRegionScope(
           controller: _blurRegions,
-          child: _BarSurface(output: widget.output),
+          child: _BarSurface(output: widget.output, outputs: widget.outputs),
         );
       },
     ),
@@ -452,13 +460,14 @@ class _ViewSurfaceState extends State<_ViewSurface> {
 }
 
 class _BarSurface extends StatelessWidget {
-  const _BarSurface({required this.output});
+  const _BarSurface({required this.output, required this.outputs});
 
   final String? output;
+  final List<String> outputs;
 
   @override
   Widget build(BuildContext context) {
-    final outputs = context.watch<OutputsBloc>().state;
+    final layout = context.watch<OutputsBloc>().state;
     final blur = context.select((CapabilitiesBloc bloc) => bloc.state.blur);
     return BackdropBlur(
       enabled: blur,
@@ -472,9 +481,10 @@ class _BarSurface extends StatelessWidget {
           return false;
         },
         child: TricksterBarStrip(
-          side: outputs.side,
-          thickness: outputs.thickness,
+          side: layout.side,
+          thickness: layout.thickness,
           output: output,
+          outputs: outputs,
           onOpenPowerSettings: openPowerSettings,
         ),
       ),

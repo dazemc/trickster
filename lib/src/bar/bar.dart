@@ -35,6 +35,7 @@ class TricksterBarStrip extends StatelessWidget {
     required this.side,
     this.thickness = 32,
     this.output,
+    this.outputs = const [],
     this.onOpenPowerSettings = _noop,
     super.key,
   });
@@ -47,6 +48,10 @@ class TricksterBarStrip extends StatelessWidget {
   /// Connector this strip is on, so per-output modules (workspaces) can
   /// filter their state. Null before the output enumeration lands.
   final String? output;
+
+  /// Connected connectors in host order; the workspace chain appends the
+  /// displays it does not list explicitly.
+  final List<String> outputs;
   final VoidCallback onOpenPowerSettings;
 
   static const double _edgePadding = 8;
@@ -139,6 +144,7 @@ class TricksterBarStrip extends StatelessWidget {
         child: _WorkspacesRail(
           accent: accent,
           output: output,
+          outputs: outputs,
           thickness: thickness,
           vertical: vertical,
         ),
@@ -338,12 +344,14 @@ class _WorkspacesRail extends StatelessWidget {
   const _WorkspacesRail({
     required this.accent,
     required this.output,
+    required this.outputs,
     required this.thickness,
     required this.vertical,
   });
 
   final WallpaperAccent accent;
   final String? output;
+  final List<String> outputs;
   final double thickness;
   final bool vertical;
 
@@ -354,9 +362,10 @@ class _WorkspacesRail extends StatelessWidget {
         final options = context.select(
           (SettingsBloc bloc) => bloc.state.workspaces,
         );
-        final workspaces = _countRail(
+        final workspaces = _rangeRail(
           state.workspaces,
-          options.countFor(output),
+          options,
+          outputs,
           output,
         );
         final pill = WorkspacesPill(
@@ -383,21 +392,46 @@ class _WorkspacesRail extends StatelessWidget {
   }
 }
 
-/// Denial's 1..count rail: every strip shows the configured numbers, with
-/// active and occupied resolved against [output]'s slice of the compositor
-/// snapshot. A number living on another output renders empty here; the
-/// backends move or create it when pressed.
-List<Workspace> _countRail(
+/// The output's slice of the workspace chain: its absolute range, with the
+/// main display also carrying existing workspaces numbered beyond the chain
+/// total. Active and occupied stay resolved against [output]; a number living
+/// on another output renders empty here and the backends move or create it
+/// when pressed.
+List<Workspace> _rangeRail(
   List<Workspace> workspaces,
-  int count,
+  WorkspaceOptions options,
+  List<String> connected,
   String? output,
 ) {
   final byId = <String, Workspace>{
     for (final workspace in workspaces) workspace.id: workspace,
   };
   final knownOutput = output != null && output.isNotEmpty;
+  final range = knownOutput ? options.rangeFor(output, connected) : null;
+  if (range == null) {
+    // No chain yet (output enumeration pending): keep the fixed 1..count.
+    return [
+      for (var number = 1; number <= options.countFor(output); number++)
+        _railEntry(byId['$number'], number, knownOutput ? output : null),
+    ];
+  }
+  final numbers = <int>[
+    for (var number = range.$1; number <= range.$2; number++) number,
+  ];
+  if (range.$1 == 1) {
+    final total = options.chainTotal(connected);
+    final overflow = <int>[];
+    for (final workspace in workspaces) {
+      final number = int.tryParse(workspace.id);
+      if (number != null && number > total) {
+        overflow.add(number);
+      }
+    }
+    overflow.sort();
+    numbers.addAll(overflow);
+  }
   return [
-    for (var number = 1; number <= count; number++)
+    for (final number in numbers)
       _railEntry(byId['$number'], number, knownOutput ? output : null),
   ];
 }

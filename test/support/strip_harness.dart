@@ -45,6 +45,7 @@ Future<void> pumpBarHarness(
   SystemBarSide side = SystemBarSide.top,
   double thickness = 32,
   String? output,
+  List<String> outputs = const [],
   WallpaperAccentController? wallpaperAccent,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
@@ -89,6 +90,7 @@ Future<void> pumpBarHarness(
                   side: side,
                   thickness: thickness,
                   output: output,
+                  outputs: outputs,
                 )
               : WallpaperAccentScope(
                   notifier: wallpaperAccent,
@@ -96,6 +98,7 @@ Future<void> pumpBarHarness(
                     side: side,
                     thickness: thickness,
                     output: output,
+                    outputs: outputs,
                   ),
                 ),
         ),

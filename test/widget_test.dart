@@ -389,6 +389,99 @@ void main() {
     expect(find.text('3'), findsNothing);
   });
 
+  testWidgets('workspace rails split the chain by display order', (
+    tester,
+  ) async {
+    const settings = BarSettings(
+      modules: ['workspaces'],
+      workspaces: WorkspaceOptions(
+        count: 4,
+        perOutput: {'HDMI-A-1': 4, 'HDMI-A-2': 3},
+        displayOrder: ['HDMI-A-1', 'HDMI-A-2'],
+      ),
+    );
+    const outputs = ['HDMI-A-1', 'HDMI-A-2'];
+
+    await pumpBarHarness(
+      tester,
+      settings: settings,
+      output: 'HDMI-A-1',
+      outputs: outputs,
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '1', name: '1', output: 'HDMI-A-1', focused: true),
+          Workspace(id: '5', name: '5', output: 'HDMI-A-2'),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('5'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: settings,
+      output: 'HDMI-A-2',
+      outputs: outputs,
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '1', name: '1', output: 'HDMI-A-1'),
+          Workspace(id: '5', name: '5', output: 'HDMI-A-2', focused: true),
+          Workspace(id: '7', name: '7', output: 'HDMI-A-2'),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text('4'), findsNothing);
+  });
+
+  testWidgets('main rail carries workspaces beyond the chain total', (
+    tester,
+  ) async {
+    const settings = BarSettings(
+      modules: ['workspaces'],
+      workspaces: WorkspaceOptions(
+        count: 4,
+        perOutput: {'HDMI-A-1': 4, 'HDMI-A-2': 3},
+        displayOrder: ['HDMI-A-1', 'HDMI-A-2'],
+      ),
+    );
+    const outputs = ['HDMI-A-1', 'HDMI-A-2'];
+
+    await pumpBarHarness(
+      tester,
+      settings: settings,
+      output: 'HDMI-A-1',
+      outputs: outputs,
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '9', name: '9', output: 'HDMI-A-1', focused: true),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('9'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: settings,
+      output: 'HDMI-A-2',
+      outputs: outputs,
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '9', name: '9', output: 'HDMI-A-1'),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('9'), findsNothing);
+  });
+
   testWidgets('strip renders modules in configured order', (tester) async {
     await pumpBarHarness(
       tester,
