@@ -402,6 +402,74 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
+  testWidgets('drag preview follows the hovered half of the row', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    final handle = find.byKey(const ValueKey<String>('module-drag-gpu'));
+    await tester.ensureVisible(handle);
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getCenter(handle));
+    await tester.pump(const Duration(milliseconds: 120));
+    await gesture.moveBy(const Offset(0, 24));
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final battery = find.byKey(const ValueKey<String>('module-battery'));
+    final preview = find.byKey(const ValueKey<String>('module-drop-preview'));
+
+    // The lower half lands the gap below the hovered row.
+    var batteryRect = tester.getRect(battery);
+    await gesture.moveTo(
+      batteryRect.center + Offset(0, batteryRect.height * 0.28),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(preview, findsOneWidget);
+    batteryRect = tester.getRect(battery);
+    expect(tester.getCenter(preview).dy, greaterThan(batteryRect.center.dy));
+
+    // The upper half lands it above.
+    batteryRect = tester.getRect(battery);
+    await gesture.moveTo(
+      batteryRect.center - Offset(0, batteryRect.height * 0.28),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+    batteryRect = tester.getRect(battery);
+    expect(tester.getCenter(preview).dy, lessThan(batteryRect.center.dy));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('the first drag shows the proxy at segment width', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    final handle = find.byKey(const ValueKey<String>('module-drag-clock'));
+    await tester.ensureVisible(handle);
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getCenter(handle));
+    await tester.pump(const Duration(milliseconds: 120));
+    await gesture.moveBy(const Offset(0, -24));
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final feedback = find.byKey(const ValueKey<String>('module-drag-feedback'));
+    expect(feedback, findsOneWidget);
+    expect(tester.getSize(feedback).width, greaterThan(300));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('mouse drag from the row body reorders', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);

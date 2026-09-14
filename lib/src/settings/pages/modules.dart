@@ -70,7 +70,6 @@ class _ModulesPageState extends State<ModulesPage> {
   String? _dragging;
   ModuleZone? _previewZone;
   int _previewIndex = 0;
-  double _dragWidth = 0;
   Offset? _lastPointer;
 
   GlobalKey _rowKey(String module) =>
@@ -203,13 +202,11 @@ class _ModulesPageState extends State<ModulesPage> {
     String module,
     ModuleZone zone,
   ) {
-    final box = _zoneKey(zone).currentContext?.findRenderObject() as RenderBox?;
     final current = _groupsFor(controller.settings)[zone] ?? const <String>[];
     setState(() {
       _dragging = module;
       _previewZone = zone;
       _previewIndex = current.indexOf(module).clamp(0, current.length);
-      _dragWidth = box?.size.width ?? 0;
     });
   }
 
@@ -332,6 +329,7 @@ class _ModulesPageState extends State<ModulesPage> {
       String module, {
       required ModuleZone zone,
       required bool reorderable,
+      required double feedbackWidth,
     }) {
       final hasOptions = reorderable && moduleHasOptions(module);
       return _ModuleRow(
@@ -349,7 +347,7 @@ class _ModulesPageState extends State<ModulesPage> {
                 }
               })
             : null,
-        feedbackWidth: _dragWidth,
+        feedbackWidth: feedbackWidth,
         onDragStart: () => _startDrag(controller, module, zone),
         onDragUpdate: (position) => _updateDrag(controller, position),
         onDragEnd: (accepted) => _endDrag(controller, accepted),
@@ -359,133 +357,161 @@ class _ModulesPageState extends State<ModulesPage> {
       );
     }
 
-    List<Widget> segmentChildren(ModuleZone zone, List<String> modules) {
-      final showPreview = _dragging != null && _previewZone == zone;
-      final previewAt = _previewIndex.clamp(0, modules.length);
+    List<Widget> segmentChildren(
+      ModuleZone zone,
+      List<String> modules,
+      double feedbackWidth,
+    ) {
+      final dragging = _dragging;
+      final showPreview = dragging != null && _previewZone == zone;
+      // The preview index counts the rows without the lifted one, while the
+      // rendered list still holds its collapsed slot; step past that slot
+      // so the gap lands under the half of the row the pointer is on.
+      var previewAt = _previewIndex.clamp(0, modules.length);
+      if (showPreview) {
+        final sourceIndex = modules.indexOf(dragging);
+        if (sourceIndex >= 0 && sourceIndex < previewAt) {
+          previewAt += 1;
+        }
+      }
       return <Widget>[
         for (var index = 0; index <= modules.length; index++) ...[
           if (showPreview && index == previewAt) _dropPreview(),
           if (index < modules.length)
             KeyedSubtree(
               key: _rowKey(modules[index]),
-              child: moduleRow(modules[index], zone: zone, reorderable: true),
+              child: moduleRow(
+                modules[index],
+                zone: zone,
+                reorderable: true,
+                feedbackWidth: feedbackWidth,
+              ),
             ),
         ],
       ];
     }
 
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) => true,
-      onAcceptWithDetails: (_) {},
-      builder: (context, candidates, rejected) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SettingsHeading(
-                  title: l10n.settingsModulesTitle,
-                  caption: l10n.settingsModulesCaption,
+    return LayoutBuilder(
+      builder: (context, constraints) => DragTarget<String>(
+        onWillAcceptWithDetails: (details) => true,
+        onAcceptWithDetails: (_) {},
+        builder: (context, candidates, rejected) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SettingsHeading(
+                    title: l10n.settingsModulesTitle,
+                    caption: l10n.settingsModulesCaption,
+                  ),
+                ),
+                SettingsResetButton(
+                  key: const ValueKey<String>('reset-modules'),
+                  label: l10n.settingsResetOption(l10n.settingsModulesTitle),
+                  enabled:
+                      !listEquals(settings.modules, BarSettings.knownModules) ||
+                      settings.modulePlacement.isNotEmpty,
+                  onPressed: () => _saverFor(controller).apply(
+                    (settings) => settings.copyWith(
+                      modules: BarSettings.knownModules,
+                      modulePlacement: const <String, ModuleZone>{},
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            for (final entry in groups.entries) ...[
+              SettingsHeading(
+                key: ValueKey<String>('module-zone-${entry.key.wire}'),
+                title: _zoneLabel(l10n, entry.key),
+              ),
+              const SizedBox(height: 10),
+              DecoratedBox(
+                key: _zoneKey(entry.key),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.all(Radius.circular(18)),
+                  border: _dragging != null && _previewZone == entry.key
+                      ? Border.all(
+                          color: ShellBrandColors.defaultAccent,
+                          width: 1.5,
+                        )
+                      : null,
+                ),
+                child: SettingsCard(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: entry.value.isEmpty && _previewZone != entry.key
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          child: Text(
+                            l10n.settingsModulesEmptyZone,
+                            style: ShellText.systemBarCaption.copyWith(
+                              color: ShellMediaColors.lightForegroundSecondary,
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: segmentChildren(
+                            entry.key,
+                            entry.value,
+                            constraints.maxWidth,
+                          ),
+                        ),
                 ),
               ),
-              SettingsResetButton(
-                key: const ValueKey<String>('reset-modules'),
-                label: l10n.settingsResetOption(l10n.settingsModulesTitle),
-                enabled:
-                    !listEquals(settings.modules, BarSettings.knownModules) ||
-                    settings.modulePlacement.isNotEmpty,
-                onPressed: () => _saverFor(controller).apply(
-                  (settings) => settings.copyWith(
-                    modules: BarSettings.knownModules,
-                    modulePlacement: const <String, ModuleZone>{},
-                  ),
+              const SizedBox(height: 16),
+            ],
+            if (_unavailable.isNotEmpty) ...[
+              SettingsHeading(
+                key: const ValueKey<String>('module-zone-unavailable'),
+                title: l10n.settingsModulesUnavailable,
+              ),
+              const SizedBox(height: 10),
+              SettingsCard(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    for (final unavailable in _unavailable)
+                      _UnavailableRow(
+                        key: ValueKey<String>(
+                          'module-unavailable-${unavailable.module}',
+                        ),
+                        label: moduleLabel(l10n, unavailable.module),
+                        reason: _reasonLabel(l10n, unavailable.reason),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (disabled.isNotEmpty) ...[
+              SettingsHeading(
+                key: const ValueKey<String>('module-zone-disabled'),
+                title: l10n.settingsModulesDisabled,
+              ),
+              const SizedBox(height: 10),
+              SettingsCard(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    for (final module in disabled)
+                      moduleRow(
+                        module,
+                        zone: settings.zoneFor(module),
+                        reorderable: false,
+                        feedbackWidth: constraints.maxWidth,
+                      ),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 20),
-          for (final entry in groups.entries) ...[
-            SettingsHeading(
-              key: ValueKey<String>('module-zone-${entry.key.wire}'),
-              title: _zoneLabel(l10n, entry.key),
-            ),
-            const SizedBox(height: 10),
-            DecoratedBox(
-              key: _zoneKey(entry.key),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(18)),
-                border: _dragging != null && _previewZone == entry.key
-                    ? Border.all(
-                        color: ShellBrandColors.defaultAccent,
-                        width: 1.5,
-                      )
-                    : null,
-              ),
-              child: SettingsCard(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: entry.value.isEmpty && _previewZone != entry.key
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Text(
-                          l10n.settingsModulesEmptyZone,
-                          style: ShellText.systemBarCaption.copyWith(
-                            color: ShellMediaColors.lightForegroundSecondary,
-                          ),
-                        ),
-                      )
-                    : Column(children: segmentChildren(entry.key, entry.value)),
-              ),
-            ),
-            const SizedBox(height: 16),
           ],
-          if (_unavailable.isNotEmpty) ...[
-            SettingsHeading(
-              key: const ValueKey<String>('module-zone-unavailable'),
-              title: l10n.settingsModulesUnavailable,
-            ),
-            const SizedBox(height: 10),
-            SettingsCard(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                children: [
-                  for (final unavailable in _unavailable)
-                    _UnavailableRow(
-                      key: ValueKey<String>(
-                        'module-unavailable-${unavailable.module}',
-                      ),
-                      label: moduleLabel(l10n, unavailable.module),
-                      reason: _reasonLabel(l10n, unavailable.reason),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (disabled.isNotEmpty) ...[
-            SettingsHeading(
-              key: const ValueKey<String>('module-zone-disabled'),
-              title: l10n.settingsModulesDisabled,
-            ),
-            const SizedBox(height: 10),
-            SettingsCard(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                children: [
-                  for (final module in disabled)
-                    moduleRow(
-                      module,
-                      zone: settings.zoneFor(module),
-                      reorderable: false,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -611,6 +637,7 @@ class _ModuleRow extends StatelessWidget {
             data: module,
             maxSimultaneousDrags: 1,
             feedback: SizedBox(
+              key: const ValueKey<String>('module-drag-feedback'),
               width: feedbackWidth,
               child: _DragFeedback(label: label),
             ),
