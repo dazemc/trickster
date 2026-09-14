@@ -74,12 +74,6 @@ rail, and trails the rest. Trickster keeps every module in one trailing
 cluster. These steps give the strip the same three zones and let the
 settings application place each module.
 
-- **13.1 (S) Pin the tray to the leading edge.** Match Denial's bar: the
-  tray card expands into the space left of the trailing cluster and aligns
-  to the strip's leading edge (top edge on side strips), while the
-  workspace rail stays centered and the other modules trail. Done when a
-  widget test proves the tray's leading edge sits at the strip start and
-  the live bar matches.
 - **13.2 (M) Add a per-module placement option.** `settings.json` gains a
   `placement` map (`leading`, `center`, `trailing`; defaults: tray
   `leading`, workspaces `center`, everything else `trailing`), decoded
