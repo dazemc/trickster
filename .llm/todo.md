@@ -56,11 +56,6 @@ fallback) and covering exactly the settings the bar has. The version stays
 Proposed by the agent after the Phase 9 walk; implementation waits for the
 user's explicit go-ahead, step by step as always.
 
-- **10.3 (S) Write the manual release runbook.** `development.md` describes
-  the tag workflow but not the human steps that follow it (refresh the pin,
-  clone AUR, push to `master` — the branch is `master`, not `main`). Add
-  the runbook; done when the documented steps reproduce the 0.2.0 publish
-  without prior session knowledge.
 - **10.4 (M) Publish to the AUR from the release workflow.** The pin job
   stops at the in-repo commit; add a final job that pushes the refreshed
   recipe to `aur.archlinux.org/trickster-bin` (`master`) through a deploy
