@@ -29,3 +29,8 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
+- **Release icon-font subsets can go stale on incremental builds.** Adding
+  a new Lucide glyph and running `flutter build linux --release` without a
+  clean can reuse the previous subset, so the new icon renders blank in the
+  release bar/settings. Run `flutter clean` (or delete the bundled
+  `lucide.ttf`) after adding an icon; CI's fresh checkouts are unaffected.
