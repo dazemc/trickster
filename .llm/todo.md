@@ -49,12 +49,6 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
-- [ ] **8.7 pill hover tooltips** (M). `lib/src/bar/`. Hovering any pill
-      shows a detail tooltip on the transient overlay surface the tray
-      tooltips already use (full clock date and time, CPU/GPU caption and
-      percent, battery state, media title/artist, workspace names). Done
-      when: every pill has a hover tooltip with the compact-appropriate
-      details and semantics stay the accessible path.
 - [ ] **8.8 module options page** (M). The typed options the bar already
       decodes: workspaces `show_empty`/`max`, clock format, CPU and battery
       thresholds, meter captions. Done when: every control round-trips and
