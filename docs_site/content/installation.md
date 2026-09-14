@@ -29,8 +29,9 @@ The same binary runs the settings application:
 # packaged installs also provide: trickster-settings
 ```
 
-First-party packages and an AUR recipe are planned but not published. The
-in-tree recipes can be built directly:
+Packaged releases are published on
+[GitHub](https://github.com/dazemc/trickster/releases); the in-tree
+recipes build them directly:
 
 - `packaging/arch/PKGBUILD` builds from this checkout (`makepkg`).
 - `packaging/aur/trickster-bin/PKGBUILD` repackages a release asset.
