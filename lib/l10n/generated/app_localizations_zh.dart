@@ -266,4 +266,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsLanguageChinese => '中文';
+
+  @override
+  String get settingsAboutTitle => '关于';
+
+  @override
+  String get settingsAboutCaption => '版本与项目链接。';
+
+  @override
+  String get settingsAboutVersion => 'Trickster';
+
+  @override
+  String get settingsAboutProtocol => '控制协议';
+
+  @override
+  String get settingsAboutBar => '运行中的状态栏';
+
+  @override
+  String get settingsAboutNotRunning => '未运行';
+
+  @override
+  String get settingsAboutRepository => '代码仓库';
 }

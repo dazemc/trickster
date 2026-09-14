@@ -7,6 +7,7 @@ import '../platform/layer_shell.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'controller.dart';
+import 'pages/about.dart';
 import 'pages/appearance.dart';
 import 'pages/displays.dart';
 import 'pages/language.dart';
@@ -95,7 +96,7 @@ class SettingsHome extends StatefulWidget {
   State<SettingsHome> createState() => _SettingsHomeState();
 }
 
-enum SettingsSection { appearance, modules, displays, options, language }
+enum SettingsSection { appearance, modules, displays, options, language, about }
 
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
@@ -176,6 +177,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                             SettingsSection.displays => const DisplaysPage(),
                             SettingsSection.options => const OptionsPage(),
                             SettingsSection.language => const LanguagePage(),
+                            SettingsSection.about => const AboutPage(),
                           },
                         ),
                       ),
@@ -228,6 +230,11 @@ class SettingsNav extends StatelessWidget {
               label: l10n.settingsLanguageTitle,
               selected: section == SettingsSection.language,
               onPressed: () => onSelect(SettingsSection.language),
+            ),
+            _NavEntry(
+              label: l10n.settingsAboutTitle,
+              selected: section == SettingsSection.about,
+              onPressed: () => onSelect(SettingsSection.about),
             ),
           ],
         ),

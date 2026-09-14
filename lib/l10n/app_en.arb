@@ -355,5 +355,33 @@
   "settingsLanguageChinese": "中文",
   "@settingsLanguageChinese": {
     "description": "Language choice: Chinese."
+  },
+  "settingsAboutTitle": "About",
+  "@settingsAboutTitle": {
+    "description": "Title of the about settings page."
+  },
+  "settingsAboutCaption": "Versions and project links.",
+  "@settingsAboutCaption": {
+    "description": "Caption under the about page title."
+  },
+  "settingsAboutVersion": "Trickster",
+  "@settingsAboutVersion": {
+    "description": "Label for the running binary version."
+  },
+  "settingsAboutProtocol": "Control protocol",
+  "@settingsAboutProtocol": {
+    "description": "Label for the control protocol version."
+  },
+  "settingsAboutBar": "Running bar",
+  "@settingsAboutBar": {
+    "description": "Label for the running bar version."
+  },
+  "settingsAboutNotRunning": "Not running",
+  "@settingsAboutNotRunning": {
+    "description": "Shown when no bar answers the version query."
+  },
+  "settingsAboutRepository": "Repository",
+  "@settingsAboutRepository": {
+    "description": "Label for the project repository link."
   }
 }

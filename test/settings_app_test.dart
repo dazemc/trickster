@@ -9,6 +9,7 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/settings/app.dart';
+import 'package:trickster/src/settings/pages/about.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/scope.dart';
@@ -290,6 +291,45 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(controller.settings.locale, isNull);
+  });
+
+  testWidgets('about page shows versions and degrades without a bar', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+
+    Future<void> pumpAbout(Future<Map<String, Object?>> Function() loader) {
+      return tester.pumpWidget(
+        SettingsAppScope(
+          notifier: controller,
+          child: TricksterLocalizationScope(
+            child: MediaQuery(
+              data: const MediaQueryData(size: Size(980, 720)),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: AboutPage(versionLoader: loader),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pumpAbout(
+      () async => const <String, Object?>{
+        'ok': true,
+        'version': '0.1.0',
+        'protocol': 1,
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('0.1.0'), findsNWidgets(2));
+    expect(find.text('1'), findsOneWidget);
+
+    await pumpAbout(() async => const <String, Object?>{'ok': false});
+    await tester.pumpAndSettle();
+    expect(find.text('Not running'), findsOneWidget);
   });
 
   testWidgets('the close control announces and fires', (tester) async {

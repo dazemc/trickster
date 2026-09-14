@@ -28,7 +28,11 @@ Future<Map<String, Object?>> handleControlRequest({
 }) async {
   switch (request['command']) {
     case 'version':
-      return <String, Object?>{'ok': true, 'version': Cli.appVersion};
+      return <String, Object?>{
+        'ok': true,
+        'version': Cli.appVersion,
+        'protocol': 1,
+      };
     case 'status':
       if (!context.mounted) {
         return <String, Object?>{

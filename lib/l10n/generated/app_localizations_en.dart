@@ -270,4 +270,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsLanguageChinese => '中文';
+
+  @override
+  String get settingsAboutTitle => 'About';
+
+  @override
+  String get settingsAboutCaption => 'Versions and project links.';
+
+  @override
+  String get settingsAboutVersion => 'Trickster';
+
+  @override
+  String get settingsAboutProtocol => 'Control protocol';
+
+  @override
+  String get settingsAboutBar => 'Running bar';
+
+  @override
+  String get settingsAboutNotRunning => 'Not running';
+
+  @override
+  String get settingsAboutRepository => 'Repository';
 }

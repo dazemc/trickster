@@ -607,6 +607,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'中文'**
   String get settingsLanguageChinese;
+
+  /// Title of the about settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAboutTitle;
+
+  /// Caption under the about page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Versions and project links.'**
+  String get settingsAboutCaption;
+
+  /// Label for the running binary version.
+  ///
+  /// In en, this message translates to:
+  /// **'Trickster'**
+  String get settingsAboutVersion;
+
+  /// Label for the control protocol version.
+  ///
+  /// In en, this message translates to:
+  /// **'Control protocol'**
+  String get settingsAboutProtocol;
+
+  /// Label for the running bar version.
+  ///
+  /// In en, this message translates to:
+  /// **'Running bar'**
+  String get settingsAboutBar;
+
+  /// Shown when no bar answers the version query.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running'**
+  String get settingsAboutNotRunning;
+
+  /// Label for the project repository link.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository'**
+  String get settingsAboutRepository;
 }
 
 class _AppLocalizationsDelegate
