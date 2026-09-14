@@ -138,16 +138,10 @@ while other packages share the stock SDK.
 
 AGENTS now makes the rule explicit: `flutter_bloc` carries all state in both
 processes, and only per-frame ephemeral widget details may stay local. The
-settings document and the wallpaper accent are migrated; the tray menu and
-tooltip seams still run `ChangeNotifier`. Finish the migration so the rule
-holds everywhere; the blocs also give the debug observer the state-change
-transcript the drag work needs.
+settings document, the wallpaper accent, and the modules page are migrated;
+the tray menu and tooltip seams still run `ChangeNotifier`. Finish the
+migration so the rule holds everywhere.
 
-- **20.3 (M) Modules page state as a bloc.** Move drag, drop, expansion,
-  and placement state into a `ModulesBloc` with explicit events, traced by
-  the observer in debug/profile; remove `_ModulesPageState` ad-hoc state.
-  Done when the debug transcript shows every drag decision and appending
-  below a zone's last row works.
 - **20.4 (S) Overlay controllers as blocs.** Tray menu and tooltip sessions
   become blocs read by the overlay surfaces. Done when no `ChangeNotifier`
   remains on those paths.
