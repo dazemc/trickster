@@ -67,10 +67,11 @@ speculative fix for a runtime defect.
   configured accent, spring entrance, trailing-edge module cluster.
 - Denial's settings application in parity: the same binary run in settings
   mode (`trickster-settings`, i.e. `trickster --settings`). It is its own
-  process with its own engine and no strip surfaces, writing the same
-  documents through the control socket (falling back to the file transport)
-  and speaking the same design language. It covers exactly the settings the
-  bar has — never compositor controls it does not own.
+  process with its own engine and no strip surfaces, carrying its own blocs
+  under the same bloc rule as the bar, writing the same documents through
+  the control socket (falling back to the file transport) and speaking the
+  same design language. It covers exactly the settings the bar has — never
+  compositor controls it does not own.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
   tray (StatusNotifier), CPU/GPU, workspaces.
 - Configured like Denial: files on disk. The `TricksterBar(...)` Dart API is
@@ -113,10 +114,15 @@ resource, DRM fd, or client buffer.
 Resemble Denial at every seam that does not require compositor ownership:
 
 - Same widget split: strip paints nothing; modules are borderless pills.
-- Same widget split and per-module state seams as
-  `desktop_system_bar.dart`, carried by `flutter_bloc`: one `BlocProvider`
-  per configured module, explicit events and states, `watch` / `select` /
-  `BlocBuilder` reads — no Cubits.
+- `flutter_bloc` carries all state, in the bar and in the settings
+  application alike: every piece of state is a bloc's state with explicit
+  events, one `BlocProvider` per seam, read with `watch` / `select` /
+  `BlocBuilder`. No Cubits, no `ChangeNotifier`/`InheritedNotifier`
+  application state, no ad-hoc `setState` for state that another widget, a
+  test, or the control socket can observe. Only per-frame ephemeral details
+  that never leave one widget (animation controllers, hover and press flags)
+  may stay in widget state. A bloc carries both processes' shared services
+  too: settings document, wallpaper accent, tray menus, tooltips.
 - Every bloc state ships `toJson`/`fromJson` from day one (convention only,
   no HydratedBloc) so `tricksterctl status` reads real state later.
 - Same theme tokens, motion springs, and accent model.
