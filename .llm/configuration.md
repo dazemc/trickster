@@ -19,9 +19,10 @@ File style is Denial-style `KEY=VALUE` with `#` comments.
   Port Denial's `settings_store.dart` (`NativeSettingsStore` +
   `SettingsDocumentTransport`) nearly verbatim — one async write queue,
   `expectedRevision` check-and-retry, full-document push into the settings
-  bloc. Transport v1 is direct-file (single owner); keep the transport interface
-  so a socket transport can slot in later unchanged. Retain only the current
-  revision and one last-good snapshot. Never keep a document history.
+  bloc. The settings application reads and writes through the bar's control
+  socket, falling back to the file transport when no bar answers; both paths
+  ride the same `SettingsDocumentTransport` interface. Retain only the
+  current revision and one last-good snapshot. Never keep a document history.
 - CLI mirrors `denial-session`/`denialctl`: `trickster --check` (layer-shell
   advertised? gtk-layer-shell loadable? outputs visible? config parseable?),
   `--version`, `--config PATH`, one-shot overrides; `tricksterctl
