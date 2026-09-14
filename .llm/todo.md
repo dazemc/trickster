@@ -85,26 +85,28 @@ the bar is glass. This phase fills the surface out.
   source, custom accent, wallpaper pick, module list/order, per-module
   placement, bar edge, thickness, and output selection. Done when a widget
   test reverts each and the document round-trips the defaults.
-- **14.5 (M) Drag-and-drop module order.** Replace the up/down arrows with
-  a drag handle (keyboard reordering kept for accessibility), persisting
-  through the same saver. Done when a widget test drags a module across
-  others and the document lists the new order.
-- **14.6 (S) Grey out undetectable modules.** Probe `/sys/class/power_supply`
+- **14.5 (S) Group the modules page by placement zone.** Split the Modules
+  list into Leading/Center/Trailing segments (plus a Disabled segment for
+  modules that are off), with the Position chips moving a row between
+  segments and the move arrows staying inside a segment. Done when a widget
+  test finds each enabled module under its zone heading and a chip press
+  re-segments it.
+- **14.6 (M) Drag-and-drop module order.** Replace the up/down arrows with
+  a drag handle (keyboard reordering kept for accessibility), reordering
+  inside a segment and setting the placement when dropped on another
+  segment, persisted through the same saver. Done when a widget test drags
+  a module across others and the document lists the new order.
+- **14.7 (S) Grey out undetectable modules.** Probe `/sys/class/power_supply`
   (injected for tests) so a battery-less system shows the Battery row
   dimmed, disabled, and explained; the control refuses changes. Done when
   tests cover present and absent probes.
-- **14.7 (M) Bar display options.** User-requested additions the bar can
+- **14.8 (M) Bar display options.** User-requested additions the bar can
   honor without a new design language: `clock.show_date` (hide the date
   caption), `appearance.blur` (force the opaque fill even when the host can
   blur), and `meter.sparkline` (hide CPU/GPU history). Done when each
   renders on the bar, resets, and has config plus widget tests.
-- **14.8 (M) Glass settings window.** Make the settings toplevel translucent
+- **14.9 (M) Glass settings window.** Make the settings toplevel translucent
   (GTK RGBA visual plus translucent Flutter surfaces) so the host blurs
   behind it, with an opaque fallback when the compositor cannot. Done when
   the live window shows the blurred desktop on Hyprland and the fallback
   stays legible.
-
-## Phase 15 — docs site delivery
-
-The docs site builds locally but is not published, and it still ships the
-Jaspr starter icon. Deliver it to GitHub Pages with the Trickster mark.
