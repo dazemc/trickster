@@ -5,30 +5,31 @@ import 'dart:ui' show FlutterView;
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import 'bar/bar.dart';
-import 'bar/tray_menu.dart';
-import 'bar/overlay_tooltip.dart';
-import 'control/control_handler.dart';
-import 'control/control_server.dart';
-import 'bootstrap.dart';
-import 'config/session.dart';
-import 'config/outputs_store.dart';
-import 'config/store.dart';
-import 'config/watcher.dart';
-import 'layout/shell_keys.dart';
-import 'layout/system_bar.dart';
-import 'locale.dart';
-import 'platform/layer_shell.dart';
-import 'platform/power_settings.dart';
-import 'theme/backdrop_blur.dart';
-import 'state/capabilities_bloc.dart';
-import 'state/module_scope.dart';
-import 'state/outputs_bloc.dart';
-import 'state/session_bloc.dart';
-import 'state/settings_bloc.dart';
-import 'state/tray_menu.dart';
-import 'state/overlay_tooltip.dart';
+import 'package:trickster/src/bar/bar.dart';
+import 'package:trickster/src/bar/overlay_tooltip.dart';
+import 'package:trickster/src/bar/tray_menu.dart';
+import 'package:trickster/src/bootstrap.dart';
+import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/config/settings.dart' show AccentSource, BarSettings;
+import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/config/watcher.dart';
+import 'package:trickster/src/control/control_handler.dart';
+import 'package:trickster/src/control/control_server.dart';
+import 'package:trickster/src/layout/shell_keys.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/platform/power_settings.dart';
+import 'package:trickster/src/state/capabilities_bloc.dart';
+import 'package:trickster/src/state/module_scope.dart';
+import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_menu.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
+import 'package:trickster/src/theme/backdrop_blur.dart';
 
 class TricksterApp extends StatefulWidget {
   const TricksterApp({required this.initial, this.layerShell, super.key});
@@ -45,6 +46,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
   late final OverlayTooltipController _tooltipController;
+  late final WallpaperAccentController _wallpaperAccent;
   late final FileSettingsTransport _settingsTransport;
   late final OutputsDocumentTransport _outputsTransport;
   ControlServer? _control;
@@ -65,6 +67,7 @@ class _TricksterAppState extends State<TricksterApp>
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
     _tooltipController = OverlayTooltipController(layerShell: _layerShell);
+    _wallpaperAccent = WallpaperAccentController();
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
     );
@@ -73,9 +76,12 @@ class _TricksterAppState extends State<TricksterApp>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
+      _wallpaperAccent.update(
+        enabled: widget.initial.settings.accentSource == AccentSource.wallpaper,
+      );
       _watcher = ConfigWatcher(
         directory: widget.initial.paths.directory,
-        onChanged: () => _reload(),
+        onChanged: _reload,
       )..start();
       _control = ControlServer(
         handler: (request) => handleControlRequest(
@@ -97,6 +103,7 @@ class _TricksterAppState extends State<TricksterApp>
     unawaited(_control?.dispose());
     _menuController.dispose();
     _tooltipController.dispose();
+    _wallpaperAccent.dispose();
     super.dispose();
   }
 
@@ -225,72 +232,82 @@ class _TricksterAppState extends State<TricksterApp>
   @override
   Widget build(BuildContext context) {
     final locale = context.select((SettingsBloc bloc) => bloc.state.locale);
-    return TricksterLocalizationScope(
-      locale: localeFromTag(locale),
-      child: BlocBuilder<OutputsBloc, OutputsConfig>(
-        builder: (context, outputs) {
-          final views = WidgetsBinding.instance.platformDispatcher.views;
-          final liveViewIds = views.map((view) => view.viewId).toSet();
-          _menuController.retainViews(liveViewIds);
-          _tooltipController.retainViews(liveViewIds);
-          // One View per layer surface, all sharing this single engine and
-          // the module blocs above the collection. A menu lives on its own
-          // fullscreen overlay surface, so the strip surface never resizes.
-          final blur = context.select(
-            (CapabilitiesBloc bloc) => bloc.state.blur,
-          );
-          // Null until the native enumeration lands: show every strip in the
-          // meantime rather than flashing an empty desktop. Overlay surfaces
-          // (menus, tooltips) belong to no output's strip, so they are always
-          // attached once the engine adds their views.
-          final hostedViewIds = _outputs == null
-              ? null
-              : <int>{
-                  for (final output in hostedOutputs(_outputs!, outputs))
-                    output.viewId,
-                  for (final view in views)
-                    if (_menuController.isMenuView(view.viewId) ||
-                        _tooltipController.isTooltipView(view.viewId))
-                      view.viewId,
-                };
-          final viewOutputs = <int, String>{
-            for (final output in _outputs ?? const <LayerOutput>[])
-              if (output.viewId >= 0) output.viewId: output.name,
-          };
-          return TrayMenuScope(
-            notifier: _menuController,
-            child: OverlayTooltipScope(
-              notifier: _tooltipController,
-              child: ModuleScope(
-                // The control status handler needs a context below the module
-                // providers to read their states.
-                child: Builder(
-                  builder: (context) {
-                    _moduleContext = context;
-                    return ViewCollection(
-                      views: outputs.active
-                          ? <Widget>[
-                              for (final view in views)
-                                if (hostedViewIds == null ||
-                                    hostedViewIds.contains(view.viewId))
-                                  _ViewSurface(
-                                    key: ValueKey<int>(view.viewId),
-                                    view: view,
-                                    menu: _menuController,
-                                    tooltip: _tooltipController,
-                                    layerShell: _layerShell,
-                                    blur: blur,
-                                    output: viewOutputs[view.viewId],
-                                  ),
-                            ]
-                          : const <Widget>[],
-                    );
-                  },
+    return BlocListener<SettingsBloc, BarSettings>(
+      listenWhen: (previous, next) =>
+          previous.accentSource != next.accentSource,
+      listener: (context, settings) => _wallpaperAccent.update(
+        enabled: settings.accentSource == AccentSource.wallpaper,
+      ),
+      child: WallpaperAccentScope(
+        notifier: _wallpaperAccent,
+        child: TricksterLocalizationScope(
+          locale: localeFromTag(locale),
+          child: BlocBuilder<OutputsBloc, OutputsConfig>(
+            builder: (context, outputs) {
+              final views = WidgetsBinding.instance.platformDispatcher.views;
+              final liveViewIds = views.map((view) => view.viewId).toSet();
+              _menuController.retainViews(liveViewIds);
+              _tooltipController.retainViews(liveViewIds);
+              // One View per layer surface, all sharing this single engine and
+              // the module blocs above the collection. A menu lives on its own
+              // fullscreen overlay surface, so the strip surface never resizes.
+              final blur = context.select(
+                (CapabilitiesBloc bloc) => bloc.state.blur,
+              );
+              // Null until the native enumeration lands: show every strip in the
+              // meantime rather than flashing an empty desktop. Overlay surfaces
+              // (menus, tooltips) belong to no output's strip, so they are always
+              // attached once the engine adds their views.
+              final hostedViewIds = _outputs == null
+                  ? null
+                  : <int>{
+                      for (final output in hostedOutputs(_outputs!, outputs))
+                        output.viewId,
+                      for (final view in views)
+                        if (_menuController.isMenuView(view.viewId) ||
+                            _tooltipController.isTooltipView(view.viewId))
+                          view.viewId,
+                    };
+              final viewOutputs = <int, String>{
+                for (final output in _outputs ?? const <LayerOutput>[])
+                  if (output.viewId >= 0) output.viewId: output.name,
+              };
+              return TrayMenuScope(
+                notifier: _menuController,
+                child: OverlayTooltipScope(
+                  notifier: _tooltipController,
+                  child: ModuleScope(
+                    // The control status handler needs a context below the module
+                    // providers to read their states.
+                    child: Builder(
+                      builder: (context) {
+                        _moduleContext = context;
+                        return ViewCollection(
+                          views: outputs.active
+                              ? <Widget>[
+                                  for (final view in views)
+                                    if (hostedViewIds == null ||
+                                        hostedViewIds.contains(view.viewId))
+                                      _ViewSurface(
+                                        key: ValueKey<int>(view.viewId),
+                                        view: view,
+                                        menu: _menuController,
+                                        tooltip: _tooltipController,
+                                        layerShell: _layerShell,
+                                        blur: blur,
+                                        output: viewOutputs[view.viewId],
+                                      ),
+                                ]
+                              : const <Widget>[],
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }

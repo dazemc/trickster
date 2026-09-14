@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import '../layout/system_bar.dart';
-import '../platform/control_socket.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/control_socket.dart';
 
 /// Reads and writes the `outputs.conf` document. Unlike settings.json there
 /// is no revision: the bar owns the file while it runs, and the app writes

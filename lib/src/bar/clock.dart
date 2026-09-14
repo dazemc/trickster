@@ -1,15 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-
-import '../config/settings.dart';
-import '../locale.dart';
-import '../state/clock_bloc.dart';
-import '../theme/accent.dart';
-import '../theme/motion.dart';
-import '../theme/tokens.dart';
-import 'pill.dart';
-import 'pill_tooltip.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 class ClockPill extends StatelessWidget {
   const ClockPill({

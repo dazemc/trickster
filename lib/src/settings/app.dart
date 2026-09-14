@@ -1,20 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-
-import '../locale.dart';
-import '../platform/layer_shell.dart';
-import '../theme/motion.dart';
-import '../theme/tokens.dart';
-import 'controller.dart';
-import 'pages/about.dart';
-import 'pages/appearance.dart';
-import 'pages/displays.dart';
-import 'pages/language.dart';
-import 'pages/modules.dart';
-import 'pages/options.dart';
-import 'scope.dart';
-import 'settings_theme.dart';
+import 'package:trickster/src/config/settings.dart' show AccentSource;
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/pages/about.dart';
+import 'package:trickster/src/settings/pages/appearance.dart';
+import 'package:trickster/src/settings/pages/displays.dart';
+import 'package:trickster/src/settings/pages/language.dart';
+import 'package:trickster/src/settings/pages/modules.dart';
+import 'package:trickster/src/settings/pages/options.dart';
+import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// Root of the settings application: the same binary in settings mode, its
 /// own process and engine, one plain window, no strip surfaces, no bar blocs.
@@ -30,16 +31,29 @@ class TricksterSettingsApp extends StatefulWidget {
 
 class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
   late final SettingsAppController _controller;
+  late final WallpaperAccentController _wallpaperAccent;
 
   @override
   void initState() {
     super.initState();
     _controller = SettingsAppController();
+    _wallpaperAccent = WallpaperAccentController();
+    // The settings process samples the wallpaper itself, so the appearance
+    // page can list the accents the bar is choosing from.
+    _controller.addListener(_syncWallpaperAccent);
     unawaited(_controller.load());
+  }
+
+  void _syncWallpaperAccent() {
+    _wallpaperAccent.update(
+      enabled: _controller.settings.accentSource == AccentSource.wallpaper,
+    );
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_syncWallpaperAccent);
+    _wallpaperAccent.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -49,36 +63,39 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
     final views = WidgetsBinding.instance.platformDispatcher.views;
     return SettingsAppScope(
       notifier: _controller,
-      child: ViewCollection(
-        views: [
-          for (final view in views)
-            View(
-              view: view,
-              child: Builder(
-                builder: (context) {
-                  // Depend on the controller so a language change rebuilds
-                  // the scope with the new catalog.
-                  final locale = SettingsAppScope.of(context).settings.locale;
-                  return TricksterLocalizationScope(
-                    locale: localeFromTag(locale),
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            SettingsColors.backgroundTop,
-                            SettingsColors.background,
-                          ],
+      child: WallpaperAccentScope(
+        notifier: _wallpaperAccent,
+        child: ViewCollection(
+          views: [
+            for (final view in views)
+              View(
+                view: view,
+                child: Builder(
+                  builder: (context) {
+                    // Depend on the controller so a language change rebuilds
+                    // the scope with the new catalog.
+                    final locale = SettingsAppScope.of(context).settings.locale;
+                    return TricksterLocalizationScope(
+                      locale: localeFromTag(locale),
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              SettingsColors.backgroundTop,
+                              SettingsColors.background,
+                            ],
+                          ),
                         ),
+                        child: const SettingsHome(),
                       ),
-                      child: const SettingsHome(),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

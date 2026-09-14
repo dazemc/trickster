@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../config/settings.dart';
-import 'controller.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/settings/controller.dart';
 
 /// Applies a settings change to the controller immediately (live preview)
 /// and saves it after a short quiet period, so dragging a control or

@@ -1,11 +1,10 @@
 import 'package:flutter/widgets.dart';
-
-import '../../cli.dart';
-import '../../locale.dart';
-import '../../platform/control_socket.dart';
-import '../../theme/tokens.dart';
-import '../scope.dart';
-import '../settings_theme.dart';
+import 'package:trickster/src/cli.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// About page: the binary version, the running bar's version and control
 /// protocol, and the repository link. Versions degrade to "not running"

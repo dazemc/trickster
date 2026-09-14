@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
-import '../config/session.dart';
-import '../layout/system_bar.dart';
+import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 
 class LayerShell {
   LayerShell({MethodChannel? channel})

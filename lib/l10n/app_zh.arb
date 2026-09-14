@@ -383,5 +383,33 @@
   "settingsAboutRepository": "代码仓库",
   "@settingsAboutRepository": {
     "description": "Label for the project repository link."
+  },
+  "settingsAccentSource": "强调色来源",
+  "@settingsAccentSource": {
+    "description": "Label above the accent source choices."
+  },
+  "settingsAccentSourceCustom": "自定义",
+  "@settingsAccentSourceCustom": {
+    "description": "Accent source: the configured color."
+  },
+  "settingsAccentSourceWallpaper": "壁纸",
+  "@settingsAccentSourceWallpaper": {
+    "description": "Accent source: sampled from the host wallpaper."
+  },
+  "settingsAccentWallpaperTitle": "采样得到的强调色",
+  "@settingsAccentWallpaperTitle": {
+    "description": "Heading for the per-output wallpaper accent list."
+  },
+  "settingsAccentWallpaperEmpty": "正在等待壁纸采样…",
+  "@settingsAccentWallpaperEmpty": {
+    "description": "Shown when the wallpaper sampler has produced no accent yet."
+  },
+  "settingsCopyHex": "复制 {hex}",
+  "@settingsCopyHex": {
+    "description": "Accessible label for copying an accent hex value."
+  },
+  "settingsCopied": "已复制",
+  "@settingsCopied": {
+    "description": "Shown briefly after copying a hex value."
   }
 }

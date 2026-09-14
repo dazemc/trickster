@@ -1,9 +1,8 @@
 import 'package:flutter/widgets.dart';
-
-import '../layout/system_bar.dart';
-import '../state/overlay_tooltip.dart';
-import '../theme/tokens.dart';
-import 'pill.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// The contents of one tooltip surface: a transparent click-through overlay
 /// with a small pill centered under the hovered item. Semantics stay on the

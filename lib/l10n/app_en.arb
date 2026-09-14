@@ -383,5 +383,33 @@
   "settingsAboutRepository": "Repository",
   "@settingsAboutRepository": {
     "description": "Label for the project repository link."
+  },
+  "settingsAccentSource": "Accent source",
+  "@settingsAccentSource": {
+    "description": "Label above the accent source choices."
+  },
+  "settingsAccentSourceCustom": "Configured",
+  "@settingsAccentSourceCustom": {
+    "description": "Accent source: the configured color."
+  },
+  "settingsAccentSourceWallpaper": "Wallpaper",
+  "@settingsAccentSourceWallpaper": {
+    "description": "Accent source: sampled from the host wallpaper."
+  },
+  "settingsAccentWallpaperTitle": "Sampled accents",
+  "@settingsAccentWallpaperTitle": {
+    "description": "Heading for the per-output wallpaper accent list."
+  },
+  "settingsAccentWallpaperEmpty": "Waiting for the wallpaper sample…",
+  "@settingsAccentWallpaperEmpty": {
+    "description": "Shown when the wallpaper sampler has produced no accent yet."
+  },
+  "settingsCopyHex": "Copy {hex}",
+  "@settingsCopyHex": {
+    "description": "Accessible label for copying an accent hex value."
+  },
+  "settingsCopied": "Copied",
+  "@settingsCopied": {
+    "description": "Shown briefly after copying a hex value."
   }
 }

@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../config/session.dart';
+import 'package:trickster/src/config/session.dart';
 
 sealed class SessionEvent extends Equatable {
   const SessionEvent();

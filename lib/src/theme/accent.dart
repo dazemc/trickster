@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'tokens.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 @immutable
 class WallpaperAccent {

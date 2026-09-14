@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:equatable/equatable.dart';
 
-import 'key_value.dart';
+import 'package:trickster/src/config/key_value.dart';
 
 enum TricksterLayer { background, bottom, top, overlay }
 

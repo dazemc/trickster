@@ -1,14 +1,14 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'battery_bloc.dart';
-import 'clock_bloc.dart';
-import 'cpu_bloc.dart';
-import 'gpu_bloc.dart';
-import 'media_bloc.dart';
-import 'settings_bloc.dart';
-import 'tray_bloc.dart';
-import 'workspaces_bloc.dart';
+import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// Builds one [BlocProvider] per enabled module — and nothing for disabled
 /// ones.

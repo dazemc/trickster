@@ -3,17 +3,20 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
-import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/settings/app.dart';
-import 'package:trickster/src/settings/pages/about.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/pages/about.dart';
 import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
 
 class _FakeLayerShell extends LayerShell {
   _FakeLayerShell() : super(channel: const MethodChannel('test/trickster'));
@@ -273,6 +276,107 @@ void main() {
     expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
   });
 
+  testWidgets('appearance page switches the accent source', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-source-wallpaper')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.accentSource, AccentSource.wallpaper);
+    expect(file.readAsStringSync(), contains('"accent_source": "wallpaper"'));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-source-custom')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.accentSource, AccentSource.custom);
+  });
+
+  testWidgets('wallpaper source swaps the wheel for the sampled list', (
+    tester,
+  ) async {
+    final settingsFile = File('${directory.path}/wallpaper-settings.json')
+      ..writeAsStringSync(
+        const BarSettings(
+          revision: 2,
+          accentSource: AccentSource.wallpaper,
+        ).encode(),
+      );
+    final controller = await _controller(settingsFile);
+    addTearDown(controller.dispose);
+
+    final cache = Directory('${directory.path}/awww')..createSync();
+    File('${cache.path}/HDMI-A-1').writeAsStringSync('/tmp/a.png');
+    File('${cache.path}/HDMI-A-2').writeAsStringSync('/tmp/b.png');
+    final accents = WallpaperAccentController(
+      cache: WallpaperCache(root: cache),
+      sampleCandidates: (path) async => path.endsWith('a.png')
+          ? const [Color(0xffe01020), Color(0xff2050e0)]
+          : const <Color>[],
+      watch: false,
+    );
+    addTearDown(accents.dispose);
+    accents.update(enabled: true);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+
+    await tester.pumpWidget(
+      SettingsAppScope(
+        notifier: controller,
+        child: WallpaperAccentScope(
+          notifier: accents,
+          child: TricksterLocalizationScope(
+            child: MediaQuery(
+              data: const MediaQueryData(size: Size(980, 720)),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: SettingsHome(onClose: () {}),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(HsvColorWheel), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('accent-preset-#D0BCFF')),
+      findsNothing,
+    );
+    expect(find.text('Sampled accents'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('wallpaper-accent-#E01020')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('wallpaper-accent-#2050E0')),
+      findsOneWidget,
+    );
+
+    expect(find.text('#E01020'), findsOneWidget);
+    expect(find.text('#2050E0'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('wallpaper-accent-#2050E0')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.accentWallpaperPick, '#2050E0');
+    expect(settingsFile.readAsStringSync(), contains('#2050E0'));
+
+    await tester.tap(find.text('#E01020'));
+    await tester.pump();
+    expect(find.text('Copied'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('#E01020'), findsOneWidget);
+  });
+
   testWidgets('language page writes the locale', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);
@@ -319,12 +423,12 @@ void main() {
     await pumpAbout(
       () async => const <String, Object?>{
         'ok': true,
-        'version': '0.1.0',
+        'version': Cli.appVersion,
         'protocol': 1,
       },
     );
     await tester.pumpAndSettle();
-    expect(find.text('0.1.0'), findsNWidgets(2));
+    expect(find.text(Cli.appVersion), findsNWidgets(2));
     expect(find.text('1'), findsOneWidget);
 
     await pumpAbout(() async => const <String, Object?>{'ok': false});

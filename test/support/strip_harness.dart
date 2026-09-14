@@ -21,6 +21,7 @@ import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// Workspaces every harnessed strip renders: one focused, one urgent.
@@ -43,6 +44,7 @@ Future<void> pumpBarHarness(
   Locale locale = const Locale('en', 'US'),
   SystemBarSide side = SystemBarSide.top,
   double thickness = 32,
+  WallpaperAccentController? wallpaperAccent,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
   GpuBloc Function()? gpuBuilder,
@@ -62,7 +64,7 @@ Future<void> pumpBarHarness(
       child: TricksterLocalizationScope(
         locale: locale,
         child: ModuleScope(
-          clockBuilder: clockBuilder ?? () => ClockBloc(),
+          clockBuilder: clockBuilder ?? ClockBloc.new,
           cpuBuilder:
               cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
           gpuBuilder: gpuBuilder ?? () => GpuBloc(initial: const GpuState()),
@@ -81,7 +83,12 @@ Future<void> pumpBarHarness(
           mediaBuilder:
               mediaBuilder ??
               () => MediaBloc(initial: MprisPlaybackState.unavailable()),
-          child: TricksterBarStrip(side: side, thickness: thickness),
+          child: wallpaperAccent == null
+              ? TricksterBarStrip(side: side, thickness: thickness)
+              : WallpaperAccentScope(
+                  notifier: wallpaperAccent,
+                  child: TricksterBarStrip(side: side, thickness: thickness),
+                ),
         ),
       ),
     ),

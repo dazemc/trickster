@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../services/battery.dart';
+import 'package:trickster/src/services/battery.dart';
 
 sealed class BatteryEvent extends Equatable {
   const BatteryEvent();

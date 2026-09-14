@@ -1,12 +1,11 @@
 import 'package:flutter/widgets.dart';
-
-import '../config/settings.dart';
-import '../locale.dart';
-import '../services/gpu.dart';
-import '../theme/accent.dart';
-import 'meter.dart';
-import 'pill_tooltip.dart';
-import 'pill.dart';
+import 'package:trickster/src/bar/meter.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/theme/accent.dart';
 
 class GpuPill extends StatelessWidget {
   const GpuPill({

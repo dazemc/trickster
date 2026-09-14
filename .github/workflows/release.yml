@@ -1,0 +1,156 @@
+# Release automation. A `v*` tag builds and tests the release bundle on the
+# Flutter toolchain, packages it with the source PKGBUILD (which accepts the
+# CI-built bundle via TRICKSTER_PREBUILT_BUNDLE), attaches the package to the
+# GitHub release, and commits the matching AUR pin on the default branch.
+#
+# AUR *publishing* is paused by the maintainer: this workflow updates the
+# in-tree recipe only. Pushing to aur.archlinux.org stays a manual step.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and package without releasing or pinning
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches pubspec
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          if [[ "v$version" != "${GITHUB_REF_NAME}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match pubspec v$version" >&2
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install the Linux toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev libgtk-layer-shell-dev libwayland-dev
+
+      - name: Analyze and test
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Build the release bundle
+        run: |
+          flutter build linux --release
+          dart compile exe bin/tricksterctl.dart \
+            -o build/linux/x64/release/bundle/tricksterctl
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle
+          path: build/linux/x64/release/bundle
+          if-no-files-found: error
+
+  package:
+    needs: bundle
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Prepare the builder
+        run: |
+          pacman -Sy --noconfirm git fakeroot
+          useradd -m builder
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bundle
+          path: bundle
+
+      - name: Build the Arch package
+        env:
+          TRICKSTER_PREBUILT_BUNDLE: ${{ github.workspace }}/bundle
+        run: |
+          chown -R builder "$GITHUB_WORKSPACE"
+          su builder -c "cd packaging/arch && makepkg --nodeps --nocheck --noconfirm"
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          cp "packaging/arch/trickster-$version-1-x86_64.pkg.tar.zst" .
+          sha256sum "trickster-$version-1-x86_64.pkg.tar.zst" > asset.sha256
+
+      - name: Update the AUR pin from the built artifact
+        run: |
+          version="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          hash="$(cut -d' ' -f1 asset.sha256)"
+          cd packaging/aur/trickster-bin
+          sed -i "s/^pkgver=.*/pkgver=$version/" PKGBUILD
+          sed -i "s/^sha256sums=('.*')/sha256sums=('$hash')/" PKGBUILD
+          su builder -c "makepkg --printsrcinfo" > .SRCINFO
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: trickster-*.pkg.tar.zst
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pin
+          path: |
+            packaging/aur/trickster-bin/PKGBUILD
+            packaging/aur/trickster-bin/.SRCINFO
+          if-no-files-found: error
+
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: assets
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: assets/trickster-*.pkg.tar.zst
+
+  pin:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pin
+          path: packaging/aur/trickster-bin
+
+      - name: Commit the pin
+        run: |
+          git config user.name 'trickster release'
+          git config user.email 'actions@users.noreply.github.com'
+          git add packaging/aur/trickster-bin/PKGBUILD \
+            packaging/aur/trickster-bin/.SRCINFO
+          if git diff --cached --quiet; then
+            echo 'pin already current'
+          else
+            git commit -m "chore: pin the AUR recipe to ${GITHUB_REF_NAME}"
+            git push
+          fi

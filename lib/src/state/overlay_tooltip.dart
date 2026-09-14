@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../layout/system_bar.dart';
-import '../platform/layer_shell.dart';
-import '../theme/accent.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/theme/accent.dart';
 
 /// One visible tray tooltip: the label to paint, where the hovered item sat,
 /// and the overlay surface hosting it.

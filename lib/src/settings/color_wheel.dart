@@ -2,11 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
-
-import '../locale.dart';
-import '../theme/motion.dart';
-import 'color_format.dart';
-import 'settings_theme.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/color_format.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/theme/motion.dart';
 
 /// Ported from Denial's `hsv_color_wheel.dart`: a hue/saturation disc for
 /// the accent color, with pointer, keyboard, and screen-reader paths.

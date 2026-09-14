@@ -73,16 +73,16 @@ void main() {
 
   testWidgets('lens aligns with the focused id', (tester) async {
     await _pump(tester, _focused('1'));
-    expect(_alignment(tester), const Alignment(-1, 0));
+    expect(_alignment(tester), Alignment.centerLeft);
     await _pump(tester, _focused('2'));
     expect(_alignment(tester), Alignment.center);
     await _pump(tester, _focused('3'));
-    expect(_alignment(tester), const Alignment(1, 0));
+    expect(_alignment(tester), Alignment.centerRight);
   });
 
   testWidgets('lens follows the bar axis', (tester) async {
     await _pump(tester, _focused('3'), horizontal: false);
-    expect(_alignment(tester), const Alignment(0, 1));
+    expect(_alignment(tester), Alignment.bottomCenter);
   });
 
   testWidgets('reduced motion zeroes the rail animations', (tester) async {

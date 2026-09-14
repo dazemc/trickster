@@ -4,9 +4,9 @@ import 'package:flutter/material.dart'
     show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
-import '../theme/accent.dart';
-import '../theme/backdrop_blur.dart';
-import '../theme/motion.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/backdrop_blur.dart';
+import 'package:trickster/src/theme/motion.dart';
 
 class SystemBarCard extends StatelessWidget {
   const SystemBarCard({

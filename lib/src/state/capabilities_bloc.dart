@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../platform/layer_shell.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 
 /// Host capabilities probed once at startup.
 class Capabilities extends Equatable {

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'controller.dart';
+import 'package:trickster/src/settings/controller.dart';
 
 /// Exposes the settings application's [SettingsAppController] to the pages.
 class SettingsAppScope extends InheritedNotifier<SettingsAppController> {

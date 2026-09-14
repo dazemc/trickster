@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../services/workspaces.dart';
+import 'package:trickster/src/services/workspaces.dart';
 
 sealed class WorkspacesEvent extends Equatable {
   const WorkspacesEvent();

@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import '../platform/control_socket.dart';
-import 'settings.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/platform/control_socket.dart';
 
 class SettingsDocument {
   const SettingsDocument({required this.revision, required this.json});

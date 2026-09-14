@@ -15,7 +15,7 @@ class Cli {
   final String? configPath;
   final String? edge;
 
-  static const appVersion = '0.1.0';
+  static const appVersion = '0.2.0';
   static const versionText = 'trickster $appVersion';
 
   /// The `--help` text. Man pages are checked against it so the two cannot

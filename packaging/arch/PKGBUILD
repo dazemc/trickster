@@ -6,7 +6,7 @@
 
 pkgname=trickster
 # Keep in sync with pubspec.yaml and Cli.appVersion.
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Flutter-native Wayland status bar'
 arch=('x86_64')
@@ -42,6 +42,14 @@ check() {
 }
 
 build() {
+  # CI hands in the bundle it built and tested on the Flutter toolchain
+  # runner; a local `makepkg` builds from source instead.
+  if [[ -n "${TRICKSTER_PREBUILT_BUNDLE:-}" ]]; then
+    rm -rf "$_bundle"
+    mkdir -p "$_bundle"
+    cp -a -- "$TRICKSTER_PREBUILT_BUNDLE/." "$_bundle/"
+    return 0
+  fi
   cd "$_repository_root"
   flutter pub get
   flutter build linux --release

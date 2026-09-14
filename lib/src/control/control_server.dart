@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../platform/control_socket.dart';
+import 'package:trickster/src/platform/control_socket.dart';
 
 /// Handles one decoded control request. The returned map is the JSON reply.
 typedef ControlHandler =

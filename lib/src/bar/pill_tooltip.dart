@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
-import '../layout/system_bar.dart';
-import '../state/overlay_tooltip.dart';
-import '../theme/accent.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/theme/accent.dart';
 
 /// The strip's edge and band size, so pills can place their tooltips without
 /// threading the geometry through every module.

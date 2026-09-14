@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../layout/system_bar.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 
 sealed class OutputsEvent extends Equatable {
   const OutputsEvent();

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
 
-import 'nvidia.dart';
+import 'package:trickster/src/services/nvidia.dart';
 
 class GpuLoad extends Equatable {
   const GpuLoad({
