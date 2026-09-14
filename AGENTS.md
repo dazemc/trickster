@@ -274,6 +274,10 @@ AGENTS.md             authoritative rules — the constitution
   `working` first so the PR carries code only, merge `working` into `main`
   through a pull request, then reset `working` to the updated `main` for
   the next phase. No branch is created per phase.
+- Every merge to `main` updates the docs it invalidates. Before merging
+  (a step, a phase, or a fix), walk `docs_site/content/` for claims the
+  change makes stale and land the corrections on `main`, one file per
+  commit, pushed — docs never trail the code.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Any update to `AGENTS.md` itself is committed immediately on `main`, in
