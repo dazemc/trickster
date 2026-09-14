@@ -60,9 +60,9 @@ class ModulesPage extends StatefulWidget {
 }
 
 class _ModulesPageState extends State<ModulesPage> {
-  /// How far past a zone's card still counts as that zone's drop area, so
-  /// releasing below the last row appends instead of snapping back.
-  static const double _zoneDropReach = 48;
+  /// How far past a zone's card a release still counts, used when the page
+  /// target did not register the drop.
+  static const double _zoneDropReach = 120;
 
   DebouncedSaver? _saver;
   late final List<ModuleAvailability> _unavailable = widget.availabilityProbe();
@@ -71,6 +71,7 @@ class _ModulesPageState extends State<ModulesPage> {
   final Map<ModuleZone, GlobalKey> _zoneKeys = <ModuleZone, GlobalKey>{};
 
   final Set<String> _expanded = <String>{};
+  final GlobalKey _disabledKey = GlobalKey();
   String? _dragging;
   ModuleZone? _previewZone;
   int _previewIndex = 0;
@@ -218,18 +219,27 @@ class _ModulesPageState extends State<ModulesPage> {
   /// Tracks the pointer over the segment geometry so the gap follows the
   /// drag before release.
   ///
-  /// The nearest zone wins within [_zoneDropReach], so releasing under the
-  /// last row still appends there instead of snapping back; the Disabled
-  /// section clears the preview when the pointer enters it.
+  /// The nearest zone wins wherever the pointer is, so releasing under the
+  /// last row appends there. Hovering the Disabled area leaves the preview
+  /// alone: that card is the drag-to-disable gesture.
   void _updateDrag(SettingsAppController controller, Offset position) {
     final dragging = _dragging;
     if (dragging == null) {
       return;
     }
     _lastPointer = position;
+    final disabledBox =
+        _disabledKey.currentContext?.findRenderObject() as RenderBox?;
+    if (disabledBox != null) {
+      final disabledRect =
+          disabledBox.localToGlobal(Offset.zero) & disabledBox.size;
+      if (disabledRect.contains(position)) {
+        return;
+      }
+    }
     final groups = _groupsFor(controller.settings, exclude: dragging);
     ModuleZone? zone;
-    var bestDistance = _zoneDropReach;
+    var bestDistance = double.infinity;
     for (final entry in groups.entries) {
       final box =
           _zoneKey(entry.key).currentContext?.findRenderObject() as RenderBox?;
@@ -242,9 +252,6 @@ class _ModulesPageState extends State<ModulesPage> {
           : position.dy > rect.bottom
           ? position.dy - rect.bottom
           : 0.0;
-      if (distance > _zoneDropReach) {
-        continue;
-      }
       if (zone == null || distance < bestDistance) {
         bestDistance = distance;
         zone = entry.key;
@@ -356,14 +363,11 @@ class _ModulesPageState extends State<ModulesPage> {
   Widget _dropPreview() {
     return Container(
       key: const ValueKey<String>('module-drop-preview'),
-      height: 40,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      height: 3,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
-        color: ShellBrandColors.defaultAccent.withValues(alpha: 0.10),
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        border: Border.all(
-          color: ShellBrandColors.defaultAccent.withValues(alpha: 0.55),
-        ),
+        color: ShellBrandColors.defaultAccent,
+        borderRadius: const BorderRadius.all(Radius.circular(2)),
       ),
     );
   }
@@ -567,6 +571,7 @@ class _ModulesPageState extends State<ModulesPage> {
                       : null,
                 ),
                 child: SettingsCard(
+                  key: _disabledKey,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: disabled.isEmpty && candidates.isEmpty
                       ? _dropHere(

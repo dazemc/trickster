@@ -686,6 +686,23 @@ void main() {
     expect(controller.settings.modules.last, 'workspaces');
   });
 
+  testWidgets('a module appends to the end of its own zone', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    // Trailing holds media, cpu, gpu, battery, clock; media goes last.
+    await _dragModuleBelow(
+      tester,
+      'media',
+      find.byKey(const ValueKey<String>('module-clock')),
+    );
+    expect(controller.settings.zoneFor('media'), ModuleZone.trailing);
+    expect(controller.settings.modules.last, 'media');
+  });
+
   testWidgets('the disabled section stays visible and accepts a drop', (
     tester,
   ) async {
