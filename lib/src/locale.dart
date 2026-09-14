@@ -92,6 +92,15 @@ class _TricksterLocalizationScopeState extends State<TricksterLocalizationScope>
   }
 }
 
+/// Maps a settings.json language tag to a [Locale]; null follows the
+/// platform.
+Locale? localeFromTag(String? tag) {
+  if (tag == null || tag.isEmpty) {
+    return null;
+  }
+  return Locale(tag);
+}
+
 extension TricksterLocalizationsBuildContext on BuildContext {
   AppLocalizations get l10n => AppLocalizations.of(this);
 }

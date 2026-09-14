@@ -8,6 +8,7 @@ import '../theme/accent.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 
 class WorkspacesPill extends StatelessWidget {
   const WorkspacesPill({
@@ -36,56 +37,62 @@ class WorkspacesPill extends StatelessWidget {
     final active = workspaces.indexWhere((workspace) => workspace.focused);
     final mainExtent = _itemExtent * count;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    return SystemBarCard(
+    return PillTooltip(
       accent: accent,
-      padding: horizontal
-          ? const EdgeInsets.symmetric(horizontal: 4)
-          : const EdgeInsets.all(4),
-      child: SizedBox(
-        width: horizontal ? mainExtent : _crossExtent,
-        height: horizontal ? _crossExtent : mainExtent,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: AnimatedAlign(
-                key: lensKey,
-                duration: reduceMotion ? Duration.zero : Motion.workspaceSwitch,
-                curve: Motion.md3Emphasized,
-                alignment: _activeAlignment(active, count, horizontal),
-                child: SizedBox(
-                  width: horizontal ? _itemExtent : _crossExtent,
-                  height: horizontal ? _crossExtent : _itemExtent,
-                  child: Center(
-                    child: SizedBox.square(
-                      dimension: _lensSize,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: accent.color.withValues(alpha: 0.18),
+      label: [for (final workspace in workspaces) workspace.name].join(', '),
+      child: SystemBarCard(
+        accent: accent,
+        padding: horizontal
+            ? const EdgeInsets.symmetric(horizontal: 4)
+            : const EdgeInsets.all(4),
+        child: SizedBox(
+          width: horizontal ? mainExtent : _crossExtent,
+          height: horizontal ? _crossExtent : mainExtent,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: AnimatedAlign(
+                  key: lensKey,
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : Motion.workspaceSwitch,
+                  curve: Motion.md3Emphasized,
+                  alignment: _activeAlignment(active, count, horizontal),
+                  child: SizedBox(
+                    width: horizontal ? _itemExtent : _crossExtent,
+                    height: horizontal ? _crossExtent : _itemExtent,
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: _lensSize,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: accent.color.withValues(alpha: 0.18),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Flex(
-              direction: horizontal ? Axis.horizontal : Axis.vertical,
-              children: [
-                for (final workspace in workspaces)
-                  _WorkspacePipButton(
-                    key: ValueKey<String>('workspace-pip-${workspace.id}'),
-                    workspace: workspace,
-                    accent: accent,
-                    horizontal: horizontal,
-                    onPressed: onPressed == null
-                        ? null
-                        : () => onPressed!(workspace),
-                  ),
-              ],
-            ),
-          ],
+              Flex(
+                direction: horizontal ? Axis.horizontal : Axis.vertical,
+                children: [
+                  for (final workspace in workspaces)
+                    _WorkspacePipButton(
+                      key: ValueKey<String>('workspace-pip-${workspace.id}'),
+                      workspace: workspace,
+                      accent: accent,
+                      horizontal: horizontal,
+                      onPressed: onPressed == null
+                          ? null
+                          : () => onPressed!(workspace),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

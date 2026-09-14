@@ -15,6 +15,7 @@ class LoadMeter extends StatelessWidget {
     required this.history,
     required this.capacity,
     this.valueColor,
+    this.vertical = false,
     super.key,
   });
 
@@ -29,10 +30,61 @@ class LoadMeter extends StatelessWidget {
   /// Overrides the percent text color when a threshold is crossed.
   final Color? valueColor;
 
+  /// Vertical strips stack the caption over the percent and drop the
+  /// sparkline.
+  final bool vertical;
+
   @override
   Widget build(BuildContext context) {
     final percent = ((current ?? 0.0) * 100).round();
     final captionColor = accent.captionColor();
+    if (vertical) {
+      return Semantics(
+        label: label,
+        value: '$percent%',
+        child: ExcludeSemantics(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: captionColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$percent%',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
+                    style: ShellText.systemBarValue.copyWith(color: valueColor),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              RepaintBoundary(
+                child: CustomPaint(
+                  key: sparklineKey,
+                  size: const Size(38, 10),
+                  painter: _SparklinePainter(
+                    history: history,
+                    capacity: capacity,
+                    accent: accent.color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Semantics(
       label: label,
       value: '$percent%',

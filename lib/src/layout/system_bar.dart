@@ -46,14 +46,25 @@ class OutputsConfig extends Equatable {
 
   static OutputsConfig fromJson(Map<String, dynamic> json) {
     return OutputsConfig(
-      side: SystemBarSideGeometry.parse(
-        (json['side'] as String?) ?? 'top',
-      ),
+      side: SystemBarSideGeometry.parse((json['side'] as String?) ?? 'top'),
       thickness: ((json['thickness'] as num?) ?? 32).toDouble(),
-      connectors: (json['connectors'] as List?)
-              ?.whereType<String>()
-              .toList(growable: false) ??
+      connectors:
+          (json['connectors'] as List?)?.whereType<String>().toList(
+            growable: false,
+          ) ??
           const <String>[],
+    );
+  }
+
+  OutputsConfig copyWith({
+    SystemBarSide? side,
+    double? thickness,
+    List<String>? connectors,
+  }) {
+    return OutputsConfig(
+      side: side ?? this.side,
+      thickness: thickness ?? this.thickness,
+      connectors: connectors ?? this.connectors,
     );
   }
 
@@ -94,6 +105,21 @@ class OutputsConfig extends Equatable {
             thickness,
             outputRect.height,
           );
+  }
+
+  /// The `system_bar=` grammar, with an empty connector list meaning every
+  /// output.
+  String encode() {
+    final buffer = StringBuffer('# Trickster output configuration\n');
+    if (side == SystemBarSide.hidden) {
+      buffer.write('system_bar=hidden');
+    } else {
+      buffer.write('system_bar=${side.name},${thickness.round()}');
+      for (final connector in connectors) {
+        buffer.write(',$connector');
+      }
+    }
+    return '$buffer\n';
   }
 
   static OutputsConfig parse(String source) {

@@ -136,6 +136,16 @@ void main() {
       expect(bare.meter.captionSource, MeterCaptionSource.generic);
     });
 
+    test('the locale round-trips and rejects unknown tags', () {
+      const settings = BarSettings(revision: 4, locale: 'zh');
+      expect(BarSettings.decode(settings.encode()).locale, 'zh');
+      expect(const BarSettings().locale, isNull);
+      expect(
+        () => BarSettings.decode('{"revision": 1, "locale": "fr"}'),
+        throwsFormatException,
+      );
+    });
+
     test('invalid module options are rejected at decode', () {
       expect(
         () => BarSettings.decode('{"revision": 1, "cpu": {"warn": 2}}'),
@@ -197,6 +207,13 @@ void main() {
 
     test('rejects unknown arguments', () {
       expect(() => Cli.parse(['--frobnicate']), throwsFormatException);
+    });
+
+    test('parses the settings mode flag', () {
+      final cli = Cli.parse(['--settings']);
+      expect(cli.settings, isTrue);
+      expect(cli.check, isFalse);
+      expect(Cli.parse(const []).settings, isFalse);
     });
   });
 }

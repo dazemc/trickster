@@ -8,11 +8,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'bar/bar.dart';
 import 'bar/tray_menu.dart';
-import 'bar/tray_tooltip.dart';
+import 'bar/overlay_tooltip.dart';
 import 'control/control_handler.dart';
 import 'control/control_server.dart';
 import 'bootstrap.dart';
 import 'config/session.dart';
+import 'config/outputs_store.dart';
 import 'config/store.dart';
 import 'config/watcher.dart';
 import 'layout/shell_keys.dart';
@@ -27,7 +28,7 @@ import 'state/outputs_bloc.dart';
 import 'state/session_bloc.dart';
 import 'state/settings_bloc.dart';
 import 'state/tray_menu.dart';
-import 'state/tray_tooltip.dart';
+import 'state/overlay_tooltip.dart';
 
 class TricksterApp extends StatefulWidget {
   const TricksterApp({required this.initial, this.layerShell, super.key});
@@ -43,8 +44,9 @@ class _TricksterAppState extends State<TricksterApp>
     with WidgetsBindingObserver {
   late final LayerShell _layerShell;
   late final TrayMenuController _menuController;
-  late final TrayTooltipController _tooltipController;
+  late final OverlayTooltipController _tooltipController;
   late final FileSettingsTransport _settingsTransport;
+  late final OutputsDocumentTransport _outputsTransport;
   ControlServer? _control;
   BuildContext? _moduleContext;
   ConfigWatcher? _watcher;
@@ -62,9 +64,12 @@ class _TricksterAppState extends State<TricksterApp>
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
     _menuController = TrayMenuController(layerShell: _layerShell);
-    _tooltipController = TrayTooltipController(layerShell: _layerShell);
+    _tooltipController = OverlayTooltipController(layerShell: _layerShell);
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
+    );
+    _outputsTransport = FileOutputsTransport(
+      File(widget.initial.paths.outputs),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
@@ -76,6 +81,7 @@ class _TricksterAppState extends State<TricksterApp>
         handler: (request) => handleControlRequest(
           context: _moduleContext ?? context,
           settings: _settingsTransport,
+          outputs: _outputsTransport,
           reload: _reload,
           request: request,
         ),
@@ -135,22 +141,45 @@ class _TricksterAppState extends State<TricksterApp>
 
   void _apply(RuntimeConfig loaded) {
     context.read<SessionBloc>().add(SessionLoaded(loaded.session));
-    context.read<OutputsBloc>().add(OutputsLoaded(loaded.outputs));
     context.read<SettingsBloc>().add(SettingsLoaded(loaded.settings));
-    final disruptive =
-        loaded.outputs.side != _lastOutputs.side ||
-        loaded.outputs.thickness != _lastOutputs.thickness ||
+    final sessionChanged =
         loaded.session.layer != _lastSession.layer ||
         loaded.session.namespace != _lastSession.namespace ||
         loaded.session.keyboard != _lastSession.keyboard;
-    if (disruptive) {
-      unawaited(
-        _layerShell.configure(outputs: loaded.outputs, session: loaded.session),
-      );
-    }
+    final disruptive =
+        loaded.outputs.side != _lastOutputs.side ||
+        loaded.outputs.thickness != _lastOutputs.thickness ||
+        sessionChanged;
+    context.read<OutputsBloc>().add(OutputsLoaded(loaded.outputs));
     _lastOutputs = loaded.outputs;
     _lastSession = loaded.session;
-    unawaited(_reconcileOutputs(loaded.outputs));
+    if (disruptive) {
+      unawaited(_recreateSurfaces(loaded));
+    } else {
+      unawaited(_reconcileOutputs(loaded.outputs));
+    }
+  }
+
+  /// Rebuilds every strip for a disruptive change (edge, thickness, layer,
+  /// keyboard). Strips are destroyed before replacements are created: the
+  /// engine survives on its bootstrap view, and two mapped strips on one
+  /// monitor would make GTK abort waiting for a frame of the new size.
+  Future<void> _recreateSurfaces(RuntimeConfig loaded) async {
+    // Destroy first: applying a new size to mapped strips makes GTK wait
+    // for a frame of the new size while Flutter still renders the old one,
+    // which aborts. The engine survives on its bootstrap view.
+    final outputs = await _layerShell.outputs();
+    for (final output in outputs) {
+      if (output.viewId > 0) {
+        _hiddenSurfaces.remove(output.viewId);
+        await _layerShell.destroySurface(viewId: output.viewId);
+      }
+    }
+    await _layerShell.configure(
+      outputs: loaded.outputs,
+      session: loaded.session,
+    );
+    await _reconcileOutputs(loaded.outputs);
   }
 
   /// Creates, hides, or destroys strip surfaces so exactly the hosted
@@ -195,7 +224,9 @@ class _TricksterAppState extends State<TricksterApp>
 
   @override
   Widget build(BuildContext context) {
+    final locale = context.select((SettingsBloc bloc) => bloc.state.locale);
     return TricksterLocalizationScope(
+      locale: localeFromTag(locale),
       child: BlocBuilder<OutputsBloc, OutputsConfig>(
         builder: (context, outputs) {
           final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -228,7 +259,7 @@ class _TricksterAppState extends State<TricksterApp>
           };
           return TrayMenuScope(
             notifier: _menuController,
-            child: TrayTooltipScope(
+            child: OverlayTooltipScope(
               notifier: _tooltipController,
               child: ModuleScope(
                 // The control status handler needs a context below the module
@@ -280,7 +311,7 @@ class _ViewSurface extends StatefulWidget {
 
   final FlutterView view;
   final TrayMenuController menu;
-  final TrayTooltipController tooltip;
+  final OverlayTooltipController tooltip;
   final LayerShell layerShell;
   final bool blur;
   final String? output;
@@ -335,7 +366,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
           if (session == null || session.viewId != widget.view.viewId) {
             return const SizedBox.shrink();
           }
-          return TrayTooltipSurface(session: session);
+          return OverlayTooltipSurface(session: session);
         }
         return _BarSurface(output: widget.output);
       },

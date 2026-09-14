@@ -24,6 +24,7 @@ import 'cpu.dart';
 import 'gpu.dart';
 import 'media.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 import 'tray.dart';
 import 'workspaces.dart';
 
@@ -58,222 +59,253 @@ class TricksterBarStrip extends StatelessWidget {
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
     final horizontal = side.isHorizontal;
-    final cpuVisible =
-        settings.includes('cpu') &&
-        context.select((CpuBloc bloc) => bloc.state.current != null);
-    return Padding(
-      padding: horizontal
-          ? const EdgeInsets.symmetric(
-              horizontal: _edgePadding,
-              vertical: _cardMargin,
-            )
-          : const EdgeInsets.symmetric(
-              horizontal: _cardMargin,
-              vertical: _edgePadding,
-            ),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Flex(
-          direction: horizontal ? Axis.horizontal : Axis.vertical,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (settings.includes('tray'))
-              BlocBuilder<TrayBloc, TrayState>(
-                builder: (context, state) {
-                  if (state.items.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return SystemBarEntrance(
-                    index: 3,
-                    horizontal: horizontal,
-                    child: Padding(
-                      padding: horizontal
-                          ? const EdgeInsets.only(right: _cardGap)
-                          : const EdgeInsets.only(bottom: _cardGap),
-                      child: RepaintBoundary(
-                        child: TrayPill(
-                          accent: accent,
-                          items: state.items,
-                          side: side,
-                          thickness: thickness,
-                          onActivate: (item, position) => unawaited(
-                            context.read<TrayBloc>().invoke(
-                              item,
-                              SystemTrayAction.activate,
-                              position,
-                            ),
-                          ),
-                        ),
-                      ),
+    final vertical = !horizontal;
+
+    // One builder per module; the strip walks settings.modules so the
+    // configured order is the rendered order.
+    final builders = <String, Widget Function(int position)>{
+      'tray': (position) => BlocBuilder<TrayBloc, TrayState>(
+        builder: (context, state) {
+          if (state.items.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: _cardGap)
+                  : const EdgeInsets.only(right: _cardGap),
+              child: RepaintBoundary(
+                child: TrayPill(
+                  accent: accent,
+                  items: state.items,
+                  side: side,
+                  thickness: thickness,
+                  vertical: vertical,
+                  onActivate: (item, position2) => unawaited(
+                    context.read<TrayBloc>().invoke(
+                      item,
+                      SystemTrayAction.activate,
+                      position2,
                     ),
-                  );
-                },
-              ),
-            if (settings.includes('media'))
-              Builder(
-                builder: (context) {
-                  final available = context.select(
-                    (MediaBloc bloc) => bloc.state.available,
-                  );
-                  if (!available) {
-                    return const SizedBox.shrink();
-                  }
-                  return SystemBarEntrance(
-                    index: 4,
-                    horizontal: horizontal,
-                    child: Padding(
-                      padding: horizontal
-                          ? const EdgeInsets.only(right: _cardGap)
-                          : const EdgeInsets.only(bottom: _cardGap),
-                      child: RepaintBoundary(child: MediaPill(accent: accent)),
-                    ),
-                  );
-                },
-              ),
-            if (settings.includes('workspaces'))
-              BlocBuilder<WorkspacesBloc, WorkspacesState>(
-                builder: (context, state) {
-                  final options = context.select(
-                    (SettingsBloc bloc) => bloc.state.workspaces,
-                  );
-                  var workspaces = workspacesForOutput(
-                    state.workspaces,
-                    output,
-                  );
-                  if (!options.showEmpty) {
-                    workspaces = [
-                      for (final workspace in workspaces)
-                        if (workspace.occupied || workspace.focused) workspace,
-                    ];
-                  }
-                  if (workspaces.length > options.max) {
-                    workspaces = workspaces
-                        .take(options.max)
-                        .toList(growable: false);
-                  }
-                  if (workspaces.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return SystemBarEntrance(
-                    index: 2,
-                    horizontal: horizontal,
-                    child: Padding(
-                      padding: horizontal
-                          ? const EdgeInsets.only(right: _cardGap)
-                          : const EdgeInsets.only(bottom: _cardGap),
-                      child: RepaintBoundary(
-                        child: WorkspacesPill(
-                          accent: accent,
-                          workspaces: workspaces,
-                          horizontal: horizontal,
-                          onPressed: (workspace) => context
-                              .read<WorkspacesBloc>()
-                              .add(WorkspacesFocusRequested(workspace)),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            if (settings.includes('gpu'))
-              BlocBuilder<GpuBloc, GpuState>(
-                builder: (context, state) {
-                  if (state.loads.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Flex(
-                    direction: horizontal ? Axis.horizontal : Axis.vertical,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < state.loads.length; i += 1)
-                        SystemBarEntrance(
-                          key: ValueKey<String>(
-                            'system-bar-gpu-${state.loads[i].id}',
-                          ),
-                          index:
-                              (cpuVisible ? 1 : 0) + (state.loads.length - i),
-                          horizontal: horizontal,
-                          child: Padding(
-                            padding: horizontal
-                                ? const EdgeInsets.only(right: _cardGap)
-                                : const EdgeInsets.only(bottom: _cardGap),
-                            child: RepaintBoundary(
-                              child: GpuPill(
-                                accent: accent,
-                                load: state.loads[i],
-                                captionSource: settings.meter.captionSource,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            if (settings.includes('cpu'))
-              BlocBuilder<CpuBloc, CpuSample>(
-                builder: (context, sample) {
-                  if (sample.current == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return SystemBarEntrance(
-                    index: 1,
-                    horizontal: horizontal,
-                    child: Padding(
-                      padding: horizontal
-                          ? const EdgeInsets.only(right: _cardGap)
-                          : const EdgeInsets.only(bottom: _cardGap),
-                      child: RepaintBoundary(
-                        child: CpuPill(
-                          accent: accent,
-                          sample: sample,
-                          warn: settings.cpu.warn,
-                          critical: settings.cpu.critical,
-                          captionSource: settings.meter.captionSource,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            if (settings.includes('battery'))
-              BlocBuilder<BatteryBloc, BatteryStatus>(
-                builder: (context, status) {
-                  if (status.capacity == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return SystemBarEntrance(
-                    index: 1,
-                    horizontal: horizontal,
-                    child: Padding(
-                      padding: horizontal
-                          ? const EdgeInsets.only(right: _cardGap)
-                          : const EdgeInsets.only(bottom: _cardGap),
-                      child: RepaintBoundary(
-                        child: BatteryPill(
-                          accent: accent,
-                          status: status,
-                          onPressed: onOpenPowerSettings,
-                          warn: settings.battery.warn,
-                          critical: settings.battery.critical,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            if (settings.includes('clock'))
-              SystemBarEntrance(
-                index: 0,
-                horizontal: horizontal,
-                child: RepaintBoundary(
-                  child: ClockPill(
-                    accent: accent,
-                    format: settings.clock.format,
                   ),
                 ),
               ),
-          ],
+            ),
+          );
+        },
+      ),
+      'media': (position) => Builder(
+        builder: (context) {
+          final available = context.select(
+            (MediaBloc bloc) => bloc.state.available,
+          );
+          if (!available) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: _cardGap)
+                  : const EdgeInsets.only(right: _cardGap),
+              child: RepaintBoundary(
+                child: MediaPill(accent: accent, vertical: vertical),
+              ),
+            ),
+          );
+        },
+      ),
+      'workspaces': (position) => BlocBuilder<WorkspacesBloc, WorkspacesState>(
+        builder: (context, state) {
+          final options = context.select(
+            (SettingsBloc bloc) => bloc.state.workspaces,
+          );
+          var workspaces = workspacesForOutput(state.workspaces, output);
+          if (!options.showEmpty) {
+            workspaces = [
+              for (final workspace in workspaces)
+                if (workspace.occupied || workspace.focused) workspace,
+            ];
+          }
+          if (workspaces.length > options.max) {
+            workspaces = workspaces.take(options.max).toList(growable: false);
+          }
+          if (workspaces.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: _cardGap)
+                  : const EdgeInsets.only(right: _cardGap),
+              child: RepaintBoundary(
+                child: vertical
+                    // Side strips scale the rail down so a longer row of
+                    // pips cannot clip.
+                    ? ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: thickness - 2 * _cardMargin,
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: WorkspacesPill(
+                            accent: accent,
+                            workspaces: workspaces,
+                            horizontal: true,
+                            onPressed: (workspace) => context
+                                .read<WorkspacesBloc>()
+                                .add(WorkspacesFocusRequested(workspace)),
+                          ),
+                        ),
+                      )
+                    : WorkspacesPill(
+                        accent: accent,
+                        workspaces: workspaces,
+                        horizontal: true,
+                        onPressed: (workspace) => context
+                            .read<WorkspacesBloc>()
+                            .add(WorkspacesFocusRequested(workspace)),
+                      ),
+              ),
+            ),
+          );
+        },
+      ),
+      'gpu': (position) => BlocBuilder<GpuBloc, GpuState>(
+        builder: (context, state) {
+          if (state.loads.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return Flex(
+            direction: horizontal ? Axis.horizontal : Axis.vertical,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < state.loads.length; i += 1)
+                SystemBarEntrance(
+                  key: ValueKey<String>('system-bar-gpu-${state.loads[i].id}'),
+                  index: position,
+                  horizontal: horizontal,
+                  child: Padding(
+                    padding: vertical
+                        ? const EdgeInsets.only(bottom: _cardGap)
+                        : const EdgeInsets.only(right: _cardGap),
+                    child: RepaintBoundary(
+                      child: GpuPill(
+                        accent: accent,
+                        load: state.loads[i],
+                        captionSource: settings.meter.captionSource,
+                        vertical: vertical,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+      'cpu': (position) => BlocBuilder<CpuBloc, CpuSample>(
+        builder: (context, sample) {
+          if (sample.current == null) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: _cardGap)
+                  : const EdgeInsets.only(right: _cardGap),
+              child: RepaintBoundary(
+                child: CpuPill(
+                  accent: accent,
+                  sample: sample,
+                  warn: settings.cpu.warn,
+                  critical: settings.cpu.critical,
+                  captionSource: settings.meter.captionSource,
+                  vertical: vertical,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      'battery': (position) => BlocBuilder<BatteryBloc, BatteryStatus>(
+        builder: (context, status) {
+          if (status.capacity == null) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: _cardGap)
+                  : const EdgeInsets.only(right: _cardGap),
+              child: RepaintBoundary(
+                child: BatteryPill(
+                  accent: accent,
+                  status: status,
+                  onPressed: onOpenPowerSettings,
+                  warn: settings.battery.warn,
+                  critical: settings.battery.critical,
+                  vertical: vertical,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      'clock': (position) => SystemBarEntrance(
+        index: position,
+        horizontal: horizontal,
+        child: Padding(
+          padding: vertical
+              ? const EdgeInsets.only(bottom: _cardGap)
+              : const EdgeInsets.only(right: _cardGap),
+          child: RepaintBoundary(
+            child: ClockPill(
+              accent: accent,
+              format: settings.clock.format,
+              vertical: vertical,
+            ),
+          ),
+        ),
+      ),
+    };
+
+    return StripGeometry(
+      side: side,
+      thickness: thickness,
+      child: Padding(
+        padding: horizontal
+            ? const EdgeInsets.symmetric(
+                horizontal: _edgePadding,
+                vertical: _cardMargin,
+              )
+            : const EdgeInsets.symmetric(
+                horizontal: _cardMargin,
+                vertical: _edgePadding,
+              ),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Flex(
+            direction: horizontal ? Axis.horizontal : Axis.vertical,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              for (
+                var position = 0;
+                position < settings.modules.length;
+                position++
+              )
+                builders[settings.modules[position]]?.call(position) ??
+                    const SizedBox.shrink(),
+            ],
+          ),
         ),
       ),
     );

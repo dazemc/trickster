@@ -7,17 +7,22 @@ import '../theme/accent.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 
 /// Inline media pill: now-playing text while idle, transport controls after a
 /// tap. Only the fields it paints are selected, so position ticks and
 /// `observedAt` churn never rebuild the strip.
 class MediaPill extends StatefulWidget {
-  const MediaPill({required this.accent, super.key});
+  const MediaPill({required this.accent, this.vertical = false, super.key});
 
   static const double maxTitleWidth = 190;
   static const double maxSecondaryWidth = 130;
 
   final WallpaperAccent accent;
+
+  /// Vertical strips show only the transport controls, stacked and always
+  /// visible.
+  final bool vertical;
 
   @override
   State<MediaPill> createState() => _MediaPillState();
@@ -66,109 +71,142 @@ class _MediaPillState extends State<MediaPill> {
       if (title.isNotEmpty) title,
       if (secondary.isNotEmpty && secondary != title) secondary,
     ].join(', ');
-    // Hand-rolled rather than a TricksterActionCard: its ExcludeSemantics
-    // would swallow the transport buttons' own semantics.
-    return Semantics(
-      button: true,
-      label: label,
-      value: value,
-      hint: l10n.mediaHint,
-      onTap: _toggle,
-      child: FocusableActionDetector(
-        focusNode: _focusNode,
-        mouseCursor: SystemMouseCursors.click,
-        onShowHoverHighlight: (value) => setState(() => _hovered = value),
-        onShowFocusHighlight: (value) => setState(() => _focused = value),
-        actions: <Type, Action<Intent>>{
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (intent) {
-              _toggle();
-              return null;
-            },
-          ),
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggle,
+    final controls = [
+      _MediaControlButton(
+        compact: widget.vertical,
+        label: l10n.mediaPrevious,
+        glyph: _TransportGlyph.previous,
+        color: widget.accent.color,
+        enabled: media.canGoPrevious,
+        onPressed: bloc.previous,
+      ),
+      const SizedBox(width: 4),
+      _MediaControlButton(
+        compact: widget.vertical,
+        label: media.playing ? l10n.mediaPause : l10n.mediaPlay,
+        glyph: media.playing ? _TransportGlyph.pause : _TransportGlyph.play,
+        color: widget.accent.color,
+        enabled: media.playing ? media.canPause : media.canPlay,
+        prominent: true,
+        onPressed: bloc.playPause,
+      ),
+      const SizedBox(width: 4),
+      _MediaControlButton(
+        compact: widget.vertical,
+        label: l10n.mediaNext,
+        glyph: _TransportGlyph.next,
+        color: widget.accent.color,
+        enabled: media.canGoNext,
+        onPressed: bloc.next,
+      ),
+    ];
+    if (widget.vertical) {
+      // No card-level tap and no ExcludeSemantics: the transport buttons'
+      // own semantics are the interaction.
+      return PillTooltip(
+        accent: widget.accent,
+        label: value,
+        child: Semantics(
+          label: label,
+          value: value,
+          hint: l10n.mediaHint,
           child: SystemBarCard(
             accent: widget.accent,
-            highlighted: _hovered || _focused,
-            focused: _focused,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ExcludeSemantics(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CustomPaint(
-                        size: const Size(14, 14),
-                        painter: _MediaIndicatorPainter(
-                          playing: media.playing,
-                          color: widget.accent.color,
+                controls[0],
+                const SizedBox(width: 2),
+                controls[2],
+                const SizedBox(width: 2),
+                controls[4],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    // Hand-rolled rather than a TricksterActionCard: its ExcludeSemantics
+    // would swallow the transport buttons' own semantics.
+    return PillTooltip(
+      accent: widget.accent,
+      label: value,
+      child: Semantics(
+        button: true,
+        label: label,
+        value: value,
+        hint: l10n.mediaHint,
+        onTap: _toggle,
+        child: FocusableActionDetector(
+          focusNode: _focusNode,
+          mouseCursor: SystemMouseCursors.click,
+          onShowHoverHighlight: (value) => setState(() => _hovered = value),
+          onShowFocusHighlight: (value) => setState(() => _focused = value),
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (intent) {
+                _toggle();
+                return null;
+              },
+            ),
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggle,
+            child: SystemBarCard(
+              accent: widget.accent,
+              highlighted: _hovered || _focused,
+              focused: _focused,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExcludeSemantics(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CustomPaint(
+                          size: const Size(14, 14),
+                          painter: _MediaIndicatorPainter(
+                            playing: media.playing,
+                            color: widget.accent.color,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 7),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: MediaPill.maxTitleWidth,
-                        ),
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: ShellText.systemBarValue,
-                        ),
-                      ),
-                      if (secondary.isNotEmpty && secondary != title) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 7),
                         ConstrainedBox(
                           constraints: const BoxConstraints(
-                            maxWidth: MediaPill.maxSecondaryWidth,
+                            maxWidth: MediaPill.maxTitleWidth,
                           ),
                           child: Text(
-                            secondary,
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: ShellText.systemBarCaption.copyWith(
-                              color: ShellMediaColors.lightForegroundSecondary,
-                            ),
+                            style: ShellText.systemBarValue,
                           ),
                         ),
+                        if (secondary.isNotEmpty && secondary != title) ...[
+                          const SizedBox(width: 6),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: MediaPill.maxSecondaryWidth,
+                            ),
+                            child: Text(
+                              secondary,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: ShellText.systemBarCaption.copyWith(
+                                color:
+                                    ShellMediaColors.lightForegroundSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (_expanded) ...[
-                  const SizedBox(width: 9),
-                  _MediaControlButton(
-                    label: l10n.mediaPrevious,
-                    glyph: _TransportGlyph.previous,
-                    color: widget.accent.color,
-                    enabled: media.canGoPrevious,
-                    onPressed: bloc.previous,
-                  ),
-                  const SizedBox(width: 4),
-                  _MediaControlButton(
-                    label: media.playing ? l10n.mediaPause : l10n.mediaPlay,
-                    glyph: media.playing
-                        ? _TransportGlyph.pause
-                        : _TransportGlyph.play,
-                    color: widget.accent.color,
-                    enabled: media.playing ? media.canPause : media.canPlay,
-                    prominent: true,
-                    onPressed: bloc.playPause,
-                  ),
-                  const SizedBox(width: 4),
-                  _MediaControlButton(
-                    label: l10n.mediaNext,
-                    glyph: _TransportGlyph.next,
-                    color: widget.accent.color,
-                    enabled: media.canGoNext,
-                    onPressed: bloc.next,
-                  ),
+                  if (_expanded) ...[const SizedBox(width: 9), ...controls],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -185,6 +223,7 @@ class _MediaControlButton extends StatefulWidget {
     required this.enabled,
     required this.onPressed,
     this.prominent = false,
+    this.compact = false,
   });
 
   final String label;
@@ -193,6 +232,7 @@ class _MediaControlButton extends StatefulWidget {
   final bool enabled;
   final VoidCallback onPressed;
   final bool prominent;
+  final bool compact;
 
   @override
   State<_MediaControlButton> createState() => _MediaControlButtonState();
@@ -234,8 +274,8 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
             },
             child: AnimatedContainer(
               duration: Motion.pill,
-              width: 20,
-              height: 20,
+              width: widget.compact ? 16 : 20,
+              height: widget.compact ? 16 : 20,
               decoration: BoxDecoration(
                 color: background,
                 shape: BoxShape.circle,

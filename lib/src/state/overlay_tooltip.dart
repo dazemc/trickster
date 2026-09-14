@@ -7,8 +7,8 @@ import '../theme/accent.dart';
 /// One visible tray tooltip: the label to paint, where the hovered item sat,
 /// and the overlay surface hosting it.
 @immutable
-class TrayTooltipSession {
-  const TrayTooltipSession({
+class OverlayTooltipSession {
+  const OverlayTooltipSession({
     required this.viewId,
     required this.itemId,
     required this.label,
@@ -33,16 +33,17 @@ class TrayTooltipSession {
 /// Owns the tooltip lifecycle: it opens a click-through overlay surface on
 /// the bar's output, retargets it as hover moves between items, and destroys
 /// it when the pointer leaves. The strip surface never changes size.
-class TrayTooltipController extends ChangeNotifier {
-  TrayTooltipController({required LayerShell layerShell})
+class OverlayTooltipController extends ChangeNotifier {
+  OverlayTooltipController({required LayerShell layerShell})
     : _layerShell = layerShell;
 
   final LayerShell _layerShell;
   final Set<int> _tooltipViewIds = <int>{};
-  TrayTooltipSession? _session;
+  OverlayTooltipSession? _session;
   var _generation = 0;
+  var _disposed = false;
 
-  TrayTooltipSession? get session => _session;
+  OverlayTooltipSession? get session => _session;
   bool get isOpen => _session != null;
 
   /// Whether [viewId] belongs to a tooltip surface (open or closing). Kept
@@ -67,7 +68,7 @@ class TrayTooltipController extends ChangeNotifier {
         return;
       }
       if (existing.side == side) {
-        _session = TrayTooltipSession(
+        _session = OverlayTooltipSession(
           viewId: existing.viewId,
           itemId: itemId,
           label: label,
@@ -76,14 +77,14 @@ class TrayTooltipController extends ChangeNotifier {
           side: side,
           thickness: thickness,
         );
-        notifyListeners();
+        _notify();
         return;
       }
     }
     final generation = ++_generation;
     if (existing != null) {
       _session = null;
-      notifyListeners();
+      _notify();
       await _layerShell.closeTooltipSurface(viewId: existing.viewId);
     }
     final viewId = await _layerShell.openTooltipSurface(
@@ -97,7 +98,7 @@ class TrayTooltipController extends ChangeNotifier {
       return;
     }
     _tooltipViewIds.add(viewId);
-    _session = TrayTooltipSession(
+    _session = OverlayTooltipSession(
       viewId: viewId,
       itemId: itemId,
       label: label,
@@ -106,7 +107,7 @@ class TrayTooltipController extends ChangeNotifier {
       side: side,
       thickness: thickness,
     );
-    notifyListeners();
+    _notify();
     await _layerShell.showTooltipSurface(viewId: viewId);
   }
 
@@ -119,7 +120,7 @@ class TrayTooltipController extends ChangeNotifier {
     }
     _session = null;
     _generation += 1;
-    notifyListeners();
+    _notify();
     await _layerShell.closeTooltipSurface(viewId: session.viewId);
   }
 
@@ -127,19 +128,31 @@ class TrayTooltipController extends ChangeNotifier {
   void retainViews(Set<int> viewIds) {
     _tooltipViewIds.retainWhere(viewIds.contains);
   }
+
+  void _notify() {
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }
 
-/// Exposes the [TrayTooltipController] to the strip and tooltip surfaces.
-class TrayTooltipScope extends InheritedNotifier<TrayTooltipController> {
-  const TrayTooltipScope({
-    required TrayTooltipController super.notifier,
+/// Exposes the [OverlayTooltipController] to the strip and tooltip surfaces.
+class OverlayTooltipScope extends InheritedNotifier<OverlayTooltipController> {
+  const OverlayTooltipScope({
+    required OverlayTooltipController super.notifier,
     required super.child,
     super.key,
   });
 
-  static TrayTooltipController? maybeOf(BuildContext context) {
+  static OverlayTooltipController? maybeOf(BuildContext context) {
     return context
-        .dependOnInheritedWidgetOfExactType<TrayTooltipScope>()
+        .dependOnInheritedWidgetOfExactType<OverlayTooltipScope>()
         ?.notifier;
   }
 }

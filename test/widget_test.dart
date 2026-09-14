@@ -4,13 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
+import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 import 'support/strip_harness.dart';
@@ -20,6 +24,7 @@ Future<void> _pumpClock(
   WidgetTester tester,
   Locale locale, {
   ClockFormat format = ClockFormat.locale,
+  bool vertical = false,
 }) {
   return tester.pumpWidget(
     MultiBlocProvider(
@@ -30,6 +35,7 @@ Future<void> _pumpClock(
           child: ClockPill(
             accent: const WallpaperAccent(Color(0xffd0bcff)),
             format: format,
+            vertical: vertical,
           ),
         ),
       ),
@@ -122,6 +128,75 @@ void main() {
       ),
     );
     expect(caption.style?.color, expected);
+  });
+
+  testWidgets('vertical clock drops the date', (tester) async {
+    await _pumpClock(tester, const Locale('en', 'US'), vertical: true);
+    await tester.pump(const Duration(milliseconds: 500));
+    final texts = tester.widgetList<RichText>(find.byType(RichText)).length;
+    expect(texts, 1);
+  });
+
+  testWidgets('vertical strips stack upright pills', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'cpu']),
+      side: SystemBarSide.left,
+      thickness: 72,
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.byType(RotatedBox), findsNothing);
+    expect(find.text('CPU'), findsOneWidget);
+    expect(find.text('42%'), findsOneWidget);
+  });
+
+  testWidgets('workspace options filter and cap the rail', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(
+        modules: ['workspaces'],
+        workspaces: WorkspaceOptions(showEmpty: false, max: 1),
+      ),
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '1', name: '1'),
+          Workspace(id: '2', name: '2', occupied: true),
+          Workspace(id: '3', name: '3', occupied: true),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.byKey(const ValueKey<String>('workspace-pip-1')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('workspace-pip-2')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('workspace-pip-3')), findsNothing);
+  });
+
+  testWidgets('strip renders modules in configured order', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'cpu']),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(
+      tester.getCenter(find.byType(ClockPill)).dx,
+      lessThan(tester.getCenter(find.byType(CpuPill)).dx),
+    );
+
+    // Tear the first provider tree down so the second seeds a fresh
+    // SettingsBloc; BlocProvider keeps blocs across same-shape rebuilds.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['cpu', 'clock']),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(
+      tester.getCenter(find.byType(CpuPill)).dx,
+      lessThan(tester.getCenter(find.byType(ClockPill)).dx),
+    );
   });
 
   testWidgets('clock follows the US 12-hour cycle', (tester) async {

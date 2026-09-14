@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Trickster Settings
+Comment=Configure the Trickster bar
+Exec=trickster-settings
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=trickster;bar;settings;wayland;

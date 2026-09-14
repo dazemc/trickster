@@ -115,5 +115,273 @@
   "trayItemHint": "激活该项目",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."
+  },
+  "settingsTitle": "Trickster 设置",
+  "@settingsTitle": {
+    "description": "Window title and heading of the settings application."
+  },
+  "settingsCaption": "配置状态栏：外观、模块、显示器与选项。",
+  "@settingsCaption": {
+    "description": "Subtitle under the settings heading."
+  },
+  "settingsPlaceholder": "设置页面将在后续步骤中加入。",
+  "@settingsPlaceholder": {
+    "description": "Placeholder body while the settings pages are being built."
+  },
+  "settingsClose": "关闭设置",
+  "@settingsClose": {
+    "description": "Accessible label for the settings close button."
+  },
+  "settingsLoading": "正在加载配置…",
+  "@settingsLoading": {
+    "description": "Shown while the settings document loads."
+  },
+  "settingsAppearanceTitle": "外观",
+  "@settingsAppearanceTitle": {
+    "description": "Title of the appearance settings page."
+  },
+  "settingsAppearanceCaption": "状态栏使用的强调色。",
+  "@settingsAppearanceCaption": {
+    "description": "Caption under the appearance page title."
+  },
+  "settingsAccentPresets": "预设",
+  "@settingsAccentPresets": {
+    "description": "Accessible label for the accent preset swatches."
+  },
+  "settingsAccentReset": "重置",
+  "@settingsAccentReset": {
+    "description": "Button that clears the custom accent."
+  },
+  "settingsColorWheelSemanticsLabel": "强调色",
+  "@settingsColorWheelSemanticsLabel": {
+    "description": "Accessible label for the accent color wheel."
+  },
+  "settingsColorWheelNextHue": "下一个色相",
+  "@settingsColorWheelNextHue": {
+    "description": "Screen-reader value after increasing hue on the color wheel."
+  },
+  "settingsColorWheelPreviousHue": "上一个色相",
+  "@settingsColorWheelPreviousHue": {
+    "description": "Screen-reader value after decreasing hue on the color wheel."
+  },
+  "settingsModulesTitle": "模块",
+  "@settingsModulesTitle": {
+    "description": "Title of the modules settings page."
+  },
+  "settingsModulesCaption": "选择状态栏显示的组件及其顺序。",
+  "@settingsModulesCaption": {
+    "description": "Caption under the modules page title."
+  },
+  "settingsModuleToggleHint": "切换该模块",
+  "@settingsModuleToggleHint": {
+    "description": "Accessible hint for a module toggle."
+  },
+  "settingsModuleMoveUp": "前移",
+  "@settingsModuleMoveUp": {
+    "description": "Accessible label for moving a module earlier in the strip."
+  },
+  "settingsModuleMoveDown": "后移",
+  "@settingsModuleMoveDown": {
+    "description": "Accessible label for moving a module later in the strip."
+  },
+  "moduleWorkspaces": "工作区",
+  "@moduleWorkspaces": {
+    "description": "Display name of the workspaces module."
+  },
+  "moduleTray": "系统托盘",
+  "@moduleTray": {
+    "description": "Display name of the tray module."
+  },
+  "moduleMedia": "媒体",
+  "@moduleMedia": {
+    "description": "Display name of the media module."
+  },
+  "moduleCpu": "CPU",
+  "@moduleCpu": {
+    "description": "Display name of the CPU module."
+  },
+  "moduleGpu": "GPU",
+  "@moduleGpu": {
+    "description": "Display name of the GPU module."
+  },
+  "moduleBattery": "电池",
+  "@moduleBattery": {
+    "description": "Display name of the battery module."
+  },
+  "moduleClock": "时钟",
+  "@moduleClock": {
+    "description": "Display name of the clock module."
+  },
+  "settingsDisplaysTitle": "显示器",
+  "@settingsDisplaysTitle": {
+    "description": "Title of the displays settings page."
+  },
+  "settingsDisplaysCaption": "状态栏所在边缘与厚度。",
+  "@settingsDisplaysCaption": {
+    "description": "Caption under the displays page title."
+  },
+  "settingsSideLabel": "边缘",
+  "@settingsSideLabel": {
+    "description": "Label above the bar edge choices."
+  },
+  "settingsSideTop": "顶部",
+  "@settingsSideTop": {
+    "description": "Bar edge choice: top."
+  },
+  "settingsSideBottom": "底部",
+  "@settingsSideBottom": {
+    "description": "Bar edge choice: bottom."
+  },
+  "settingsSideLeft": "左侧",
+  "@settingsSideLeft": {
+    "description": "Bar edge choice: left."
+  },
+  "settingsSideRight": "右侧",
+  "@settingsSideRight": {
+    "description": "Bar edge choice: right."
+  },
+  "settingsSideHidden": "隐藏",
+  "@settingsSideHidden": {
+    "description": "Bar edge choice: hidden."
+  },
+  "settingsThicknessLabel": "厚度",
+  "@settingsThicknessLabel": {
+    "description": "Label for the bar thickness slider."
+  },
+  "settingsOutputsLabel": "输出",
+  "@settingsOutputsLabel": {
+    "description": "Label above the output selection list."
+  },
+  "settingsOutputAll": "所有输出",
+  "@settingsOutputAll": {
+    "description": "Shown when the bar renders on every output."
+  },
+  "settingsOutputToggleHint": "在此输出上显示状态栏",
+  "@settingsOutputToggleHint": {
+    "description": "Accessible hint for an output toggle."
+  },
+  "settingsOutputsUnavailable": "宿主未报告任何输出。",
+  "@settingsOutputsUnavailable": {
+    "description": "Shown when the host lists no outputs."
+  },
+  "settingsOptionsTitle": "模块选项",
+  "@settingsOptionsTitle": {
+    "description": "Title of the module options settings page."
+  },
+  "settingsOptionsCaption": "调整各组件的具体数值。",
+  "@settingsOptionsCaption": {
+    "description": "Caption under the module options page title."
+  },
+  "settingsWorkspacesSection": "工作区",
+  "@settingsWorkspacesSection": {
+    "description": "Section heading for workspace rail options."
+  },
+  "settingsWorkspacesShowEmpty": "显示空闲工作区",
+  "@settingsWorkspacesShowEmpty": {
+    "description": "Toggle for keeping empty workspaces in the rail."
+  },
+  "settingsWorkspacesMax": "最大工作区数",
+  "@settingsWorkspacesMax": {
+    "description": "Label for the workspace count slider."
+  },
+  "settingsClockSection": "时钟",
+  "@settingsClockSection": {
+    "description": "Section heading for clock options."
+  },
+  "settingsClockFormat": "格式",
+  "@settingsClockFormat": {
+    "description": "Label above the clock format choices."
+  },
+  "settingsClockFormatLocale": "跟随区域设置",
+  "@settingsClockFormatLocale": {
+    "description": "Clock format choice: follow the locale."
+  },
+  "settingsClockFormat24": "24 小时制",
+  "@settingsClockFormat24": {
+    "description": "Clock format choice: 24-hour."
+  },
+  "settingsClockFormat12": "12 小时制",
+  "@settingsClockFormat12": {
+    "description": "Clock format choice: 12-hour."
+  },
+  "settingsCpuSection": "CPU 阈值",
+  "@settingsCpuSection": {
+    "description": "Section heading for CPU threshold options."
+  },
+  "settingsBatterySection": "电池阈值",
+  "@settingsBatterySection": {
+    "description": "Section heading for battery threshold options."
+  },
+  "settingsWarnLabel": "警告",
+  "@settingsWarnLabel": {
+    "description": "Label for the warning threshold slider."
+  },
+  "settingsCriticalLabel": "严重",
+  "@settingsCriticalLabel": {
+    "description": "Label for the critical threshold slider."
+  },
+  "settingsMeterSection": "仪表标签",
+  "@settingsMeterSection": {
+    "description": "Section heading for meter caption options."
+  },
+  "settingsMeterCaption": "标签来源",
+  "@settingsMeterCaption": {
+    "description": "Label above the meter caption choices."
+  },
+  "settingsMeterCaptionGeneric": "通用",
+  "@settingsMeterCaptionGeneric": {
+    "description": "Meter caption choice: generic CPU/GPU tags."
+  },
+  "settingsMeterCaptionDevice": "设备名称",
+  "@settingsMeterCaptionDevice": {
+    "description": "Meter caption choice: queried device names."
+  },
+  "settingsLanguageTitle": "语言",
+  "@settingsLanguageTitle": {
+    "description": "Title of the language settings page."
+  },
+  "settingsLanguageCaption": "状态栏与设置窗口使用的语言。",
+  "@settingsLanguageCaption": {
+    "description": "Caption under the language page title."
+  },
+  "settingsLanguageSystem": "跟随系统",
+  "@settingsLanguageSystem": {
+    "description": "Language choice: follow the system locale."
+  },
+  "settingsLanguageEnglish": "English",
+  "@settingsLanguageEnglish": {
+    "description": "Language choice: English."
+  },
+  "settingsLanguageChinese": "中文",
+  "@settingsLanguageChinese": {
+    "description": "Language choice: Chinese."
+  },
+  "settingsAboutTitle": "关于",
+  "@settingsAboutTitle": {
+    "description": "Title of the about settings page."
+  },
+  "settingsAboutCaption": "版本与项目链接。",
+  "@settingsAboutCaption": {
+    "description": "Caption under the about page title."
+  },
+  "settingsAboutVersion": "Trickster",
+  "@settingsAboutVersion": {
+    "description": "Label for the running binary version."
+  },
+  "settingsAboutProtocol": "控制协议",
+  "@settingsAboutProtocol": {
+    "description": "Label for the control protocol version."
+  },
+  "settingsAboutBar": "运行中的状态栏",
+  "@settingsAboutBar": {
+    "description": "Label for the running bar version."
+  },
+  "settingsAboutNotRunning": "未运行",
+  "@settingsAboutNotRunning": {
+    "description": "Shown when no bar answers the version query."
+  },
+  "settingsAboutRepository": "代码仓库",
+  "@settingsAboutRepository": {
+    "description": "Label for the project repository link."
   }
 }

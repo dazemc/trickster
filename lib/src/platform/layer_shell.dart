@@ -22,6 +22,11 @@ class LayerShell {
     return supported ?? false;
   }
 
+  /// Closes the settings window and ends the settings process.
+  Future<void> closeSettingsWindow() {
+    return _channel.invokeMethod<void>('settingsClose');
+  }
+
   /// Enables or disables the background blur on one strip surface. Only
   /// meaningful when [blurSupported] is true.
   Future<void> setBlur({required int viewId, required bool enabled}) {

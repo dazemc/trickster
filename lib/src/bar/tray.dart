@@ -12,7 +12,7 @@ import '../locale.dart';
 import '../services/status_notifier.dart';
 import '../state/tray_bloc.dart';
 import '../state/tray_menu.dart';
-import '../state/tray_tooltip.dart';
+import '../state/overlay_tooltip.dart';
 import '../theme/accent.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
@@ -24,6 +24,7 @@ class TrayPill extends StatelessWidget {
     required this.onActivate,
     this.side = SystemBarSide.top,
     this.thickness = 32,
+    this.vertical = false,
     super.key,
   });
 
@@ -37,16 +38,20 @@ class TrayPill extends StatelessWidget {
   /// Cross-axis size of the strip band, used to keep menus off the bar.
   final double thickness;
 
+  /// Side strips stack their items instead of laying them in a row.
+  final bool vertical;
+
   @override
   Widget build(BuildContext context) {
     return SystemBarCard(
       accent: accent,
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(
+      child: Flex(
+        direction: vertical ? Axis.vertical : Axis.horizontal,
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(width: 2),
+            if (i > 0) SizedBox(width: vertical ? 0 : 2, height: 2),
             TrayItemButton(
               key: ValueKey<String>('tray-item-${items[i].id}'),
               accent: accent,
@@ -92,13 +97,13 @@ class TrayItemButton extends StatefulWidget {
 class _TrayItemButtonState extends State<TrayItemButton> {
   Offset? _primaryPosition;
   var _focused = false;
-  TrayTooltipController? _tooltip;
+  OverlayTooltipController? _tooltip;
   Timer? _tooltipTimer;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tooltip = TrayTooltipScope.maybeOf(context);
+    _tooltip = OverlayTooltipScope.maybeOf(context);
   }
 
   @override

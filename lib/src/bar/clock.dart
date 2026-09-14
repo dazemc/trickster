@@ -9,24 +9,34 @@ import '../theme/accent.dart';
 import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'pill.dart';
+import 'pill_tooltip.dart';
 
 class ClockPill extends StatelessWidget {
   const ClockPill({
     required this.accent,
     this.format = ClockFormat.locale,
+    this.vertical = false,
     super.key,
   });
 
   final WallpaperAccent accent;
   final ClockFormat format;
 
+  /// Vertical strips drop the date caption and show only the time.
+  final bool vertical;
+
   @override
   Widget build(BuildContext context) {
     return SystemBarCard(
       accent: accent,
+      padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
       child: BlocBuilder<ClockBloc, ClockState>(
-        builder: (context, state) =>
-            _ClockRow(accent: accent, now: state.now, format: format),
+        builder: (context, state) => _ClockRow(
+          accent: accent,
+          now: state.now,
+          format: format,
+          vertical: vertical,
+        ),
       ),
     );
   }
@@ -37,51 +47,62 @@ class _ClockRow extends StatelessWidget {
     required this.accent,
     required this.now,
     required this.format,
+    required this.vertical,
   });
 
   final WallpaperAccent accent;
   final DateTime now;
   final ClockFormat format;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
     final time = _formatTime(context, now);
     final date = _formatDate(context, now);
-    return Semantics(
-      label: context.l10n.clockTitle,
-      value: '$date, $time',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              date,
-              style: ShellText.systemBarCaption.copyWith(
-                color: accent.captionColor(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            AnimatedSwitcher(
-              duration: Motion.cardSettle,
-              switchInCurve: Motion.standard,
-              switchOutCurve: Motion.standard,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.25),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
+    return PillTooltip(
+      accent: accent,
+      label: '$date $time',
+      child: Semantics(
+        label: context.l10n.clockTitle,
+        value: '$date, $time',
+        child: ExcludeSemantics(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!vertical) ...[
+                Text(
+                  date,
+                  style: ShellText.systemBarCaption.copyWith(
+                    color: accent.captionColor(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              AnimatedSwitcher(
+                duration: Motion.cardSettle,
+                switchInCurve: Motion.standard,
+                switchOutCurve: Motion.standard,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.25),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: Text(
+                  time,
+                  key: ValueKey<String>(time),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: ShellText.systemBarValue,
                 ),
               ),
-              child: Text(
-                time,
-                key: ValueKey<String>(time),
-                style: ShellText.systemBarValue,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -247,6 +247,408 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Activates the item'**
   String get trayItemHint;
+
+  /// Window title and heading of the settings application.
+  ///
+  /// In en, this message translates to:
+  /// **'Trickster Settings'**
+  String get settingsTitle;
+
+  /// Subtitle under the settings heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure the bar: appearance, modules, displays, and options.'**
+  String get settingsCaption;
+
+  /// Placeholder body while the settings pages are being built.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings pages arrive in the following steps.'**
+  String get settingsPlaceholder;
+
+  /// Accessible label for the settings close button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close settings'**
+  String get settingsClose;
+
+  /// Shown while the settings document loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading configuration…'**
+  String get settingsLoading;
+
+  /// Title of the appearance settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearanceTitle;
+
+  /// Caption under the appearance page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent used across the bar.'**
+  String get settingsAppearanceCaption;
+
+  /// Accessible label for the accent preset swatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get settingsAccentPresets;
+
+  /// Button that clears the custom accent.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get settingsAccentReset;
+
+  /// Accessible label for the accent color wheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get settingsColorWheelSemanticsLabel;
+
+  /// Screen-reader value after increasing hue on the color wheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Next hue'**
+  String get settingsColorWheelNextHue;
+
+  /// Screen-reader value after decreasing hue on the color wheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous hue'**
+  String get settingsColorWheelPreviousHue;
+
+  /// Title of the modules settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Modules'**
+  String get settingsModulesTitle;
+
+  /// Caption under the modules page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which pills the bar shows and in what order.'**
+  String get settingsModulesCaption;
+
+  /// Accessible hint for a module toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggles the module'**
+  String get settingsModuleToggleHint;
+
+  /// Accessible label for moving a module earlier in the strip.
+  ///
+  /// In en, this message translates to:
+  /// **'Move earlier'**
+  String get settingsModuleMoveUp;
+
+  /// Accessible label for moving a module later in the strip.
+  ///
+  /// In en, this message translates to:
+  /// **'Move later'**
+  String get settingsModuleMoveDown;
+
+  /// Display name of the workspaces module.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspaces'**
+  String get moduleWorkspaces;
+
+  /// Display name of the tray module.
+  ///
+  /// In en, this message translates to:
+  /// **'System tray'**
+  String get moduleTray;
+
+  /// Display name of the media module.
+  ///
+  /// In en, this message translates to:
+  /// **'Media'**
+  String get moduleMedia;
+
+  /// Display name of the CPU module.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU'**
+  String get moduleCpu;
+
+  /// Display name of the GPU module.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU'**
+  String get moduleGpu;
+
+  /// Display name of the battery module.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery'**
+  String get moduleBattery;
+
+  /// Display name of the clock module.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get moduleClock;
+
+  /// Title of the displays settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Displays'**
+  String get settingsDisplaysTitle;
+
+  /// Caption under the displays page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Where the bar sits and how thick it is.'**
+  String get settingsDisplaysCaption;
+
+  /// Label above the bar edge choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge'**
+  String get settingsSideLabel;
+
+  /// Bar edge choice: top.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get settingsSideTop;
+
+  /// Bar edge choice: bottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get settingsSideBottom;
+
+  /// Bar edge choice: left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get settingsSideLeft;
+
+  /// Bar edge choice: right.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get settingsSideRight;
+
+  /// Bar edge choice: hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden'**
+  String get settingsSideHidden;
+
+  /// Label for the bar thickness slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Thickness'**
+  String get settingsThicknessLabel;
+
+  /// Label above the output selection list.
+  ///
+  /// In en, this message translates to:
+  /// **'Outputs'**
+  String get settingsOutputsLabel;
+
+  /// Shown when the bar renders on every output.
+  ///
+  /// In en, this message translates to:
+  /// **'All outputs'**
+  String get settingsOutputAll;
+
+  /// Accessible hint for an output toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the bar on this output'**
+  String get settingsOutputToggleHint;
+
+  /// Shown when the host lists no outputs.
+  ///
+  /// In en, this message translates to:
+  /// **'No outputs reported by the host.'**
+  String get settingsOutputsUnavailable;
+
+  /// Title of the module options settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Module options'**
+  String get settingsOptionsTitle;
+
+  /// Caption under the module options page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Tune the values each pill uses.'**
+  String get settingsOptionsCaption;
+
+  /// Section heading for workspace rail options.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspaces'**
+  String get settingsWorkspacesSection;
+
+  /// Toggle for keeping empty workspaces in the rail.
+  ///
+  /// In en, this message translates to:
+  /// **'Show empty workspaces'**
+  String get settingsWorkspacesShowEmpty;
+
+  /// Label for the workspace count slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum workspaces'**
+  String get settingsWorkspacesMax;
+
+  /// Section heading for clock options.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get settingsClockSection;
+
+  /// Label above the clock format choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get settingsClockFormat;
+
+  /// Clock format choice: follow the locale.
+  ///
+  /// In en, this message translates to:
+  /// **'Locale default'**
+  String get settingsClockFormatLocale;
+
+  /// Clock format choice: 24-hour.
+  ///
+  /// In en, this message translates to:
+  /// **'24-hour'**
+  String get settingsClockFormat24;
+
+  /// Clock format choice: 12-hour.
+  ///
+  /// In en, this message translates to:
+  /// **'12-hour'**
+  String get settingsClockFormat12;
+
+  /// Section heading for CPU threshold options.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU thresholds'**
+  String get settingsCpuSection;
+
+  /// Section heading for battery threshold options.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery thresholds'**
+  String get settingsBatterySection;
+
+  /// Label for the warning threshold slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Warn'**
+  String get settingsWarnLabel;
+
+  /// Label for the critical threshold slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical'**
+  String get settingsCriticalLabel;
+
+  /// Section heading for meter caption options.
+  ///
+  /// In en, this message translates to:
+  /// **'Meter captions'**
+  String get settingsMeterSection;
+
+  /// Label above the meter caption choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Caption source'**
+  String get settingsMeterCaption;
+
+  /// Meter caption choice: generic CPU/GPU tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Generic'**
+  String get settingsMeterCaptionGeneric;
+
+  /// Meter caption choice: queried device names.
+  ///
+  /// In en, this message translates to:
+  /// **'Device name'**
+  String get settingsMeterCaptionDevice;
+
+  /// Title of the language settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguageTitle;
+
+  /// Caption under the language page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Language for the bar and this window.'**
+  String get settingsLanguageCaption;
+
+  /// Language choice: follow the system locale.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsLanguageSystem;
+
+  /// Language choice: English.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEnglish;
+
+  /// Language choice: Chinese.
+  ///
+  /// In en, this message translates to:
+  /// **'中文'**
+  String get settingsLanguageChinese;
+
+  /// Title of the about settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAboutTitle;
+
+  /// Caption under the about page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Versions and project links.'**
+  String get settingsAboutCaption;
+
+  /// Label for the running binary version.
+  ///
+  /// In en, this message translates to:
+  /// **'Trickster'**
+  String get settingsAboutVersion;
+
+  /// Label for the control protocol version.
+  ///
+  /// In en, this message translates to:
+  /// **'Control protocol'**
+  String get settingsAboutProtocol;
+
+  /// Label for the running bar version.
+  ///
+  /// In en, this message translates to:
+  /// **'Running bar'**
+  String get settingsAboutBar;
+
+  /// Shown when no bar answers the version query.
+  ///
+  /// In en, this message translates to:
+  /// **'Not running'**
+  String get settingsAboutNotRunning;
+
+  /// Label for the project repository link.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository'**
+  String get settingsAboutRepository;
 }
 
 class _AppLocalizationsDelegate

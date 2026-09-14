@@ -55,6 +55,23 @@ void main() {
     expect(find.text('AMD Ryzen 9 5950X'), findsNothing);
   });
 
+  testWidgets('vertical shows the caption and percent', (tester) async {
+    await tester.pumpWidget(
+      const TricksterLocalizationScope(
+        child: Center(
+          child: CpuPill(
+            accent: _accent,
+            sample: CpuSample(0.42),
+            vertical: true,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('42%'), findsOneWidget);
+    expect(find.text('CPU'), findsOneWidget);
+    expect(find.byKey(LoadMeter.sparklineKey), findsOneWidget);
+  });
+
   testWidgets('device captions and thresholds follow the options', (
     tester,
   ) async {

@@ -115,5 +115,273 @@
   "trayItemHint": "Activates the item",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."
+  },
+  "settingsTitle": "Trickster Settings",
+  "@settingsTitle": {
+    "description": "Window title and heading of the settings application."
+  },
+  "settingsCaption": "Configure the bar: appearance, modules, displays, and options.",
+  "@settingsCaption": {
+    "description": "Subtitle under the settings heading."
+  },
+  "settingsPlaceholder": "Settings pages arrive in the following steps.",
+  "@settingsPlaceholder": {
+    "description": "Placeholder body while the settings pages are being built."
+  },
+  "settingsClose": "Close settings",
+  "@settingsClose": {
+    "description": "Accessible label for the settings close button."
+  },
+  "settingsLoading": "Loading configuration…",
+  "@settingsLoading": {
+    "description": "Shown while the settings document loads."
+  },
+  "settingsAppearanceTitle": "Appearance",
+  "@settingsAppearanceTitle": {
+    "description": "Title of the appearance settings page."
+  },
+  "settingsAppearanceCaption": "Accent used across the bar.",
+  "@settingsAppearanceCaption": {
+    "description": "Caption under the appearance page title."
+  },
+  "settingsAccentPresets": "Presets",
+  "@settingsAccentPresets": {
+    "description": "Accessible label for the accent preset swatches."
+  },
+  "settingsAccentReset": "Reset",
+  "@settingsAccentReset": {
+    "description": "Button that clears the custom accent."
+  },
+  "settingsColorWheelSemanticsLabel": "Accent color",
+  "@settingsColorWheelSemanticsLabel": {
+    "description": "Accessible label for the accent color wheel."
+  },
+  "settingsColorWheelNextHue": "Next hue",
+  "@settingsColorWheelNextHue": {
+    "description": "Screen-reader value after increasing hue on the color wheel."
+  },
+  "settingsColorWheelPreviousHue": "Previous hue",
+  "@settingsColorWheelPreviousHue": {
+    "description": "Screen-reader value after decreasing hue on the color wheel."
+  },
+  "settingsModulesTitle": "Modules",
+  "@settingsModulesTitle": {
+    "description": "Title of the modules settings page."
+  },
+  "settingsModulesCaption": "Choose which pills the bar shows and in what order.",
+  "@settingsModulesCaption": {
+    "description": "Caption under the modules page title."
+  },
+  "settingsModuleToggleHint": "Toggles the module",
+  "@settingsModuleToggleHint": {
+    "description": "Accessible hint for a module toggle."
+  },
+  "settingsModuleMoveUp": "Move earlier",
+  "@settingsModuleMoveUp": {
+    "description": "Accessible label for moving a module earlier in the strip."
+  },
+  "settingsModuleMoveDown": "Move later",
+  "@settingsModuleMoveDown": {
+    "description": "Accessible label for moving a module later in the strip."
+  },
+  "moduleWorkspaces": "Workspaces",
+  "@moduleWorkspaces": {
+    "description": "Display name of the workspaces module."
+  },
+  "moduleTray": "System tray",
+  "@moduleTray": {
+    "description": "Display name of the tray module."
+  },
+  "moduleMedia": "Media",
+  "@moduleMedia": {
+    "description": "Display name of the media module."
+  },
+  "moduleCpu": "CPU",
+  "@moduleCpu": {
+    "description": "Display name of the CPU module."
+  },
+  "moduleGpu": "GPU",
+  "@moduleGpu": {
+    "description": "Display name of the GPU module."
+  },
+  "moduleBattery": "Battery",
+  "@moduleBattery": {
+    "description": "Display name of the battery module."
+  },
+  "moduleClock": "Clock",
+  "@moduleClock": {
+    "description": "Display name of the clock module."
+  },
+  "settingsDisplaysTitle": "Displays",
+  "@settingsDisplaysTitle": {
+    "description": "Title of the displays settings page."
+  },
+  "settingsDisplaysCaption": "Where the bar sits and how thick it is.",
+  "@settingsDisplaysCaption": {
+    "description": "Caption under the displays page title."
+  },
+  "settingsSideLabel": "Edge",
+  "@settingsSideLabel": {
+    "description": "Label above the bar edge choices."
+  },
+  "settingsSideTop": "Top",
+  "@settingsSideTop": {
+    "description": "Bar edge choice: top."
+  },
+  "settingsSideBottom": "Bottom",
+  "@settingsSideBottom": {
+    "description": "Bar edge choice: bottom."
+  },
+  "settingsSideLeft": "Left",
+  "@settingsSideLeft": {
+    "description": "Bar edge choice: left."
+  },
+  "settingsSideRight": "Right",
+  "@settingsSideRight": {
+    "description": "Bar edge choice: right."
+  },
+  "settingsSideHidden": "Hidden",
+  "@settingsSideHidden": {
+    "description": "Bar edge choice: hidden."
+  },
+  "settingsThicknessLabel": "Thickness",
+  "@settingsThicknessLabel": {
+    "description": "Label for the bar thickness slider."
+  },
+  "settingsOutputsLabel": "Outputs",
+  "@settingsOutputsLabel": {
+    "description": "Label above the output selection list."
+  },
+  "settingsOutputAll": "All outputs",
+  "@settingsOutputAll": {
+    "description": "Shown when the bar renders on every output."
+  },
+  "settingsOutputToggleHint": "Shows the bar on this output",
+  "@settingsOutputToggleHint": {
+    "description": "Accessible hint for an output toggle."
+  },
+  "settingsOutputsUnavailable": "No outputs reported by the host.",
+  "@settingsOutputsUnavailable": {
+    "description": "Shown when the host lists no outputs."
+  },
+  "settingsOptionsTitle": "Module options",
+  "@settingsOptionsTitle": {
+    "description": "Title of the module options settings page."
+  },
+  "settingsOptionsCaption": "Tune the values each pill uses.",
+  "@settingsOptionsCaption": {
+    "description": "Caption under the module options page title."
+  },
+  "settingsWorkspacesSection": "Workspaces",
+  "@settingsWorkspacesSection": {
+    "description": "Section heading for workspace rail options."
+  },
+  "settingsWorkspacesShowEmpty": "Show empty workspaces",
+  "@settingsWorkspacesShowEmpty": {
+    "description": "Toggle for keeping empty workspaces in the rail."
+  },
+  "settingsWorkspacesMax": "Maximum workspaces",
+  "@settingsWorkspacesMax": {
+    "description": "Label for the workspace count slider."
+  },
+  "settingsClockSection": "Clock",
+  "@settingsClockSection": {
+    "description": "Section heading for clock options."
+  },
+  "settingsClockFormat": "Format",
+  "@settingsClockFormat": {
+    "description": "Label above the clock format choices."
+  },
+  "settingsClockFormatLocale": "Locale default",
+  "@settingsClockFormatLocale": {
+    "description": "Clock format choice: follow the locale."
+  },
+  "settingsClockFormat24": "24-hour",
+  "@settingsClockFormat24": {
+    "description": "Clock format choice: 24-hour."
+  },
+  "settingsClockFormat12": "12-hour",
+  "@settingsClockFormat12": {
+    "description": "Clock format choice: 12-hour."
+  },
+  "settingsCpuSection": "CPU thresholds",
+  "@settingsCpuSection": {
+    "description": "Section heading for CPU threshold options."
+  },
+  "settingsBatterySection": "Battery thresholds",
+  "@settingsBatterySection": {
+    "description": "Section heading for battery threshold options."
+  },
+  "settingsWarnLabel": "Warn",
+  "@settingsWarnLabel": {
+    "description": "Label for the warning threshold slider."
+  },
+  "settingsCriticalLabel": "Critical",
+  "@settingsCriticalLabel": {
+    "description": "Label for the critical threshold slider."
+  },
+  "settingsMeterSection": "Meter captions",
+  "@settingsMeterSection": {
+    "description": "Section heading for meter caption options."
+  },
+  "settingsMeterCaption": "Caption source",
+  "@settingsMeterCaption": {
+    "description": "Label above the meter caption choices."
+  },
+  "settingsMeterCaptionGeneric": "Generic",
+  "@settingsMeterCaptionGeneric": {
+    "description": "Meter caption choice: generic CPU/GPU tags."
+  },
+  "settingsMeterCaptionDevice": "Device name",
+  "@settingsMeterCaptionDevice": {
+    "description": "Meter caption choice: queried device names."
+  },
+  "settingsLanguageTitle": "Language",
+  "@settingsLanguageTitle": {
+    "description": "Title of the language settings page."
+  },
+  "settingsLanguageCaption": "Language for the bar and this window.",
+  "@settingsLanguageCaption": {
+    "description": "Caption under the language page title."
+  },
+  "settingsLanguageSystem": "System",
+  "@settingsLanguageSystem": {
+    "description": "Language choice: follow the system locale."
+  },
+  "settingsLanguageEnglish": "English",
+  "@settingsLanguageEnglish": {
+    "description": "Language choice: English."
+  },
+  "settingsLanguageChinese": "中文",
+  "@settingsLanguageChinese": {
+    "description": "Language choice: Chinese."
+  },
+  "settingsAboutTitle": "About",
+  "@settingsAboutTitle": {
+    "description": "Title of the about settings page."
+  },
+  "settingsAboutCaption": "Versions and project links.",
+  "@settingsAboutCaption": {
+    "description": "Caption under the about page title."
+  },
+  "settingsAboutVersion": "Trickster",
+  "@settingsAboutVersion": {
+    "description": "Label for the running binary version."
+  },
+  "settingsAboutProtocol": "Control protocol",
+  "@settingsAboutProtocol": {
+    "description": "Label for the control protocol version."
+  },
+  "settingsAboutBar": "Running bar",
+  "@settingsAboutBar": {
+    "description": "Label for the running bar version."
+  },
+  "settingsAboutNotRunning": "Not running",
+  "@settingsAboutNotRunning": {
+    "description": "Shown when no bar answers the version query."
+  },
+  "settingsAboutRepository": "Repository",
+  "@settingsAboutRepository": {
+    "description": "Label for the project repository link."
   }
 }

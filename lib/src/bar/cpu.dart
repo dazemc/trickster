@@ -6,6 +6,7 @@ import '../services/cpu.dart';
 import '../theme/tokens.dart';
 import '../theme/accent.dart';
 import 'meter.dart';
+import 'pill_tooltip.dart';
 import 'pill.dart';
 
 class CpuPill extends StatelessWidget {
@@ -15,6 +16,7 @@ class CpuPill extends StatelessWidget {
     this.warn = 0.85,
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.vertical = false,
     super.key,
   });
 
@@ -23,6 +25,7 @@ class CpuPill extends StatelessWidget {
   final double warn;
   final double critical;
   final MeterCaptionSource captionSource;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -41,15 +44,21 @@ class CpuPill extends StatelessWidget {
             name.isNotEmpty
         ? name
         : context.l10n.metricCpu;
-    return SystemBarCard(
+    return PillTooltip(
       accent: accent,
-      child: LoadMeter(
+      label: '$label ${((current ?? 0.0) * 100).round()}%',
+      child: SystemBarCard(
         accent: accent,
-        label: label,
-        current: current,
-        history: sample.history,
-        capacity: CpuSample.capacity,
-        valueColor: valueColor,
+        padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),
+        child: LoadMeter(
+          accent: accent,
+          label: label,
+          current: current,
+          history: sample.history,
+          capacity: CpuSample.capacity,
+          valueColor: valueColor,
+          vertical: vertical,
+        ),
       ),
     );
   }
