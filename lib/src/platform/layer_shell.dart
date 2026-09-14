@@ -27,12 +27,24 @@ class LayerShell {
     return _channel.invokeMethod<void>('settingsClose');
   }
 
-  /// Enables or disables the background blur on one strip surface. Only
-  /// meaningful when [blurSupported] is true.
-  Future<void> setBlur({required int viewId, required bool enabled}) {
+  /// Sets the background blur region of one strip surface to the pill
+  /// rectangles; an empty list removes the effect. Only meaningful when
+  /// [blurSupported] is true.
+  Future<void> setBlurRegions({
+    required int viewId,
+    required List<Rect> regions,
+  }) {
     return _channel.invokeMethod<void>('setBlur', {
       'viewId': viewId,
-      'enabled': enabled,
+      'regions': [
+        for (final rect in regions)
+          {
+            'x': rect.left,
+            'y': rect.top,
+            'width': rect.width,
+            'height': rect.height,
+          },
+      ],
     });
   }
 

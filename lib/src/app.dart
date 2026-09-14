@@ -1,17 +1,19 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show FlutterView;
+import 'dart:ui' show FlutterView, Rect;
 
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/bar/bar.dart';
+import 'package:trickster/src/bar/blur_region.dart';
 import 'package:trickster/src/bar/overlay_tooltip.dart';
 import 'package:trickster/src/bar/tray_menu.dart';
 import 'package:trickster/src/bootstrap.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/session.dart';
-import 'package:trickster/src/config/settings.dart' show AccentSource, BarSettings;
+import 'package:trickster/src/config/settings.dart'
+    show AccentSource, BarSettings;
 import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/config/watcher.dart';
 import 'package:trickster/src/control/control_handler.dart';
@@ -338,31 +340,52 @@ class _ViewSurface extends StatefulWidget {
 }
 
 class _ViewSurfaceState extends State<_ViewSurface> {
+  BlurRegionController? _blurRegions;
+
   @override
   void initState() {
     super.initState();
-    _applyBlur();
+    _syncBlur();
   }
 
   @override
   void didUpdateWidget(covariant _ViewSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.blur != widget.blur) {
-      _applyBlur();
+      _syncBlur();
     }
   }
 
-  void _applyBlur() {
+  void _syncBlur() {
     // Backdrop blur belongs to the strip only: overlay surfaces composite
     // their own glass and an effect on a hidden overlay black-screens it.
     if (widget.menu.isMenuView(widget.view.viewId) ||
         widget.tooltip.isTooltipView(widget.view.viewId)) {
       return;
     }
+    if (widget.blur) {
+      _blurRegions ??= BlurRegionController(
+        onRegions: (regions) => unawaited(
+          widget.layerShell.setBlurRegions(
+            viewId: widget.view.viewId,
+            regions: regions,
+          ),
+        ),
+      );
+      _blurRegions!.resend();
+      _entry.markNeedsBuild();
+      return;
+    }
+    if (_blurRegions == null) {
+      return;
+    }
+    _blurRegions!.dispose();
+    _blurRegions = null;
+    _entry.markNeedsBuild();
     unawaited(
-      widget.layerShell.setBlur(
+      widget.layerShell.setBlurRegions(
         viewId: widget.view.viewId,
-        enabled: widget.blur,
+        regions: const <Rect>[],
       ),
     );
   }
@@ -385,7 +408,10 @@ class _ViewSurfaceState extends State<_ViewSurface> {
           }
           return OverlayTooltipSurface(session: session);
         }
-        return _BarSurface(output: widget.output);
+        return BlurRegionScope(
+          controller: _blurRegions,
+          child: _BarSurface(output: widget.output),
+        );
       },
     ),
   );
@@ -419,6 +445,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
 
   @override
   void dispose() {
+    _blurRegions?.dispose();
     _entry.dispose();
     super.dispose();
   }
@@ -435,11 +462,21 @@ class _BarSurface extends StatelessWidget {
     final blur = context.select((CapabilitiesBloc bloc) => bloc.state.blur);
     return BackdropBlur(
       enabled: blur,
-      child: TricksterBarStrip(
-        side: outputs.side,
-        thickness: outputs.thickness,
-        output: output,
-        onOpenPowerSettings: openPowerSettings,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          // A scrolled pill translates a cached layer instead of repainting;
+          // re-query the live rects so its blur follows.
+          if (notification is ScrollUpdateNotification) {
+            BlurRegionScope.maybeOf(context)?.resend();
+          }
+          return false;
+        },
+        child: TricksterBarStrip(
+          side: outputs.side,
+          thickness: outputs.thickness,
+          output: output,
+          onOpenPowerSettings: openPowerSettings,
+        ),
       ),
     );
   }

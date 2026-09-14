@@ -17,6 +17,7 @@ typedef struct {
   gchar* connector;
   struct ext_background_effect_surface_v1* blur;
   gboolean blur_enabled;
+  FlValue* blur_regions;
 } TricksterSurface;
 
 struct _MyApplication {
@@ -47,6 +48,9 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 static void trickster_surface_free(gpointer data) {
   TricksterSurface* surface = (TricksterSurface*)data;
   g_free(surface->connector);
+  if (surface->blur_regions != nullptr) {
+    fl_value_unref(surface->blur_regions);
+  }
   g_free(surface);
 }
 
@@ -227,7 +231,7 @@ static void blur_registry_global_remove(void* data, struct wl_registry* registry
                                         uint32_t name);
 static gboolean trickster_probe_blur(MyApplication* self);
 static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
-                                 gboolean enabled);
+                                 FlValue* regions);
 static TricksterSurface* trickster_surface_new(MyApplication* self,
                                                GdkMonitor* monitor);
 static void trickster_surface_configure(TricksterSurface* surface,
@@ -283,11 +287,52 @@ static gboolean trickster_probe_blur(MyApplication* self) {
   return self->blur_supported;
 }
 
-// Blurs the whole strip surface: the pills are the only opaque content, and
-// the protocol takes axis-aligned rects, so the rounded card shape cannot be
-// a region of its own.
+static gboolean region_rect(FlValue* item, int32_t* x, int32_t* y,
+                            int32_t* width, int32_t* height) {
+  if (item == nullptr || fl_value_get_type(item) != FL_VALUE_TYPE_MAP) {
+    return FALSE;
+  }
+  FlValue* fx = fl_value_lookup_string(item, "x");
+  FlValue* fy = fl_value_lookup_string(item, "y");
+  FlValue* fw = fl_value_lookup_string(item, "width");
+  FlValue* fh = fl_value_lookup_string(item, "height");
+  if (fx == nullptr || fy == nullptr || fw == nullptr || fh == nullptr) {
+    return FALSE;
+  }
+  const FlValueType xt = fl_value_get_type(fx);
+  const FlValueType yt = fl_value_get_type(fy);
+  const FlValueType wt = fl_value_get_type(fw);
+  const FlValueType ht = fl_value_get_type(fh);
+  if ((xt != FL_VALUE_TYPE_INT && xt != FL_VALUE_TYPE_FLOAT) ||
+      (yt != FL_VALUE_TYPE_INT && yt != FL_VALUE_TYPE_FLOAT) ||
+      (wt != FL_VALUE_TYPE_INT && wt != FL_VALUE_TYPE_FLOAT) ||
+      (ht != FL_VALUE_TYPE_INT && ht != FL_VALUE_TYPE_FLOAT)) {
+    return FALSE;
+  }
+  *x = (int32_t)(xt == FL_VALUE_TYPE_INT ? fl_value_get_int(fx)
+                                         : fl_value_get_float(fx));
+  *y = (int32_t)(yt == FL_VALUE_TYPE_INT ? fl_value_get_int(fy)
+                                         : fl_value_get_float(fy));
+  *width = (int32_t)(wt == FL_VALUE_TYPE_INT ? fl_value_get_int(fw)
+                                             : fl_value_get_float(fw));
+  *height = (int32_t)(ht == FL_VALUE_TYPE_INT ? fl_value_get_int(fh)
+                                              : fl_value_get_float(fh));
+  return *width > 0 && *height > 0;
+}
+
+// Blurs exactly the pill rectangles: the protocol takes axis-aligned rects,
+// so each card's bounds becomes a region entry and the gaps stay sharp. The
+// list is cached so a remap (which destroys the wl_surface) can re-apply it.
 static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
-                                 gboolean enabled) {
+                                 FlValue* regions) {
+  if (surface->blur_regions != nullptr) {
+    fl_value_unref(surface->blur_regions);
+  }
+  surface->blur_regions =
+      regions != nullptr ? fl_value_ref(regions) : nullptr;
+  const gboolean enabled =
+      regions != nullptr && fl_value_get_type(regions) == FL_VALUE_TYPE_LIST &&
+      fl_value_get_length(regions) > 0;
   surface->blur_enabled = enabled;
   if (self->blur_manager == nullptr || surface->window == nullptr) {
     return;
@@ -309,6 +354,7 @@ static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
   }
   if (!enabled) {
     ext_background_effect_surface_v1_set_blur_region(surface->blur, nullptr);
+    wl_surface_commit(wl_surface);
     return;
   }
   if (self->compositor == nullptr) {
@@ -318,11 +364,18 @@ static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
   if (region == nullptr) {
     return;
   }
-  GtkAllocation allocation;
-  gtk_widget_get_allocation(GTK_WIDGET(surface->window), &allocation);
-  wl_region_add(region, 0, 0, allocation.width, allocation.height);
+  for (size_t i = 0; i < fl_value_get_length(regions); i++) {
+    int32_t x = 0, y = 0, width = 0, height = 0;
+    if (region_rect(fl_value_get_list_value(regions, i), &x, &y, &width,
+                    &height)) {
+      wl_region_add(region, x, y, width, height);
+    }
+  }
   ext_background_effect_surface_v1_set_blur_region(surface->blur, region);
   wl_region_destroy(region);
+  // The region is double-buffered surface state; commit so it applies even
+  // when no new frame is scheduled.
+  wl_surface_commit(wl_surface);
 }
 
 static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
@@ -459,12 +512,12 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "setBlur") == 0) {
     const gint64 view_id = method_arg_int(method_call, "viewId");
-    gboolean enabled = FALSE;
+    FlValue* regions = nullptr;
     FlValue* args = fl_method_call_get_args(method_call);
     if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
-      FlValue* value = fl_value_lookup_string(args, "enabled");
-      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
-        enabled = fl_value_get_bool(value) ? TRUE : FALSE;
+      FlValue* value = fl_value_lookup_string(args, "regions");
+      if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_LIST) {
+        regions = value;
       }
     }
     trickster_probe_blur(self);
@@ -474,7 +527,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       if (surface->view == nullptr || fl_view_get_id(surface->view) != view_id) {
         continue;
       }
-      trickster_apply_blur(self, surface, enabled);
+      trickster_apply_blur(self, surface, regions);
       break;
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
@@ -544,8 +597,9 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         gtk_widget_show(GTK_WIDGET(surface->window));
         if (surface->blur_enabled) {
           // Unmapping destroys the window's wl_surface, so the effect bound
-          // to it is stale; build a fresh one for the new surface.
-          trickster_apply_blur(self, surface, TRUE);
+          // to it is stale; build a fresh one and re-apply the cached pill
+          // rectangles.
+          trickster_apply_blur(self, surface, surface->blur_regions);
         }
       } else {
         if (surface->blur != nullptr) {

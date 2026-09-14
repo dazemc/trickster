@@ -4,6 +4,7 @@ import 'package:flutter/material.dart'
     show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
 
+import 'package:trickster/src/bar/blur_region.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/backdrop_blur.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -33,22 +34,25 @@ class SystemBarCard extends StatelessWidget {
         ? Color.lerp(accent.cardFill(), accent.color, 0.08)!
         : accent.cardFill();
     final blurred = BackdropBlur.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            topFill.withValues(alpha: blurred ? 0.74 : 0.92),
-            bottomFill.withValues(alpha: blurred ? 0.66 : 0.88),
-          ],
+    final content = Padding(
+      padding: padding,
+      child: Align(child: child),
+    );
+    return BlurRegion(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              topFill.withValues(alpha: blurred ? 0.74 : 0.92),
+              bottomFill.withValues(alpha: blurred ? 0.66 : 0.88),
+            ],
+          ),
+          borderRadius: const BorderRadius.all(Radius.circular(999)),
+          border: focused ? Border.all(color: accent.color, width: 1.5) : null,
         ),
-        borderRadius: const BorderRadius.all(Radius.circular(999)),
-        border: focused ? Border.all(color: accent.color, width: 1.5) : null,
-      ),
-      child: Padding(
-        padding: padding,
-        child: Align(child: child),
+        child: content,
       ),
     );
   }
