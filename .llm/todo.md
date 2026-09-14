@@ -59,10 +59,6 @@ retire. This reverses the chain steps 16.1-16.4; their code unwinds here.
   order and per-display controls; old documents still decode. Done when the
   document round-trips without the section and the live panel carries no
   workspace controls.
-- **16.7 (S) Document compositor-owned placement.** The configuration page
-  and `porting.md` state that placement, persistence, and main-display
-  choice belong to the compositor (Hyprland persistent + monitor rule
-  example). Done when the docs and divergence notes match the derived rail.
 
 ## Phase 17 — workspace pip styles
 
