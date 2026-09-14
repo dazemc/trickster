@@ -29,12 +29,13 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
-- **AUR publishing is paused by the user's call.** `trickster-bin 0.2.0-1`
-  is live on aur.archlinux.org (pushed 2026-09-13) and the published
-  PKGBUILD/.SRCINFO match `packaging/aur/trickster-bin`. Do not push future
-  updates (version bumps, hash refreshes) without an explicit go-ahead, and
-  add the AUR link to `docs_site/content/installation.md` when publishing
-  resumes.
+- **AUR publishing is paused by the user's call, and the published recipe
+  is stale.** aur.archlinux.org/trickster-bin HEAD (`e70aa23`) is titled
+  "Initial import: trickster-bin 0.2.0-1" but its PKGBUILD is the 0.1.0
+  recipe (hash `f1097607…`); the 0.2.0 recipe with hash `875ed281…` sits
+  ready in `packaging/aur/trickster-bin`. AUR users still install 0.1.0.
+  Do not push the correction without an explicit go-ahead, and add the AUR
+  link to `docs_site/content/installation.md` when publishing resumes.
 
 - **Root `flutter analyze` needs `docs_site` dependencies.** The docs site is
   a separate Jaspr project; a fresh clone that only runs the root
