@@ -47,3 +47,29 @@ opaque window while the bar is glass. This phase fills the surface out.
   host blurs behind it, with an opaque fallback when the compositor cannot.
   Done when the live window shows the blurred desktop on Hyprland and the
   fallback stays legible.
+
+## Phase 16 — workspace chain
+
+Denial's rail is a fixed `1..count` on every display. The user wants a main
+display whose workspaces start at 1, each subsequent display appending its
+own block (main 4 → 1-4, next 3 → 5-7), with the display order
+user-configurable. This is bar numbering and click targets only; workspace
+ownership stays with the compositor.
+
+- **16.1 (M) Display order and range model.** Add `workspaces.display_order`
+  (ordered connectors, first is the main display) to the settings document
+  and compute each connected display's range as the cumulative per-display
+  counts: listed connectors first in list order, unlisted connected displays
+  appended in host order. Done when the document round-trips the order and
+  unit tests pin the range math (empty order, custom order, unlisted append,
+  disconnected main).
+- **16.2 (M) Rail shows its assigned range.** The strip renders its output's
+  absolute range (main 4 → 1-4, next 3 → 5-7) in place of the fixed
+  `1..count`; pip presses keep targeting the printed number. Done when the
+  live bars show different absolute ranges and widget tests cover the
+  mapping.
+- **16.3 (M) Chain order controls.** The workspaces gear panel lists the
+  connected displays in chain order with drag handles and a Main badge on
+  the first row, each showing its resulting range; a set-as-main action
+  moves a display to the front, writing `display_order`. Done when
+  reordering or marking writes the document and the live bars re-range.
