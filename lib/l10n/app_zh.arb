@@ -163,5 +163,53 @@
   "settingsColorWheelPreviousHue": "上一个色相",
   "@settingsColorWheelPreviousHue": {
     "description": "Screen-reader value after decreasing hue on the color wheel."
+  },
+  "settingsModulesTitle": "模块",
+  "@settingsModulesTitle": {
+    "description": "Title of the modules settings page."
+  },
+  "settingsModulesCaption": "选择状态栏显示的组件及其顺序。",
+  "@settingsModulesCaption": {
+    "description": "Caption under the modules page title."
+  },
+  "settingsModuleToggleHint": "切换该模块",
+  "@settingsModuleToggleHint": {
+    "description": "Accessible hint for a module toggle."
+  },
+  "settingsModuleMoveUp": "前移",
+  "@settingsModuleMoveUp": {
+    "description": "Accessible label for moving a module earlier in the strip."
+  },
+  "settingsModuleMoveDown": "后移",
+  "@settingsModuleMoveDown": {
+    "description": "Accessible label for moving a module later in the strip."
+  },
+  "moduleWorkspaces": "工作区",
+  "@moduleWorkspaces": {
+    "description": "Display name of the workspaces module."
+  },
+  "moduleTray": "系统托盘",
+  "@moduleTray": {
+    "description": "Display name of the tray module."
+  },
+  "moduleMedia": "媒体",
+  "@moduleMedia": {
+    "description": "Display name of the media module."
+  },
+  "moduleCpu": "CPU",
+  "@moduleCpu": {
+    "description": "Display name of the CPU module."
+  },
+  "moduleGpu": "GPU",
+  "@moduleGpu": {
+    "description": "Display name of the GPU module."
+  },
+  "moduleBattery": "电池",
+  "@moduleBattery": {
+    "description": "Display name of the battery module."
+  },
+  "moduleClock": "时钟",
+  "@moduleClock": {
+    "description": "Display name of the clock module."
   }
 }

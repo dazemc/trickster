@@ -163,5 +163,53 @@
   "settingsColorWheelPreviousHue": "Previous hue",
   "@settingsColorWheelPreviousHue": {
     "description": "Screen-reader value after decreasing hue on the color wheel."
+  },
+  "settingsModulesTitle": "Modules",
+  "@settingsModulesTitle": {
+    "description": "Title of the modules settings page."
+  },
+  "settingsModulesCaption": "Choose which pills the bar shows and in what order.",
+  "@settingsModulesCaption": {
+    "description": "Caption under the modules page title."
+  },
+  "settingsModuleToggleHint": "Toggles the module",
+  "@settingsModuleToggleHint": {
+    "description": "Accessible hint for a module toggle."
+  },
+  "settingsModuleMoveUp": "Move earlier",
+  "@settingsModuleMoveUp": {
+    "description": "Accessible label for moving a module earlier in the strip."
+  },
+  "settingsModuleMoveDown": "Move later",
+  "@settingsModuleMoveDown": {
+    "description": "Accessible label for moving a module later in the strip."
+  },
+  "moduleWorkspaces": "Workspaces",
+  "@moduleWorkspaces": {
+    "description": "Display name of the workspaces module."
+  },
+  "moduleTray": "System tray",
+  "@moduleTray": {
+    "description": "Display name of the tray module."
+  },
+  "moduleMedia": "Media",
+  "@moduleMedia": {
+    "description": "Display name of the media module."
+  },
+  "moduleCpu": "CPU",
+  "@moduleCpu": {
+    "description": "Display name of the CPU module."
+  },
+  "moduleGpu": "GPU",
+  "@moduleGpu": {
+    "description": "Display name of the GPU module."
+  },
+  "moduleBattery": "Battery",
+  "@moduleBattery": {
+    "description": "Display name of the battery module."
+  },
+  "moduleClock": "Clock",
+  "@moduleClock": {
+    "description": "Display name of the clock module."
   }
 }

@@ -124,4 +124,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsColorWheelPreviousHue => 'Previous hue';
+
+  @override
+  String get settingsModulesTitle => 'Modules';
+
+  @override
+  String get settingsModulesCaption =>
+      'Choose which pills the bar shows and in what order.';
+
+  @override
+  String get settingsModuleToggleHint => 'Toggles the module';
+
+  @override
+  String get settingsModuleMoveUp => 'Move earlier';
+
+  @override
+  String get settingsModuleMoveDown => 'Move later';
+
+  @override
+  String get moduleWorkspaces => 'Workspaces';
+
+  @override
+  String get moduleTray => 'System tray';
+
+  @override
+  String get moduleMedia => 'Media';
+
+  @override
+  String get moduleCpu => 'CPU';
+
+  @override
+  String get moduleGpu => 'GPU';
+
+  @override
+  String get moduleBattery => 'Battery';
+
+  @override
+  String get moduleClock => 'Clock';
 }

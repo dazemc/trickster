@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 
 import '../../locale.dart';
@@ -9,6 +7,7 @@ import '../color_format.dart';
 import '../color_wheel.dart';
 import '../controller.dart';
 import '../scope.dart';
+import '../saver.dart';
 import '../settings_theme.dart';
 
 /// Denial's accent presets, starting from the shell's default.
@@ -33,23 +32,17 @@ class AppearancePage extends StatefulWidget {
 }
 
 class _AppearancePageState extends State<AppearancePage> {
-  static const Duration _saveDebounce = Duration(milliseconds: 300);
-
-  Timer? _saveTimer;
+  DebouncedSaver? _saver;
 
   @override
   void dispose() {
-    _saveTimer?.cancel();
+    _saver?.dispose();
     super.dispose();
   }
 
   void _apply(SettingsAppController controller, Color? accent) {
-    final next = controller.settings.withAccent(accent);
-    controller.preview(next);
-    _saveTimer?.cancel();
-    _saveTimer = Timer(_saveDebounce, () {
-      unawaited(controller.save(next));
-    });
+    _saver ??= DebouncedSaver(controller);
+    _saver!.apply((settings) => settings.withAccent(accent));
   }
 
   @override

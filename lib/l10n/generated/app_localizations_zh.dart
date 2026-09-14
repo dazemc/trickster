@@ -122,4 +122,40 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsColorWheelPreviousHue => '上一个色相';
+
+  @override
+  String get settingsModulesTitle => '模块';
+
+  @override
+  String get settingsModulesCaption => '选择状态栏显示的组件及其顺序。';
+
+  @override
+  String get settingsModuleToggleHint => '切换该模块';
+
+  @override
+  String get settingsModuleMoveUp => '前移';
+
+  @override
+  String get settingsModuleMoveDown => '后移';
+
+  @override
+  String get moduleWorkspaces => '工作区';
+
+  @override
+  String get moduleTray => '系统托盘';
+
+  @override
+  String get moduleMedia => '媒体';
+
+  @override
+  String get moduleCpu => 'CPU';
+
+  @override
+  String get moduleGpu => 'GPU';
+
+  @override
+  String get moduleBattery => '电池';
+
+  @override
+  String get moduleClock => '时钟';
 }

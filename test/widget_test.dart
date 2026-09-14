@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
+import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -122,6 +123,31 @@ void main() {
       ),
     );
     expect(caption.style?.color, expected);
+  });
+
+  testWidgets('strip renders modules in configured order', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'cpu']),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(
+      tester.getCenter(find.byType(ClockPill)).dx,
+      lessThan(tester.getCenter(find.byType(CpuPill)).dx),
+    );
+
+    // Tear the first provider tree down so the second seeds a fresh
+    // SettingsBloc; BlocProvider keeps blocs across same-shape rebuilds.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['cpu', 'clock']),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(
+      tester.getCenter(find.byType(CpuPill)).dx,
+      lessThan(tester.getCenter(find.byType(ClockPill)).dx),
+    );
   });
 
   testWidgets('clock follows the US 12-hour cycle', (tester) async {

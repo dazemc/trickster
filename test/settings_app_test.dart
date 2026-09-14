@@ -61,7 +61,7 @@ void main() {
     await _pump(tester, controller);
 
     expect(find.text('Trickster Settings'), findsOneWidget);
-    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Appearance'), findsWidgets);
     expect(
       find.byKey(const ValueKey<String>('accent-preset-#D0BCFF')),
       findsOneWidget,
@@ -128,6 +128,44 @@ void main() {
     await tester.pump();
     expect(colors, isNotEmpty);
     expect(colors.last, isNot(const Color(0xffd0bcff)));
+  });
+
+  testWidgets('modules page toggles and reorders the strip', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+    expect(
+      find.text('Choose which pills the bar shows and in what order.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('module-toggle-gpu')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('module-toggle-gpu')));
+    await tester.pump();
+    expect(controller.settings.modules, isNot(contains('gpu')));
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(file.readAsStringSync(), isNot(contains('"gpu"')));
+
+    final before = List<String>.of(controller.settings.modules);
+    await tester.tap(find.byKey(const ValueKey<String>('module-up-clock')));
+    await tester.pump();
+    expect(
+      controller.settings.modules.indexOf('clock'),
+      lessThan(before.indexOf('clock')),
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(decoded.modules.indexOf('clock'), lessThan(before.indexOf('clock')));
   });
 
   testWidgets('the close control announces and fires', (tester) async {

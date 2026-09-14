@@ -4,9 +4,11 @@ import 'package:flutter/widgets.dart';
 
 import '../locale.dart';
 import '../platform/layer_shell.dart';
+import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'controller.dart';
 import 'pages/appearance.dart';
+import 'pages/modules.dart';
 import 'scope.dart';
 import 'settings_theme.dart';
 
@@ -72,11 +74,22 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
 
 /// The settings shell: header plus the page area. Pages arrive in the
 /// following steps; this step proves the mode, window, and design language.
-class SettingsHome extends StatelessWidget {
+class SettingsHome extends StatefulWidget {
   const SettingsHome({this.onClose, super.key});
 
   /// Test seam; production closes the native settings window.
   final VoidCallback? onClose;
+
+  @override
+  State<SettingsHome> createState() => _SettingsHomeState();
+}
+
+enum SettingsSection { appearance, modules }
+
+class _SettingsHomeState extends State<SettingsHome> {
+  var _section = SettingsSection.appearance;
+
+  void _select(SettingsSection section) => setState(() => _section = section);
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +123,7 @@ class SettingsHome extends StatelessWidget {
               ),
               SettingsCloseButton(
                 onPressed:
-                    onClose ??
+                    widget.onClose ??
                     () => unawaited(LayerShell().closeSettingsWindow()),
               ),
             ],
@@ -138,9 +151,108 @@ class SettingsHome extends StatelessWidget {
                       ),
                     ),
                   )
-                : const SingleChildScrollView(child: AppearancePage()),
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SettingsNav(section: _section, onSelect: _select),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: switch (_section) {
+                            SettingsSection.appearance =>
+                              const AppearancePage(),
+                            SettingsSection.modules => const ModulesPage(),
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The settings window's section list.
+class SettingsNav extends StatelessWidget {
+  const SettingsNav({required this.section, required this.onSelect, super.key});
+
+  final SettingsSection section;
+  final ValueChanged<SettingsSection> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SizedBox(
+      width: 190,
+      child: SettingsCard(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        child: Column(
+          children: [
+            _NavEntry(
+              label: l10n.settingsAppearanceTitle,
+              selected: section == SettingsSection.appearance,
+              onPressed: () => onSelect(SettingsSection.appearance),
+            ),
+            _NavEntry(
+              label: l10n.settingsModulesTitle,
+              selected: section == SettingsSection.modules,
+              onPressed: () => onSelect(SettingsSection.modules),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavEntry extends StatelessWidget {
+  const _NavEntry({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: Motion.pill,
+              curve: Motion.standard,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                color: selected
+                    ? SettingsColors.surfaceHigh
+                    : SettingsColors.surface,
+              ),
+              child: Text(
+                label,
+                style: ShellText.systemBarValue.copyWith(
+                  color: selected
+                      ? ShellMediaColors.lightForeground
+                      : ShellMediaColors.lightForegroundSecondary,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

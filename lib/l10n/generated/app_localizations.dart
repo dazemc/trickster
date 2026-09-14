@@ -319,6 +319,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Previous hue'**
   String get settingsColorWheelPreviousHue;
+
+  /// Title of the modules settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Modules'**
+  String get settingsModulesTitle;
+
+  /// Caption under the modules page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which pills the bar shows and in what order.'**
+  String get settingsModulesCaption;
+
+  /// Accessible hint for a module toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggles the module'**
+  String get settingsModuleToggleHint;
+
+  /// Accessible label for moving a module earlier in the strip.
+  ///
+  /// In en, this message translates to:
+  /// **'Move earlier'**
+  String get settingsModuleMoveUp;
+
+  /// Accessible label for moving a module later in the strip.
+  ///
+  /// In en, this message translates to:
+  /// **'Move later'**
+  String get settingsModuleMoveDown;
+
+  /// Display name of the workspaces module.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspaces'**
+  String get moduleWorkspaces;
+
+  /// Display name of the tray module.
+  ///
+  /// In en, this message translates to:
+  /// **'System tray'**
+  String get moduleTray;
+
+  /// Display name of the media module.
+  ///
+  /// In en, this message translates to:
+  /// **'Media'**
+  String get moduleMedia;
+
+  /// Display name of the CPU module.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU'**
+  String get moduleCpu;
+
+  /// Display name of the GPU module.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU'**
+  String get moduleGpu;
+
+  /// Display name of the battery module.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery'**
+  String get moduleBattery;
+
+  /// Display name of the clock module.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get moduleClock;
 }
 
 class _AppLocalizationsDelegate

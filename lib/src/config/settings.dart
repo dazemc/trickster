@@ -210,18 +210,21 @@ int? _percent(Object? value, String key) {
 }
 
 class BarSettings extends Equatable {
+  /// Every module the bar can run, in the default strip order.
+  static const List<String> knownModules = [
+    'workspaces',
+    'tray',
+    'media',
+    'cpu',
+    'gpu',
+    'battery',
+    'clock',
+  ];
+
   const BarSettings({
     this.revision = 1,
     this.accent,
-    this.modules = const [
-      'workspaces',
-      'tray',
-      'media',
-      'cpu',
-      'gpu',
-      'battery',
-      'clock',
-    ],
+    this.modules = knownModules,
     this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
