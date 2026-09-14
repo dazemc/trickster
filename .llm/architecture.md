@@ -70,10 +70,14 @@ stays silent. Read the transcript to verify behavior, not pixels.
 Resemble Denial at every seam that does not require compositor ownership:
 
 - Same widget split: strip paints nothing; modules are borderless pills.
-- Same widget split and per-module state seams as
-  `desktop_system_bar.dart`, carried by `flutter_bloc`: one `BlocProvider`
-  per configured module, explicit events and states, `watch` / `select` /
-  `BlocBuilder` reads — no Cubits.
+- `flutter_bloc` carries all state in both processes — the bar and the
+  settings application: explicit events and states, one `BlocProvider` per
+  seam, `watch` / `select` / `BlocBuilder` reads. No Cubits, no
+  `ChangeNotifier`/`InheritedNotifier` application state, no `setState` for
+  state a test, log, or another widget observes; only per-frame ephemeral
+  details that never leave one widget may stay in widget state. A bloc
+  carries the shared services too: settings document, wallpaper accent,
+  tray menus, tooltips.
 - Every bloc state ships `toJson`/`fromJson` from day one (convention only,
   no HydratedBloc) so `tricksterctl status` reads real state later.
 - Same theme tokens, motion springs, and accent model.
