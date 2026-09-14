@@ -252,12 +252,19 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Module options'));
     await tester.pump();
 
-    await tester.tap(find.bySemanticsLabel('Show empty workspaces'));
-    await tester.pump();
-    expect(controller.settings.workspaces.showEmpty, isFalse);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('options-workspaces-count')),
+    );
+    await tester.pumpAndSettle();
+    final countSlider = find.byKey(
+      const ValueKey<String>('options-workspaces-count'),
+    );
+    final sliderRect = tester.getRect(countSlider);
+    await tester.tapAt(Offset(sliderRect.right - 2, sliderRect.center.dy));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(file.readAsStringSync(), contains('"show_empty": false'));
+    expect(controller.settings.workspaces.count, 9);
+    expect(file.readAsStringSync(), contains('"workspace_count": 9'));
 
     await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
     await tester.pump(const Duration(milliseconds: 400));

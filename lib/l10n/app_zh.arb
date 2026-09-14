@@ -276,12 +276,8 @@
   "@settingsWorkspacesSection": {
     "description": "Section heading for workspace rail options."
   },
-  "settingsWorkspacesShowEmpty": "显示空闲工作区",
-  "@settingsWorkspacesShowEmpty": {
-    "description": "Toggle for keeping empty workspaces in the rail."
-  },
-  "settingsWorkspacesMax": "最大工作区数",
-  "@settingsWorkspacesMax": {
+  "settingsWorkspacesCount": "工作区数量",
+  "@settingsWorkspacesCount": {
     "description": "Label for the workspace count slider."
   },
   "settingsClockSection": "时钟",

@@ -276,12 +276,8 @@
   "@settingsWorkspacesSection": {
     "description": "Section heading for workspace rail options."
   },
-  "settingsWorkspacesShowEmpty": "Show empty workspaces",
-  "@settingsWorkspacesShowEmpty": {
-    "description": "Toggle for keeping empty workspaces in the rail."
-  },
-  "settingsWorkspacesMax": "Maximum workspaces",
-  "@settingsWorkspacesMax": {
+  "settingsWorkspacesCount": "Workspace count",
+  "@settingsWorkspacesCount": {
     "description": "Label for the workspace count slider."
   },
   "settingsClockSection": "Clock",

@@ -67,8 +67,7 @@ class _FakeSwayServer {
   var outputsReply = _initialOutputs;
   var splitFrames = false;
 
-  int get refreshCount =>
-      requests.where((request) => request.type == 1).length;
+  int get refreshCount => requests.where((request) => request.type == 1).length;
 
   static Future<_FakeSwayServer> bind(String path) async {
     final server = await ServerSocket.bind(
@@ -200,11 +199,11 @@ void main() {
     expect(workspaces[0].output, 'eDP-1');
     expect(workspaces[0].focused, isTrue);
     expect(workspaces[1].focused, isFalse);
-    expect(
-      server.requests.map((request) => request.type),
-      [2, 1, 3],
-      reason: 'subscribe, workspaces, and outputs requests',
-    );
+    expect(server.requests.map((request) => request.type), [
+      2,
+      1,
+      3,
+    ], reason: 'subscribe, workspaces, and outputs requests');
 
     await Future<void>.delayed(const Duration(milliseconds: 150));
     expect(server.refreshCount, 1, reason: 'replies must not re-request');
@@ -288,11 +287,14 @@ void main() {
 
     await server.dropConnections();
     await _waitFor(() => server.requests.length >= 6);
-    expect(
-      server.requests.map((request) => request.type),
-      [2, 1, 3, 2, 1, 3],
-      reason: 'reconnect resubscribes and refreshes once',
-    );
+    expect(server.requests.map((request) => request.type), [
+      2,
+      1,
+      3,
+      2,
+      1,
+      3,
+    ], reason: 'reconnect resubscribes and refreshes once');
     // Identical state on reconnect is deduplicated, so no extra emission.
     expect(snapshots.length, 1);
 
@@ -300,29 +302,38 @@ void main() {
     await backend.dispose();
   });
 
-  test('focus sends the workspace command over a one-shot connection', () async {
-    final dir = await _temporaryDir();
-    final commands = <String>[];
-    final server = await _bindCommandServer(
-      '${dir.path}/ipc',
-      (_) => {'success': true},
-      commands,
-    );
-    addTearDown(server.close);
+  test(
+    'focus sends the workspace command over a one-shot connection',
+    () async {
+      final dir = await _temporaryDir();
+      final commands = <String>[];
+      final server = await _bindCommandServer(
+        '${dir.path}/ipc',
+        (_) => {'success': true},
+        commands,
+      );
+      addTearDown(server.close);
 
-    final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
-    final focused = await backend.focusWorkspace(
-      const Workspace(id: '2', name: 'web'),
-    );
-    expect(focused, isTrue);
-    expect(commands, ['workspace web']);
+      final backend = SwayWorkspaces(socketPath: '${dir.path}/ipc');
+      final focused = await backend.focusWorkspace(
+        const Workspace(id: '2', name: '2:web'),
+      );
+      expect(focused, isTrue);
+      expect(commands, ['workspace number 2']);
 
-    final perOutput = await backend.focusWorkspace(
-      const Workspace(id: '2', name: 'web', output: 'eDP-1'),
-    );
-    expect(perOutput, isTrue);
-    expect(commands.last, 'workspace web output eDP-1');
-  });
+      final perOutput = await backend.focusWorkspace(
+        const Workspace(id: '2', name: '2:web', output: 'eDP-1'),
+      );
+      expect(perOutput, isTrue);
+      expect(commands.last, 'workspace number 2 output eDP-1');
+
+      final named = await backend.focusWorkspace(
+        const Workspace(id: 'web', name: 'web'),
+      );
+      expect(named, isTrue);
+      expect(commands.last, 'workspace web');
+    },
+  );
 
   test('refused command reply reports failure', () async {
     final dir = await _temporaryDir();

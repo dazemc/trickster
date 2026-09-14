@@ -5,15 +5,16 @@ import 'package:equatable/equatable.dart';
 
 /// Typed options for the workspace rail.
 class WorkspaceOptions extends Equatable {
-  const WorkspaceOptions({this.showEmpty = true, this.max = 9});
+  const WorkspaceOptions({this.count = 4});
 
-  final bool showEmpty;
-  final int max;
+  /// Workspaces shown on every rail as 1..count, Denial's model. The old
+  /// `show_empty`/`max` keys are retired and ignored on decode.
+  final int count;
 
   @override
-  List<Object?> get props => [showEmpty, max];
+  List<Object?> get props => [count];
 
-  Map<String, Object?> toJson() => {'show_empty': showEmpty, 'max': max};
+  Map<String, Object?> toJson() => {'workspace_count': count};
 
   static WorkspaceOptions fromJson(Object? json) {
     if (json == null) {
@@ -22,20 +23,13 @@ class WorkspaceOptions extends Equatable {
     if (json is! Map<String, dynamic>) {
       throw const FormatException('settings.workspaces must be an object');
     }
-    final showEmpty = json['show_empty'];
-    if (showEmpty != null && showEmpty is! bool) {
+    final count = json['workspace_count'];
+    if (count != null && (count is! int || count < 2 || count > 9)) {
       throw const FormatException(
-        'settings.workspaces.show_empty must be a boolean',
+        'settings.workspaces.workspace_count must be 2..9',
       );
     }
-    final max = json['max'];
-    if (max != null && (max is! int || max < 1 || max > 64)) {
-      throw const FormatException('settings.workspaces.max must be 1..64');
-    }
-    return WorkspaceOptions(
-      showEmpty: showEmpty as bool? ?? true,
-      max: max as int? ?? 9,
-    );
+    return WorkspaceOptions(count: count as int? ?? 4);
   }
 }
 

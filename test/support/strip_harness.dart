@@ -44,6 +44,7 @@ Future<void> pumpBarHarness(
   Locale locale = const Locale('en', 'US'),
   SystemBarSide side = SystemBarSide.top,
   double thickness = 32,
+  String? output,
   WallpaperAccentController? wallpaperAccent,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
@@ -84,10 +85,18 @@ Future<void> pumpBarHarness(
               mediaBuilder ??
               () => MediaBloc(initial: MprisPlaybackState.unavailable()),
           child: wallpaperAccent == null
-              ? TricksterBarStrip(side: side, thickness: thickness)
+              ? TricksterBarStrip(
+                  side: side,
+                  thickness: thickness,
+                  output: output,
+                )
               : WallpaperAccentScope(
                   notifier: wallpaperAccent,
-                  child: TricksterBarStrip(side: side, thickness: thickness),
+                  child: TricksterBarStrip(
+                    side: side,
+                    thickness: thickness,
+                    output: output,
+                  ),
                 ),
         ),
       ),

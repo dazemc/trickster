@@ -212,10 +212,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsWorkspacesSection => 'Workspaces';
 
   @override
-  String get settingsWorkspacesShowEmpty => 'Show empty workspaces';
-
-  @override
-  String get settingsWorkspacesMax => 'Maximum workspaces';
+  String get settingsWorkspacesCount => 'Workspace count';
 
   @override
   String get settingsClockSection => 'Clock';

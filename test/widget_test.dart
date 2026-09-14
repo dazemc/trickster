@@ -216,28 +216,47 @@ void main() {
     expect(pipColor(), const Color(0xff2050e0));
   });
 
-  testWidgets('workspace options filter and cap the rail', (tester) async {
+  testWidgets('count rail maps active and occupied per output', (tester) async {
+    const accent = Color(0xffd0bcff);
+    final handle = tester.ensureSemantics();
     await pumpBarHarness(
       tester,
       settings: const BarSettings(
+        accent: accent,
         modules: ['workspaces'],
-        workspaces: WorkspaceOptions(showEmpty: false, max: 1),
+        workspaces: WorkspaceOptions(count: 3),
       ),
+      output: 'HDMI-A-1',
       workspacesBuilder: () => WorkspacesBloc(
         initial: const WorkspacesState([
-          Workspace(id: '1', name: '1'),
-          Workspace(id: '2', name: '2', occupied: true),
-          Workspace(id: '3', name: '3', occupied: true),
+          Workspace(
+            id: '1',
+            name: '1',
+            output: 'HDMI-A-2',
+            focused: true,
+            occupied: true,
+          ),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
+          Workspace(id: '3', name: '3', output: 'HDMI-A-1', occupied: true),
         ]),
       ),
       settle: const Duration(milliseconds: 500),
     );
-    expect(find.byKey(const ValueKey<String>('workspace-pip-1')), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('workspace-pip-2')),
-      findsOneWidget,
+      _pipStyle(tester, '1').color,
+      ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3),
     );
-    expect(find.byKey(const ValueKey<String>('workspace-pip-3')), findsNothing);
+    expect(_pipStyle(tester, '2').color, accent);
+    expect(_pipStyle(tester, '3').color, ShellMediaColors.lightForeground);
+    final lens = tester.widget<AnimatedAlign>(
+      find.byKey(WorkspacesPill.lensKey),
+    );
+    expect(lens.alignment, Alignment.center);
+    expect(find.bySemanticsLabel('Workspace 1, empty'), findsOneWidget);
+    handle.dispose();
   });
 
   testWidgets('workspace rail centers independently of the cluster', (
@@ -382,4 +401,16 @@ void main() {
     expect(texts, isNot(anyOf(contains('AM'), contains('PM'))));
     expect(texts, matches(RegExp(r'\b\d{1,2}:\d{2}\b')));
   });
+}
+
+TextStyle _pipStyle(WidgetTester tester, String id) {
+  final pip = tester.widget<AnimatedDefaultTextStyle>(
+    find
+        .descendant(
+          of: find.byKey(ValueKey<String>('workspace-pip-$id')),
+          matching: find.byType(AnimatedDefaultTextStyle),
+        )
+        .last,
+  );
+  return pip.style;
 }

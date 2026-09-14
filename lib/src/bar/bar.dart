@@ -336,19 +336,7 @@ class _WorkspacesRail extends StatelessWidget {
         final options = context.select(
           (SettingsBloc bloc) => bloc.state.workspaces,
         );
-        var workspaces = workspacesForOutput(state.workspaces, output);
-        if (!options.showEmpty) {
-          workspaces = [
-            for (final workspace in workspaces)
-              if (workspace.occupied || workspace.focused) workspace,
-          ];
-        }
-        if (workspaces.length > options.max) {
-          workspaces = workspaces.take(options.max).toList(growable: false);
-        }
-        if (workspaces.isEmpty) {
-          return const SizedBox.shrink();
-        }
+        final workspaces = _countRail(state.workspaces, options.count, output);
         final pill = WorkspacesPill(
           accent: accent,
           workspaces: workspaces,
@@ -371,6 +359,43 @@ class _WorkspacesRail extends StatelessWidget {
       },
     );
   }
+}
+
+/// Denial's 1..count rail: every strip shows the configured numbers, with
+/// active and occupied resolved against [output]'s slice of the compositor
+/// snapshot. A number living on another output renders empty here; the
+/// backends move or create it when pressed.
+List<Workspace> _countRail(
+  List<Workspace> workspaces,
+  int count,
+  String? output,
+) {
+  final byId = <String, Workspace>{
+    for (final workspace in workspaces) workspace.id: workspace,
+  };
+  final knownOutput = output != null && output.isNotEmpty;
+  return [
+    for (var number = 1; number <= count; number++)
+      _railEntry(byId['$number'], number, knownOutput ? output : null),
+  ];
+}
+
+Workspace _railEntry(Workspace? existing, int number, String? output) {
+  if (existing == null) {
+    return Workspace(id: '$number', name: '$number', output: output ?? '');
+  }
+  if (output != null &&
+      existing.output.isNotEmpty &&
+      existing.output != output) {
+    return Workspace(id: '$number', name: '$number', output: output);
+  }
+  return Workspace(
+    id: '$number',
+    name: '$number',
+    output: output ?? '',
+    focused: existing.focused,
+    occupied: existing.occupied,
+  );
 }
 
 class TricksterBar {

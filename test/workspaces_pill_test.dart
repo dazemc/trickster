@@ -126,7 +126,10 @@ void main() {
     final empty = _pipStyle(tester, '1');
     final occupied = _pipStyle(tester, '2');
     final active = _pipStyle(tester, '3');
-    expect(empty.color, _accent.captionColor());
+    expect(
+      empty.color,
+      ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3),
+    );
     expect(occupied.color, ShellMediaColors.lightForeground);
     expect(active.color, _accent.color);
     expect(active.fontSize, ShellText.systemBarValue.fontSize! + 1);
@@ -182,25 +185,6 @@ void main() {
     );
     final decoration = lens.decoration as BoxDecoration;
     expect(decoration.color, ShellMediaColors.darkness.withValues(alpha: 0.36));
-  });
-  test('rail filtering picks exactly the outputs workspaces', () {
-    const all = <Workspace>[
-      Workspace(id: '1', name: '1', output: 'HDMI-A-1', focused: true),
-      Workspace(id: '2', name: '2', output: 'HDMI-A-2'),
-      Workspace(id: '3', name: '3', output: 'HDMI-A-1'),
-    ];
-    expect(
-      workspacesForOutput(all, 'HDMI-A-1').map((workspace) => workspace.id),
-      <String>['1', '3'],
-    );
-    expect(
-      workspacesForOutput(all, 'HDMI-A-2').map((workspace) => workspace.id),
-      <String>['2'],
-    );
-    expect(workspacesForOutput(all, null), all);
-    expect(workspacesForOutput(all, 'DP-1'), isEmpty);
-    const unknown = <Workspace>[Workspace(id: '1', name: '1')];
-    expect(workspacesForOutput(unknown, 'HDMI-A-1'), unknown);
   });
 }
 

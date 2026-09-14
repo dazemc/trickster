@@ -6,7 +6,6 @@ import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
-import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
 /// Module options page: every typed option the bar decodes, edited as the
@@ -56,34 +55,17 @@ class _OptionsPageState extends State<OptionsPage> {
             children: [
               SettingsHeading(title: l10n.settingsWorkspacesSection),
               const SizedBox(height: 14),
-              _ToggleRow(
-                label: l10n.settingsWorkspacesShowEmpty,
-                value: settings.workspaces.showEmpty,
-                onChanged: (value) => _apply(
-                  controller,
-                  (settings) => settings.copyWith(
-                    workspaces: WorkspaceOptions(
-                      showEmpty: value,
-                      max: settings.workspaces.max,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
               _SliderRow(
-                sliderKey: const ValueKey<String>('options-workspaces-max'),
-                label: l10n.settingsWorkspacesMax,
-                value: settings.workspaces.max.toDouble(),
-                min: 1,
-                max: 64,
-                display: '${settings.workspaces.max}',
+                sliderKey: const ValueKey<String>('options-workspaces-count'),
+                label: l10n.settingsWorkspacesCount,
+                value: settings.workspaces.count.toDouble(),
+                min: 2,
+                max: 9,
+                display: '${settings.workspaces.count}',
                 onChanged: (value) => _apply(
                   controller,
                   (settings) => settings.copyWith(
-                    workspaces: WorkspaceOptions(
-                      showEmpty: settings.workspaces.showEmpty,
-                      max: value.round(),
-                    ),
+                    workspaces: WorkspaceOptions(count: value.round()),
                   ),
                 ),
               ),
@@ -276,71 +258,6 @@ String _captionLabel(AppLocalizations l10n, MeterCaptionSource source) {
     MeterCaptionSource.generic => l10n.settingsMeterCaptionGeneric,
     MeterCaptionSource.device => l10n.settingsMeterCaptionDevice,
   };
-}
-
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      toggled: value,
-      label: label,
-      onTap: () => onChanged(!value),
-      child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onChanged(!value),
-            child: Row(
-              children: [
-                Expanded(child: Text(label, style: ShellText.systemBarValue)),
-                AnimatedContainer(
-                  duration: Motion.pill,
-                  curve: Motion.standard,
-                  width: 44,
-                  height: 24,
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.all(Radius.circular(999)),
-                    color: value
-                        ? ShellBrandColors.defaultAccent
-                        : SettingsColors.surfaceHigh,
-                    border: Border.all(color: SettingsColors.outline),
-                  ),
-                  child: AnimatedAlign(
-                    duration: Motion.pill,
-                    curve: Motion.standard,
-                    alignment: value
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: value
-                            ? SettingsColors.background
-                            : ShellMediaColors.lightForegroundSecondary,
-                      ),
-                      child: const SizedBox.square(dimension: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _SliderRow extends StatelessWidget {

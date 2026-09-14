@@ -208,10 +208,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsWorkspacesSection => '工作区';
 
   @override
-  String get settingsWorkspacesShowEmpty => '显示空闲工作区';
-
-  @override
-  String get settingsWorkspacesMax => '最大工作区数';
+  String get settingsWorkspacesCount => '工作区数量';
 
   @override
   String get settingsClockSection => '时钟';

@@ -115,7 +115,9 @@ class _WorkspacePipButton extends StatelessWidget {
         : ShellText.systemBarCaption.copyWith(
             color: workspace.occupied
                 ? ShellMediaColors.lightForeground
-                : accent.captionColor(),
+                : ShellMediaColors.lightForegroundSecondary.withValues(
+                    alpha: 0.3,
+                  ),
             fontSize: ShellText.systemBarCaption.fontSize! + 2,
           );
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;

@@ -51,25 +51,6 @@ class Workspace extends Equatable {
   );
 }
 
-/// The workspaces hosted on [output], preserving order. When [output] is
-/// unknown or no workspace carries an output, the list passes through so
-/// single-output hosts keep their rail.
-List<Workspace> workspacesForOutput(
-  List<Workspace> workspaces,
-  String? output,
-) {
-  if (output == null || output.isEmpty) {
-    return workspaces;
-  }
-  if (!workspaces.any((workspace) => workspace.output.isNotEmpty)) {
-    return workspaces;
-  }
-  return [
-    for (final workspace in workspaces)
-      if (workspace.output == output) workspace,
-  ];
-}
-
 List<Map<String, Object?>> workspacesToJson(List<Workspace> workspaces) =>
     workspaces.map((workspace) => workspace.toJson()).toList(growable: false);
 
@@ -618,9 +599,16 @@ class SwayWorkspaces extends WorkspaceBackend {
         InternetAddress(path, type: InternetAddressType.unix),
         0,
       );
+      // Numbered selectors match the workspace number even when its name is
+      // decorated (`1:web`), so the count rail can press numbers that exist
+      // under a different display name.
+      final number = int.tryParse(workspace.id);
+      final selector = number != null && number >= 0
+          ? 'number ${workspace.id}'
+          : workspace.name;
       final command = workspace.output.isEmpty
-          ? 'workspace ${workspace.name}'
-          : 'workspace ${workspace.name} output ${workspace.output}';
+          ? 'workspace $selector'
+          : 'workspace $selector output ${workspace.output}';
       socket.add(_frame(0, utf8.encode(command)));
       final buffer = BytesBuilder();
       await for (final chunk in socket.timeout(_replyTimeout)) {

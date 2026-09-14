@@ -97,20 +97,26 @@ void main() {
       expect(() => BarSettings.decode('[]'), throwsFormatException);
     });
 
-    test('workspace options round-trip with defaults', () {
+    test('workspace count round-trips and retires the old keys', () {
       const settings = BarSettings(
         revision: 3,
-        workspaces: WorkspaceOptions(showEmpty: false, max: 5),
+        workspaces: WorkspaceOptions(count: 7),
       );
       final decoded = BarSettings.decode(settings.encode());
-      expect(decoded.workspaces.showEmpty, isFalse);
-      expect(decoded.workspaces.max, 5);
+      expect(decoded.workspaces.count, 7);
       const bare = BarSettings();
-      expect(bare.workspaces.showEmpty, isTrue);
-      expect(bare.workspaces.max, 9);
+      expect(bare.workspaces.count, 4);
       expect(
         BarSettings.decode('{"revision": 1}').workspaces,
         const WorkspaceOptions(),
+      );
+      // Documents written before the count option still decode; the retired
+      // keys are ignored.
+      expect(
+        BarSettings.decode(
+          '{"revision": 1, "workspaces": {"show_empty": false, "max": 5}}',
+        ).workspaces.count,
+        4,
       );
     });
 
@@ -213,16 +219,20 @@ void main() {
     test('invalid workspace options are rejected at decode', () {
       expect(
         () => BarSettings.decode(
-          '{"revision": 1, "workspaces": {"show_empty": "yes"}}',
+          '{"revision": 1, "workspaces": {"workspace_count": 1}}',
         ),
         throwsFormatException,
       );
       expect(
-        () => BarSettings.decode('{"revision": 1, "workspaces": {"max": 0}}'),
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"workspace_count": 10}}',
+        ),
         throwsFormatException,
       );
       expect(
-        () => BarSettings.decode('{"revision": 1, "workspaces": {"max": 65}}'),
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"workspace_count": "4"}}',
+        ),
         throwsFormatException,
       );
       expect(

@@ -488,17 +488,11 @@ abstract class AppLocalizations {
   /// **'Workspaces'**
   String get settingsWorkspacesSection;
 
-  /// Toggle for keeping empty workspaces in the rail.
-  ///
-  /// In en, this message translates to:
-  /// **'Show empty workspaces'**
-  String get settingsWorkspacesShowEmpty;
-
   /// Label for the workspace count slider.
   ///
   /// In en, this message translates to:
-  /// **'Maximum workspaces'**
-  String get settingsWorkspacesMax;
+  /// **'Workspace count'**
+  String get settingsWorkspacesCount;
 
   /// Section heading for clock options.
   ///
