@@ -3,7 +3,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart' as pkg_ffi;
 
-import 'background_worker.dart';
+import 'package:trickster/src/services/background_worker.dart';
 
 /// One NVIDIA GPU utilization reading as a 0-1 fraction.
 class NvidiaGpuSample {

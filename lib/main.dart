@@ -3,16 +3,16 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'src/app.dart';
-import 'src/bootstrap.dart';
-import 'src/cli.dart';
-import 'src/platform/layer_shell.dart';
-import 'src/settings/app.dart';
-import 'src/state/capabilities_bloc.dart';
-import 'src/state/observer.dart';
-import 'src/state/outputs_bloc.dart';
-import 'src/state/session_bloc.dart';
-import 'src/state/settings_bloc.dart';
+import 'package:trickster/src/app.dart';
+import 'package:trickster/src/bootstrap.dart';
+import 'package:trickster/src/cli.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/settings/app.dart';
+import 'package:trickster/src/state/capabilities_bloc.dart';
+import 'package:trickster/src/state/observer.dart';
+import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
 
 Future<void> main(List<String> args) async {
   final cli = Cli.parse(args);

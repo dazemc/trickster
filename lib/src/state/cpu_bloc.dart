@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../services/cpu.dart';
+import 'package:trickster/src/services/cpu.dart';
 
 sealed class CpuEvent extends Equatable {
   const CpuEvent();

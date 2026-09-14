@@ -15,13 +15,13 @@ import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../layout/system_bar.dart';
-import '../locale.dart';
-import '../services/status_notifier.dart';
-import '../state/tray_bloc.dart';
-import '../state/tray_menu.dart';
-import '../theme/accent.dart';
-import '../theme/tokens.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/tray_menu.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// The contents of one tray menu surface: a fullscreen transparent overlay
 /// with the panel anchored at the strip's inner edge. Material's tap-region

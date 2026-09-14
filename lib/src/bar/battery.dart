@@ -1,11 +1,10 @@
 import 'package:flutter/widgets.dart';
-
-import '../locale.dart';
-import '../services/battery.dart';
-import '../theme/accent.dart';
-import '../theme/tokens.dart';
-import 'pill.dart';
-import 'pill_tooltip.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 class BatteryPill extends StatelessWidget {
   const BatteryPill({

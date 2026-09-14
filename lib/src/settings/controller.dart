@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../config/outputs_store.dart';
-import '../config/paths.dart';
-import '../config/settings.dart';
-import '../config/store.dart';
-import '../layout/system_bar.dart';
-import '../platform/control_socket.dart';
-import '../platform/layer_shell.dart';
+import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/config/paths.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 
 /// Loads and saves the bar's settings document for the settings application.
 ///

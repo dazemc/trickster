@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../l10n/generated/app_localizations.dart';
+import 'package:trickster/l10n/generated/app_localizations.dart';
 
 /// Installs the generated localizations without introducing a MaterialApp
 /// or [WidgetsApp] above the strip, and derives [Directionality] from the

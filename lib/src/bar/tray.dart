@@ -5,17 +5,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import '../layout/shell_keys.dart';
-import '../layout/system_bar.dart';
-import '../locale.dart';
-import '../services/status_notifier.dart';
-import '../state/tray_bloc.dart';
-import '../state/tray_menu.dart';
-import '../state/overlay_tooltip.dart';
-import '../theme/accent.dart';
-import '../theme/tokens.dart';
-import 'pill.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/layout/shell_keys.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/tray_menu.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 class TrayPill extends StatelessWidget {
   const TrayPill({

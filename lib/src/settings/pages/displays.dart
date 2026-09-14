@@ -1,15 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-
-import '../../../l10n/generated/app_localizations.dart';
-import '../../layout/system_bar.dart';
-import '../../locale.dart';
-import '../../platform/layer_shell.dart';
-import '../../theme/tokens.dart';
-import '../controller.dart';
-import '../scope.dart';
-import '../settings_theme.dart';
+import 'package:trickster/l10n/generated/app_localizations.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// Displays page: edge, thickness, and which outputs host the bar, written
 /// through the `system_bar=` grammar.

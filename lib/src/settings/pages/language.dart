@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../../locale.dart';
-import '../controller.dart';
-import '../saver.dart';
-import '../scope.dart';
-import '../settings_theme.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/saver.dart';
+import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
 
 /// Language page: the catalog the bar and this window follow. `null` keeps
 /// the system locale.

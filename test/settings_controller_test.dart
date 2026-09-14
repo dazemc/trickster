@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/outputs_store.dart';
-import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/controller.dart';
 
 /// A controller wired to no real socket, no real outputs file, and no real

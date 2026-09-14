@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../locale.dart';
-import '../theme/motion.dart';
-import '../theme/tokens.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// The settings window's surface palette: the strip's glass language at
 /// window scale, without Material scaffolding.

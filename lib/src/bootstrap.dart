@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
-import 'config/paths.dart';
-import 'config/session.dart';
-import 'config/settings.dart';
-import 'layout/system_bar.dart';
+import 'package:trickster/src/config/paths.dart';
+import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 
 class RuntimeConfig {
   const RuntimeConfig({

@@ -1,13 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import '../locale.dart';
-import '../state/media_bloc.dart';
-import '../theme/accent.dart';
-import '../theme/motion.dart';
-import '../theme/tokens.dart';
-import 'pill.dart';
-import 'pill_tooltip.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// Inline media pill: now-playing text while idle, transport controls after a
 /// tap. Only the fields it paints are selected, so position ticks and

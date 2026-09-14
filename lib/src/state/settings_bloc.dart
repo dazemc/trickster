@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../config/settings.dart';
+import 'package:trickster/src/config/settings.dart';
 
 sealed class SettingsEvent extends Equatable {
   const SettingsEvent();

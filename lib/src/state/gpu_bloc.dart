@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../services/gpu.dart';
+import 'package:trickster/src/services/gpu.dart';
 
 sealed class GpuEvent extends Equatable {
   const GpuEvent();

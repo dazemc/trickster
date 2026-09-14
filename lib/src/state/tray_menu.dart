@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import '../layout/system_bar.dart';
-import '../platform/layer_shell.dart';
-import '../services/status_notifier.dart';
-import '../theme/accent.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/theme/accent.dart';
 
 /// One open tray menu: the entries to render, where the strip was clicked,
 /// and the overlay surface hosting the panel.

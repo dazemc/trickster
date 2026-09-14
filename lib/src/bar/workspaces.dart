@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart'
     show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
-
-import '../locale.dart';
-import '../services/workspaces.dart';
-import '../theme/accent.dart';
-import '../theme/motion.dart';
-import '../theme/tokens.dart';
-import 'pill.dart';
-import 'pill_tooltip.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/workspaces.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 class WorkspacesPill extends StatelessWidget {
   const WorkspacesPill({

@@ -3,19 +3,19 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../cli.dart';
-import '../config/outputs_store.dart';
-import '../config/store.dart';
-import '../state/battery_bloc.dart';
-import '../state/clock_bloc.dart';
-import '../state/cpu_bloc.dart';
-import '../state/gpu_bloc.dart';
-import '../state/media_bloc.dart';
-import '../state/outputs_bloc.dart';
-import '../state/session_bloc.dart';
-import '../state/settings_bloc.dart';
-import '../state/tray_bloc.dart';
-import '../state/workspaces_bloc.dart';
+import 'package:trickster/src/cli.dart';
+import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// The bar's control request dispatcher: `version`, `status`, and the
 /// settings document transport used by `tricksterctl` and future clients.

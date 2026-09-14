@@ -1,14 +1,13 @@
 import 'package:flutter/widgets.dart';
-
-import '../../config/settings.dart';
-import '../../../l10n/generated/app_localizations.dart';
-import '../../locale.dart';
-import '../../theme/motion.dart';
-import '../../theme/tokens.dart';
-import '../controller.dart';
-import '../saver.dart';
-import '../scope.dart';
-import '../settings_theme.dart';
+import 'package:trickster/l10n/generated/app_localizations.dart';
+import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/saver.dart';
+import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// Pulls a module's display name from the shared catalog.
 String moduleLabel(AppLocalizations l10n, String module) {

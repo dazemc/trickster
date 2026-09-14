@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import '../theme/accent.dart';
-import '../theme/motion.dart';
-import '../theme/tokens.dart';
+import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/motion.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 /// One load meter: a caption tag naming the source, a sparkline of the recent
 /// history, and the percentage. Identity comes from the tag, never from the

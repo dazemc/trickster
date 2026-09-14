@@ -5,7 +5,7 @@ import 'dart:ui' show Offset;
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../services/status_notifier.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 
 sealed class TrayEvent extends Equatable {
   const TrayEvent();

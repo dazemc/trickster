@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../services/mpris.dart';
+import 'package:trickster/src/services/mpris.dart';
 
 sealed class MediaEvent extends Equatable {
   const MediaEvent();
