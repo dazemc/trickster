@@ -69,6 +69,16 @@ workspaces and module gate; these steps align the presentation.
   decode-compatible transition. Done when both monitors' rails show the
   full count, a widget test covers the per-output active/occupied mapping,
   and the live multi-monitor session matches.
+- **11.4 (M) Show the Denial workspace count on every rail.** Denial's
+  indicator always shows a fixed 1..N count on every monitor, with
+  active/occupied relative to that output; Trickster's per-output filter
+  hides a monitor's workspace 1 from the other strip. Add a
+  `workspace_count` option (2-9, default 4) and render 1..count on every
+  strip, resolving active/occupied from compositor state and switching (or
+  creating) through the backend; retire `show_empty`/`max` through a
+  decode-compatible transition. Done when both monitors' rails show the
+  full count, a widget test covers the per-output active/occupied mapping,
+  and the live multi-monitor session matches.
 - **11.3 (M) Deform the active lens on switch.** Port
   `_WorkspaceActiveLens`: scale 1 → 1.34 → 0.94 → 1 across
   `workspaceIndicatorTakeoff` 72ms / `Travel` 168ms / `Settle` 80ms with the
