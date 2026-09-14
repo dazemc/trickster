@@ -80,12 +80,6 @@ The settings window covers the bar's documents but not every knob, splits
 module toggles from module options, and is an opaque window while the bar
 is glass. This phase fills the surface out.
 
-- **14.10 (M) One Modules tab.** Merge Module options into the Modules
-  page: each row gets a gear that reveals that module's own options
-  (workspace count, clock format, CPU and battery thresholds, meter
-  captions); the separate "Module options" navigation entry disappears.
-  Done when the gear expands the right options per module and the old tab
-  is gone.
 - **14.11 (M) Workspaces configured per display.** The workspace count
   becomes per-output (each monitor may want a different rail length) in the
   settings document and the settings UI; the strip honors each output's
