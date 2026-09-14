@@ -76,22 +76,41 @@ settings application place each module.
 
 ## Phase 14 — settings depth
 
-The settings window covers the bar's documents but not every knob, has no
-per-option reset, orders modules with arrow buttons only, offers
-hardware-dependent modules unconditionally, and is an opaque window while
-the bar is glass. This phase fills the surface out.
+The settings window covers the bar's documents but not every knob, splits
+module toggles from module options, and is an opaque window while the bar
+is glass. This phase fills the surface out.
 
-- **14.4 (M) Reset on appearance, modules, and displays.** Reset for accent
-  source, custom accent, wallpaper pick, module list/order, per-module
-  placement, bar edge, thickness, and output selection. Done when a widget
-  test reverts each and the document round-trips the defaults.
-- **14.6 (M) Drag-and-drop module order.** Remove the up/down arrows and
-  drag rows by a handle instead, reordering within their segment through
-  the same saver; the Position chips keep moving a module between zones,
-  and keyboard users keep a reorder path. Done when a widget test drags a
-  module across its segment and the document lists the new order.
-- **14.7 (M) Unavailable modules segment.** Modules whose hardware or
-  configuration is absent (battery first; the probe is injectable) move to
-  an "Unavailable" segment with a short reason caption each, instead of
-  pretending they can be toggled. Done when a no-battery probe renders the
-  row under Unavailable with its reason and tests cover both probes.
+- **14.8 (S) One reset for the modules page.** The header shows a single
+  circular arrow: it restores the default order and clears every placement
+  at once. Done when a test moves a module between zones, reorders it, taps
+  the one reset, and the document matches the defaults.
+- **14.9 (S) Dragging moves the row.** The whole row travels with the
+  pointer and its slot closes behind it — no dimmed copy left in place;
+  dropping on another segment moves it there. Done when a drag test sees
+  the source row leave its segment and the target list it after the drop.
+- **14.10 (M) One Modules tab.** Merge Module options into the Modules
+  page: each row gets a gear that reveals that module's own options
+  (workspace count, clock format, CPU and battery thresholds, meter
+  captions); the separate "Module options" navigation entry disappears.
+  Done when the gear expands the right options per module and the old tab
+  is gone.
+- **14.11 (M) Workspaces configured per display.** The workspace count
+  becomes per-output (each monitor may want a different rail length) in the
+  settings document and the settings UI; the strip honors each output's
+  count. Done when the document round-trips per-output counts and the live
+  multi-monitor bars show different rail lengths.
+- **14.12 (M) Wallpaper accent per display.** Monitors can run different
+  wallpapers, so the wallpaper-accent pick becomes per-output too: the
+  settings UI lists each display's candidates and each strip resolves its
+  own output's pick. Done when two outputs can hold different picks and
+  the live bars show their own accents.
+- **14.13 (M) Bar display options.** User-requested additions the bar can
+  honor without a new design language: `clock.show_date` (hide the date
+  caption), `appearance.blur` (force the opaque fill even when the host can
+  blur), and `meter.sparkline` (hide CPU/GPU history). Done when each
+  renders on the bar, resets, and has config plus widget tests.
+- **14.14 (M) Settings window transparency.** Make the settings toplevel
+  translucent (GTK RGBA visual plus translucent Flutter surfaces) so the
+  host blurs behind it, with an opaque fallback when the compositor cannot.
+  Done when the live window shows the blurred desktop on Hyprland and the
+  fallback stays legible.
