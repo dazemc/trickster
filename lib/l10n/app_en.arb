@@ -148,6 +148,10 @@
   "@settingsAccentPresets": {
     "description": "Accessible label for the accent preset swatches."
   },
+  "settingsAccentColor": "Accent color",
+  "@settingsAccentColor": {
+    "description": "Name of the custom accent color option."
+  },
   "settingsAccentReset": "Reset",
   "@settingsAccentReset": {
     "description": "Button that clears the custom accent."
@@ -180,6 +184,10 @@
         "type": "String"
       }
     }
+  },
+  "settingsModulesDisabled": "Disabled",
+  "@settingsModulesDisabled": {
+    "description": "Heading for modules that are turned off."
   },
   "settingsResetHint": "Revert to the default value",
   "@settingsResetHint": {

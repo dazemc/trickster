@@ -112,6 +112,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAccentPresets => '预设';
 
   @override
+  String get settingsAccentColor => '强调色';
+
+  @override
   String get settingsAccentReset => '重置';
 
   @override
@@ -133,6 +136,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String settingsResetOption(String option) {
     return '重置$option';
   }
+
+  @override
+  String get settingsModulesDisabled => '已禁用';
 
   @override
   String get settingsResetHint => '恢复默认值';

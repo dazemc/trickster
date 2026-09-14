@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
@@ -83,17 +84,28 @@ class _ModulesPageState extends State<ModulesPage> {
     });
   }
 
-  void _move(SettingsAppController controller, String module, int delta) {
+  void _moveWithinZone(
+    SettingsAppController controller,
+    String module,
+    int delta,
+  ) {
     _saverFor(controller).apply((settings) {
-      final modules = List<String>.of(settings.modules);
-      final index = modules.indexOf(module);
+      final zone = settings.zoneFor(module);
+      final segment = [
+        for (final candidate in settings.modules)
+          if (settings.zoneFor(candidate) == zone) candidate,
+      ];
+      final index = segment.indexOf(module);
       final target = index + delta;
-      if (index < 0 || target < 0 || target >= modules.length) {
+      if (index < 0 || target < 0 || target >= segment.length) {
         return settings;
       }
-      modules
-        ..removeAt(index)
-        ..insert(target, module);
+      final modules = List<String>.of(settings.modules);
+      final other = segment[target];
+      final a = modules.indexOf(module);
+      final b = modules.indexOf(other);
+      modules[a] = other;
+      modules[b] = module;
       return settings.copyWith(modules: modules);
     });
   }
@@ -102,41 +114,111 @@ class _ModulesPageState extends State<ModulesPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final controller = SettingsAppScope.of(context);
-    // Disabled modules stay listed, appended after the configured ones.
-    final ordered = <String>[
-      ...controller.settings.modules,
+    final settings = controller.settings;
+    final groups = <ModuleZone, List<String>>{
+      for (final zone in ModuleZone.values)
+        zone: [
+          for (final module in settings.modules)
+            if (settings.zoneFor(module) == zone) module,
+        ],
+    };
+    final disabled = <String>[
       for (final module in BarSettings.knownModules)
-        if (!controller.settings.includes(module)) module,
+        if (!settings.includes(module)) module,
     ];
+
+    Widget moduleRow(String module, {required bool first, required bool last}) {
+      final enabled = settings.includes(module);
+      return _ModuleRow(
+        key: ValueKey<String>('module-$module'),
+        module: module,
+        label: moduleLabel(l10n, module),
+        enabled: enabled,
+        first: !enabled || first,
+        last: !enabled || last,
+        zone: settings.zoneFor(module),
+        placementExplicit: settings.modulePlacement.containsKey(module),
+        onPlace: (zone) => _place(controller, module, zone),
+        onResetPlacement: () => _saverFor(controller).apply((settings) {
+          final placement = Map<String, ModuleZone>.of(settings.modulePlacement)
+            ..remove(module);
+          return settings.copyWith(modulePlacement: placement);
+        }),
+        onToggle: (value) => _toggle(controller, module, value),
+        onMoveUp: () => _moveWithinZone(controller, module, -1),
+        onMoveDown: () => _moveWithinZone(controller, module, 1),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SettingsHeading(
-          title: l10n.settingsModulesTitle,
-          caption: l10n.settingsModulesCaption,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SettingsHeading(
+                title: l10n.settingsModulesTitle,
+                caption: l10n.settingsModulesCaption,
+              ),
+            ),
+            SettingsResetButton(
+              key: const ValueKey<String>('reset-module-order'),
+              label: l10n.settingsResetOption(l10n.settingsModulesTitle),
+              enabled: !listEquals(
+                controller.settings.modules,
+                BarSettings.knownModules,
+              ),
+              onPressed: () => _saverFor(controller).apply(
+                (settings) =>
+                    settings.copyWith(modules: BarSettings.knownModules),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
-        SettingsCard(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            children: [
-              for (final module in ordered)
-                _ModuleRow(
-                  key: ValueKey<String>('module-$module'),
-                  module: module,
-                  label: moduleLabel(l10n, module),
-                  enabled: controller.settings.includes(module),
-                  first: ordered.indexOf(module) == 0,
-                  last: ordered.indexOf(module) == ordered.length - 1,
-                  zone: controller.settings.zoneFor(module),
-                  onPlace: (zone) => _place(controller, module, zone),
-                  onToggle: (value) => _toggle(controller, module, value),
-                  onMoveUp: () => _move(controller, module, -1),
-                  onMoveDown: () => _move(controller, module, 1),
-                ),
-            ],
+        for (final entry in groups.entries)
+          if (entry.value.isNotEmpty) ...[
+            SettingsHeading(
+              key: ValueKey<String>('module-zone-${entry.key.wire}'),
+              title: _zoneLabel(l10n, entry.key),
+            ),
+            const SizedBox(height: 10),
+            SettingsCard(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  for (final (index, module) in entry.value.indexed)
+                    moduleRow(
+                      module,
+                      first: index == 0,
+                      last: index == entry.value.length - 1,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        if (disabled.isNotEmpty) ...[
+          SettingsHeading(
+            key: const ValueKey<String>('module-zone-disabled'),
+            title: l10n.settingsModulesDisabled,
           ),
-        ),
+          const SizedBox(height: 10),
+          SettingsCard(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                for (final (index, module) in disabled.indexed)
+                  moduleRow(
+                    module,
+                    first: index == 0,
+                    last: index == disabled.length - 1,
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -150,7 +232,9 @@ class _ModuleRow extends StatelessWidget {
     required this.first,
     required this.last,
     required this.zone,
+    required this.placementExplicit,
     required this.onPlace,
+    required this.onResetPlacement,
     required this.onToggle,
     required this.onMoveUp,
     required this.onMoveDown,
@@ -163,7 +247,9 @@ class _ModuleRow extends StatelessWidget {
   final bool first;
   final bool last;
   final ModuleZone zone;
+  final bool placementExplicit;
   final ValueChanged<ModuleZone> onPlace;
+  final VoidCallback onResetPlacement;
   final ValueChanged<bool> onToggle;
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
@@ -215,7 +301,10 @@ class _ModuleRow extends StatelessWidget {
           if (enabled)
             Padding(
               padding: const EdgeInsets.only(left: 64, top: 8, bottom: 4),
-              child: Row(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     l10n.settingsModulePlacement,
@@ -223,8 +312,7 @@ class _ModuleRow extends StatelessWidget {
                       color: ShellMediaColors.lightForegroundSecondary,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  for (final place in ModuleZone.values) ...[
+                  for (final place in ModuleZone.values)
                     SettingsChoiceChip(
                       key: ValueKey<String>(
                         'module-placement-$module-${place.wire}',
@@ -233,9 +321,14 @@ class _ModuleRow extends StatelessWidget {
                       selected: zone == place,
                       onPressed: () => onPlace(place),
                     ),
-                    if (place != ModuleZone.values.last)
-                      const SizedBox(width: 6),
-                  ],
+                  SettingsResetButton(
+                    key: ValueKey<String>('reset-placement-$module'),
+                    label: l10n.settingsResetOption(
+                      l10n.settingsModulePlacement,
+                    ),
+                    enabled: placementExplicit,
+                    onPressed: onResetPlacement,
+                  ),
                 ],
               ),
             ),

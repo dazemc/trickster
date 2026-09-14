@@ -148,6 +148,10 @@
   "@settingsAccentPresets": {
     "description": "Accessible label for the accent preset swatches."
   },
+  "settingsAccentColor": "强调色",
+  "@settingsAccentColor": {
+    "description": "Name of the custom accent color option."
+  },
   "settingsAccentReset": "重置",
   "@settingsAccentReset": {
     "description": "Button that clears the custom accent."
@@ -180,6 +184,10 @@
         "type": "String"
       }
     }
+  },
+  "settingsModulesDisabled": "已禁用",
+  "@settingsModulesDisabled": {
+    "description": "Heading for modules that are turned off."
   },
   "settingsResetHint": "恢复默认值",
   "@settingsResetHint": {

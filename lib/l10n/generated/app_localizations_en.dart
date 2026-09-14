@@ -114,6 +114,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAccentPresets => 'Presets';
 
   @override
+  String get settingsAccentColor => 'Accent color';
+
+  @override
   String get settingsAccentReset => 'Reset';
 
   @override
@@ -136,6 +139,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String settingsResetOption(String option) {
     return 'Reset $option';
   }
+
+  @override
+  String get settingsModulesDisabled => 'Disabled';
 
   @override
   String get settingsResetHint => 'Revert to the default value';

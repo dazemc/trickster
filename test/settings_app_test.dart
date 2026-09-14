@@ -11,6 +11,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/settings/app.dart';
+import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/pages/about.dart';
@@ -120,7 +121,7 @@ void main() {
     await _pump(tester, controller);
     expect(file.readAsStringSync(), contains('8ab4ff'));
 
-    await tester.tap(find.bySemanticsLabel('Reset'));
+    await tester.tap(find.byKey(const ValueKey<String>('reset-accent')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
 
@@ -169,6 +170,10 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-toggle-gpu')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('module-toggle-gpu')));
     await tester.pump();
     expect(controller.settings.modules, isNot(contains('gpu')));
@@ -178,6 +183,10 @@ void main() {
     expect(file.readAsStringSync(), isNot(contains('"gpu"')));
 
     final before = List<String>.of(controller.settings.modules);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-up-clock')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('module-up-clock')));
     await tester.pump();
     expect(
@@ -335,6 +344,213 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
     await tester.pumpAndSettle();
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
+  });
+
+  testWidgets('modules group by placement zone', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    final leading = find.byKey(const ValueKey<String>('module-zone-leading'));
+    final center = find.byKey(const ValueKey<String>('module-zone-center'));
+    expect(leading, findsOneWidget);
+    expect(center, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('module-zone-trailing')),
+      findsOneWidget,
+    );
+
+    final leadingY = tester.getCenter(leading).dy;
+    final centerY = tester.getCenter(center).dy;
+    final trayY = tester
+        .getCenter(find.byKey(const ValueKey<String>('module-tray')))
+        .dy;
+    expect(trayY, greaterThan(leadingY));
+    expect(trayY, lessThan(centerY));
+
+    // Moving the tray re-segments it.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-placement-tray-center')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('module-placement-tray-center')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    final movedTray = tester
+        .getCenter(find.byKey(const ValueKey<String>('module-tray')))
+        .dy;
+    final movedCenterY = tester.getCenter(center).dy;
+    expect(movedTray, greaterThan(movedCenterY));
+
+    // Turning a module off moves it to the Disabled segment.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-toggle-gpu')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('module-toggle-gpu')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    final disabled = find.byKey(const ValueKey<String>('module-zone-disabled'));
+    expect(disabled, findsOneWidget);
+    final disabledY = tester.getCenter(disabled).dy;
+    final gpuY = tester
+        .getCenter(find.byKey(const ValueKey<String>('module-gpu')))
+        .dy;
+    expect(gpuY, greaterThan(disabledY));
+  });
+
+  testWidgets('appearance resets restore the accent defaults', (tester) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "accent_source": "wallpaper", '
+      '"accent_wallpaper_pick": "#2050E0"}',
+    );
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+
+    Future<void> settle() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+    }
+
+    Future<void> reset(String key) async {
+      await tester.ensureVisible(find.byKey(ValueKey<String>(key)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey<String>(key)));
+      await tester.pump();
+      await settle();
+    }
+
+    expect(controller.settings.accentWallpaperPick, '#2050E0');
+    await reset('reset-wallpaper-pick');
+    expect(controller.settings.accentWallpaperPick, isNull);
+
+    await reset('reset-accent-source');
+    expect(controller.settings.accentSource, AccentSource.custom);
+
+    final preset = ValueKey<String>(
+      'accent-preset-${formatOpaqueColorHex(const Color(0xff8ab4ff))}',
+    );
+    await tester.ensureVisible(find.byKey(preset));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(preset));
+    await settle();
+    expect(controller.settings.accent, const Color(0xff8ab4ff));
+    await reset('reset-accent');
+    expect(controller.settings.accent, isNull);
+
+    final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(decoded.accent, isNull);
+    expect(decoded.accentSource, AccentSource.custom);
+    expect(decoded.accentWallpaperPick, isNull);
+  });
+
+  testWidgets('module resets restore order and placement', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    Future<void> settle() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+    }
+
+    Future<void> reset(String key) async {
+      await tester.ensureVisible(find.byKey(ValueKey<String>(key)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey<String>(key)));
+      await tester.pump();
+      await settle();
+    }
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-up-clock')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('module-up-clock')));
+    await tester.pump();
+    await settle();
+    expect(controller.settings.modules, isNot(BarSettings.knownModules));
+    await reset('reset-module-order');
+    expect(controller.settings.modules, BarSettings.knownModules);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-placement-tray-center')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('module-placement-tray-center')),
+    );
+    await tester.pump();
+    await settle();
+    expect(controller.settings.zoneFor('tray'), ModuleZone.center);
+    await reset('reset-placement-tray');
+    expect(controller.settings.zoneFor('tray'), ModuleZone.leading);
+
+    final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(decoded.modules, BarSettings.knownModules);
+    expect(decoded.modulePlacement, isEmpty);
+  });
+
+  testWidgets('display resets restore edge, thickness, and outputs', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Displays'));
+    await tester.pump();
+
+    final outputs = File('${directory.path}/outputs.conf');
+    await tester.tap(find.byKey(const ValueKey<String>('side-bottom')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('system_bar=bottom,32'));
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('reset-side')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('reset-side')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('system_bar=top,32'));
+
+    final slider = find.byKey(const ValueKey<String>('thickness-slider'));
+    await tester.ensureVisible(slider);
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(slider);
+    await tester.tapAt(Offset(rect.right - 2, rect.center.dy));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), isNot(contains('system_bar=top,32\n')));
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('reset-thickness')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('reset-thickness')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('system_bar=top,32\n'));
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('output-eDP-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('HDMI-A-1'));
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('reset-outputs')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('reset-outputs')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), isNot(contains('HDMI-A-1')));
   });
 
   testWidgets('each orientation keeps its own thickness', (tester) async {

@@ -296,6 +296,12 @@ abstract class AppLocalizations {
   /// **'Presets'**
   String get settingsAccentPresets;
 
+  /// Name of the custom accent color option.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get settingsAccentColor;
+
   /// Button that clears the custom accent.
   ///
   /// In en, this message translates to:
@@ -337,6 +343,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reset {option}'**
   String settingsResetOption(String option);
+
+  /// Heading for modules that are turned off.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get settingsModulesDisabled;
 
   /// Hint for a control that reverts one option to its default.
   ///
