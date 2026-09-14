@@ -18,6 +18,7 @@ dependencies:
   equatable: ^2.1.0
   ffi: ^2.2.0
   flutter_svg: ^2.3.0
+  lucide_icons: ^0.257.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
