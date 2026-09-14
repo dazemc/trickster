@@ -344,6 +344,24 @@ abstract class AppLocalizations {
   /// **'Reset {option}'**
   String settingsResetOption(String option);
 
+  /// Heading for modules this machine cannot run.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get settingsModulesUnavailable;
+
+  /// Reason shown when no battery is detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No battery detected'**
+  String get settingsUnavailableNoBattery;
+
+  /// Hint shown inside an empty placement segment.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop a module here'**
+  String get settingsModulesEmptyZone;
+
   /// Heading for modules that are turned off.
   ///
   /// In en, this message translates to:
@@ -379,6 +397,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Trailing'**
   String get settingsPlacementTrailing;
+
+  /// Handle label for dragging a module row.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder'**
+  String get settingsModuleDrag;
 
   /// Accessible hint for a module toggle.
   ///

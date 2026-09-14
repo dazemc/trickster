@@ -185,6 +185,18 @@
       }
     }
   },
+  "settingsModulesUnavailable": "Unavailable",
+  "@settingsModulesUnavailable": {
+    "description": "Heading for modules this machine cannot run."
+  },
+  "settingsUnavailableNoBattery": "No battery detected",
+  "@settingsUnavailableNoBattery": {
+    "description": "Reason shown when no battery is detected."
+  },
+  "settingsModulesEmptyZone": "Drop a module here",
+  "@settingsModulesEmptyZone": {
+    "description": "Hint shown inside an empty placement segment."
+  },
   "settingsModulesDisabled": "Disabled",
   "@settingsModulesDisabled": {
     "description": "Heading for modules that are turned off."
@@ -208,6 +220,10 @@
   "settingsPlacementTrailing": "Trailing",
   "@settingsPlacementTrailing": {
     "description": "Placement chip for the strip's trailing edge."
+  },
+  "settingsModuleDrag": "Drag to reorder",
+  "@settingsModuleDrag": {
+    "description": "Handle label for dragging a module row."
   },
   "settingsModuleToggleHint": "Toggles the module",
   "@settingsModuleToggleHint": {

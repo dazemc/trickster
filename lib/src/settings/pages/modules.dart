@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/services.dart'
+    show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/scope.dart';
@@ -25,6 +28,12 @@ String moduleLabel(AppLocalizations l10n, String module) {
   };
 }
 
+String _reasonLabel(AppLocalizations l10n, ModuleUnavailableReason reason) {
+  return switch (reason) {
+    ModuleUnavailableReason.noBattery => l10n.settingsUnavailableNoBattery,
+  };
+}
+
 String _zoneLabel(AppLocalizations l10n, ModuleZone zone) {
   return switch (zone) {
     ModuleZone.leading => l10n.settingsPlacementLeading,
@@ -33,10 +42,17 @@ String _zoneLabel(AppLocalizations l10n, ModuleZone zone) {
   };
 }
 
-/// Modules page: every module the bar knows, toggled on or off and ordered
-/// exactly as the strip renders it.
+/// Modules page: every module the bar knows, grouped by placement zone and
+/// ordered as the strip renders it. Drag a row onto another segment to move
+/// it there, or onto another row to reorder it.
 class ModulesPage extends StatefulWidget {
-  const ModulesPage({super.key});
+  const ModulesPage({
+    this.availabilityProbe = probeModuleAvailability,
+    super.key,
+  });
+
+  /// Hardware probe; injected by the shell and faked in tests.
+  final List<ModuleAvailability> Function() availabilityProbe;
 
   @override
   State<ModulesPage> createState() => _ModulesPageState();
@@ -44,6 +60,7 @@ class ModulesPage extends StatefulWidget {
 
 class _ModulesPageState extends State<ModulesPage> {
   DebouncedSaver? _saver;
+  late final List<ModuleAvailability> _unavailable = widget.availabilityProbe();
 
   @override
   void dispose() {
@@ -68,22 +85,7 @@ class _ModulesPageState extends State<ModulesPage> {
     });
   }
 
-  void _place(
-    SettingsAppController controller,
-    String module,
-    ModuleZone zone,
-  ) {
-    _saverFor(controller).apply((settings) {
-      final placement = Map<String, ModuleZone>.of(settings.modulePlacement);
-      if (zone == defaultModuleZone(module)) {
-        placement.remove(module);
-      } else {
-        placement[module] = zone;
-      }
-      return settings.copyWith(modulePlacement: placement);
-    });
-  }
-
+  /// Keyboard reorder within a zone: swaps [module] with its neighbour.
   void _moveWithinZone(
     SettingsAppController controller,
     String module,
@@ -110,43 +112,83 @@ class _ModulesPageState extends State<ModulesPage> {
     });
   }
 
+  /// Places [dragged] in [zone], before [before] when given; appends after
+  /// the zone's last module otherwise.
+  void _dropOn(
+    SettingsAppController controller,
+    String dragged, {
+    required ModuleZone zone,
+    String? before,
+  }) {
+    _saverFor(controller).apply((settings) {
+      final placement = Map<String, ModuleZone>.of(settings.modulePlacement);
+      if (zone == defaultModuleZone(dragged)) {
+        placement.remove(dragged);
+      } else {
+        placement[dragged] = zone;
+      }
+      final modules = List<String>.of(settings.modules)..remove(dragged);
+      var index = before == null ? -1 : modules.indexOf(before);
+      if (index < 0) {
+        final last = modules.lastIndexWhere(
+          (candidate) =>
+              (placement[candidate] ?? defaultModuleZone(candidate)) == zone,
+        );
+        index = last >= 0 ? last + 1 : modules.length;
+      }
+      modules.insert(index.clamp(0, modules.length), dragged);
+      return settings.copyWith(modulePlacement: placement, modules: modules);
+    });
+  }
+
+  void _moveZoneBy(SettingsAppController controller, String module, int delta) {
+    final current = controller.settings.zoneFor(module);
+    final next = ModuleZone.values.indexOf(current) + delta;
+    if (next < 0 || next >= ModuleZone.values.length) {
+      return;
+    }
+    _dropOn(controller, module, zone: ModuleZone.values[next]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final controller = SettingsAppScope.of(context);
     final settings = controller.settings;
+    final unavailableModules = <String>{
+      for (final unavailable in _unavailable) unavailable.module,
+    };
     final groups = <ModuleZone, List<String>>{
       for (final zone in ModuleZone.values)
         zone: [
           for (final module in settings.modules)
-            if (settings.zoneFor(module) == zone) module,
+            if (!unavailableModules.contains(module) &&
+                settings.zoneFor(module) == zone)
+              module,
         ],
     };
     final disabled = <String>[
       for (final module in BarSettings.knownModules)
-        if (!settings.includes(module)) module,
+        if (!settings.includes(module) && !unavailableModules.contains(module))
+          module,
     ];
 
-    Widget moduleRow(String module, {required bool first, required bool last}) {
-      final enabled = settings.includes(module);
+    Widget moduleRow(
+      String module, {
+      required ModuleZone zone,
+      required bool reorderable,
+    }) {
       return _ModuleRow(
         key: ValueKey<String>('module-$module'),
         module: module,
         label: moduleLabel(l10n, module),
-        enabled: enabled,
-        first: !enabled || first,
-        last: !enabled || last,
-        zone: settings.zoneFor(module),
-        placementExplicit: settings.modulePlacement.containsKey(module),
-        onPlace: (zone) => _place(controller, module, zone),
-        onResetPlacement: () => _saverFor(controller).apply((settings) {
-          final placement = Map<String, ModuleZone>.of(settings.modulePlacement)
-            ..remove(module);
-          return settings.copyWith(modulePlacement: placement);
-        }),
+        enabled: settings.includes(module),
+        reorderable: reorderable,
         onToggle: (value) => _toggle(controller, module, value),
-        onMoveUp: () => _moveWithinZone(controller, module, -1),
-        onMoveDown: () => _moveWithinZone(controller, module, 1),
+        onDrop: (dragged) =>
+            _dropOn(controller, dragged, zone: zone, before: module),
+        onKeyboardMove: (delta) => _moveWithinZone(controller, module, delta),
+        onKeyboardZone: (delta) => _moveZoneBy(controller, module, delta),
       );
     }
 
@@ -163,12 +205,20 @@ class _ModulesPageState extends State<ModulesPage> {
               ),
             ),
             SettingsResetButton(
+              key: const ValueKey<String>('reset-placement'),
+              label: l10n.settingsResetOption(l10n.settingsModulePlacement),
+              enabled: settings.modulePlacement.isNotEmpty,
+              onPressed: () => _saverFor(controller).apply(
+                (settings) => settings.copyWith(
+                  modulePlacement: const <String, ModuleZone>{},
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            SettingsResetButton(
               key: const ValueKey<String>('reset-module-order'),
               label: l10n.settingsResetOption(l10n.settingsModulesTitle),
-              enabled: !listEquals(
-                controller.settings.modules,
-                BarSettings.knownModules,
-              ),
+              enabled: !listEquals(settings.modules, BarSettings.knownModules),
               onPressed: () => _saverFor(controller).apply(
                 (settings) =>
                     settings.copyWith(modules: BarSettings.knownModules),
@@ -177,28 +227,64 @@ class _ModulesPageState extends State<ModulesPage> {
           ],
         ),
         const SizedBox(height: 20),
-        for (final entry in groups.entries)
-          if (entry.value.isNotEmpty) ...[
-            SettingsHeading(
-              key: ValueKey<String>('module-zone-${entry.key.wire}'),
-              title: _zoneLabel(l10n, entry.key),
-            ),
-            const SizedBox(height: 10),
-            SettingsCard(
+        for (final entry in groups.entries) ...[
+          SettingsHeading(
+            key: ValueKey<String>('module-zone-${entry.key.wire}'),
+            title: _zoneLabel(l10n, entry.key),
+          ),
+          const SizedBox(height: 10),
+          _ZoneDropTarget(
+            key: ValueKey<String>('module-zone-drop-${entry.key.wire}'),
+            onAccept: (dragged) =>
+                _dropOn(controller, dragged, zone: entry.key),
+            child: SettingsCard(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(
-                children: [
-                  for (final (index, module) in entry.value.indexed)
-                    moduleRow(
-                      module,
-                      first: index == 0,
-                      last: index == entry.value.length - 1,
+              child: entry.value.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Text(
+                        l10n.settingsModulesEmptyZone,
+                        style: ShellText.systemBarCaption.copyWith(
+                          color: ShellMediaColors.lightForegroundSecondary,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        for (final module in entry.value)
+                          moduleRow(module, zone: entry.key, reorderable: true),
+                      ],
                     ),
-                ],
-              ),
             ),
-            const SizedBox(height: 16),
-          ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (_unavailable.isNotEmpty) ...[
+          SettingsHeading(
+            key: const ValueKey<String>('module-zone-unavailable'),
+            title: l10n.settingsModulesUnavailable,
+          ),
+          const SizedBox(height: 10),
+          SettingsCard(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                for (final unavailable in _unavailable)
+                  _UnavailableRow(
+                    key: ValueKey<String>(
+                      'module-unavailable-${unavailable.module}',
+                    ),
+                    label: moduleLabel(l10n, unavailable.module),
+                    reason: _reasonLabel(l10n, unavailable.reason),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (disabled.isNotEmpty) ...[
           SettingsHeading(
             key: const ValueKey<String>('module-zone-disabled'),
@@ -209,11 +295,11 @@ class _ModulesPageState extends State<ModulesPage> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
               children: [
-                for (final (index, module) in disabled.indexed)
+                for (final module in disabled)
                   moduleRow(
                     module,
-                    first: index == 0,
-                    last: index == disabled.length - 1,
+                    zone: settings.zoneFor(module),
+                    reorderable: false,
                   ),
               ],
             ),
@@ -224,115 +310,143 @@ class _ModulesPageState extends State<ModulesPage> {
   }
 }
 
+/// A module this machine cannot run, with the reason why.
+class _UnavailableRow extends StatelessWidget {
+  const _UnavailableRow({required this.label, required this.reason, super.key});
+
+  final String label;
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: ShellText.systemBarValue.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+          ),
+          Text(
+            reason,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary.withValues(
+                alpha: 0.7,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ModuleRow extends StatelessWidget {
   const _ModuleRow({
     required this.module,
     required this.label,
     required this.enabled,
-    required this.first,
-    required this.last,
-    required this.zone,
-    required this.placementExplicit,
-    required this.onPlace,
-    required this.onResetPlacement,
+    required this.reorderable,
     required this.onToggle,
-    required this.onMoveUp,
-    required this.onMoveDown,
+    required this.onDrop,
+    required this.onKeyboardMove,
+    required this.onKeyboardZone,
     super.key,
   });
 
   final String module;
   final String label;
   final bool enabled;
-  final bool first;
-  final bool last;
-  final ModuleZone zone;
-  final bool placementExplicit;
-  final ValueChanged<ModuleZone> onPlace;
-  final VoidCallback onResetPlacement;
+  final bool reorderable;
   final ValueChanged<bool> onToggle;
-  final VoidCallback onMoveUp;
-  final VoidCallback onMoveDown;
+  final ValueChanged<String> onDrop;
+  final ValueChanged<int> onKeyboardMove;
+  final ValueChanged<int> onKeyboardZone;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              _MoveButton(
-                key: ValueKey<String>('module-up-$module'),
-                label: l10n.settingsModuleMoveUp,
-                up: true,
-                enabled: !first,
-                onPressed: onMoveUp,
-              ),
-              const SizedBox(width: 4),
-              _MoveButton(
-                key: ValueKey<String>('module-down-$module'),
-                label: l10n.settingsModuleMoveDown,
-                up: false,
-                enabled: !last,
-                onPressed: onMoveDown,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: ShellText.systemBarValue.copyWith(
-                    color: enabled
-                        ? ShellMediaColors.lightForeground
-                        : ShellMediaColors.lightForegroundSecondary,
-                  ),
-                ),
-              ),
-              _ModuleToggle(
-                key: ValueKey<String>('module-toggle-$module'),
-                label: label,
-                enabled: enabled,
-                onChanged: onToggle,
-              ),
-            ],
+          _ModuleDragHandle(
+            key: ValueKey<String>('module-drag-$module'),
+            module: module,
+            label: l10n.settingsModuleDrag,
+            feedbackLabel: label,
+            enabled: reorderable,
+            onKeyboardMove: onKeyboardMove,
+            onKeyboardZone: onKeyboardZone,
           ),
-          if (enabled)
-            Padding(
-              padding: const EdgeInsets.only(left: 64, top: 8, bottom: 4),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    l10n.settingsModulePlacement,
-                    style: ShellText.systemBarCaption.copyWith(
-                      color: ShellMediaColors.lightForegroundSecondary,
-                    ),
-                  ),
-                  for (final place in ModuleZone.values)
-                    SettingsChoiceChip(
-                      key: ValueKey<String>(
-                        'module-placement-$module-${place.wire}',
-                      ),
-                      label: _zoneLabel(l10n, place),
-                      selected: zone == place,
-                      onPressed: () => onPlace(place),
-                    ),
-                  SettingsResetButton(
-                    key: ValueKey<String>('reset-placement-$module'),
-                    label: l10n.settingsResetOption(
-                      l10n.settingsModulePlacement,
-                    ),
-                    enabled: placementExplicit,
-                    onPressed: onResetPlacement,
-                  ),
-                ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: ShellText.systemBarValue.copyWith(
+                color: enabled
+                    ? ShellMediaColors.lightForeground
+                    : ShellMediaColors.lightForegroundSecondary,
               ),
             ),
+          ),
+          _ModuleToggle(
+            key: ValueKey<String>('module-toggle-$module'),
+            label: label,
+            enabled: enabled,
+            onChanged: onToggle,
+          ),
         ],
+      ),
+    );
+    if (!reorderable) {
+      return row;
+    }
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => details.data != module,
+      onAcceptWithDetails: (details) => onDrop(details.data),
+      builder: (context, candidates, rejected) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: candidates.isEmpty
+              ? const Color(0x00000000)
+              : ShellBrandColors.defaultAccent.withValues(alpha: 0.08),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+        ),
+        child: row,
+      ),
+    );
+  }
+}
+
+/// A segment's card as a whole is a drop target; hovering draws an accent
+/// outline so an empty segment still reads as droppable.
+class _ZoneDropTarget extends StatelessWidget {
+  const _ZoneDropTarget({
+    required this.onAccept,
+    required this.child,
+    super.key,
+  });
+
+  final ValueChanged<String> onAccept;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidates, rejected) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.all(Radius.circular(18)),
+          border: candidates.isEmpty
+              ? null
+              : Border.all(color: ShellBrandColors.defaultAccent, width: 1.5),
+        ),
+        child: child,
       ),
     );
   }
@@ -400,49 +514,95 @@ class _ModuleToggle extends StatelessWidget {
   }
 }
 
-class _MoveButton extends StatelessWidget {
-  const _MoveButton({
+/// The drag affordance for a module row: pointer drag moves the row, and
+/// ctrl+arrow / ctrl+shift+arrow keep keyboard reordering and zone moves.
+class _ModuleDragHandle extends StatelessWidget {
+  const _ModuleDragHandle({
+    required this.module,
     required this.label,
-    required this.up,
+    required this.feedbackLabel,
     required this.enabled,
-    required this.onPressed,
+    required this.onKeyboardMove,
+    required this.onKeyboardZone,
     super.key,
   });
 
+  final String module;
   final String label;
-  final bool up;
+  final String feedbackLabel;
   final bool enabled;
-  final VoidCallback onPressed;
+  final ValueChanged<int> onKeyboardMove;
+  final ValueChanged<int> onKeyboardZone;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      onTap: enabled ? onPressed : null,
-      child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: enabled ? onPressed : null,
-            child: SizedBox.square(
-              dimension: 24,
-              child: Center(
-                child: Icon(
-                  up ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                  size: 15,
-                  color: enabled
-                      ? ShellMediaColors.lightForeground
-                      : ShellMediaColors.lightForegroundSecondary.withValues(
-                          alpha: 0.35,
-                        ),
-                ),
-              ),
-            ),
-          ),
+    final color = enabled
+        ? ShellMediaColors.lightForegroundSecondary
+        : ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3);
+    final handle = MouseRegion(
+      cursor: enabled ? SystemMouseCursors.grab : SystemMouseCursors.basic,
+      child: SizedBox.square(
+        dimension: 24,
+        child: Center(
+          child: Icon(LucideIcons.gripVertical, size: 15, color: color),
         ),
+      ),
+    );
+    return Semantics(
+      label: label,
+      enabled: enabled,
+      child: ExcludeSemantics(
+        child: Focus(
+          canRequestFocus: enabled,
+          onKeyEvent: (node, event) {
+            if (event is! KeyDownEvent ||
+                !HardwareKeyboard.instance.isControlPressed) {
+              return KeyEventResult.ignored;
+            }
+            final shift = HardwareKeyboard.instance.isShiftPressed;
+            final key = event.logicalKey;
+            if (key == LogicalKeyboardKey.arrowUp) {
+              shift ? onKeyboardZone(-1) : onKeyboardMove(-1);
+              return KeyEventResult.handled;
+            }
+            if (key == LogicalKeyboardKey.arrowDown) {
+              shift ? onKeyboardZone(1) : onKeyboardMove(1);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: enabled
+              ? Draggable<String>(
+                  data: module,
+                  maxSimultaneousDrags: 1,
+                  feedback: _DragFeedback(label: feedbackLabel),
+                  childWhenDragging: Opacity(opacity: 0.35, child: handle),
+                  child: handle,
+                )
+              : handle,
+        ),
+      ),
+    );
+  }
+}
+
+/// The lifted row under the pointer: a card matching the segment's radius.
+class _DragFeedback extends StatelessWidget {
+  const _DragFeedback({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: SettingsColors.surfaceHigh,
+        borderRadius: const BorderRadius.all(Radius.circular(18)),
+        border: Border.all(color: SettingsColors.outline),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        child: Text(label, style: ShellText.systemBarValue),
       ),
     );
   }

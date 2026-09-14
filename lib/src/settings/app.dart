@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:trickster/src/config/settings.dart' show AccentSource;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/pages/about.dart';
 import 'package:trickster/src/settings/pages/appearance.dart';
@@ -88,7 +89,13 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
                             ],
                           ),
                         ),
-                        child: const SettingsHome(),
+                        child: Overlay(
+                          initialEntries: [
+                            OverlayEntry(
+                              builder: (context) => const SettingsHome(),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -104,10 +111,17 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
 /// The settings shell: header plus the page area. Pages arrive in the
 /// following steps; this step proves the mode, window, and design language.
 class SettingsHome extends StatefulWidget {
-  const SettingsHome({this.onClose, super.key});
+  const SettingsHome({
+    this.onClose,
+    this.availabilityProbe = probeModuleAvailability,
+    super.key,
+  });
 
   /// Test seam; production closes the native settings window.
   final VoidCallback? onClose;
+
+  /// Hardware probe for the modules page; tests substitute their own answer.
+  final List<ModuleAvailability> Function() availabilityProbe;
 
   @override
   State<SettingsHome> createState() => _SettingsHomeState();
@@ -190,7 +204,9 @@ class _SettingsHomeState extends State<SettingsHome> {
                           child: switch (_section) {
                             SettingsSection.appearance =>
                               const AppearancePage(),
-                            SettingsSection.modules => const ModulesPage(),
+                            SettingsSection.modules => ModulesPage(
+                              availabilityProbe: widget.availabilityProbe,
+                            ),
                             SettingsSection.displays => const DisplaysPage(),
                             SettingsSection.options => const OptionsPage(),
                             SettingsSection.language => const LanguagePage(),

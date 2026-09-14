@@ -141,6 +141,15 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsModulesUnavailable => 'Unavailable';
+
+  @override
+  String get settingsUnavailableNoBattery => 'No battery detected';
+
+  @override
+  String get settingsModulesEmptyZone => 'Drop a module here';
+
+  @override
   String get settingsModulesDisabled => 'Disabled';
 
   @override
@@ -157,6 +166,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPlacementTrailing => 'Trailing';
+
+  @override
+  String get settingsModuleDrag => 'Drag to reorder';
 
   @override
   String get settingsModuleToggleHint => 'Toggles the module';

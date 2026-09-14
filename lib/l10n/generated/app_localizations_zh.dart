@@ -138,6 +138,15 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get settingsModulesUnavailable => '不可用';
+
+  @override
+  String get settingsUnavailableNoBattery => '未检测到电池';
+
+  @override
+  String get settingsModulesEmptyZone => '将模块拖到这里';
+
+  @override
   String get settingsModulesDisabled => '已禁用';
 
   @override
@@ -154,6 +163,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsPlacementTrailing => '末尾';
+
+  @override
+  String get settingsModuleDrag => '拖动排序';
 
   @override
   String get settingsModuleToggleHint => '切换该模块';

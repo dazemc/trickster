@@ -185,6 +185,18 @@
       }
     }
   },
+  "settingsModulesUnavailable": "不可用",
+  "@settingsModulesUnavailable": {
+    "description": "Heading for modules this machine cannot run."
+  },
+  "settingsUnavailableNoBattery": "未检测到电池",
+  "@settingsUnavailableNoBattery": {
+    "description": "Reason shown when no battery is detected."
+  },
+  "settingsModulesEmptyZone": "将模块拖到这里",
+  "@settingsModulesEmptyZone": {
+    "description": "Hint shown inside an empty placement segment."
+  },
   "settingsModulesDisabled": "已禁用",
   "@settingsModulesDisabled": {
     "description": "Heading for modules that are turned off."
@@ -208,6 +220,10 @@
   "settingsPlacementTrailing": "末尾",
   "@settingsPlacementTrailing": {
     "description": "Placement chip for the strip's trailing edge."
+  },
+  "settingsModuleDrag": "拖动排序",
+  "@settingsModuleDrag": {
+    "description": "Handle label for dragging a module row."
   },
   "settingsModuleToggleHint": "切换该模块",
   "@settingsModuleToggleHint": {

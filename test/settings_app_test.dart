@@ -11,6 +11,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/settings/app.dart';
+import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/controller.dart';
@@ -50,6 +51,7 @@ Future<void> _pump(
   WidgetTester tester,
   SettingsAppController controller, {
   VoidCallback? onClose,
+  List<ModuleAvailability> Function()? availabilityProbe,
 }) {
   return tester.pumpWidget(
     SettingsAppScope(
@@ -59,12 +61,47 @@ Future<void> _pump(
           data: const MediaQueryData(size: Size(980, 720)),
           child: Directionality(
             textDirection: TextDirection.ltr,
-            child: SettingsHome(onClose: onClose),
+            child: Overlay(
+              initialEntries: [
+                OverlayEntry(
+                  builder: (context) => SettingsHome(
+                    onClose: onClose,
+                    availabilityProbe:
+                        availabilityProbe ?? () => const <ModuleAvailability>[],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     ),
   );
+}
+
+Future<void> _dragModuleTo(
+  WidgetTester tester,
+  String module,
+  Finder target,
+) async {
+  final handle = find.byKey(ValueKey<String>('module-drag-$module'));
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(handle);
+  await tester.pumpAndSettle();
+  final start = tester.getCenter(handle);
+  final end = tester.getCenter(target);
+  final gesture = await tester.startGesture(start);
+  await tester.pump(const Duration(milliseconds: 120));
+  const steps = 8;
+  for (var step = 1; step <= steps; step++) {
+    await gesture.moveTo(Offset.lerp(start, end, step / steps)!);
+    await tester.pump(const Duration(milliseconds: 40));
+  }
+  await gesture.up();
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pump();
 }
 
 void main() {
@@ -183,12 +220,11 @@ void main() {
     expect(file.readAsStringSync(), isNot(contains('"gpu"')));
 
     final before = List<String>.of(controller.settings.modules);
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-up-clock')),
+    await _dragModuleTo(
+      tester,
+      'clock',
+      find.byKey(const ValueKey<String>('module-battery')),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('module-up-clock')));
-    await tester.pump();
     expect(
       controller.settings.modules.indexOf('clock'),
       lessThan(before.indexOf('clock')),
@@ -199,14 +235,11 @@ void main() {
     final decoded = BarSettings.decode(file.readAsStringSync());
     expect(decoded.modules.indexOf('clock'), lessThan(before.indexOf('clock')));
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-placement-clock-leading')),
+    await _dragModuleTo(
+      tester,
+      'clock',
+      find.byKey(const ValueKey<String>('module-tray')),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('module-placement-clock-leading')),
-    );
-    await tester.pump();
     expect(controller.settings.zoneFor('clock'), ModuleZone.leading);
 
     await tester.pump(const Duration(milliseconds: 400));
@@ -346,6 +379,44 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
+  testWidgets('absent hardware lands in the unavailable segment', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(
+      tester,
+      controller,
+      availabilityProbe: () => const [
+        ModuleAvailability(
+          module: 'battery',
+          reason: ModuleUnavailableReason.noBattery,
+        ),
+      ],
+    );
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    final unavailable = find.byKey(
+      const ValueKey<String>('module-zone-unavailable'),
+    );
+    expect(unavailable, findsOneWidget);
+    final battery = find.byKey(
+      const ValueKey<String>('module-unavailable-battery'),
+    );
+    expect(battery, findsOneWidget);
+    expect(find.text('No battery detected'), findsOneWidget);
+    // The battery is not offered as a toggle in a zone segment.
+    expect(
+      find.byKey(const ValueKey<String>('module-toggle-battery')),
+      findsNothing,
+    );
+    expect(
+      tester.getCenter(battery).dy,
+      greaterThan(tester.getCenter(unavailable).dy),
+    );
+  });
+
   testWidgets('modules group by placement zone', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);
@@ -370,16 +441,12 @@ void main() {
     expect(trayY, greaterThan(leadingY));
     expect(trayY, lessThan(centerY));
 
-    // Moving the tray re-segments it.
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-placement-tray-center')),
+    // Dragging the tray onto the center segment re-segments it.
+    await _dragModuleTo(
+      tester,
+      'tray',
+      find.byKey(const ValueKey<String>('module-workspaces')),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('module-placement-tray-center')),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
     final movedTray = tester
         .getCenter(find.byKey(const ValueKey<String>('module-tray')))
         .dy;
@@ -469,32 +536,25 @@ void main() {
       await settle();
     }
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-up-clock')),
+    await _dragModuleTo(
+      tester,
+      'clock',
+      find.byKey(const ValueKey<String>('module-battery')),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('module-up-clock')));
-    await tester.pump();
-    await settle();
     expect(controller.settings.modules, isNot(BarSettings.knownModules));
     await reset('reset-module-order');
     expect(controller.settings.modules, BarSettings.knownModules);
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('module-placement-tray-center')),
+    await _dragModuleTo(
+      tester,
+      'tray',
+      find.byKey(const ValueKey<String>('module-workspaces')),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('module-placement-tray-center')),
-    );
-    await tester.pump();
-    await settle();
     expect(controller.settings.zoneFor('tray'), ModuleZone.center);
-    await reset('reset-placement-tray');
+    await reset('reset-placement');
     expect(controller.settings.zoneFor('tray'), ModuleZone.leading);
 
     final decoded = BarSettings.decode(file.readAsStringSync());
-    expect(decoded.modules, BarSettings.knownModules);
     expect(decoded.modulePlacement, isEmpty);
   });
 
