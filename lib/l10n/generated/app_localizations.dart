@@ -572,6 +572,24 @@ abstract class AppLocalizations {
   /// **'Per display'**
   String get settingsWorkspacesPerDisplay;
 
+  /// Caption above the workspace chain order list.
+  ///
+  /// In en, this message translates to:
+  /// **'Display order'**
+  String get settingsWorkspacesDisplayOrder;
+
+  /// Badge on the first display of the workspace chain.
+  ///
+  /// In en, this message translates to:
+  /// **'Main'**
+  String get settingsWorkspacesMain;
+
+  /// Action that moves a display to the front of the chain.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as main'**
+  String get settingsWorkspacesSetMain;
+
   /// Section heading for clock options.
   ///
   /// In en, this message translates to:

@@ -444,6 +444,77 @@ void main() {
     expect(controller.settings.workspaces.countFor('HDMI-A-1'), 4);
   });
 
+  testWidgets('workspace display order marks main and reorders', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('module-options-workspaces')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('module-options-workspaces')),
+    );
+    await tester.pumpAndSettle();
+
+    // The host order chains the displays and the first row is main.
+    expect(controller.settings.workspaces.displayOrder, isEmpty);
+    expect(
+      find.byKey(const ValueKey<String>('display-main-eDP-1')),
+      findsOneWidget,
+    );
+    expect(find.text('1-4'), findsOneWidget);
+    expect(find.text('5-8'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('display-set-main-HDMI-A-1')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.workspaces.displayOrder, ['HDMI-A-1', 'eDP-1']);
+    expect(
+      BarSettings.decode(file.readAsStringSync()).workspaces.displayOrder,
+      ['HDMI-A-1', 'eDP-1'],
+    );
+    expect(
+      find.byKey(const ValueKey<String>('display-main-HDMI-A-1')),
+      findsOneWidget,
+    );
+
+    // Dragging eDP-1 onto the first row moves it back to the front.
+    final handle = find.byKey(const ValueKey<String>('display-drag-eDP-1'));
+    final target = find.byKey(const ValueKey<String>('display-order-HDMI-A-1'));
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(handle);
+    await tester.pumpAndSettle();
+    final start = tester.getCenter(handle);
+    final end = tester.getCenter(target);
+    final gesture = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 120));
+    final slop = Offset(0, end.dy >= start.dy ? 24 : -24);
+    await gesture.moveBy(slop);
+    await tester.pump(const Duration(milliseconds: 60));
+    final liveEnd = tester.getCenter(target);
+    var current = start + slop;
+    const steps = 8;
+    for (var step = 1; step <= steps; step++) {
+      current = Offset.lerp(start + slop, liveEnd, step / steps)!;
+      await gesture.moveTo(current);
+      await tester.pump(const Duration(milliseconds: 40));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.workspaces.displayOrder, ['eDP-1', 'HDMI-A-1']);
+  });
+
   testWidgets('drag preview follows the hovered half of the row', (
     tester,
   ) async {

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
@@ -46,16 +47,82 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     (_saver ??= DebouncedSaver(controller)).apply(change);
   }
 
+  /// Moves [display] to [index] in the chain and persists the whole order, so
+  /// the displays the host appended keep an explicit position.
+  void _reorderDisplay(
+    SettingsAppController controller,
+    List<String> chain,
+    String display,
+    int index,
+  ) {
+    final order = List<String>.of(chain)..remove(display);
+    order.insert(index.clamp(0, order.length), display);
+    _apply(
+      controller,
+      (settings) => settings.copyWith(
+        workspaces: WorkspaceOptions(
+          count: settings.workspaces.count,
+          perOutput: settings.workspaces.perOutput,
+          displayOrder: order,
+        ),
+      ),
+    );
+  }
+
+  Widget _displayOrderRow(
+    SettingsAppController controller,
+    BarSettings settings,
+    List<String> chain,
+    int index,
+  ) {
+    final l10n = context.l10n;
+    final display = chain[index];
+    final range = settings.workspaces.rangeFor(display, chain);
+    return _DisplayOrderRow(
+      key: ValueKey<String>('display-order-$display'),
+      display: display,
+      main: index == 0,
+      range: range == null ? '' : '${range.$1}-${range.$2}',
+      dragLabel: l10n.settingsModuleDrag,
+      mainLabel: l10n.settingsWorkspacesMain,
+      setMainLabel: l10n.settingsWorkspacesSetMain,
+      onSetMain: () => _reorderDisplay(controller, chain, display, 0),
+      onMoveHere: (dragged) =>
+          _reorderDisplay(controller, chain, dragged, index),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final controller = SettingsAppScope.of(context);
     final settings = controller.settings;
+    final connected = <String>[
+      for (final output in controller.availableOutputs) output.name,
+    ];
+    final chain = settings.workspaces.chainFor(connected);
     return switch (widget.module) {
       'workspaces' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (controller.availableOutputs.isNotEmpty) ...[
+          if (chain.isNotEmpty) ...[
+            Text(
+              l10n.settingsWorkspacesDisplayOrder,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SettingsCard(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  for (var index = 0; index < chain.length; index++)
+                    _displayOrderRow(controller, settings, chain, index),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               l10n.settingsWorkspacesPerDisplay,
               style: ShellText.systemBarCaption.copyWith(
@@ -450,6 +517,176 @@ class _SliderRow extends StatelessWidget {
           onPressed: onReset,
         ),
       ],
+    );
+  }
+}
+
+/// One display in the chain order: grip, name, main badge (or set-as-main),
+/// and the absolute workspace range it owns.
+class _DisplayOrderRow extends StatelessWidget {
+  const _DisplayOrderRow({
+    required this.display,
+    required this.main,
+    required this.range,
+    required this.dragLabel,
+    required this.mainLabel,
+    required this.setMainLabel,
+    required this.onSetMain,
+    required this.onMoveHere,
+    super.key,
+  });
+
+  final String display;
+  final bool main;
+  final String range;
+  final String dragLabel;
+  final String mainLabel;
+  final String setMainLabel;
+  final VoidCallback onSetMain;
+  final ValueChanged<String> onMoveHere;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => details.data != display,
+      onAcceptWithDetails: (details) => onMoveHere(details.data),
+      builder: (context, candidates, rejected) {
+        final active = candidates.isNotEmpty;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: active
+                  ? SettingsColors.surfaceHigh
+                  : SettingsColors.surface,
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              border: Border.all(
+                color: active
+                    ? ShellBrandColors.defaultAccent
+                    : SettingsColors.outline,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  Draggable<String>(
+                    key: ValueKey<String>('display-drag-$display'),
+                    data: display,
+                    maxSimultaneousDrags: 1,
+                    feedback: _DisplayDragFeedback(label: display),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _DisplayGrip(label: dragLabel),
+                    ),
+                    child: _DisplayGrip(label: dragLabel),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(display, style: ShellText.systemBarValue),
+                  ),
+                  if (main)
+                    _MainBadge(
+                      key: ValueKey<String>('display-main-$display'),
+                      label: mainLabel,
+                    )
+                  else
+                    SettingsChoiceChip(
+                      key: ValueKey<String>('display-set-main-$display'),
+                      label: setMainLabel,
+                      selected: false,
+                      onPressed: onSetMain,
+                    ),
+                  const SizedBox(width: 10),
+                  Text(
+                    range,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: ShellMediaColors.lightForegroundSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The drag handle that lifts one display row.
+class _DisplayGrip extends StatelessWidget {
+  const _DisplayGrip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: SizedBox.square(
+            dimension: 24,
+            child: Center(
+              child: Icon(
+                LucideIcons.gripVertical,
+                size: 15,
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The lifted row under the pointer.
+class _DisplayDragFeedback extends StatelessWidget {
+  const _DisplayDragFeedback({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: SettingsColors.surfaceHigh,
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        border: Border.all(color: SettingsColors.outline),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(label, style: ShellText.systemBarValue),
+      ),
+    );
+  }
+}
+
+/// The badge carried by the first display of the chain.
+class _MainBadge extends StatelessWidget {
+  const _MainBadge({required this.label, super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: ShellBrandColors.defaultAccent.withValues(alpha: 0.15),
+        borderRadius: const BorderRadius.all(Radius.circular(999)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Text(
+          label,
+          style: ShellText.systemBarCaption.copyWith(
+            color: ShellBrandColors.defaultAccent,
+          ),
+        ),
+      ),
     );
   }
 }

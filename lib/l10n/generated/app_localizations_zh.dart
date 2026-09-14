@@ -254,6 +254,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsWorkspacesPerDisplay => '每个显示器';
 
   @override
+  String get settingsWorkspacesDisplayOrder => '显示器顺序';
+
+  @override
+  String get settingsWorkspacesMain => '主显示器';
+
+  @override
+  String get settingsWorkspacesSetMain => '设为主显示器';
+
+  @override
   String get settingsClockSection => '时钟';
 
   @override

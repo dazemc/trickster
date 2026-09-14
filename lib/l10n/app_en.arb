@@ -342,6 +342,18 @@
   "@settingsWorkspacesPerDisplay": {
     "description": "Caption above the per-display workspace counts."
   },
+  "settingsWorkspacesDisplayOrder": "Display order",
+  "@settingsWorkspacesDisplayOrder": {
+    "description": "Caption above the workspace chain order list."
+  },
+  "settingsWorkspacesMain": "Main",
+  "@settingsWorkspacesMain": {
+    "description": "Badge on the first display of the workspace chain."
+  },
+  "settingsWorkspacesSetMain": "Set as main",
+  "@settingsWorkspacesSetMain": {
+    "description": "Action that moves a display to the front of the chain."
+  },
   "settingsClockSection": "Clock",
   "@settingsClockSection": {
     "description": "Section heading for clock options."
