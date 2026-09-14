@@ -48,22 +48,29 @@ a standalone settings application. It is its own Flutter process and bundle
 (file transport as fallback), and covers exactly the settings the bar has.
 The version stays 0.1.0 until the user calls a bump.
 
-- [ ] **8.5 displays page** (M). Per-output side, thickness, and selection
-      through the `system_bar=` grammar, with the live output list. Needs an
-      `outputs.read`/`outputs.write` control command (or a watched-file
-      transport) because the socket serves settings only today. Done when:
-      saving writes outputs.conf and the bar reconciles its surfaces.
-- [ ] **8.6 module options page** (M). The typed options the bar already
+- [ ] **8.6 vertical compact modules** (M). `lib/src/bar/`. On left and
+      right edges the pills rotate upright but still carry their full
+      horizontal layout; give them compact variants: CPU/GPU show only
+      `NN%`, the clock shows only the time, and media shows only its
+      previous/play/next controls. Done when: a vertical strip shows the
+      compact pills and the horizontal layouts are unchanged.
+- [ ] **8.7 pill hover tooltips** (M). `lib/src/bar/`. Hovering any pill
+      shows a detail tooltip on the transient overlay surface the tray
+      tooltips already use (full clock date and time, CPU/GPU caption and
+      percent, battery state, media title/artist, workspace names). Done
+      when: every pill has a hover tooltip with the compact-appropriate
+      details and semantics stay the accessible path.
+- [ ] **8.8 module options page** (M). The typed options the bar already
       decodes: workspaces `show_empty`/`max`, clock format, CPU and battery
       thresholds, meter captions. Done when: every control round-trips and
       the bar applies it live.
-- [ ] **8.7 language page** (S). Add a `locale` key to settings.json, honor
+- [ ] **8.9 language page** (S). Add a `locale` key to settings.json, honor
       it in the bar's scope resolver, and switch the app catalog live. Done
       when: bar and app follow the saved language without a restart.
-- [ ] **8.8 about page** (S). Bar and protocol versions plus repository
+- [ ] **8.10 about page** (S). Bar and protocol versions plus repository
       links, degrading cleanly when the bar is not running. Done when: it
       reads versions from a live bar and from a stopped one.
-- [ ] **8.9 packaging** (M). The Arch package builds and installs the second
+- [ ] **8.11 packaging** (M). The Arch package builds and installs the second
       bundle with a `trickster-settings.desktop`; extend the AUR recipe and
       the version-sync test to the app. Done when: the package installs both
       binaries and the desktop entry opens the app.
