@@ -20,10 +20,10 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 The settings window covers the bar's documents but not every knob, and is an
 opaque window while the bar is glass. This phase fills the surface out.
 
-- **14.12 (M) Wallpaper accent per display.** Monitors can run different
-  wallpapers, so the wallpaper-accent pick becomes per-output too: the
-  settings UI lists each display's candidates and each strip resolves its
-  own output's pick. Done when two outputs can hold different picks and
+- **14.12 (M) Appearance per display.** The appearance keys resolve per
+  output: the accent source and wallpaper pick become per-display values,
+  falling back to the global appearance keys, and the settings UI edits
+  each display's own. Done when two outputs can hold different picks and
   the live bars show their own accents.
 - **14.13 (S) Hide the clock date caption.** Add `clock.show_date` (hide the
   date caption) with the settings toggle; the bar honors it live. Done when
@@ -78,3 +78,42 @@ occupied/empty tinting, and the accessibility labels.
   artwork through the same decode/cache path, with the settings application
   offering a file browse control. Done when the live rail paints a browsed
   image.
+
+## Phase 18 — bar options and layout
+
+The user's review of the live bar: pills overlap when a cluster outgrows
+its space; meters and clock need more options; media needs display modes;
+and the modules page needs visible drop targets and honest unavailable
+rows.
+
+- **18.1 (M) Pills resize to avoid overlap.** The strip's three zones share
+  one row but paint as a free stack, so a long leading/trailing cluster
+  overlaps the centered rail. Clamp each zone to its available span so
+  pills shrink or ellipsize instead of colliding. Done when a long-content
+  bar shows no overlap on the live strips and a widget test pins the
+  clamped widths.
+- **18.2 (M) Meter caption parity and custom prefixes.** CPU and GPU both
+  expose the caption source choice, and the source gains a custom prefix
+  typed in the settings UI. Done when both panels offer generic/device/
+  custom, the typed prefix round-trips, and the live pills show it.
+- **18.3 (M) Meter thresholds and colors.** GPU gains warn/critical
+  thresholds like CPU, and both meters' threshold tint colors become
+  configurable in the document and the settings UI. Done when the colors
+  round-trip and the live pills tint with them.
+- **18.4 (M) Clock depth.** Add the clock options the user settles at
+  planning time (candidates: `clock.show_seconds`, a custom time pattern,
+  date caption style). Done when each option renders on the bar, resets,
+  and has config plus widget tests.
+- **18.5 (M) Media display modes.** `media.mode` picks full, semi-full, or
+  compact; tapping the pill still cycles temporarily and the configured
+  mode returns on relaunch. Done when the modes render, the tap cycle is
+  transient, and a relaunch restores the setting.
+- **18.6 (S) Always-visible drop targets.** Every module zone keeps a
+  "Drop a module here" target even when populated, and the Disabled area
+  accepts drops so a module can be dragged there to turn off. Done when a
+  widget test drags a module to Disabled and the targets stay visible.
+- **18.7 (S) Unavailable modules refuse enablement.** The settings page
+  cannot enable a module whose probe failed, and the row carries the
+  reason; a configured module that fails its probe is surfaced as
+  unavailable instead of silently dead. Done when tests cover the refused
+  toggle and the reason text.
