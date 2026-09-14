@@ -74,6 +74,10 @@ rejected at decode, so a live reload keeps the last-good settings.
   source, the extracted candidate closest in hue; the dominant candidate
   applies when absent. The settings application lists the palette with
   copyable hex values.
+- `module_placement` (optional object) — per-module zone along the strip's
+  main axis: `leading`, `center`, or `trailing`. Defaults: the tray leads,
+  the workspace rail centers, and every other module trails. The settings
+  application exposes the same choice per module.
 - `workspaces.workspace_count` (int 2–9, default `4`) — every rail shows
   the numbers 1..count, Denial's model. Active and occupied states come
   from the compositor for each output; pressing a number switches to it and
