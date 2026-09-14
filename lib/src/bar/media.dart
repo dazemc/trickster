@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/locale.dart';
@@ -74,7 +75,7 @@ class _MediaPillState extends State<MediaPill> {
       _MediaControlButton(
         compact: widget.vertical,
         label: l10n.mediaPrevious,
-        glyph: _TransportGlyph.previous,
+        glyph: LucideIcons.skipBack,
         color: widget.accent.color,
         enabled: media.canGoPrevious,
         onPressed: bloc.previous,
@@ -83,7 +84,7 @@ class _MediaPillState extends State<MediaPill> {
       _MediaControlButton(
         compact: widget.vertical,
         label: media.playing ? l10n.mediaPause : l10n.mediaPlay,
-        glyph: media.playing ? _TransportGlyph.pause : _TransportGlyph.play,
+        glyph: media.playing ? LucideIcons.pause : LucideIcons.play,
         color: widget.accent.color,
         enabled: media.playing ? media.canPause : media.canPlay,
         prominent: true,
@@ -93,7 +94,7 @@ class _MediaPillState extends State<MediaPill> {
       _MediaControlButton(
         compact: widget.vertical,
         label: l10n.mediaNext,
-        glyph: _TransportGlyph.next,
+        glyph: LucideIcons.skipForward,
         color: widget.accent.color,
         enabled: media.canGoNext,
         onPressed: bloc.next,
@@ -226,7 +227,7 @@ class _MediaControlButton extends StatefulWidget {
   });
 
   final String label;
-  final _TransportGlyph glyph;
+  final IconData glyph;
   final Color color;
   final bool enabled;
   final VoidCallback onPressed;
@@ -279,98 +280,16 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
                 color: background,
                 shape: BoxShape.circle,
               ),
-              child: CustomPaint(
-                painter: _TransportPainter(
-                  glyph: widget.glyph,
-                  color: glyphColor,
-                ),
+              child: Icon(
+                widget.glyph,
+                size: widget.compact ? 12 : 14,
+                color: glyphColor,
               ),
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-enum _TransportGlyph { previous, play, pause, next }
-
-class _TransportPainter extends CustomPainter {
-  const _TransportPainter({required this.glyph, required this.color});
-
-  final _TransportGlyph glyph;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final w = size.width;
-    final h = size.height;
-    switch (glyph) {
-      case _TransportGlyph.play:
-        canvas.drawPath(
-          Path()
-            ..moveTo(w * 0.36, h * 0.22)
-            ..lineTo(w * 0.36, h * 0.78)
-            ..lineTo(w * 0.78, h * 0.5)
-            ..close(),
-          paint,
-        );
-      case _TransportGlyph.pause:
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(w * 0.32, h * 0.22, w * 0.13, h * 0.56),
-            const Radius.circular(1.4),
-          ),
-          paint,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(w * 0.55, h * 0.22, w * 0.13, h * 0.56),
-            const Radius.circular(1.4),
-          ),
-          paint,
-        );
-      case _TransportGlyph.next:
-        canvas.drawPath(
-          Path()
-            ..moveTo(w * 0.26, h * 0.24)
-            ..lineTo(w * 0.26, h * 0.76)
-            ..lineTo(w * 0.62, h * 0.5)
-            ..close(),
-          paint,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(w * 0.66, h * 0.24, w * 0.12, h * 0.52),
-            const Radius.circular(1.4),
-          ),
-          paint,
-        );
-      case _TransportGlyph.previous:
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(w * 0.22, h * 0.24, w * 0.12, h * 0.52),
-            const Radius.circular(1.4),
-          ),
-          paint,
-        );
-        canvas.drawPath(
-          Path()
-            ..moveTo(w * 0.74, h * 0.24)
-            ..lineTo(w * 0.74, h * 0.76)
-            ..lineTo(w * 0.38, h * 0.5)
-            ..close(),
-          paint,
-        );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TransportPainter oldDelegate) {
-    return oldDelegate.glyph != glyph || oldDelegate.color != color;
   }
 }
 

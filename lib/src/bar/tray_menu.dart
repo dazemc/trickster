@@ -14,7 +14,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -251,76 +251,21 @@ class _TrayMenuSurfaceState extends State<TrayMenuSurface> {
     if (entry.toggleType == SystemTrayMenuToggleType.none) {
       return null;
     }
+    final color = entry.enabled
+        ? ShellMediaColors.lightForeground
+        : ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.45);
+    final checked = entry.toggleState == 1;
+    final icon = switch (entry.toggleType) {
+      SystemTrayMenuToggleType.checkmark => checked ? LucideIcons.check : null,
+      SystemTrayMenuToggleType.radio =>
+        checked ? LucideIcons.circleDot : LucideIcons.circle,
+      SystemTrayMenuToggleType.none => null,
+    };
     return SizedBox.square(
       dimension: 12,
-      child: CustomPaint(
-        painter: _MenuTogglePainter(
-          type: entry.toggleType,
-          checked: entry.toggleState == 1,
-          color: entry.enabled
-              ? ShellMediaColors.lightForeground
-              : ShellMediaColors.lightForegroundSecondary.withValues(
-                  alpha: 0.45,
-                ),
-        ),
-      ),
+      child: icon == null
+          ? const SizedBox.shrink()
+          : Icon(icon, size: 12, color: color),
     );
-  }
-}
-
-class _MenuTogglePainter extends CustomPainter {
-  const _MenuTogglePainter({
-    required this.type,
-    required this.checked,
-    required this.color,
-  });
-
-  final SystemTrayMenuToggleType type;
-  final bool checked;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    switch (type) {
-      case SystemTrayMenuToggleType.checkmark:
-        if (!checked) {
-          return;
-        }
-        final check = Path()
-          ..moveTo(size.width * 0.15, size.height * 0.55)
-          ..lineTo(size.width * 0.42, size.height * 0.8)
-          ..lineTo(size.width * 0.85, size.height * 0.2);
-        canvas.drawPath(
-          check,
-          Paint()
-            ..color = color
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.6
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round,
-        );
-      case SystemTrayMenuToggleType.radio:
-        final center = size.center(Offset.zero);
-        canvas.drawCircle(
-          center,
-          size.width * 0.42,
-          Paint()
-            ..color = color
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.4,
-        );
-        if (checked) {
-          canvas.drawCircle(center, size.width * 0.2, Paint()..color = color);
-        }
-      case SystemTrayMenuToggleType.none:
-        return;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MenuTogglePainter oldDelegate) {
-    return oldDelegate.type != type ||
-        oldDelegate.checked != checked ||
-        oldDelegate.color != color;
   }
 }

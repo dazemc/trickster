@@ -1,6 +1,5 @@
-import 'dart:math' as math;
-
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -80,9 +79,10 @@ class _SettingsCloseButtonState extends State<SettingsCloseButton> {
                 border: Border.all(color: SettingsColors.outline),
               ),
               child: const Center(
-                child: CustomPaint(
-                  size: Size(10, 10),
-                  painter: _ClosePainter(),
+                child: Icon(
+                  LucideIcons.x,
+                  size: 14,
+                  color: ShellMediaColors.lightForegroundSecondary,
                 ),
               ),
             ),
@@ -91,24 +91,6 @@ class _SettingsCloseButtonState extends State<SettingsCloseButton> {
       ),
     );
   }
-}
-
-class _ClosePainter extends CustomPainter {
-  const _ClosePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = ShellMediaColors.lightForegroundSecondary
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    canvas
-      ..drawLine(Offset.zero, Offset(size.width, size.height), paint)
-      ..drawLine(Offset(size.width, 0), Offset(0, size.height), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ClosePainter oldDelegate) => false;
 }
 
 /// A small text button in the settings window.
@@ -469,9 +451,10 @@ class _SettingsResetButtonState extends State<SettingsResetButton> {
                         : null,
                   ),
                   child: Center(
-                    child: CustomPaint(
-                      size: const Size(12, 12),
-                      painter: _ResetGlyphPainter(color: _glyphColor),
+                    child: Icon(
+                      LucideIcons.rotateCcw,
+                      size: 13,
+                      color: _glyphColor,
                     ),
                   ),
                 ),
@@ -482,47 +465,4 @@ class _SettingsResetButtonState extends State<SettingsResetButton> {
       ),
     );
   }
-}
-
-/// A clockwise circular arrow with the head at the top gap.
-class _ResetGlyphPainter extends CustomPainter {
-  const _ResetGlyphPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.shortestSide / 2 - 1;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round;
-    const start = -math.pi / 2 + 0.5;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      start,
-      math.pi * 1.75,
-      false,
-      paint,
-    );
-    final tip =
-        center + Offset(math.cos(start) * radius, math.sin(start) * radius);
-    final head = Path()
-      ..moveTo(tip.dx - 2.6, tip.dy - 1.8)
-      ..lineTo(tip.dx + 1.2, tip.dy)
-      ..lineTo(tip.dx - 2.4, tip.dy + 2.2)
-      ..close();
-    canvas.drawPath(
-      head,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.fill,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ResetGlyphPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
