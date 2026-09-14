@@ -46,8 +46,8 @@ opaque window while the bar is glass. This phase fills the surface out.
 Denial's rail is a fixed `1..count` on every display. The user wants a main
 display whose workspaces start at 1, each subsequent display appending its
 own block (main 4 → 1-4, next 3 → 5-7), with the display order
-user-configurable. This is bar numbering and click targets only; workspace
-ownership stays with the compositor.
+user-configurable. This is bar numbering and click targets; pressing a pip
+asks the compositor to claim that workspace for the rail's display (16.4).
 
 - **16.3 (M) Chain order controls.** The workspaces gear panel lists the
   connected displays in chain order with drag handles and a Main badge on
@@ -124,3 +124,25 @@ rows.
   reason; a configured module that fails its probe is surfaced as
   unavailable instead of silently dead. Done when tests cover the refused
   toggle and the reason text.
+
+## Phase 19 — settings frame performance
+
+The settings window stutters below 60 fps on the 4K@60 output (scale 2).
+Ours: every controller notification rebuilds the shell and the active page,
+and drags preview on every pointer event. Not ours: the Linux GTK embedder
+provides no vsync callback, so the engine paces on a fixed 60 Hz fallback
+that is not phase-locked to the compositor. Upstream
+`flutter/flutter#191245` tracks compositor-driven pacing with the Wayland
+subsurface renderer from `#191389`. The decision is to wait for that work
+to reach a stable release — do not fork, patch, or pin a patched engine
+while other packages share the stock SDK.
+
+- **19.1 (S) Measure the settings frame budget.** A profile build of
+  settings mode records build/raster/vsyncOverhead per frame plus the
+  number of rebuilds and pointer events during a slider drag. Done when the
+  numbers say whether the app's build work or the engine cadence dominates.
+- **19.2 (M) Scope and coalesce settings rebuilds.** Drag previews collapse
+  to one per frame, and a controller change rebuilds only the widgets that
+  read it (section-scoped listenables; the shell keeps to locale and
+  load/error). Done when a drag's build times fit the frame budget and the
+  settings tests stay green.
