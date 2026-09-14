@@ -6,12 +6,18 @@ and this file is corrected.
 
 ## What it is
 
-- One Flutter Linux process and engine. One `wlr-layer-shell` strip surface
-  per connected output (layer, anchors, exclusive zone via `gtk-layer-shell`
-  FFI), plus one transient overlay surface while a tray menu is open; all
-  created as native multi-view windows (`fl_engine_new` +
+- One Flutter Linux process and engine runs the bar. One `wlr-layer-shell`
+  strip surface per connected output (layer, anchors, exclusive zone via
+  `gtk-layer-shell` FFI), plus one transient overlay surface while a tray
+  menu is open; all created as native multi-view windows (`fl_engine_new` +
   `fl_view_new_for_engine`), never through Flutter's master-only,
   private-import experimental windowing API.
+- Denial's settings application in parity: the same binary run in settings
+  mode (`trickster-settings`, i.e. `trickster --settings`). It is its own
+  process with its own engine and no strip surfaces, writing the same
+  documents through the control socket (falling back to the file transport)
+  and speaking the same design language. It covers exactly the settings the
+  bar has — never compositor controls it does not own.
 - Denial's desktop system bar: floating pill cards, wallpaper-derived or
   configured accent, spring entrance, trailing-edge module cluster.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
@@ -29,8 +35,9 @@ and this file is corrected.
   code (`denial_bridge`, XEmbed tray merge, native workspaces, atlas/KMS)
   stays behind. Anything ported keeps Trickster GPL-3.0-or-later.
 - Not a general Flutter application. No Material scaffolding, no unused
-  routes, no settings window in v1, no second engine, no debug overlay in
-  production.
+  routes, no debug overlay in production. The settings application is a
+  standalone process (above); it is never a window inside the bar process
+  and never a second bar engine.
 
 ## Runtime shape
 
