@@ -64,17 +64,29 @@ workspaces and module gate; these steps align the presentation.
 Denial has no blurred bar background: each pill is a translucent card with
 the backdrop blurred behind its own bounds. Trickster asks the compositor
 for `ext-background-effect` with the whole strip surface as the region, so
-the entire band blurs. These steps move the blur to the pills and match
+the entire band blurs. These steps moved the blur to the pills and matched
 Denial's glass density.
 
-- **12.1 (M) Blur only the pills.** Report each pill card's bounds per strip
-  surface and set the compositor's blur region to those rectangles instead
-  of the whole surface; a strip with no pills (or a host without
-  `ext-background-effect`) disables the effect. Done when a widget test
-  proves the reporter sends the card rectangles and clears them on unmount,
-  native builds the region from the list, and the live bar shows sharp gaps
-  between blurred pills.
-- **12.2 (S) Match Denial's glass fills.** With the blur confined to the
-  pills, lower the card fill alphas toward Denial's ~44% card opacity, and
-  keep the opaque fallback when the host has no blur. Done when the live
-  bar's pill density matches Denial and the no-blur path stays readable.
+## Phase 13 — bar zones and placement
+
+Denial pins the tray to the strip's leading edge, centers the workspace
+rail, and trails the rest. Trickster keeps every module in one trailing
+cluster. These steps give the strip the same three zones and let the
+settings application place each module.
+
+- **13.1 (S) Pin the tray to the leading edge.** Match Denial's bar: the
+  tray card expands into the space left of the trailing cluster and aligns
+  to the strip's leading edge (top edge on side strips), while the
+  workspace rail stays centered and the other modules trail. Done when a
+  widget test proves the tray's leading edge sits at the strip start and
+  the live bar matches.
+- **13.2 (M) Add a per-module placement option.** `settings.json` gains a
+  `placement` map (`leading`, `center`, `trailing`; defaults: tray
+  `leading`, workspaces `center`, everything else `trailing`), decoded
+  with the retired-key discipline; the strip renders each module in its
+  zone, preserving the configured order inside a zone. Done when config
+  round-trip tests cover the map and a widget test proves the zones.
+- **13.3 (S) Expose placement in the settings application.** The modules
+  page gains a per-module leading/center/trailing selector writing through
+  the same document. Done when the settings app test drives the selector
+  and the live settings window moves a pill.
