@@ -44,10 +44,9 @@ accent, theme tokens, or the `system_bar=` grammar. What moved:
   (`desktop_workspace_indicator.dart`, added in `fdb986e`, 2026-09-02):
   numbered pips in a card with a liquid active lens. Trickster ported it
   (centered indicator slot, numbered pips, dark lens,
-  takeoff/travel/settle deformation). The remaining divergence is
-  visibility: Denial always shows its configured count on every monitor,
-  while Trickster filters workspaces per output; that parity step sits in
-  `.llm/todo.md`.
+  takeoff/travel/settle deformation, and Denial's fixed 1..count rail on
+  every monitor: `workspaces.workspace_count`, with active and occupied
+  resolved against each output).
 - `Motion` gained `workspaceIndicatorTakeoff` / `Travel` / `Settle` and the
   MD3 emphasized accelerate/decelerate curves; `springTo` now passes
   `snapToEnd: true` (Trickster has no spring paths to fix).
