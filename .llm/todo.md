@@ -51,3 +51,23 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
+## Phase 10 — docs and install hygiene (proposed)
+
+Proposed by the agent after the Phase 9 walk; implementation waits for the
+user's explicit go-ahead, step by step as always.
+
+- **10.1 (S) Give the docs site a stable analyzer boundary.** A fresh clone
+  that runs only the root `flutter pub get` fails `flutter analyze` with
+  ~72 errors from the separate Jasper site under `docs_site/`. Reproduce on
+  a clean checkout, then document the site's own `dart pub get` in its
+  development page and wherever the repo tells contributors to analyze;
+  done when a fresh clone following the written steps analyzes clean.
+- **10.2 (S) Document the AUR install path.** `docs_site/content/installation.md`
+  never mentions `trickster-bin`; add the `yay -S trickster-bin` section
+  (0.2.0, manual maintenance) and drop the "planned" framing if any
+  remains; done when the page matches the published recipe.
+- **10.3 (S) Write the manual release runbook.** `development.md` describes
+  the tag workflow but not the human steps that follow it (refresh the pin,
+  clone AUR, push to `master` — the branch is `master`, not `main`). Add
+  the runbook; done when the documented steps reproduce the 0.2.0 publish
+  without prior session knowledge.
