@@ -57,7 +57,7 @@ void main() {
         DocsLayout(
           header: Header(
             title: 'Trickster',
-            logo: '/images/logo.svg',
+            logo: '/images/logo.png',
             items: [
               // Enables switching between light and dark mode.
               ThemeToggle(),
