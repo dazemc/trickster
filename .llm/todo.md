@@ -43,10 +43,11 @@ silent per the logging rules.
 ## Phase 8 — settings application (Denial parity)
 
 The bar stopped at "no settings window in v1"; the user replaced that with
-a standalone settings application. It is its own Flutter process and bundle
-(`trickster-settings`), speaks to the running bar over the control socket
-(file transport as fallback), and covers exactly the settings the bar has.
-The version stays 0.1.0 until the user calls a bump.
+a settings application: the same binary run in settings mode
+(`trickster-settings`), its own process and engine with no strip surfaces,
+writing through the running bar's control socket (file transport as
+fallback) and covering exactly the settings the bar has. The version stays
+0.1.0 until the user calls a bump.
 
 - [ ] **8.6 vertical compact modules** (M). `lib/src/bar/`. On left and
       right edges the pills rotate upright but still carry their full
