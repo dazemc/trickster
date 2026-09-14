@@ -42,12 +42,6 @@ silent per the logging rules.
 
 ## Phase 9 — parity and release hygiene
 
-- [ ] **9.5 release automation** (M). `.github/workflows/`. A tag-triggered
-      workflow builds the Arch package with `check()`, hashes it, updates
-      the AUR pin from the built artifact, and attaches the asset to the
-      GitHub release. Done when: a dry-run tag produces the asset and pin
-      without manual steps.
-
 ## Phase 8 — settings application (Denial parity)
 
 The bar stopped at "no settings window in v1"; the user replaced that with
