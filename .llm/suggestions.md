@@ -29,8 +29,9 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
-- **AUR updates stay manual.** `trickster-bin` now serves 0.2.0-1
-  (`efb3b37`, hash `875ed281…`, matching `packaging/aur/trickster-bin`).
-  Future version bumps are published only on explicit go-ahead; the release
-  workflow deliberately stops at the in-repo pin commit.
-
+- **The AUR recipe pulls the release asset from a private repository.**
+  `trickster-bin`'s `source=` points at the GitHub release download
+  endpoint, which requires authentication while `dazemc/trickster` is
+  private, so the public cannot build the package. Make the repository
+  public at the first public release, or mirror the asset somewhere that
+  allows anonymous downloads.
