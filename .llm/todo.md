@@ -94,15 +94,23 @@ rows.
   compact; tapping the pill still cycles temporarily and the configured
   mode returns on relaunch. Done when the modes render, the tap cycle is
   transient, and a relaunch restores the setting.
-- **18.6 (S) Always-visible drop targets.** Every module zone keeps a
-  "Drop a module here" target even when populated, and the Disabled area
-  accepts drops so a module can be dragged there to turn off. Done when a
-  widget test drags a module to Disabled and the targets stay visible.
+- **18.6 (S) Complete the module drop targets.** "Drop a module here"
+  shows on empty zones and an empty Disabled section; the Disabled section
+  accepts drops to turn a module off; a disabled row can be dragged back
+  into a zone; and releasing below a zone's last row appends there. Done
+  when widget tests drop below the last trailing row, drag a module to
+  Disabled, and drag one back out.
 - **18.7 (S) Unavailable modules refuse enablement.** The settings page
   cannot enable a module whose probe failed, and the row carries the
   reason; a configured module that fails its probe is surfaced as
   unavailable instead of silently dead. Done when tests cover the refused
   toggle and the reason text.
+- **18.8 (M) Screencopy backdrop sampling.** Outputs with no awww/swww
+  image (a solid or compositor background) get no sample today. Capture the
+  output's strip band with `grim` and run it through the existing candidate
+  extractor, cached and sampled only on start/display change. Done when a
+  display with no cache file still reports candidates on the live bar and
+  settings page, and grim's absence degrades silently.
 
 ## Phase 19 — settings frame performance
 
