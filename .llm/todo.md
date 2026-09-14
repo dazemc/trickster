@@ -42,11 +42,6 @@ silent per the logging rules.
 
 ## Phase 9 — parity and release hygiene
 
-- [ ] **9.4 AUR submission** (S). `packaging/aur/trickster-bin`. The recipe
-      is verified and pinned but not published to aur.archlinux.org; submit
-      it (needs the user's AUR account and SSH key) and confirm the package
-      page and a clean `makepkg` from the published sources. Done when: the
-      package is live and the docs link to it.
 - [ ] **9.5 release automation** (M). `.github/workflows/`. A tag-triggered
       workflow builds the Arch package with `check()`, hashes it, updates
       the AUR pin from the built artifact, and attaches the asset to the

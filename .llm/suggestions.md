@@ -28,3 +28,10 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   phase starts.
 
 ## Open suggestions
+
+- **AUR publishing is paused by the user's call.** `trickster-bin 0.2.0-1`
+  is live on aur.archlinux.org (pushed 2026-09-13) and the published
+  PKGBUILD/.SRCINFO match `packaging/aur/trickster-bin`. Do not push future
+  updates (version bumps, hash refreshes) without an explicit go-ahead, and
+  add the AUR link to `docs_site/content/installation.md` when publishing
+  resumes.
