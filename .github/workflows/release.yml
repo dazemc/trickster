@@ -184,7 +184,7 @@ jobs:
           GIT_SSH_COMMAND: ssh -i ~/.ssh/aur
         run: |
           version="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
-          git clone --depth=1 ssh://aur@aur.archlinux.org/trickster-bin.git aur
+          git clone ssh://aur@aur.archlinux.org/trickster-bin.git aur
           cp packaging/aur/trickster-bin/PKGBUILD aur/
           cp packaging/aur/trickster-bin/.SRCINFO aur/
           cd aur
