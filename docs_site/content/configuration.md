@@ -53,8 +53,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
   "accent": "#d0bcff",
   "modules": ["workspaces", "cpu", "gpu", "battery", "clock"],
   "workspaces": {
-    "show_empty": true,
-    "max": 9
+    "workspace_count": 4
   }
 }
 ```
@@ -75,11 +74,11 @@ rejected at decode, so a live reload keeps the last-good settings.
   source, the extracted candidate closest in hue; the dominant candidate
   applies when absent. The settings application lists the palette with
   copyable hex values.
-- `workspaces.show_empty` (bool, default `true`) — keep workspaces with no
-  open windows in the rail; the focused workspace always stays. The
-  compositor only reports workspaces that exist, so uncreated workspace
-  numbers are never invented.
-- `workspaces.max` (int 1–64, default `9`) — cap the number of pips shown.
+- `workspaces.workspace_count` (int 2–9, default `4`) — every rail shows
+  the numbers 1..count, Denial's model. Active and occupied states come
+  from the compositor for each output; pressing a number switches to it and
+  creates it where the compositor allows. The retired `show_empty`/`max`
+  keys are ignored on decode.
 - `cpu.warn` / `cpu.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
   the CPU load percent when it crosses each level; `warn` must stay below
   `critical`.
