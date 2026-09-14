@@ -42,3 +42,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 6 — follow-ups | `working` | done | Direct and SVG tray icon sources, single `--check` implementation |
 | 7 — version sync | `working` | done | One test pinning every version field to `Cli.appVersion` |
 | 8 — settings application | `working` | done | Same binary in settings mode: transport, appearance, modules, displays (live edge/thickness), options, language, about; vertical compact pills and pill tooltips; 0.2.0 release |
+| 9 — parity and release hygiene | `working` | queued | Docs reality pass, Denial porting pin, wallpaper accent sampler, AUR submission, release automation |
