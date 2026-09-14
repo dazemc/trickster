@@ -59,12 +59,6 @@ Denial v0.4.0 renders the workspace rail as a centered, numbered card in the
 strip with a liquid active lens. Trickster keeps its compositor-fed
 workspaces and module gate; these steps align the presentation.
 
-- **11.1 (M) Center the workspace rail in the strip.** Move the workspaces
-  pill out of the trailing module cluster and center it over the strip
-  (Denial's `DesktopSystemBarIndicatorSlot`: a shrink-wrapped main-axis item
-  centered in a `Stack`), keeping the module gate, per-output surfaces, and
-  exclusive-zone math. Done when a widget test proves the rail centers
-  independently of the cluster and the live bar matches.
 - **11.2 (S) Render numbered workspace pips.** Replace the state-colored
   dots with Denial's indicator treatment: `Text` labels styled accent when
   active, secondary when occupied, caption otherwise, over the active lens.
