@@ -15,70 +15,10 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase 1 — Bloc migration
-
-Riverpod → `flutter_bloc`, explicit events and states, no Cubits. Every
-state class ships `toJson`/`fromJson` from day one (convention only, no
-HydratedBloc) so `tricksterctl status` and agent runtime review read real
-state later. Debug/profile builds run a verbose `BlocObserver`
-(transitions + create/close + errors + timing) to stderr; release stays
-silent per the logging rules.
-
-## Phase 2 — feel (behaves like Denial)
-
-## Phase 3 — parity (absent modules)
-
-## Phase 4 — finish
-
-
-## Phase 5 — packaging and release
-
-
-## Phase 6 — follow-ups
-
-
-## Phase 7 — version sync
-
-
-## Phase 9 — parity and release hygiene
-
-## Phase 8 — settings application (Denial parity)
-
-The bar stopped at "no settings window in v1"; the user replaced that with
-a settings application: the same binary run in settings mode
-(`trickster-settings`), its own process and engine with no strip surfaces,
-writing through the running bar's control socket (file transport as
-fallback) and covering exactly the settings the bar has. The version stays
-0.1.0 until the user calls a bump.
-
-## Phase 10 — docs and install hygiene
-
-## Phase 11 — workspace rail parity
-
-Denial v0.4.0 renders the workspace rail as a centered, numbered card in the
-strip with a liquid active lens. Trickster keeps its compositor-fed
-workspaces and module gate; these steps align the presentation.
-
-## Phase 12 — pill glass
-
-Denial has no blurred bar background: each pill is a translucent card with
-the backdrop blurred behind its own bounds. Trickster asks the compositor
-for `ext-background-effect` with the whole strip surface as the region, so
-the entire band blurs. These steps moved the blur to the pills and matched
-Denial's glass density.
-
-## Phase 13 — bar zones and placement
-
-Denial pins the tray to the strip's leading edge, centers the workspace
-rail, and trails the rest. Trickster keeps every module in one trailing
-cluster. These steps give the strip the same three zones and let the
-settings application place each module.
-
 ## Phase 14 — settings depth
 
-The settings window covers the bar's documents but not every knob, splits
-module toggles from module options, and is an opaque window while the bar
-is glass. This phase fills the surface out.
+The settings window covers the bar's documents but not every knob, and is an
+opaque window while the bar is glass. This phase fills the surface out.
 
 - **14.11 (M) Workspaces configured per display.** The workspace count
   becomes per-output (each monitor may want a different rail length) in the
@@ -90,12 +30,17 @@ is glass. This phase fills the surface out.
   settings UI lists each display's candidates and each strip resolves its
   own output's pick. Done when two outputs can hold different picks and
   the live bars show their own accents.
-- **14.13 (M) Bar display options.** User-requested additions the bar can
-  honor without a new design language: `clock.show_date` (hide the date
-  caption), `appearance.blur` (force the opaque fill even when the host can
-  blur), and `meter.sparkline` (hide CPU/GPU history). Done when each
+- **14.13 (S) Hide the clock date caption.** Add `clock.show_date` (hide the
+  date caption) with the settings toggle; the bar honors it live. Done when
+  it renders on the bar, resets, and has config plus widget tests.
+- **14.14 (S) Force the opaque bar fill.** Add `appearance.blur` (force the
+  opaque fill even when the host can blur) with the settings toggle; the bar
+  honors it live. Done when it renders on the bar, resets, and has config
+  plus widget tests.
+- **14.15 (S) Hide the meter sparkline.** Add `meter.sparkline` (hide CPU/GPU
+  history) with the settings toggle; the bar honors it live. Done when it
   renders on the bar, resets, and has config plus widget tests.
-- **14.14 (M) Settings window transparency.** Make the settings toplevel
+- **14.16 (M) Settings window transparency.** Make the settings toplevel
   translucent (GTK RGBA visual plus translucent Flutter surfaces) so the
   host blurs behind it, with an opaque fallback when the compositor cannot.
   Done when the live window shows the blurred desktop on Hyprland and the
