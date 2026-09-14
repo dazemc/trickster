@@ -56,10 +56,6 @@ fallback) and covering exactly the settings the bar has. The version stays
 Proposed by the agent after the Phase 9 walk; implementation waits for the
 user's explicit go-ahead, step by step as always.
 
-- **10.2 (S) Document the AUR install path.** `docs_site/content/installation.md`
-  never mentions `trickster-bin`; add the `yay -S trickster-bin` section
-  (0.2.0, manual maintenance) and drop the "planned" framing if any
-  remains; done when the page matches the published recipe.
 - **10.3 (S) Write the manual release runbook.** `development.md` describes
   the tag workflow but not the human steps that follow it (refresh the pin,
   clone AUR, push to `master` — the branch is `master`, not `main`). Add
