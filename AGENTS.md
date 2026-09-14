@@ -50,6 +50,13 @@ split work that spans backends, services, or widgets into separate steps.
 Never batch multiple steps into one change. Never check steps off — remove
 them. Do not let the queue rot.
 
+Diagnose runtime bugs with the user, never by guessing. When a problem can be
+reproduced by a few user actions against a debug or profile build, always do
+that first: instrument the suspect path with temporary logging, build it,
+have the user perform the actions, and read the transcript before changing
+logic. Remove the temporary diagnostics once the fix lands; do not ship a
+speculative fix for a runtime defect.
+
 ## What it is
 
 - One Flutter Linux process runs the bar: one `wlr-layer-shell` strip
