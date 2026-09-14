@@ -20,13 +20,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 The settings window covers the bar's documents but not every knob, and is an
 opaque window while the bar is glass. This phase fills the surface out.
 
-- **14.11 (M) Workspaces configured per display.** The workspace count
-  becomes per-output (each monitor may want a different rail length) in the
-  settings document and the settings UI; the strip honors each output's
-  count, and the panel carries no redundant global slider (`workspace_count`
-  stays the document fallback). Done when the document round-trips per-output
-  counts, the live multi-monitor bars show different rail lengths, and the
-  settings UI shows only per-display controls.
 - **14.12 (M) Wallpaper accent per display.** Monitors can run different
   wallpapers, so the wallpaper-accent pick becomes per-output too: the
   settings UI lists each display's candidates and each strip resolves its
@@ -56,12 +49,6 @@ own block (main 4 → 1-4, next 3 → 5-7), with the display order
 user-configurable. This is bar numbering and click targets only; workspace
 ownership stays with the compositor.
 
-- **16.2 (M) Rail shows its assigned range.** The strip renders its output's
-  absolute range (main 4 → 1-4, next 3 → 5-7) in place of the fixed
-  `1..count`, and the main display's rail also lists existing workspaces
-  numbered beyond the chain total; pip presses keep targeting the printed
-  number. Done when the live bars show different absolute ranges and widget
-  tests cover the mapping and the overflow pips.
 - **16.3 (M) Chain order controls.** The workspaces gear panel lists the
   connected displays in chain order with drag handles and a Main badge on
   the first row, each showing its resulting range; a set-as-main action
