@@ -14,19 +14,15 @@ serves the same pages with sidebar and search.
 
 ## Guides
 
-- [Overview](docs_site/content/index.md)
-- [Installation](docs_site/content/installation.md)
-- [Configuration](docs_site/content/configuration.md)
-- [Modules](docs_site/content/modules.md)
-- [Architecture](docs_site/content/architecture.md)
-- [CLI reference](docs_site/content/cli.md)
-- [Development](docs_site/content/development.md)
+- [Overview](/) · [Installation](/installation) · [Configuration](/configuration)
+- [Modules](/modules) · [Architecture](/architecture)
+- [CLI reference](/cli) · [Development](/development)
 
 ## Constitution
 
-- [AGENTS.md](AGENTS.md) — project rules, module index
-- [.llm/todo.md](.llm/todo.md) — work queue, in build order
-- [.llm/suggestions.md](.llm/suggestions.md) — user-reviewed suggestions
+- [AGENTS.md](https://github.com/dazemc/trickster/blob/main/AGENTS.md) — project rules, module index
+- [.llm/todo.md](https://github.com/dazemc/trickster/blob/main/.llm/todo.md) — work queue, in build order
+- [.llm/suggestions.md](https://github.com/dazemc/trickster/blob/main/.llm/suggestions.md) — user-reviewed suggestions
 
 ## Phase ledger
 
@@ -45,3 +41,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 9 — parity and release hygiene | `working` | done | Docs reality pass, Denial porting pin, wallpaper accent sampler (candidate palette, click-to-copy hex), AUR recipe kept in tree, tag-driven release workflow with package/pin automation |
 | 10 — docs and install hygiene | `working` | done | Docs-site analyzer boundary documented, AUR install path, manual release runbook, AUR publishing automated in the release workflow |
 | 11 — workspace rail parity | `working` | done | Centered numbered rail (Denial's indicator slot), state-styled numbers with a deforming lens, fixed workspace count on every monitor (`workspaces.workspace_count`) |
+| 12 — pill glass | `working` | done | Pill-region backdrop blur (scanline-rounded `wl_region`), Denial's dark-glass backing with a painted rim sheen |
+| 13 — bar zones and placement | `working` | done | Tray pinned to the leading edge (Denial layout), per-module `module_placement` zones, Position selector in the settings application |
+| 12 — pill glass | `working` | done | Pill-region backdrop blur (scanline-rounded `wl_region`), Denial's dark-glass backing with a painted rim sheen |
+| 13 — bar zones and placement | `working` | done | Tray pinned to the leading edge (Denial layout), per-module `module_placement` zones, Position selector in the settings application |
