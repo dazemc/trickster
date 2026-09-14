@@ -11,7 +11,7 @@ trickster
     session.conf / outputs.conf / settings.json
     layer-shell surfaces (one per output)
     flutter_bloc module graph
-    control socket (tricksterctl, planned)
+    control socket (tricksterctl)
 
   Host compositor
     zwlr_layer_shell_v1
