@@ -43,5 +43,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 11 — workspace rail parity | `working` | done | Centered numbered rail (Denial's indicator slot), state-styled numbers with a deforming lens, fixed workspace count on every monitor (`workspaces.workspace_count`) |
 | 12 — pill glass | `working` | done | Pill-region backdrop blur (scanline-rounded `wl_region`), Denial's dark-glass backing with a painted rim sheen |
 | 13 — bar zones and placement | `working` | done | Tray pinned to the leading edge (Denial layout), per-module `module_placement` zones, Position selector in the settings application |
+| 14 — settings depth | `working` | in progress | Lucide icons for every glyph; per-option reset arrows on module options (steps 1-3 landed) |
+| 15 — docs site delivery | `main` | done | Trickster mark favicon and logo, GitHub Pages workflow at dazemc.github.io/trickster |
 | 12 — pill glass | `working` | done | Pill-region backdrop blur (scanline-rounded `wl_region`), Denial's dark-glass backing with a painted rim sheen |
 | 13 — bar zones and placement | `working` | done | Tray pinned to the leading edge (Denial layout), per-module `module_placement` zones, Position selector in the settings application |
