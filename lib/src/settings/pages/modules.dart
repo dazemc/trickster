@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
@@ -209,10 +209,11 @@ class _ModulesPageState extends State<ModulesPage> {
     ModuleZone zone,
   ) {
     final current = _groupsFor(controller.settings)[zone] ?? const <String>[];
+    final index = current.indexOf(module).clamp(0, current.length);
     setState(() {
       _dragging = module;
       _previewZone = zone;
-      _previewIndex = current.indexOf(module).clamp(0, current.length);
+      _previewIndex = index;
     });
   }
 
@@ -330,6 +331,20 @@ class _ModulesPageState extends State<ModulesPage> {
     });
   }
 
+  /// The zone's rows without the module currently in flight; the dragged row
+  /// stays in the tree (collapsed) so the drag survives rebuilds, but an
+  /// emptied zone still shows its drop hint.
+  List<String> _visibleModules(List<String> modules) {
+    final dragging = _dragging;
+    if (dragging == null) {
+      return modules;
+    }
+    return [
+      for (final module in modules)
+        if (module != dragging) module,
+    ];
+  }
+
   /// The always-present "Drop a module here" strip at the end of a zone and
   /// in an empty Disabled section.
   Widget _dropHere({required String label, required bool active}) {
@@ -349,25 +364,18 @@ class _ModulesPageState extends State<ModulesPage> {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(
-            label,
-            style: ShellText.systemBarCaption.copyWith(
-              color: ShellMediaColors.lightForegroundSecondary,
+          // Keep the label's space when highlighted so the card never
+          // resizes under the pointer; hovering just fades the text out.
+          child: Opacity(
+            opacity: active ? 0 : 1,
+            child: Text(
+              label,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _dropPreview() {
-    return Container(
-      key: const ValueKey<String>('module-drop-preview'),
-      height: 3,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      decoration: BoxDecoration(
-        color: ShellBrandColors.defaultAccent,
-        borderRadius: const BorderRadius.all(Radius.circular(2)),
       ),
     );
   }
@@ -444,19 +452,21 @@ class _ModulesPageState extends State<ModulesPage> {
         }
       }
       return <Widget>[
-        for (var index = 0; index <= modules.length; index++) ...[
-          if (showPreview && index == previewAt) _dropPreview(),
-          if (index < modules.length)
-            KeyedSubtree(
-              key: _rowKey(modules[index]),
-              child: moduleRow(
-                modules[index],
-                zone: zone,
-                reorderable: true,
-                feedbackWidth: feedbackWidth,
-              ),
+        for (var index = 0; index < modules.length; index++)
+          _RowSlot(
+            key: _rowKey(modules[index]),
+            lineAbove: showPreview && index == previewAt,
+            lineBelow:
+                showPreview &&
+                previewAt == modules.length &&
+                index == modules.length - 1,
+            child: moduleRow(
+              modules[index],
+              zone: zone,
+              reorderable: true,
+              feedbackWidth: feedbackWidth,
             ),
-        ],
+          ),
       ];
     }
 
@@ -511,18 +521,24 @@ class _ModulesPageState extends State<ModulesPage> {
                 ),
                 child: SettingsCard(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: entry.value.isEmpty && _previewZone != entry.key
-                      ? _dropHere(
+                  child: Column(
+                    children: [
+                      ...segmentChildren(
+                        entry.key,
+                        entry.value,
+                        constraints.maxWidth,
+                      ),
+                      // The dragged row stays in the tree (collapsed) so the
+                      // drag survives; an emptied zone keeps its hint for the
+                      // whole drag so the layout never toggles under the
+                      // pointer.
+                      if (_visibleModules(entry.value).isEmpty)
+                        _dropHere(
                           label: l10n.settingsModulesEmptyZone,
-                          active: false,
-                        )
-                      : Column(
-                          children: segmentChildren(
-                            entry.key,
-                            entry.value,
-                            constraints.maxWidth,
-                          ),
+                          active: _previewZone == entry.key,
                         ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -573,28 +589,71 @@ class _ModulesPageState extends State<ModulesPage> {
                 child: SettingsCard(
                   key: _disabledKey,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: disabled.isEmpty && candidates.isEmpty
-                      ? _dropHere(
-                          label: l10n.settingsModulesEmptyZone,
-                          active: false,
-                        )
-                      : Column(
-                          children: [
-                            for (final module in disabled)
-                              moduleRow(
-                                module,
-                                zone: settings.zoneFor(module),
-                                reorderable: false,
-                                draggableOut: true,
-                                feedbackWidth: constraints.maxWidth,
-                              ),
-                          ],
+                  // Rows stay in the tree (the dragged one collapses) so the
+                  // drag survives; an emptied section keeps its hint. The
+                  // hint never changes size, so hovering cannot toggle it.
+                  child: Column(
+                    children: [
+                      for (final module in disabled)
+                        moduleRow(
+                          module,
+                          zone: settings.zoneFor(module),
+                          reorderable: false,
+                          draggableOut: true,
+                          feedbackWidth: constraints.maxWidth,
                         ),
+                      if (_visibleModules(disabled).isEmpty)
+                        _dropHere(
+                          label: l10n.settingsModulesEmptyZone,
+                          active: candidates.isNotEmpty,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Paints the insertion line over a row's top or bottom edge without
+/// changing the layout, so dragging never shifts the rows under the pointer.
+class _RowSlot extends StatelessWidget {
+  const _RowSlot({
+    required this.child,
+    required this.lineAbove,
+    required this.lineBelow,
+    super.key,
+  });
+
+  final Widget child;
+  final bool lineAbove;
+  final bool lineBelow;
+
+  @override
+  Widget build(BuildContext context) {
+    // Always a Stack: the child must never be reparented mid-drag, or its
+    // gesture state is disposed and the drag cancels.
+    return Stack(
+      children: [
+        child,
+        if (lineAbove)
+          Positioned(left: 16, right: 16, top: 0, height: 3, child: _line()),
+        if (lineBelow)
+          Positioned(left: 16, right: 16, bottom: 0, height: 3, child: _line()),
+      ],
+    );
+  }
+
+  Widget _line() {
+    return Container(
+      key: const ValueKey<String>('module-drop-preview'),
+      decoration: BoxDecoration(
+        color: ShellBrandColors.defaultAccent,
+        borderRadius: const BorderRadius.all(Radius.circular(2)),
       ),
     );
   }

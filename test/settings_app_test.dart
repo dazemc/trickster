@@ -686,6 +686,27 @@ void main() {
     expect(controller.settings.modules.last, 'workspaces');
   });
 
+  testWidgets('a disabled module drags to the end of trailing', (tester) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
+    );
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+    expect(controller.settings.modules, isNot(contains('gpu')));
+
+    await _dragModuleBelow(
+      tester,
+      'gpu',
+      find.byKey(const ValueKey<String>('module-battery')),
+    );
+    expect(controller.settings.modules, contains('gpu'));
+    expect(controller.settings.modules.last, 'gpu');
+    expect(controller.settings.zoneFor('gpu'), ModuleZone.trailing);
+  });
+
   testWidgets('a module appends to the end of its own zone', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);
