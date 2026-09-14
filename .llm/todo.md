@@ -80,14 +80,6 @@ The settings window covers the bar's documents but not every knob, splits
 module toggles from module options, and is an opaque window while the bar
 is glass. This phase fills the surface out.
 
-- **14.8 (S) One reset for the modules page.** The header shows a single
-  circular arrow: it restores the default order and clears every placement
-  at once. Done when a test moves a module between zones, reorders it, taps
-  the one reset, and the document matches the defaults.
-- **14.9 (S) Dragging moves the row.** The whole row travels with the
-  pointer and its slot closes behind it — no dimmed copy left in place;
-  dropping on another segment moves it there. Done when a drag test sees
-  the source row leave its segment and the target list it after the drop.
 - **14.10 (M) One Modules tab.** Merge Module options into the Modules
   page: each row gets a gear that reveals that module's own options
   (workspace count, clock format, CPU and battery thresholds, meter
