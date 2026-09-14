@@ -632,6 +632,65 @@ void main() {
     expect(gpuY, greaterThan(disabledY));
   });
 
+  testWidgets('zone end targets append below the last row', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    // Every zone keeps its end target, populated or not.
+    expect(
+      find.byKey(const ValueKey<String>('module-drop-end-trailing')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('module-drop-end-leading')),
+      findsOneWidget,
+    );
+
+    // Dragging the leading tray onto the trailing end appends it last.
+    await _dragModuleTo(
+      tester,
+      'tray',
+      find.byKey(const ValueKey<String>('module-drop-end-trailing')),
+    );
+    expect(controller.settings.zoneFor('tray'), ModuleZone.trailing);
+    expect(controller.settings.modules.last, 'tray');
+  });
+
+  testWidgets('the disabled section stays visible and accepts a drop', (
+    tester,
+  ) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
+    );
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    // Present with the hint while everything is enabled.
+    expect(
+      find.byKey(const ValueKey<String>('module-zone-disabled')),
+      findsOneWidget,
+    );
+    expect(find.text('Drop a module here'), findsWidgets);
+
+    // Dragging the battery onto it turns the module off.
+    await _dragModuleTo(
+      tester,
+      'battery',
+      find.byKey(const ValueKey<String>('module-zone-disabled-drop')),
+    );
+    expect(controller.settings.modules, isNot(contains('battery')));
+    expect(
+      find.byKey(const ValueKey<String>('module-battery')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('appearance resets restore the accent defaults', (tester) async {
     file.writeAsStringSync(
       '{"revision": 1, "accent_source": "wallpaper", '

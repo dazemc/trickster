@@ -71,6 +71,7 @@ class _ModulesPageState extends State<ModulesPage> {
   ModuleZone? _previewZone;
   int _previewIndex = 0;
   Offset? _lastPointer;
+  bool _dropHandled = false;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
@@ -277,12 +278,14 @@ class _ModulesPageState extends State<ModulesPage> {
     final zone = _previewZone;
     final index = _previewIndex;
     final pointer = _lastPointer;
+    final handled = _dropHandled;
+    _dropHandled = false;
     _lastPointer = null;
     setState(() {
       _dragging = null;
       _previewZone = null;
     });
-    if (module == null || zone == null) {
+    if (handled || module == null || zone == null) {
       return;
     }
     // The target usually accepts; fall back to the release position so a
@@ -291,6 +294,56 @@ class _ModulesPageState extends State<ModulesPage> {
       return;
     }
     _dropOn(controller, module, zone: zone, index: index);
+  }
+
+  /// Appends [module] to [zone] from a zone's end-of-list drop target.
+  void _dropAtEnd(
+    SettingsAppController controller,
+    String module,
+    ModuleZone zone,
+  ) {
+    _dropHandled = true;
+    final groups = _groupsFor(controller.settings, exclude: module);
+    _dropOn(controller, module, zone: zone, index: groups[zone]!.length);
+  }
+
+  /// Turns [module] off from the Disabled section's drop target.
+  void _disableDropped(SettingsAppController controller, String module) {
+    _dropHandled = true;
+    _saverFor(controller).apply((settings) {
+      final modules = List<String>.of(settings.modules)..remove(module);
+      return settings.copyWith(modules: modules);
+    });
+  }
+
+  /// The always-present "Drop a module here" strip at the end of a zone and
+  /// in an empty Disabled section.
+  Widget _dropHere({required String label, required bool active}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: active
+              ? ShellBrandColors.defaultAccent.withValues(alpha: 0.10)
+              : null,
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: Border.all(
+            color: active
+                ? ShellBrandColors.defaultAccent
+                : SettingsColors.outline,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            label,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _dropPreview() {
@@ -388,6 +441,16 @@ class _ModulesPageState extends State<ModulesPage> {
               ),
             ),
         ],
+        DragTarget<String>(
+          key: ValueKey<String>('module-drop-end-${zone.wire}'),
+          onWillAcceptWithDetails: (_) => true,
+          onAcceptWithDetails: (details) =>
+              _dropAtEnd(controller, details.data, zone),
+          builder: (context, candidates, rejected) => _dropHere(
+            label: l10n.settingsModulesEmptyZone,
+            active: candidates.isNotEmpty,
+          ),
+        ),
       ];
     }
 
@@ -442,26 +505,13 @@ class _ModulesPageState extends State<ModulesPage> {
                 ),
                 child: SettingsCard(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: entry.value.isEmpty && _previewZone != entry.key
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          child: Text(
-                            l10n.settingsModulesEmptyZone,
-                            style: ShellText.systemBarCaption.copyWith(
-                              color: ShellMediaColors.lightForegroundSecondary,
-                            ),
-                          ),
-                        )
-                      : Column(
-                          children: segmentChildren(
-                            entry.key,
-                            entry.value,
-                            constraints.maxWidth,
-                          ),
-                        ),
+                  child: Column(
+                    children: segmentChildren(
+                      entry.key,
+                      entry.value,
+                      constraints.maxWidth,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -489,27 +539,47 @@ class _ModulesPageState extends State<ModulesPage> {
               ),
               const SizedBox(height: 16),
             ],
-            if (disabled.isNotEmpty) ...[
-              SettingsHeading(
-                key: const ValueKey<String>('module-zone-disabled'),
-                title: l10n.settingsModulesDisabled,
-              ),
-              const SizedBox(height: 10),
-              SettingsCard(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: [
-                    for (final module in disabled)
-                      moduleRow(
-                        module,
-                        zone: settings.zoneFor(module),
-                        reorderable: false,
-                        feedbackWidth: constraints.maxWidth,
-                      ),
-                  ],
+            SettingsHeading(
+              key: const ValueKey<String>('module-zone-disabled'),
+              title: l10n.settingsModulesDisabled,
+            ),
+            const SizedBox(height: 10),
+            DragTarget<String>(
+              key: const ValueKey<String>('module-zone-disabled-drop'),
+              onWillAcceptWithDetails: (_) => true,
+              onAcceptWithDetails: (details) =>
+                  _disableDropped(controller, details.data),
+              builder: (context, candidates, rejected) => DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.all(Radius.circular(18)),
+                  border: candidates.isNotEmpty
+                      ? Border.all(
+                          color: ShellBrandColors.defaultAccent,
+                          width: 1.5,
+                        )
+                      : null,
+                ),
+                child: SettingsCard(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: disabled.isEmpty && candidates.isEmpty
+                      ? _dropHere(
+                          label: l10n.settingsModulesEmptyZone,
+                          active: false,
+                        )
+                      : Column(
+                          children: [
+                            for (final module in disabled)
+                              moduleRow(
+                                module,
+                                zone: settings.zoneFor(module),
+                                reorderable: false,
+                                feedbackWidth: constraints.maxWidth,
+                              ),
+                          ],
+                        ),
                 ),
               ),
-            ],
+            ),
           ],
         ),
       ),
