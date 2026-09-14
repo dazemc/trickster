@@ -209,6 +209,105 @@ void main() {
     );
   });
 
+  testWidgets('every module option resets to its default', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Module options'));
+    await tester.pump();
+
+    Future<void> settle() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+    }
+
+    Future<void> nudgeToMax(String sliderKey) async {
+      await tester.ensureVisible(find.byKey(ValueKey<String>(sliderKey)));
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(find.byKey(ValueKey<String>(sliderKey)));
+      await tester.tapAt(Offset(rect.right - 2, rect.center.dy));
+      await tester.pump();
+      await settle();
+    }
+
+    Future<void> reset(String resetKey) async {
+      await tester.ensureVisible(find.byKey(ValueKey<String>(resetKey)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey<String>(resetKey)));
+      await tester.pump();
+      await settle();
+    }
+
+    await nudgeToMax('options-workspaces-count');
+    expect(controller.settings.workspaces.count, 9);
+    await reset('reset-workspaces-count');
+    expect(
+      controller.settings.workspaces.count,
+      const WorkspaceOptions().count,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('clock-format-24h')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
+    await tester.pump();
+    await settle();
+    expect(controller.settings.clock.format, ClockFormat.hour24);
+    await reset('reset-clock-format');
+    expect(controller.settings.clock.format, const ClockOptions().format);
+
+    await nudgeToMax('options-cpu-warn');
+    await reset('reset-cpu-warn');
+    expect(controller.settings.cpu.warn, const CpuOptions().warn);
+    await reset('reset-cpu-critical');
+    expect(controller.settings.cpu.critical, const CpuOptions().critical);
+
+    await nudgeToMax('options-battery-warn');
+    await reset('reset-battery-warn');
+    expect(controller.settings.battery.warn, const BatteryOptions().warn);
+    await reset('reset-battery-critical');
+    expect(
+      controller.settings.battery.critical,
+      const BatteryOptions().critical,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('meter-caption-device')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('meter-caption-device')),
+    );
+    await tester.pump();
+    await settle();
+    expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
+    await reset('reset-meter-caption');
+    expect(
+      controller.settings.meter.captionSource,
+      const MeterOptions().captionSource,
+    );
+
+    final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(decoded.workspaces.count, const WorkspaceOptions().count);
+    expect(decoded.clock.format, const ClockOptions().format);
+    expect(decoded.cpu.warn, const CpuOptions().warn);
+    expect(decoded.cpu.critical, const CpuOptions().critical);
+    expect(decoded.battery.warn, const BatteryOptions().warn);
+    expect(decoded.battery.critical, const BatteryOptions().critical);
+    expect(decoded.meter.captionSource, const MeterOptions().captionSource);
+
+    await tester.tap(find.bySemanticsLabel('Language'));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('language-zh')));
+    await tester.pump();
+    await settle();
+    expect(controller.settings.locale, 'zh');
+    await reset('reset-locale');
+    expect(controller.settings.locale, isNull);
+    expect(BarSettings.decode(file.readAsStringSync()).locale, isNull);
+  });
+
   testWidgets('displays page writes placement and output selection', (
     tester,
   ) async {

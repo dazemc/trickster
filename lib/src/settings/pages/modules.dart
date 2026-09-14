@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
@@ -336,16 +337,14 @@ class _MoveButton extends StatelessWidget {
             child: SizedBox.square(
               dimension: 24,
               child: Center(
-                child: CustomPaint(
-                  size: const Size(8, 8),
-                  painter: _ArrowPainter(
-                    up: up,
-                    color: enabled
-                        ? ShellMediaColors.lightForeground
-                        : ShellMediaColors.lightForegroundSecondary.withValues(
-                            alpha: 0.35,
-                          ),
-                  ),
+                child: Icon(
+                  up ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                  size: 15,
+                  color: enabled
+                      ? ShellMediaColors.lightForeground
+                      : ShellMediaColors.lightForegroundSecondary.withValues(
+                          alpha: 0.35,
+                        ),
                 ),
               ),
             ),
@@ -354,37 +353,4 @@ class _MoveButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ArrowPainter extends CustomPainter {
-  const _ArrowPainter({required this.up, required this.color});
-
-  final bool up;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path();
-    if (up) {
-      path
-        ..moveTo(0, size.height)
-        ..lineTo(size.width / 2, 0)
-        ..lineTo(size.width, size.height);
-    } else {
-      path
-        ..moveTo(0, 0)
-        ..lineTo(size.width / 2, size.height)
-        ..lineTo(size.width, 0);
-    }
-    canvas.drawPath(path, paint..style = PaintingStyle.stroke);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArrowPainter oldDelegate) =>
-      oldDelegate.up != up || oldDelegate.color != color;
 }

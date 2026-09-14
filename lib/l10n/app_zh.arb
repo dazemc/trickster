@@ -172,6 +172,19 @@
   "@settingsModulesCaption": {
     "description": "Caption under the modules page title."
   },
+  "settingsResetOption": "重置{option}",
+  "@settingsResetOption": {
+    "description": "Accessible label for a control that reverts one option.",
+    "placeholders": {
+      "option": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsResetHint": "恢复默认值",
+  "@settingsResetHint": {
+    "description": "Hint for a control that reverts one option to its default."
+  },
   "settingsModulePlacement": "位置",
   "@settingsModulePlacement": {
     "description": "Caption above the per-module placement chips."

@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -78,9 +79,10 @@ class _SettingsCloseButtonState extends State<SettingsCloseButton> {
                 border: Border.all(color: SettingsColors.outline),
               ),
               child: const Center(
-                child: CustomPaint(
-                  size: Size(10, 10),
-                  painter: _ClosePainter(),
+                child: Icon(
+                  LucideIcons.x,
+                  size: 14,
+                  color: ShellMediaColors.lightForegroundSecondary,
                 ),
               ),
             ),
@@ -89,24 +91,6 @@ class _SettingsCloseButtonState extends State<SettingsCloseButton> {
       ),
     );
   }
-}
-
-class _ClosePainter extends CustomPainter {
-  const _ClosePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = ShellMediaColors.lightForegroundSecondary
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    canvas
-      ..drawLine(Offset.zero, Offset(size.width, size.height), paint)
-      ..drawLine(Offset(size.width, 0), Offset(0, size.height), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ClosePainter oldDelegate) => false;
 }
 
 /// A small text button in the settings window.
@@ -392,6 +376,93 @@ class SettingsHeading extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// A circular-arrow button that reverts one option to its shipped default.
+///
+/// [label] names the option for assistive tech; callers disable it while the
+/// value already equals the default so the affordance reads as inert.
+class SettingsResetButton extends StatefulWidget {
+  const SettingsResetButton({
+    required this.label,
+    required this.onPressed,
+    this.enabled = true,
+    super.key,
+  });
+
+  static const double extent = 24;
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool enabled;
+
+  @override
+  State<SettingsResetButton> createState() => _SettingsResetButtonState();
+}
+
+class _SettingsResetButtonState extends State<SettingsResetButton> {
+  var _hovered = false;
+  var _focused = false;
+
+  Color get _glyphColor {
+    if (!widget.enabled) {
+      return ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3);
+    }
+    return _hovered || _focused
+        ? ShellMediaColors.lightForeground
+        : ShellMediaColors.lightForegroundSecondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      label: widget.label,
+      hint: context.l10n.settingsResetHint,
+      onTap: widget.enabled ? widget.onPressed : null,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: widget.enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: FocusableActionDetector(
+            enabled: widget.enabled,
+            onShowHoverHighlight: (value) => setState(() => _hovered = value),
+            onShowFocusHighlight: (value) => setState(() => _focused = value),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.enabled ? widget.onPressed : null,
+              child: SizedBox.square(
+                dimension: SettingsResetButton.extent,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _hovered || _focused
+                        ? SettingsColors.surfaceHigh
+                        : ShellMediaColors.transparentDark,
+                    border: _focused
+                        ? Border.all(
+                            color: ShellBrandColors.defaultAccent,
+                            width: 1.5,
+                          )
+                        : null,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.rotateCcw,
+                      size: 13,
+                      color: _glyphColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

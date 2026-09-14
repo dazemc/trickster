@@ -48,17 +48,33 @@ class _LanguagePageState extends State<LanguagePage> {
         ),
         const SizedBox(height: 20),
         SettingsCard(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final (tag, label) in choices)
-                SettingsChoiceChip(
-                  key: ValueKey<String>('language-${tag ?? 'system'}'),
-                  label: label,
-                  selected: current == tag,
-                  onPressed: () => _apply(controller, tag),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final (tag, label) in choices)
+                      SettingsChoiceChip(
+                        key: ValueKey<String>('language-${tag ?? 'system'}'),
+                        label: label,
+                        selected: current == tag,
+                        onPressed: () => _apply(controller, tag),
+                      ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              SettingsResetButton(
+                key: const ValueKey<String>('reset-locale'),
+                label: context.l10n.settingsResetOption(
+                  l10n.settingsLanguageTitle,
+                ),
+                enabled: current != null,
+                onPressed: () => _apply(controller, null),
+              ),
             ],
           ),
         ),
