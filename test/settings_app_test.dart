@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
@@ -422,12 +423,12 @@ void main() {
     await pumpAbout(
       () async => const <String, Object?>{
         'ok': true,
-        'version': '0.1.0',
+        'version': Cli.appVersion,
         'protocol': 1,
       },
     );
     await tester.pumpAndSettle();
-    expect(find.text('0.1.0'), findsNWidgets(2));
+    expect(find.text(Cli.appVersion), findsNWidgets(2));
     expect(find.text('1'), findsOneWidget);
 
     await pumpAbout(() async => const <String, Object?>{'ok': false});
