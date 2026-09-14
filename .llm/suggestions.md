@@ -29,4 +29,27 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
+## Open suggestions
 
+- **Docs still say the release and client are planned.** `README.md`,
+  `docs_site/content/{cli,architecture,installation}.md` call `tricksterctl`
+  and the packages "planned"/"not published" while 0.2.0 is released and the
+  AUR recipe is verified. Update the wording so readers don't rebuild what
+  exists.
+- **The wallpaper accent sampler was never implemented.** `resolveAccent`
+  only reads `accent`/`TRICKSTER_ACCENT`; Denial derives the accent from the
+  wallpaper, and `.llm/porting.md` lists "configured color plus optional
+  local sampler" as the honest replacement. Add an opt-in, bounded sampler
+  (downscaled working buffer, freed after commit).
+- **The Denial porting reference is not pinned.** `.llm/porting.md` tells
+  future sessions to port from `dart_shell`, but no revision/tag of the
+  local Denial checkout is recorded, so ports can drift against a different
+  tree. Record the revision used and where the checkout is expected.
+- **AUR submission is unresolved.** `packaging/aur/trickster-bin` is built
+  and pinned but not published to aur.archlinux.org; the recipe says nothing
+  about intent. Decide (needs the user's AUR account) and record the
+  decision so the docs stop hedging.
+- **Releases are hand-assembled.** The 0.1.0 and 0.2.0 loop (makepkg → hash
+  → AUR pin → gh release → verify) is manual and one wrong hash breaks the
+  AUR recipe; a tag-triggered workflow could build, hash, and attach the
+  asset, updating the pin from the built artifact.
