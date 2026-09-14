@@ -73,6 +73,8 @@ package() {
   # Dart snapshots.
   strip --strip-unneeded "$pkgdir/usr/lib/trickster/trickster"
   ln -s ../lib/trickster/trickster "$pkgdir/usr/bin/trickster"
+  # Same binary in settings mode; argv[0] selects the mode.
+  ln -s trickster "$pkgdir/usr/bin/trickster-settings"
   ln -s ../lib/trickster/tricksterctl "$pkgdir/usr/bin/tricksterctl"
 
   # session.conf is backup-protected for local overrides; the outputs
@@ -82,6 +84,9 @@ package() {
     "$pkgdir/etc/trickster/session.conf"
   install -Dm644 "$startdir/../outputs.conf" \
     "$pkgdir/etc/trickster/outputs.conf"
+
+  install -Dm644 "$startdir/../trickster-settings.desktop" \
+    "$pkgdir/usr/share/applications/trickster-settings.desktop"
 
   install -Dm644 "$startdir/../man/trickster.1" \
     "$pkgdir/usr/share/man/man1/trickster.1"
