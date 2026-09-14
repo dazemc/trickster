@@ -74,12 +74,6 @@ rail, and trails the rest. Trickster keeps every module in one trailing
 cluster. These steps give the strip the same three zones and let the
 settings application place each module.
 
-- **13.2 (M) Add a per-module placement option.** `settings.json` gains a
-  `placement` map (`leading`, `center`, `trailing`; defaults: tray
-  `leading`, workspaces `center`, everything else `trailing`), decoded
-  with the retired-key discipline; the strip renders each module in its
-  zone, preserving the configured order inside a zone. Done when config
-  round-trip tests cover the map and a widget test proves the zones.
 - **13.3 (S) Expose placement in the settings application.** The modules
   page gains a per-module leading/center/trailing selector writing through
   the same document. Done when the settings app test drives the selector
