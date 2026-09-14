@@ -40,6 +40,36 @@ silent per the logging rules.
 ## Phase 7 — version sync
 
 
+## Phase 9 — parity and release hygiene
+
+- [ ] **9.1 docs reality pass** (S). `README.md`,
+      `docs_site/content/{cli,architecture,installation}.md`. They still
+      call `tricksterctl` and the packages "planned"/"not published" while
+      0.2.0 is released and the AUR recipe is verified. Done when: no page
+      describes shipped features as planned.
+- [ ] **9.2 pin the Denial porting reference** (S). `.llm/porting.md`.
+      Record the revision (or tag) of the Denial `dart_shell` tree the
+      ports were taken from and where the checkout is expected, so a
+      future session does not port against a drifted tree. Done when: the
+      note carries the revision and the path convention.
+- [ ] **9.3 wallpaper accent sampler** (M). `lib/src/theme/`, settings.
+      Denial derives the accent from the wallpaper; Trickster only reads
+      `accent`/`TRICKSTER_ACCENT`. Add an opt-in sampler that reads the
+      host wallpaper (swww/awww state or a configured path), decodes one
+      downscaled buffer off the UI isolate, derives the accent, frees it,
+      and re-samples when the wallpaper changes. Done when: the setting is
+      honored, bounded, and verified live on Hyprland.
+- [ ] **9.4 AUR submission** (S). `packaging/aur/trickster-bin`. The recipe
+      is verified and pinned but not published to aur.archlinux.org; submit
+      it (needs the user's AUR account and SSH key) and confirm the package
+      page and a clean `makepkg` from the published sources. Done when: the
+      package is live and the docs link to it.
+- [ ] **9.5 release automation** (M). `.github/workflows/`. A tag-triggered
+      workflow builds the Arch package with `check()`, hashes it, updates
+      the AUR pin from the built artifact, and attaches the asset to the
+      GitHub release. Done when: a dry-run tag produces the asset and pin
+      without manual steps.
+
 ## Phase 8 — settings application (Denial parity)
 
 The bar stopped at "no settings window in v1"; the user replaced that with
