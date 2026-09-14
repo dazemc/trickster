@@ -291,4 +291,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAboutRepository => 'Repository';
+
+  @override
+  String get settingsAccentSource => 'Accent source';
+
+  @override
+  String get settingsAccentSourceCustom => 'Configured';
+
+  @override
+  String get settingsAccentSourceWallpaper => 'Wallpaper';
 }

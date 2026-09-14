@@ -273,6 +273,27 @@ void main() {
     expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
   });
 
+  testWidgets('appearance page switches the accent source', (tester) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-source-wallpaper')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.accentSource, AccentSource.wallpaper);
+    expect(file.readAsStringSync(), contains('"accent_source": "wallpaper"'));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-source-custom')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(controller.settings.accentSource, AccentSource.custom);
+  });
+
   testWidgets('language page writes the locale', (tester) async {
     final controller = await _controller(file);
     addTearDown(controller.dispose);

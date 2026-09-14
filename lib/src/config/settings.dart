@@ -39,6 +39,31 @@ class WorkspaceOptions extends Equatable {
   }
 }
 
+/// Where the bar's accent comes from.
+enum AccentSource {
+  custom('custom'),
+  wallpaper('wallpaper');
+
+  const AccentSource(this.wire);
+
+  final String wire;
+
+  static AccentSource parse(Object? value) {
+    if (value == null) {
+      return AccentSource.custom;
+    }
+    for (final source in AccentSource.values) {
+      if (source.wire == value) {
+        return source;
+      }
+    }
+    throw FormatException(
+      'settings.accent_source must be one of '
+      '${AccentSource.values.map((source) => source.wire).join(', ')}',
+    );
+  }
+}
+
 /// Typed options for the CPU meter.
 class CpuOptions extends Equatable {
   const CpuOptions({this.warn = 0.85, this.critical = 0.95});
@@ -226,6 +251,7 @@ class BarSettings extends Equatable {
     this.accent,
     this.modules = knownModules,
     this.locale,
+    this.accentSource = AccentSource.custom,
     this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
@@ -240,6 +266,7 @@ class BarSettings extends Equatable {
   final Color? accent;
   final List<String> modules;
   final String? locale;
+  final AccentSource accentSource;
   final WorkspaceOptions workspaces;
   final CpuOptions cpu;
   final ClockOptions clock;
@@ -253,6 +280,7 @@ class BarSettings extends Equatable {
     revision,
     accent,
     locale,
+    accentSource,
     ...modules,
     workspaces,
     cpu,
@@ -270,6 +298,7 @@ class BarSettings extends Equatable {
           '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
     'modules': modules,
     if (locale != null) 'locale': locale,
+    'accent_source': accentSource.wire,
     'workspaces': workspaces.toJson(),
     'cpu': cpu.toJson(),
     'clock': clock.toJson(),
@@ -287,6 +316,7 @@ class BarSettings extends Equatable {
       revision: revision,
       accent: accent,
       locale: locale,
+      accentSource: accentSource,
       modules: modules,
       workspaces: workspaces,
       cpu: cpu,
@@ -303,6 +333,7 @@ class BarSettings extends Equatable {
       revision: revision,
       accent: accent,
       locale: locale,
+      accentSource: accentSource,
       modules: modules,
       workspaces: workspaces,
       cpu: cpu,
@@ -322,12 +353,14 @@ class BarSettings extends Equatable {
     BatteryOptions? battery,
     MeterOptions? meter,
     String? locale,
+    AccentSource? accentSource,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
       accent: accent ?? this.accent,
       // copyWith cannot clear the locale; use withLocale(null).
       locale: locale ?? this.locale,
+      accentSource: accentSource ?? this.accentSource,
       modules: modules ?? this.modules,
       workspaces: workspaces ?? this.workspaces,
       cpu: cpu ?? this.cpu,
@@ -363,6 +396,7 @@ class BarSettings extends Equatable {
       revision: revision,
       accent: _color(decoded['accent']),
       locale: locale is String ? locale : null,
+      accentSource: AccentSource.parse(decoded['accent_source']),
       modules: modules is List
           ? modules.whereType<String>().toList(growable: false)
           : const [

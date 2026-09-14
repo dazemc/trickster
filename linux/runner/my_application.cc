@@ -975,6 +975,11 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_show(GTK_WIDGET(bootstrap_view));
   gtk_container_add(GTK_CONTAINER(bootstrap_window), GTK_WIDGET(bootstrap_view));
   gtk_widget_realize(GTK_WIDGET(bootstrap_view));
+  // Fully transparent and click-through: the bootstrap exists only to host
+  // the engine's implicit view, never to be seen or hit.
+  gtk_widget_set_opacity(GTK_WIDGET(bootstrap_window), 0.0);
+  gtk_widget_input_shape_combine_region(GTK_WIDGET(bootstrap_window),
+                                        cairo_region_create());
   gtk_widget_show(GTK_WIDGET(bootstrap_window));
   fl_register_plugins(FL_PLUGIN_REGISTRY(bootstrap_view));
 

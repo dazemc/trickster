@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../config/settings.dart';
 import '../../locale.dart';
 import '../../theme/motion.dart';
 import '../../theme/tokens.dart';
@@ -45,6 +46,11 @@ class _AppearancePageState extends State<AppearancePage> {
     _saver!.apply((settings) => settings.withAccent(accent));
   }
 
+  void _applySource(SettingsAppController controller, AccentSource source) {
+    _saver ??= DebouncedSaver(controller);
+    _saver!.apply((settings) => settings.copyWith(accentSource: source));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -62,6 +68,37 @@ class _AppearancePageState extends State<AppearancePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                l10n.settingsAccentSource,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: ShellMediaColors.lightForegroundSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  SettingsChoiceChip(
+                    key: const ValueKey<String>('accent-source-custom'),
+                    label: l10n.settingsAccentSourceCustom,
+                    selected:
+                        controller.settings.accentSource == AccentSource.custom,
+                    onPressed: () =>
+                        _applySource(controller, AccentSource.custom),
+                  ),
+                  SettingsChoiceChip(
+                    key: const ValueKey<String>('accent-source-wallpaper'),
+                    label: l10n.settingsAccentSourceWallpaper,
+                    selected:
+                        controller.settings.accentSource ==
+                        AccentSource.wallpaper,
+                    onPressed: () =>
+                        _applySource(controller, AccentSource.wallpaper),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
               Text(
                 l10n.settingsAccentPresets,
                 style: ShellText.systemBarCaption.copyWith(

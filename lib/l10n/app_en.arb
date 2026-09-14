@@ -383,5 +383,17 @@
   "settingsAboutRepository": "Repository",
   "@settingsAboutRepository": {
     "description": "Label for the project repository link."
+  },
+  "settingsAccentSource": "Accent source",
+  "@settingsAccentSource": {
+    "description": "Label above the accent source choices."
+  },
+  "settingsAccentSourceCustom": "Configured",
+  "@settingsAccentSourceCustom": {
+    "description": "Accent source: the configured color."
+  },
+  "settingsAccentSourceWallpaper": "Wallpaper",
+  "@settingsAccentSourceWallpaper": {
+    "description": "Accent source: sampled from the host wallpaper."
   }
 }

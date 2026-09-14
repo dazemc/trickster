@@ -287,4 +287,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAboutRepository => '代码仓库';
+
+  @override
+  String get settingsAccentSource => '强调色来源';
+
+  @override
+  String get settingsAccentSourceCustom => '自定义';
+
+  @override
+  String get settingsAccentSourceWallpaper => '壁纸';
 }

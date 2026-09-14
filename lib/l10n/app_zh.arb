@@ -383,5 +383,17 @@
   "settingsAboutRepository": "代码仓库",
   "@settingsAboutRepository": {
     "description": "Label for the project repository link."
+  },
+  "settingsAccentSource": "强调色来源",
+  "@settingsAccentSource": {
+    "description": "Label above the accent source choices."
+  },
+  "settingsAccentSourceCustom": "自定义",
+  "@settingsAccentSourceCustom": {
+    "description": "Accent source: the configured color."
+  },
+  "settingsAccentSourceWallpaper": "壁纸",
+  "@settingsAccentSourceWallpaper": {
+    "description": "Accent source: sampled from the host wallpaper."
   }
 }

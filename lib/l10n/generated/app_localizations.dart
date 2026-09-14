@@ -649,6 +649,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Repository'**
   String get settingsAboutRepository;
+
+  /// Label above the accent source choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent source'**
+  String get settingsAccentSource;
+
+  /// Accent source: the configured color.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured'**
+  String get settingsAccentSourceCustom;
+
+  /// Accent source: sampled from the host wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpaper'**
+  String get settingsAccentSourceWallpaper;
 }
 
 class _AppLocalizationsDelegate

@@ -136,6 +136,22 @@ void main() {
       expect(bare.meter.captionSource, MeterCaptionSource.generic);
     });
 
+    test('the accent source round-trips and rejects unknown values', () {
+      const settings = BarSettings(
+        revision: 4,
+        accentSource: AccentSource.wallpaper,
+      );
+      expect(
+        BarSettings.decode(settings.encode()).accentSource,
+        AccentSource.wallpaper,
+      );
+      expect(const BarSettings().accentSource, AccentSource.custom);
+      expect(
+        () => BarSettings.decode('{"revision": 1, "accent_source": "auto"}'),
+        throwsFormatException,
+      );
+    });
+
     test('the locale round-trips and rejects unknown tags', () {
       const settings = BarSettings(revision: 4, locale: 'zh');
       expect(BarSettings.decode(settings.encode()).locale, 'zh');
