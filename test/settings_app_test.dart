@@ -93,9 +93,18 @@ Future<void> _dragModuleTo(
   final end = tester.getCenter(target);
   final gesture = await tester.startGesture(start);
   await tester.pump(const Duration(milliseconds: 120));
+  // Cross the drag slop first so the recognizer claims the pointer. The
+  // source row then collapses, which moves the target; re-read it before
+  // steering there.
+  final slop = Offset(0, end.dy >= start.dy ? 24 : -24);
+  await gesture.moveBy(slop);
+  await tester.pump(const Duration(milliseconds: 60));
+  final liveEnd = tester.getCenter(target);
+  var current = start + slop;
   const steps = 8;
   for (var step = 1; step <= steps; step++) {
-    await gesture.moveTo(Offset.lerp(start, end, step / steps)!);
+    current = Offset.lerp(start + slop, liveEnd, step / steps)!;
+    await gesture.moveTo(current);
     await tester.pump(const Duration(milliseconds: 40));
   }
   await gesture.up();
@@ -379,6 +388,53 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
+  testWidgets('dragging previews the landing slot before release', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    final before = List<String>.of(controller.settings.modules);
+    final handle = find.byKey(const ValueKey<String>('module-drag-clock'));
+    await tester.ensureVisible(handle);
+    await tester.pumpAndSettle();
+    final start = tester.getCenter(handle);
+    final gesture = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 120));
+    await gesture.moveBy(const Offset(0, -24));
+    await tester.pump(const Duration(milliseconds: 60));
+    await gesture.moveTo(
+      tester.getCenter(find.byKey(const ValueKey<String>('module-battery'))),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    // The lifted row leaves its slot and the landing slot previews.
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('module-clock'))).height,
+      0,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('module-drop-preview')),
+      findsOneWidget,
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('module-drop-preview')),
+      findsNothing,
+    );
+    expect(
+      controller.settings.modules.indexOf('clock'),
+      lessThan(before.indexOf('clock')),
+    );
+  });
+
   testWidgets('absent hardware lands in the unavailable segment', (
     tester,
   ) async {
@@ -541,20 +597,20 @@ void main() {
       'clock',
       find.byKey(const ValueKey<String>('module-battery')),
     );
-    expect(controller.settings.modules, isNot(BarSettings.knownModules));
-    await reset('reset-module-order');
-    expect(controller.settings.modules, BarSettings.knownModules);
-
     await _dragModuleTo(
       tester,
       'tray',
       find.byKey(const ValueKey<String>('module-workspaces')),
     );
+    expect(controller.settings.modules, isNot(BarSettings.knownModules));
     expect(controller.settings.zoneFor('tray'), ModuleZone.center);
-    await reset('reset-placement');
+
+    await reset('reset-modules');
+    expect(controller.settings.modules, BarSettings.knownModules);
     expect(controller.settings.zoneFor('tray'), ModuleZone.leading);
 
     final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(decoded.modules, BarSettings.knownModules);
     expect(decoded.modulePlacement, isEmpty);
   });
 
