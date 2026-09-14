@@ -298,15 +298,6 @@ void main() {
       await settle();
     }
 
-    await openOptions('workspaces');
-    await nudgeToMax('options-workspaces-count');
-    expect(controller.settings.workspaces.count, 9);
-    await reset('reset-workspaces-count');
-    expect(
-      controller.settings.workspaces.count,
-      const WorkspaceOptions().count,
-    );
-
     await openOptions('clock');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('clock-format-24h')),
@@ -417,6 +408,11 @@ void main() {
       find.byKey(const ValueKey<String>('module-options-workspaces')),
     );
     await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('options-workspaces-count')),
+      findsNothing,
+    );
 
     final slider = find.byKey(
       const ValueKey<String>('options-workspaces-count-HDMI-A-1'),
@@ -870,21 +866,6 @@ void main() {
       await tester.tap(gear);
       await tester.pumpAndSettle();
     }
-
-    await openOptions('workspaces');
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('options-workspaces-count')),
-    );
-    await tester.pumpAndSettle();
-    final countSlider = find.byKey(
-      const ValueKey<String>('options-workspaces-count'),
-    );
-    final sliderRect = tester.getRect(countSlider);
-    await tester.tapAt(Offset(sliderRect.right - 2, sliderRect.center.dy));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump();
-    expect(controller.settings.workspaces.count, 9);
-    expect(file.readAsStringSync(), contains('"workspace_count": 9'));
 
     await openOptions('clock');
     await tester.ensureVisible(

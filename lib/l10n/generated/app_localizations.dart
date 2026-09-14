@@ -572,12 +572,6 @@ abstract class AppLocalizations {
   /// **'Per display'**
   String get settingsWorkspacesPerDisplay;
 
-  /// Label for the workspace count slider.
-  ///
-  /// In en, this message translates to:
-  /// **'Workspace count'**
-  String get settingsWorkspacesCount;
-
   /// Section heading for clock options.
   ///
   /// In en, this message translates to:

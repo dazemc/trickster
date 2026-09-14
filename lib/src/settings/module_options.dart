@@ -55,37 +55,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       'workspaces' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SliderRow(
-            sliderKey: const ValueKey<String>('options-workspaces-count'),
-            label: l10n.settingsWorkspacesCount,
-            value: settings.workspaces.count.toDouble(),
-            min: 2,
-            max: 9,
-            display: '${settings.workspaces.count}',
-            resetKey: const ValueKey<String>('reset-workspaces-count'),
-            resetLabel: l10n.settingsResetOption(l10n.settingsWorkspacesCount),
-            resetEnabled:
-                settings.workspaces.count != const WorkspaceOptions().count,
-            onChanged: (value) => _apply(
-              controller,
-              (settings) => settings.copyWith(
-                workspaces: WorkspaceOptions(
-                  count: value.round(),
-                  perOutput: settings.workspaces.perOutput,
-                ),
-              ),
-            ),
-            onReset: () => _apply(
-              controller,
-              (settings) => settings.copyWith(
-                workspaces: WorkspaceOptions(
-                  perOutput: settings.workspaces.perOutput,
-                ),
-              ),
-            ),
-          ),
           if (controller.availableOutputs.isNotEmpty) ...[
-            const SizedBox(height: 16),
             Text(
               l10n.settingsWorkspacesPerDisplay,
               style: ShellText.systemBarCaption.copyWith(

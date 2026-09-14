@@ -258,9 +258,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsWorkspacesPerDisplay => 'Per display';
 
   @override
-  String get settingsWorkspacesCount => 'Workspace count';
-
-  @override
   String get settingsClockSection => 'Clock';
 
   @override

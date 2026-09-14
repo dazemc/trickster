@@ -254,9 +254,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsWorkspacesPerDisplay => '每个显示器';
 
   @override
-  String get settingsWorkspacesCount => '工作区数量';
-
-  @override
   String get settingsClockSection => '时钟';
 
   @override

@@ -342,10 +342,6 @@
   "@settingsWorkspacesPerDisplay": {
     "description": "Caption above the per-display workspace counts."
   },
-  "settingsWorkspacesCount": "Workspace count",
-  "@settingsWorkspacesCount": {
-    "description": "Label for the workspace count slider."
-  },
   "settingsClockSection": "Clock",
   "@settingsClockSection": {
     "description": "Section heading for clock options."
