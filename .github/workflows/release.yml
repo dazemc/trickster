@@ -49,7 +49,9 @@ jobs:
       - name: Analyze and test
         run: |
           flutter pub get
-          flutter analyze
+          # The docs site is a separate Dart project with its own deps; the
+          # release gate covers the bar's own sources.
+          dart analyze lib bin test
           flutter test
 
       - name: Build the release bundle
