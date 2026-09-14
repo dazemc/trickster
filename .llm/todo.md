@@ -42,11 +42,6 @@ silent per the logging rules.
 
 ## Phase 9 — parity and release hygiene
 
-- [ ] **9.1 docs reality pass** (S). `README.md`,
-      `docs_site/content/{cli,architecture,installation}.md`. They still
-      call `tricksterctl` and the packages "planned"/"not published" while
-      0.2.0 is released and the AUR recipe is verified. Done when: no page
-      describes shipped features as planned.
 - [ ] **9.2 pin the Denial porting reference** (S). `.llm/porting.md`.
       Record the revision (or tag) of the Denial `dart_shell` tree the
       ports were taken from and where the checkout is expected, so a
