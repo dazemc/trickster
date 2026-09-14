@@ -49,10 +49,6 @@ writing through the running bar's control socket (file transport as
 fallback) and covering exactly the settings the bar has. The version stays
 0.1.0 until the user calls a bump.
 
-- [ ] **8.8 module options page** (M). The typed options the bar already
-      decodes: workspaces `show_empty`/`max`, clock format, CPU and battery
-      thresholds, meter captions. Done when: every control round-trips and
-      the bar applies it live.
 - [ ] **8.9 language page** (S). Add a `locale` key to settings.json, honor
       it in the bar's scope resolver, and switch the app catalog live. Done
       when: bar and app follow the saved language without a restart.

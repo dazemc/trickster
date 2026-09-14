@@ -65,7 +65,9 @@ Each module reads typed options from the same document. Invalid values are
 rejected at decode, so a live reload keeps the last-good settings.
 
 - `workspaces.show_empty` (bool, default `true`) — keep workspaces with no
-  open windows in the rail; the focused workspace always stays.
+  open windows in the rail; the focused workspace always stays. The
+  compositor only reports workspaces that exist, so uncreated workspace
+  numbers are never invented.
 - `workspaces.max` (int 1–64, default `9`) — cap the number of pips shown.
 - `cpu.warn` / `cpu.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
   the CPU load percent when it crosses each level; `warn` must stay below
