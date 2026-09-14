@@ -325,6 +325,11 @@ project once (`(cd docs_site && dart pub get)`) before running
 errors. The runtime requires `gtk-layer-shell` and a compositor
 advertising `zwlr_layer_shell_v1`.
 
+Release builds tree-shake the Lucide icon font. Adding a new glyph and
+running `flutter build linux --release` without a clean can reuse the
+previous subset, shipping the new glyph blank; run `flutter clean` when
+icons changed. Fresh checkouts are unaffected.
+
 Never force the bar onto X11 (`GDK_BACKEND=x11`): it renders as a managed
 client with no exclusive zone and no anchoring, proving nothing and
 misrepresenting the product. Verify visuals on native Wayland only; when the
