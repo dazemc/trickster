@@ -82,22 +82,28 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
   gtk_layer_set_namespace(window, name != nullptr ? name : "trickster");
   gtk_layer_set_keyboard_mode(
       window, (GtkLayerShellKeyboardMode)trickster_keyboard(keyboard));
+  const gboolean horizontal =
+      g_strcmp0(side, "left") != 0 && g_strcmp0(side, "right") != 0;
+  // Horizontal strips stretch between the left and right edges; vertical
+  // strips stretch between the top and bottom edges.
   gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_TOP,
-                       g_strcmp0(side, "top") == 0);
+                       g_strcmp0(side, "top") == 0 || !horizontal);
   gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM,
-                       g_strcmp0(side, "bottom") == 0);
+                       g_strcmp0(side, "bottom") == 0 || !horizontal);
   gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_LEFT,
-                       g_strcmp0(side, "left") == 0 ||
-                           g_strcmp0(side, "top") == 0 ||
-                           g_strcmp0(side, "bottom") == 0);
+                       g_strcmp0(side, "left") == 0 || horizontal);
   gtk_layer_set_anchor(window, GTK_LAYER_SHELL_EDGE_RIGHT,
-                       g_strcmp0(side, "right") == 0 ||
-                           g_strcmp0(side, "top") == 0 ||
-                           g_strcmp0(side, "bottom") == 0);
+                       g_strcmp0(side, "right") == 0 || horizontal);
   // The exclusive zone always equals the strip. Menus never resize this
   // surface: they live on their own overlay surfaces, so the strip cannot be
   // stretched by a resize while an old frame is still current.
   gtk_layer_set_exclusive_zone(window, thickness);
+  // A hidden config (thickness 0) releases the zone; the surface is unmapped
+  // right after.
+  if (thickness <= 0) {
+    gtk_layer_set_exclusive_zone(window, 0);
+    return;
+  }
   if (g_strcmp0(side, "left") == 0 || g_strcmp0(side, "right") == 0) {
     gtk_widget_set_size_request(GTK_WIDGET(window), thickness, -1);
   } else {

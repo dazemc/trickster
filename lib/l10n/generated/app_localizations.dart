@@ -391,6 +391,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clock'**
   String get moduleClock;
+
+  /// Title of the displays settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Displays'**
+  String get settingsDisplaysTitle;
+
+  /// Caption under the displays page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Where the bar sits and how thick it is.'**
+  String get settingsDisplaysCaption;
+
+  /// Label above the bar edge choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge'**
+  String get settingsSideLabel;
+
+  /// Bar edge choice: top.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get settingsSideTop;
+
+  /// Bar edge choice: bottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get settingsSideBottom;
+
+  /// Bar edge choice: left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get settingsSideLeft;
+
+  /// Bar edge choice: right.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get settingsSideRight;
+
+  /// Bar edge choice: hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden'**
+  String get settingsSideHidden;
+
+  /// Label for the bar thickness slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Thickness'**
+  String get settingsThicknessLabel;
+
+  /// Label above the output selection list.
+  ///
+  /// In en, this message translates to:
+  /// **'Outputs'**
+  String get settingsOutputsLabel;
+
+  /// Shown when the bar renders on every output.
+  ///
+  /// In en, this message translates to:
+  /// **'All outputs'**
+  String get settingsOutputAll;
+
+  /// Accessible hint for an output toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the bar on this output'**
+  String get settingsOutputToggleHint;
+
+  /// Shown when the host lists no outputs.
+  ///
+  /// In en, this message translates to:
+  /// **'No outputs reported by the host.'**
+  String get settingsOutputsUnavailable;
+
+  /// Note under the edge choices on the displays page.
+  ///
+  /// In en, this message translates to:
+  /// **'Edge and thickness changes apply after the bar restarts; output selection applies live.'**
+  String get settingsDisplaysRestartNote;
 }
 
 class _AppLocalizationsDelegate

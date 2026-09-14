@@ -211,5 +211,61 @@
   "moduleClock": "时钟",
   "@moduleClock": {
     "description": "Display name of the clock module."
+  },
+  "settingsDisplaysTitle": "显示器",
+  "@settingsDisplaysTitle": {
+    "description": "Title of the displays settings page."
+  },
+  "settingsDisplaysCaption": "状态栏所在边缘与厚度。",
+  "@settingsDisplaysCaption": {
+    "description": "Caption under the displays page title."
+  },
+  "settingsSideLabel": "边缘",
+  "@settingsSideLabel": {
+    "description": "Label above the bar edge choices."
+  },
+  "settingsSideTop": "顶部",
+  "@settingsSideTop": {
+    "description": "Bar edge choice: top."
+  },
+  "settingsSideBottom": "底部",
+  "@settingsSideBottom": {
+    "description": "Bar edge choice: bottom."
+  },
+  "settingsSideLeft": "左侧",
+  "@settingsSideLeft": {
+    "description": "Bar edge choice: left."
+  },
+  "settingsSideRight": "右侧",
+  "@settingsSideRight": {
+    "description": "Bar edge choice: right."
+  },
+  "settingsSideHidden": "隐藏",
+  "@settingsSideHidden": {
+    "description": "Bar edge choice: hidden."
+  },
+  "settingsThicknessLabel": "厚度",
+  "@settingsThicknessLabel": {
+    "description": "Label for the bar thickness slider."
+  },
+  "settingsOutputsLabel": "输出",
+  "@settingsOutputsLabel": {
+    "description": "Label above the output selection list."
+  },
+  "settingsOutputAll": "所有输出",
+  "@settingsOutputAll": {
+    "description": "Shown when the bar renders on every output."
+  },
+  "settingsOutputToggleHint": "在此输出上显示状态栏",
+  "@settingsOutputToggleHint": {
+    "description": "Accessible hint for an output toggle."
+  },
+  "settingsOutputsUnavailable": "宿主未报告任何输出。",
+  "@settingsOutputsUnavailable": {
+    "description": "Shown when the host lists no outputs."
+  },
+  "settingsDisplaysRestartNote": "边缘与厚度更改在状态栏重启后生效；输出选择即时生效。",
+  "@settingsDisplaysRestartNote": {
+    "description": "Note under the edge choices on the displays page."
   }
 }

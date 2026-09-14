@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../config/outputs_store.dart';
 import '../config/paths.dart';
 import '../config/settings.dart';
 import '../config/store.dart';
+import '../layout/system_bar.dart';
 import '../platform/control_socket.dart';
+import '../platform/layer_shell.dart';
 
 /// Loads and saves the bar's settings document for the settings application.
 ///
@@ -17,22 +20,41 @@ class SettingsAppController extends ChangeNotifier {
   SettingsAppController({
     SettingsDocumentTransport? socket,
     SettingsDocumentTransport? file,
+    OutputsDocumentTransport? outputsSocket,
+    OutputsDocumentTransport? outputsFile,
+    LayerShell? layerShell,
   }) : _socket = socket ?? SocketSettingsTransport(),
-       _file = file ?? FileSettingsTransport(File(ConfigPaths().settings));
+       _file = file ?? FileSettingsTransport(File(ConfigPaths().settings)),
+       _outputsSocket = outputsSocket ?? SocketOutputsTransport(),
+       _outputsFile =
+           outputsFile ?? FileOutputsTransport(File(ConfigPaths().outputs)),
+       _layerShell = layerShell ?? LayerShell();
 
   final SettingsDocumentTransport _socket;
   final SettingsDocumentTransport _file;
+  final OutputsDocumentTransport _outputsSocket;
+  final OutputsDocumentTransport _outputsFile;
+  final LayerShell _layerShell;
 
   NativeSettingsStore? _store;
+  OutputsDocumentTransport? _outputsTransport;
   BarSettings _settings = const BarSettings();
+  OutputsConfig _outputs = const OutputsConfig();
+  List<LayerOutput> _availableOutputs = const <LayerOutput>[];
   String? _error;
+  String? _outputsError;
   var _busy = false;
   var _usingSocket = false;
   var _loaded = false;
   var _disposed = false;
 
   BarSettings get settings => _settings;
+  OutputsConfig get outputs => _outputs;
+
+  /// The connectors reported by the host, for the displays page.
+  List<LayerOutput> get availableOutputs => _availableOutputs;
   String? get error => _error;
+  String? get outputsError => _outputsError;
   bool get busy => _busy;
 
   /// Whether at least one load finished (successfully or not).
@@ -65,9 +87,58 @@ class SettingsAppController extends ChangeNotifier {
     }
     _store = store;
     _usingSocket = usingSocket;
+
+    var outputsTransport = _outputsSocket;
+    try {
+      _outputs = OutputsConfig.parse(await outputsTransport.read());
+      _outputsError = null;
+    } on ControlSocketException {
+      outputsTransport = _outputsFile;
+      try {
+        _outputs = OutputsConfig.parse(await outputsTransport.read());
+        _outputsError = null;
+      } on Object catch (error) {
+        _outputsError = '$error';
+      }
+    } on Object catch (error) {
+      _outputsError = '$error';
+    }
+    _outputsTransport = outputsTransport;
+    try {
+      _availableOutputs = await _layerShell.outputs();
+    } on Object {
+      _availableOutputs = const <LayerOutput>[];
+    }
+
     _busy = false;
     _loaded = true;
     _notify();
+  }
+
+  /// Updates the outputs config in memory without writing.
+  void previewOutputs(OutputsConfig outputs) {
+    _outputs = outputs;
+    _notify();
+  }
+
+  /// Writes [outputs] through the active transport (socket when the bar
+  /// runs, file otherwise) and keeps the parsed result.
+  Future<void> saveOutputs(OutputsConfig outputs) async {
+    final transport = _outputsTransport;
+    if (transport == null) {
+      return;
+    }
+    _busy = true;
+    _outputsError = null;
+    _notify();
+    try {
+      _outputs = OutputsConfig.parse(await transport.write(outputs.encode()));
+    } on Object catch (error) {
+      _outputsError = '$error';
+    } finally {
+      _busy = false;
+      _notify();
+    }
   }
 
   /// Updates the in-memory settings without writing, for live previews while

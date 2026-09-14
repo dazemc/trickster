@@ -211,5 +211,61 @@
   "moduleClock": "Clock",
   "@moduleClock": {
     "description": "Display name of the clock module."
+  },
+  "settingsDisplaysTitle": "Displays",
+  "@settingsDisplaysTitle": {
+    "description": "Title of the displays settings page."
+  },
+  "settingsDisplaysCaption": "Where the bar sits and how thick it is.",
+  "@settingsDisplaysCaption": {
+    "description": "Caption under the displays page title."
+  },
+  "settingsSideLabel": "Edge",
+  "@settingsSideLabel": {
+    "description": "Label above the bar edge choices."
+  },
+  "settingsSideTop": "Top",
+  "@settingsSideTop": {
+    "description": "Bar edge choice: top."
+  },
+  "settingsSideBottom": "Bottom",
+  "@settingsSideBottom": {
+    "description": "Bar edge choice: bottom."
+  },
+  "settingsSideLeft": "Left",
+  "@settingsSideLeft": {
+    "description": "Bar edge choice: left."
+  },
+  "settingsSideRight": "Right",
+  "@settingsSideRight": {
+    "description": "Bar edge choice: right."
+  },
+  "settingsSideHidden": "Hidden",
+  "@settingsSideHidden": {
+    "description": "Bar edge choice: hidden."
+  },
+  "settingsThicknessLabel": "Thickness",
+  "@settingsThicknessLabel": {
+    "description": "Label for the bar thickness slider."
+  },
+  "settingsOutputsLabel": "Outputs",
+  "@settingsOutputsLabel": {
+    "description": "Label above the output selection list."
+  },
+  "settingsOutputAll": "All outputs",
+  "@settingsOutputAll": {
+    "description": "Shown when the bar renders on every output."
+  },
+  "settingsOutputToggleHint": "Shows the bar on this output",
+  "@settingsOutputToggleHint": {
+    "description": "Accessible hint for an output toggle."
+  },
+  "settingsOutputsUnavailable": "No outputs reported by the host.",
+  "@settingsOutputsUnavailable": {
+    "description": "Shown when the host lists no outputs."
+  },
+  "settingsDisplaysRestartNote": "Edge and thickness changes apply after the bar restarts; output selection applies live.",
+  "@settingsDisplaysRestartNote": {
+    "description": "Note under the edge choices on the displays page."
   }
 }

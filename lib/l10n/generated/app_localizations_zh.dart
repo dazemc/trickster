@@ -158,4 +158,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get moduleClock => '时钟';
+
+  @override
+  String get settingsDisplaysTitle => '显示器';
+
+  @override
+  String get settingsDisplaysCaption => '状态栏所在边缘与厚度。';
+
+  @override
+  String get settingsSideLabel => '边缘';
+
+  @override
+  String get settingsSideTop => '顶部';
+
+  @override
+  String get settingsSideBottom => '底部';
+
+  @override
+  String get settingsSideLeft => '左侧';
+
+  @override
+  String get settingsSideRight => '右侧';
+
+  @override
+  String get settingsSideHidden => '隐藏';
+
+  @override
+  String get settingsThicknessLabel => '厚度';
+
+  @override
+  String get settingsOutputsLabel => '输出';
+
+  @override
+  String get settingsOutputAll => '所有输出';
+
+  @override
+  String get settingsOutputToggleHint => '在此输出上显示状态栏';
+
+  @override
+  String get settingsOutputsUnavailable => '宿主未报告任何输出。';
+
+  @override
+  String get settingsDisplaysRestartNote => '边缘与厚度更改在状态栏重启后生效；输出选择即时生效。';
 }

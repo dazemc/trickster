@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../cli.dart';
+import '../config/outputs_store.dart';
 import '../config/store.dart';
 import '../state/battery_bloc.dart';
 import '../state/clock_bloc.dart';
@@ -21,6 +22,7 @@ import '../state/workspaces_bloc.dart';
 Future<Map<String, Object?>> handleControlRequest({
   required BuildContext context,
   required FileSettingsTransport settings,
+  required OutputsDocumentTransport outputs,
   required String? Function() reload,
   required Map<String, Object?> request,
 }) async {
@@ -97,6 +99,27 @@ Future<Map<String, Object?>> handleControlRequest({
         };
       } on StateError catch (error) {
         return <String, Object?>{'ok': false, 'error': error.message};
+      }
+    case 'outputs.read':
+      try {
+        return <String, Object?>{'ok': true, 'document': await outputs.read()};
+      } on Object catch (error) {
+        return <String, Object?>{'ok': false, 'error': '$error'};
+      }
+    case 'outputs.write':
+      final document = request['document'];
+      if (document is! String) {
+        return <String, Object?>{'ok': false, 'error': 'document is required'};
+      }
+      try {
+        return <String, Object?>{
+          'ok': true,
+          'document': await outputs.write(document),
+        };
+      } on FormatException catch (error) {
+        return <String, Object?>{'ok': false, 'error': error.message};
+      } on Object catch (error) {
+        return <String, Object?>{'ok': false, 'error': '$error'};
       }
     default:
       return <String, Object?>{

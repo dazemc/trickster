@@ -1,11 +1,40 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' show Color;
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/settings/controller.dart';
+
+/// A controller wired to no real socket, no real outputs file, and no real
+/// display: tests must never wait on the live session.
+SettingsAppController _controller({
+  required SettingsDocumentTransport socket,
+  required Directory directory,
+  File? settingsFile,
+}) {
+  return SettingsAppController(
+    socket: socket,
+    file: FileSettingsTransport(
+      settingsFile ?? File('${directory.path}/unused-settings.json'),
+    ),
+    outputsSocket: SocketOutputsTransport(
+      socketPath: '${directory.path}/no-bar.sock',
+    ),
+    outputsFile: FileOutputsTransport(File('${directory.path}/outputs.conf')),
+    layerShell: _FakeLayerShell(),
+  );
+}
+
+class _FakeLayerShell extends LayerShell {
+  _FakeLayerShell() : super(channel: const MethodChannel('test/trickster'));
+
+  @override
+  Future<List<LayerOutput>> outputs() async => const <LayerOutput>[];
+}
 
 /// A fake bar control socket serving the settings document like the real
 /// handler does, including revision conflicts.
@@ -89,11 +118,9 @@ void main() {
   test('round-trips the document over the bar socket', () async {
     final bar = await _FakeBar.start();
     addTearDown(bar.dispose);
-    final controller = SettingsAppController(
+    final controller = _controller(
       socket: SocketSettingsTransport(socketPath: bar.path),
-      file: FileSettingsTransport(
-        File('${Directory.systemTemp.path}/unused-settings.json'),
-      ),
+      directory: Directory.systemTemp,
     );
     addTearDown(controller.dispose);
 
@@ -113,11 +140,9 @@ void main() {
   test('absorbs one revision conflict without losing data', () async {
     final bar = await _FakeBar.start();
     addTearDown(bar.dispose);
-    final controller = SettingsAppController(
+    final controller = _controller(
       socket: SocketSettingsTransport(socketPath: bar.path),
-      file: FileSettingsTransport(
-        File('${Directory.systemTemp.path}/unused-settings.json'),
-      ),
+      directory: Directory.systemTemp,
     );
     addTearDown(controller.dispose);
 
@@ -134,11 +159,9 @@ void main() {
   test('surfaces a conflict that outlives the retry', () async {
     final bar = await _FakeBar.start();
     addTearDown(bar.dispose);
-    final controller = SettingsAppController(
+    final controller = _controller(
       socket: SocketSettingsTransport(socketPath: bar.path),
-      file: FileSettingsTransport(
-        File('${Directory.systemTemp.path}/unused-settings.json'),
-      ),
+      directory: Directory.systemTemp,
     );
     addTearDown(controller.dispose);
 
@@ -155,11 +178,12 @@ void main() {
     addTearDown(() => directory.delete(recursive: true));
     final file = File('${directory.path}/settings.json')
       ..writeAsStringSync(const BarSettings(revision: 7).encode());
-    final controller = SettingsAppController(
+    final controller = _controller(
       socket: SocketSettingsTransport(
         socketPath: '${directory.path}/gone.sock',
       ),
-      file: FileSettingsTransport(file),
+      directory: directory,
+      settingsFile: file,
     );
     addTearDown(controller.dispose);
 

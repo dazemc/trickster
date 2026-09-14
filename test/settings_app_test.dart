@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/settings/app.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
@@ -11,12 +14,28 @@ import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 
+class _FakeLayerShell extends LayerShell {
+  _FakeLayerShell() : super(channel: const MethodChannel('test/trickster'));
+
+  @override
+  Future<List<LayerOutput>> outputs() async => const <LayerOutput>[
+    LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+    LayerOutput(name: 'HDMI-A-1', width: 2560, height: 1440),
+  ];
+}
+
 Future<SettingsAppController> _controller(File file) async {
+  final directory = file.parent;
   final controller = SettingsAppController(
     socket: SocketSettingsTransport(
-      socketPath: '${file.parent.path}/no-bar.sock',
+      socketPath: '${directory.path}/no-bar.sock',
     ),
     file: FileSettingsTransport(file),
+    outputsSocket: SocketOutputsTransport(
+      socketPath: '${directory.path}/no-bar.sock',
+    ),
+    outputsFile: FileOutputsTransport(File('${directory.path}/outputs.conf')),
+    layerShell: _FakeLayerShell(),
   );
   await controller.load();
   return controller;
@@ -166,6 +185,36 @@ void main() {
     await tester.pump();
     final decoded = BarSettings.decode(file.readAsStringSync());
     expect(decoded.modules.indexOf('clock'), lessThan(before.indexOf('clock')));
+  });
+
+  testWidgets('displays page writes placement and output selection', (
+    tester,
+  ) async {
+    final controller = await _controller(file);
+    addTearDown(controller.dispose);
+    await _pump(tester, controller);
+
+    await tester.tap(find.bySemanticsLabel('Displays'));
+    await tester.pump();
+    expect(find.text('eDP-1  1920×1080'), findsOneWidget);
+    expect(find.text('HDMI-A-1  2560×1440'), findsOneWidget);
+
+    expect(find.byKey(const ValueKey<String>('side-left')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey<String>('side-bottom')));
+    await tester.pumpAndSettle();
+    final outputs = File('${directory.path}/outputs.conf');
+    expect(outputs.readAsStringSync(), contains('system_bar=bottom,32'));
+
+    await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
+    await tester.pumpAndSettle();
+    expect(
+      outputs.readAsStringSync(),
+      contains('system_bar=bottom,32,HDMI-A-1'),
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
+    await tester.pumpAndSettle();
+    expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
   testWidgets('the close control announces and fires', (tester) async {

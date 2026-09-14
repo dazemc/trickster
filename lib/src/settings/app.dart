@@ -8,6 +8,7 @@ import '../theme/motion.dart';
 import '../theme/tokens.dart';
 import 'controller.dart';
 import 'pages/appearance.dart';
+import 'pages/displays.dart';
 import 'pages/modules.dart';
 import 'scope.dart';
 import 'settings_theme.dart';
@@ -84,7 +85,7 @@ class SettingsHome extends StatefulWidget {
   State<SettingsHome> createState() => _SettingsHomeState();
 }
 
-enum SettingsSection { appearance, modules }
+enum SettingsSection { appearance, modules, displays }
 
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
@@ -162,6 +163,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                             SettingsSection.appearance =>
                               const AppearancePage(),
                             SettingsSection.modules => const ModulesPage(),
+                            SettingsSection.displays => const DisplaysPage(),
                           },
                         ),
                       ),
@@ -199,6 +201,11 @@ class SettingsNav extends StatelessWidget {
               label: l10n.settingsModulesTitle,
               selected: section == SettingsSection.modules,
               onPressed: () => onSelect(SettingsSection.modules),
+            ),
+            _NavEntry(
+              label: l10n.settingsDisplaysTitle,
+              selected: section == SettingsSection.displays,
+              onPressed: () => onSelect(SettingsSection.displays),
             ),
           ],
         ),

@@ -13,6 +13,7 @@ import 'control/control_handler.dart';
 import 'control/control_server.dart';
 import 'bootstrap.dart';
 import 'config/session.dart';
+import 'config/outputs_store.dart';
 import 'config/store.dart';
 import 'config/watcher.dart';
 import 'layout/shell_keys.dart';
@@ -45,6 +46,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final TrayMenuController _menuController;
   late final TrayTooltipController _tooltipController;
   late final FileSettingsTransport _settingsTransport;
+  late final OutputsDocumentTransport _outputsTransport;
   ControlServer? _control;
   BuildContext? _moduleContext;
   ConfigWatcher? _watcher;
@@ -66,6 +68,9 @@ class _TricksterAppState extends State<TricksterApp>
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
     );
+    _outputsTransport = FileOutputsTransport(
+      File(widget.initial.paths.outputs),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apply(widget.initial);
       _watcher = ConfigWatcher(
@@ -76,6 +81,7 @@ class _TricksterAppState extends State<TricksterApp>
         handler: (request) => handleControlRequest(
           context: _moduleContext ?? context,
           settings: _settingsTransport,
+          outputs: _outputsTransport,
           reload: _reload,
           request: request,
         ),
@@ -135,22 +141,28 @@ class _TricksterAppState extends State<TricksterApp>
 
   void _apply(RuntimeConfig loaded) {
     context.read<SessionBloc>().add(SessionLoaded(loaded.session));
-    context.read<OutputsBloc>().add(OutputsLoaded(loaded.outputs));
     context.read<SettingsBloc>().add(SettingsLoaded(loaded.settings));
-    final disruptive =
-        loaded.outputs.side != _lastOutputs.side ||
-        loaded.outputs.thickness != _lastOutputs.thickness ||
+    final sessionChanged =
         loaded.session.layer != _lastSession.layer ||
         loaded.session.namespace != _lastSession.namespace ||
         loaded.session.keyboard != _lastSession.keyboard;
-    if (disruptive) {
-      unawaited(
-        _layerShell.configure(outputs: loaded.outputs, session: loaded.session),
-      );
+    if (loaded.outputs.side != _lastOutputs.side || sessionChanged) {
+      stderr.writeln('trickster: edge/layer changes apply after a restart');
     }
-    _lastOutputs = loaded.outputs;
+    if (loaded.outputs.thickness != _lastOutputs.thickness) {
+      stderr.writeln('trickster: thickness changes apply after a restart');
+    }
+    // Edge, layer, and thickness cannot be re-applied to an existing layer
+    // surface in this engine; they persist in the file and land at the next
+    // bar start. Output selection applies live.
+    final applied = loaded.outputs.copyWith(
+      side: _lastOutputs.side,
+      thickness: _lastOutputs.thickness,
+    );
+    context.read<OutputsBloc>().add(OutputsLoaded(applied));
+    _lastOutputs = applied;
     _lastSession = loaded.session;
-    unawaited(_reconcileOutputs(loaded.outputs));
+    unawaited(_reconcileOutputs(applied));
   }
 
   /// Creates, hides, or destroys strip surfaces so exactly the hosted

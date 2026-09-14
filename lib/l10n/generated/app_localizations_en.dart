@@ -161,4 +161,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moduleClock => 'Clock';
+
+  @override
+  String get settingsDisplaysTitle => 'Displays';
+
+  @override
+  String get settingsDisplaysCaption =>
+      'Where the bar sits and how thick it is.';
+
+  @override
+  String get settingsSideLabel => 'Edge';
+
+  @override
+  String get settingsSideTop => 'Top';
+
+  @override
+  String get settingsSideBottom => 'Bottom';
+
+  @override
+  String get settingsSideLeft => 'Left';
+
+  @override
+  String get settingsSideRight => 'Right';
+
+  @override
+  String get settingsSideHidden => 'Hidden';
+
+  @override
+  String get settingsThicknessLabel => 'Thickness';
+
+  @override
+  String get settingsOutputsLabel => 'Outputs';
+
+  @override
+  String get settingsOutputAll => 'All outputs';
+
+  @override
+  String get settingsOutputToggleHint => 'Shows the bar on this output';
+
+  @override
+  String get settingsOutputsUnavailable => 'No outputs reported by the host.';
+
+  @override
+  String get settingsDisplaysRestartNote =>
+      'Edge and thickness changes apply after the bar restarts; output selection applies live.';
 }

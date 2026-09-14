@@ -161,6 +161,157 @@ class _SettingsButtonState extends State<SettingsButton> {
   }
 }
 
+/// A track-and-knob slider in the settings window.
+class SettingsSlider extends StatefulWidget {
+  const SettingsSlider({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    required this.onChangeEnd,
+    super.key,
+  });
+
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
+
+  @override
+  State<SettingsSlider> createState() => _SettingsSliderState();
+}
+
+class _SettingsSliderState extends State<SettingsSlider> {
+  static const double _trackHeight = 6;
+  static const double _height = 28;
+
+  double? _dragValue;
+
+  bool get _enabled => widget.onChanged != null;
+
+  double _valueAt(Offset position, double width) {
+    final fraction = (position.dx / width).clamp(0.0, 1.0);
+    return widget.min + fraction * (widget.max - widget.min);
+  }
+
+  void _update(Offset position, double width, {required bool ended}) {
+    final value = _valueAt(position, width);
+    setState(() => _dragValue = ended ? null : value);
+    if (ended) {
+      widget.onChangeEnd?.call(value);
+    } else {
+      widget.onChanged?.call(value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _dragValue ?? widget.value;
+    final fraction = widget.max > widget.min
+        ? ((value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0)
+        : 0.0;
+    return Semantics(
+      slider: true,
+      enabled: _enabled,
+      label: context.l10n.settingsThicknessLabel,
+      value: '${value.round()}',
+      increasedValue: '${(value + 1).clamp(widget.min, widget.max).round()}',
+      decreasedValue: '${(value - 1).clamp(widget.min, widget.max).round()}',
+      onIncrease: _enabled
+          ? () => widget.onChangeEnd?.call(
+              (value + 1).clamp(widget.min, widget.max),
+            )
+          : null,
+      onDecrease: _enabled
+          ? () => widget.onChangeEnd?.call(
+              (value - 1).clamp(widget.min, widget.max),
+            )
+          : null,
+      child: ExcludeSemantics(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return MouseRegion(
+              cursor: _enabled
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: _enabled
+                    ? (details) =>
+                          _update(details.localPosition, width, ended: true)
+                    : null,
+                onHorizontalDragUpdate: _enabled
+                    ? (details) =>
+                          _update(details.localPosition, width, ended: false)
+                    : null,
+                onHorizontalDragEnd: _enabled
+                    ? (_) => _update(
+                        Offset(fraction * width, 0),
+                        width,
+                        ended: true,
+                      )
+                    : null,
+                child: SizedBox(
+                  height: _height,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(999),
+                          ),
+                          color: SettingsColors.surfaceHigh,
+                        ),
+                        child: const SizedBox(
+                          width: double.infinity,
+                          height: _trackHeight,
+                        ),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: fraction,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(999),
+                            ),
+                            color: _enabled
+                                ? ShellBrandColors.defaultAccent
+                                : SettingsColors.outline,
+                          ),
+                          child: const SizedBox(height: _trackHeight),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment(fraction * 2 - 1, 0),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _enabled
+                                ? ShellMediaColors.lightForeground
+                                : ShellMediaColors.lightForegroundSecondary,
+                            border: Border.all(
+                              color: SettingsColors.background,
+                              width: 2,
+                            ),
+                          ),
+                          child: const SizedBox.square(dimension: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 /// A section heading inside the settings window.
 class SettingsHeading extends StatelessWidget {
   const SettingsHeading({required this.title, this.caption, super.key});
