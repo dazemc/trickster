@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
@@ -13,11 +14,10 @@ import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/settings/app.dart';
 import 'package:trickster/src/settings/availability.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
-import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/pages/about.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 
@@ -31,9 +31,9 @@ class _FakeLayerShell extends LayerShell {
   ];
 }
 
-Future<SettingsAppController> _controller(File file) async {
+Future<SettingsAppBloc> _bloc(File file) async {
   final directory = file.parent;
-  final controller = SettingsAppController(
+  final bloc = SettingsAppBloc(
     socket: SocketSettingsTransport(
       socketPath: '${directory.path}/no-bar.sock',
     ),
@@ -44,19 +44,20 @@ Future<SettingsAppController> _controller(File file) async {
     outputsFile: FileOutputsTransport(File('${directory.path}/outputs.conf')),
     layerShell: _FakeLayerShell(),
   );
-  await controller.load();
-  return controller;
+  bloc.add(const SettingsAppLoadRequested());
+  await bloc.stream.firstWhere((state) => state.loaded);
+  return bloc;
 }
 
 Future<void> _pump(
   WidgetTester tester,
-  SettingsAppController controller, {
+  SettingsAppBloc bloc, {
   VoidCallback? onClose,
   List<ModuleAvailability> Function()? availabilityProbe,
 }) {
   return tester.pumpWidget(
-    SettingsAppScope(
-      notifier: controller,
+    BlocProvider.value(
+      value: bloc,
       child: TricksterLocalizationScope(
         child: MediaQuery(
           data: const MediaQueryData(size: Size(980, 720)),
@@ -159,9 +160,9 @@ void main() {
   tearDown(() => directory.delete(recursive: true));
 
   testWidgets('settings shell shows the appearance page', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     expect(find.text('Trickster Settings'), findsOneWidget);
     expect(find.text('Appearance'), findsWidgets);
@@ -174,37 +175,40 @@ void main() {
   });
 
   testWidgets('a preset writes the accent after the debounce', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('accent-preset-#8AB4FF')),
     );
     await tester.pump();
-    expect(controller.settings.accent, const Color(0xff8ab4ff));
+    expect(bloc.settings.accent, const Color(0xff8ab4ff));
     expect(file.readAsStringSync(), isNot(contains('8ab4ff')));
 
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(file.readAsStringSync(), contains('8ab4ff'));
-    expect(controller.error, isNull);
+    expect(bloc.error, isNull);
   });
 
   testWidgets('reset clears the accent', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await controller.save(
-      const BarSettings(revision: 2, accent: Color(0xff8ab4ff)),
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    bloc.add(
+      const SettingsAppSaveRequested(
+        BarSettings(revision: 2, accent: Color(0xff8ab4ff)),
+      ),
     );
-    await _pump(tester, controller);
+    await bloc.stream.firstWhere((state) => !state.busy);
+    await _pump(tester, bloc);
     expect(file.readAsStringSync(), contains('8ab4ff'));
 
     await tester.tap(find.byKey(const ValueKey<String>('reset-accent')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
 
-    expect(controller.settings.accent, isNull);
+    expect(bloc.settings.accent, isNull);
     expect(file.readAsStringSync(), isNot(contains('8ab4ff')));
   });
 
@@ -234,9 +238,9 @@ void main() {
   });
 
   testWidgets('modules page toggles and reorders the strip', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
@@ -255,20 +259,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('module-toggle-gpu')));
     await tester.pump();
-    expect(controller.settings.modules, isNot(contains('gpu')));
+    expect(bloc.settings.modules, isNot(contains('gpu')));
 
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(file.readAsStringSync(), isNot(contains('"gpu"')));
 
-    final before = List<String>.of(controller.settings.modules);
+    final before = List<String>.of(bloc.settings.modules);
     await _dragModuleTo(
       tester,
       'clock',
       find.byKey(const ValueKey<String>('module-battery')),
     );
     expect(
-      controller.settings.modules.indexOf('clock'),
+      bloc.settings.modules.indexOf('clock'),
       lessThan(before.indexOf('clock')),
     );
 
@@ -282,7 +286,7 @@ void main() {
       'clock',
       find.byKey(const ValueKey<String>('module-tray')),
     );
-    expect(controller.settings.zoneFor('clock'), ModuleZone.leading);
+    expect(bloc.settings.zoneFor('clock'), ModuleZone.leading);
 
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
@@ -294,9 +298,9 @@ void main() {
   });
 
   testWidgets('every module option resets to its default', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -338,26 +342,23 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
     await tester.pump();
     await settle();
-    expect(controller.settings.clock.format, ClockFormat.hour24);
+    expect(bloc.settings.clock.format, ClockFormat.hour24);
     await reset('reset-clock-format');
-    expect(controller.settings.clock.format, const ClockOptions().format);
+    expect(bloc.settings.clock.format, const ClockOptions().format);
 
     await openOptions('cpu');
     await nudgeToMax('options-cpu-warn');
     await reset('reset-cpu-warn');
-    expect(controller.settings.cpu.warn, const CpuOptions().warn);
+    expect(bloc.settings.cpu.warn, const CpuOptions().warn);
     await reset('reset-cpu-critical');
-    expect(controller.settings.cpu.critical, const CpuOptions().critical);
+    expect(bloc.settings.cpu.critical, const CpuOptions().critical);
 
     await openOptions('battery');
     await nudgeToMax('options-battery-warn');
     await reset('reset-battery-warn');
-    expect(controller.settings.battery.warn, const BatteryOptions().warn);
+    expect(bloc.settings.battery.warn, const BatteryOptions().warn);
     await reset('reset-battery-critical');
-    expect(
-      controller.settings.battery.critical,
-      const BatteryOptions().critical,
-    );
+    expect(bloc.settings.battery.critical, const BatteryOptions().critical);
 
     await openOptions('gpu');
     await tester.ensureVisible(
@@ -369,10 +370,10 @@ void main() {
     );
     await tester.pump();
     await settle();
-    expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
+    expect(bloc.settings.meter.captionSource, MeterCaptionSource.device);
     await reset('reset-meter-caption');
     expect(
-      controller.settings.meter.captionSource,
+      bloc.settings.meter.captionSource,
       const MeterOptions().captionSource,
     );
 
@@ -389,18 +390,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('language-zh')));
     await tester.pump();
     await settle();
-    expect(controller.settings.locale, 'zh');
+    expect(bloc.settings.locale, 'zh');
     await reset('reset-locale');
-    expect(controller.settings.locale, isNull);
+    expect(bloc.settings.locale, isNull);
     expect(BarSettings.decode(file.readAsStringSync()).locale, isNull);
   });
 
   testWidgets('displays page writes placement and output selection', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     await tester.tap(find.bySemanticsLabel('Displays'));
     await tester.pump();
@@ -427,9 +428,9 @@ void main() {
   testWidgets('drag preview follows the hovered half of the row', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -470,9 +471,9 @@ void main() {
   testWidgets('the first drag shows the proxy at segment width', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -493,13 +494,13 @@ void main() {
   });
 
   testWidgets('mouse drag from the row body reorders', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
-    final before = List<String>.of(controller.settings.modules);
+    final before = List<String>.of(bloc.settings.modules);
     final row = find.byKey(const ValueKey<String>('module-clock'));
     await tester.ensureVisible(row);
     await tester.pumpAndSettle();
@@ -521,7 +522,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(
-      controller.settings.modules.indexOf('clock'),
+      bloc.settings.modules.indexOf('clock'),
       lessThan(before.indexOf('clock')),
     );
   });
@@ -529,13 +530,13 @@ void main() {
   testWidgets('dragging previews the landing slot before release', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
-    final before = List<String>.of(controller.settings.modules);
+    final before = List<String>.of(bloc.settings.modules);
     final handle = find.byKey(const ValueKey<String>('module-drag-clock'));
     await tester.ensureVisible(handle);
     await tester.pumpAndSettle();
@@ -568,7 +569,7 @@ void main() {
       findsNothing,
     );
     expect(
-      controller.settings.modules.indexOf('clock'),
+      bloc.settings.modules.indexOf('clock'),
       lessThan(before.indexOf('clock')),
     );
   });
@@ -576,11 +577,11 @@ void main() {
   testWidgets('absent hardware lands in the unavailable segment', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
     await _pump(
       tester,
-      controller,
+      bloc,
       availabilityProbe: () => const [
         ModuleAvailability(
           module: 'battery',
@@ -612,9 +613,9 @@ void main() {
   });
 
   testWidgets('modules group by placement zone', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -668,9 +669,9 @@ void main() {
     file.writeAsStringSync(
       '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
     );
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -682,35 +683,35 @@ void main() {
       'workspaces',
       find.byKey(const ValueKey<String>('module-battery')),
     );
-    expect(controller.settings.zoneFor('workspaces'), ModuleZone.trailing);
-    expect(controller.settings.modules.last, 'workspaces');
+    expect(bloc.settings.zoneFor('workspaces'), ModuleZone.trailing);
+    expect(bloc.settings.modules.last, 'workspaces');
   });
 
   testWidgets('a disabled module drags to the end of trailing', (tester) async {
     file.writeAsStringSync(
       '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
     );
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
-    expect(controller.settings.modules, isNot(contains('gpu')));
+    expect(bloc.settings.modules, isNot(contains('gpu')));
 
     await _dragModuleBelow(
       tester,
       'gpu',
       find.byKey(const ValueKey<String>('module-battery')),
     );
-    expect(controller.settings.modules, contains('gpu'));
-    expect(controller.settings.modules.last, 'gpu');
-    expect(controller.settings.zoneFor('gpu'), ModuleZone.trailing);
+    expect(bloc.settings.modules, contains('gpu'));
+    expect(bloc.settings.modules.last, 'gpu');
+    expect(bloc.settings.zoneFor('gpu'), ModuleZone.trailing);
   });
 
   testWidgets('a module appends to the end of its own zone', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -720,8 +721,8 @@ void main() {
       'media',
       find.byKey(const ValueKey<String>('module-clock')),
     );
-    expect(controller.settings.zoneFor('media'), ModuleZone.trailing);
-    expect(controller.settings.modules.last, 'media');
+    expect(bloc.settings.zoneFor('media'), ModuleZone.trailing);
+    expect(bloc.settings.modules.last, 'media');
   });
 
   testWidgets('the disabled section stays visible and accepts a drop', (
@@ -730,9 +731,9 @@ void main() {
     file.writeAsStringSync(
       '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
     );
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -749,7 +750,7 @@ void main() {
       'battery',
       find.byKey(const ValueKey<String>('module-zone-disabled-drop')),
     );
-    expect(controller.settings.modules, isNot(contains('battery')));
+    expect(bloc.settings.modules, isNot(contains('battery')));
     expect(
       find.byKey(const ValueKey<String>('module-battery')),
       findsOneWidget,
@@ -760,12 +761,12 @@ void main() {
     file.writeAsStringSync(
       '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
     );
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
-    expect(controller.settings.modules, isNot(contains('gpu')));
+    expect(bloc.settings.modules, isNot(contains('gpu')));
 
     // Drag the disabled GPU row to the empty leading zone.
     await _dragModuleTo(
@@ -773,8 +774,8 @@ void main() {
       'gpu',
       find.byKey(const ValueKey<String>('module-zone-leading')),
     );
-    expect(controller.settings.modules, contains('gpu'));
-    expect(controller.settings.zoneFor('gpu'), ModuleZone.leading);
+    expect(bloc.settings.modules, contains('gpu'));
+    expect(bloc.settings.zoneFor('gpu'), ModuleZone.leading);
   });
 
   testWidgets('appearance resets restore the accent defaults', (tester) async {
@@ -782,9 +783,9 @@ void main() {
       '{"revision": 1, "accent_source": "wallpaper", '
       '"accent_wallpaper_pick": "#2050E0"}',
     );
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
@@ -799,12 +800,12 @@ void main() {
       await settle();
     }
 
-    expect(controller.settings.accentWallpaperPick, '#2050E0');
+    expect(bloc.settings.accentWallpaperPick, '#2050E0');
     await reset('reset-wallpaper-pick');
-    expect(controller.settings.accentWallpaperPick, isNull);
+    expect(bloc.settings.accentWallpaperPick, isNull);
 
     await reset('reset-accent-source');
-    expect(controller.settings.accentSource, AccentSource.custom);
+    expect(bloc.settings.accentSource, AccentSource.custom);
 
     final preset = ValueKey<String>(
       'accent-preset-${formatOpaqueColorHex(const Color(0xff8ab4ff))}',
@@ -813,9 +814,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(preset));
     await settle();
-    expect(controller.settings.accent, const Color(0xff8ab4ff));
+    expect(bloc.settings.accent, const Color(0xff8ab4ff));
     await reset('reset-accent');
-    expect(controller.settings.accent, isNull);
+    expect(bloc.settings.accent, isNull);
 
     final decoded = BarSettings.decode(file.readAsStringSync());
     expect(decoded.accent, isNull);
@@ -824,9 +825,9 @@ void main() {
   });
 
   testWidgets('module resets restore order and placement', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -853,12 +854,12 @@ void main() {
       'tray',
       find.byKey(const ValueKey<String>('module-workspaces')),
     );
-    expect(controller.settings.modules, isNot(BarSettings.knownModules));
-    expect(controller.settings.zoneFor('tray'), ModuleZone.center);
+    expect(bloc.settings.modules, isNot(BarSettings.knownModules));
+    expect(bloc.settings.zoneFor('tray'), ModuleZone.center);
 
     await reset('reset-modules');
-    expect(controller.settings.modules, BarSettings.knownModules);
-    expect(controller.settings.zoneFor('tray'), ModuleZone.leading);
+    expect(bloc.settings.modules, BarSettings.knownModules);
+    expect(bloc.settings.zoneFor('tray'), ModuleZone.leading);
 
     final decoded = BarSettings.decode(file.readAsStringSync());
     expect(decoded.modules, BarSettings.knownModules);
@@ -868,9 +869,9 @@ void main() {
   testWidgets('display resets restore edge, thickness, and outputs', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Displays'));
     await tester.pump();
 
@@ -921,9 +922,9 @@ void main() {
   });
 
   testWidgets('each orientation keeps its own thickness', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Displays'));
     await tester.pump();
 
@@ -946,9 +947,9 @@ void main() {
   });
 
   testWidgets('module gears round-trip typed options', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -968,7 +969,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(controller.settings.clock.format, ClockFormat.hour24);
+    expect(bloc.settings.clock.format, ClockFormat.hour24);
 
     await openOptions('gpu');
     await tester.ensureVisible(
@@ -980,20 +981,20 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(controller.settings.meter.captionSource, MeterCaptionSource.device);
+    expect(bloc.settings.meter.captionSource, MeterCaptionSource.device);
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('accent-source-wallpaper')),
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(controller.settings.accentSource, AccentSource.wallpaper);
+    expect(bloc.settings.accentSource, AccentSource.wallpaper);
     expect(file.readAsStringSync(), contains('"accent_source": "wallpaper"'));
 
     await tester.tap(
@@ -1001,13 +1002,13 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(controller.settings.accentSource, AccentSource.custom);
+    expect(bloc.settings.accentSource, AccentSource.custom);
   });
 
   testWidgets('appearance target edits one display and resets', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     // Select a display, switch its source, and open the picker.
     await tester.tap(
@@ -1052,8 +1053,8 @@ void main() {
           accentSource: AccentSource.wallpaper,
         ).encode(),
       );
-    final controller = await _controller(settingsFile);
-    addTearDown(controller.dispose);
+    final bloc = await _bloc(settingsFile);
+    addTearDown(bloc.close);
 
     final cache = Directory('${directory.path}/awww')..createSync();
     File('${cache.path}/HDMI-A-1').writeAsStringSync('/tmp/a.png');
@@ -1071,8 +1072,8 @@ void main() {
     await tester.pump();
 
     await tester.pumpWidget(
-      SettingsAppScope(
-        notifier: controller,
+      BlocProvider.value(
+        value: bloc,
         child: WallpaperAccentScope(
           notifier: accents,
           child: TricksterLocalizationScope(
@@ -1112,7 +1113,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(controller.settings.accentWallpaperPick, '#2050E0');
+    expect(bloc.settings.accentWallpaperPick, '#2050E0');
     expect(settingsFile.readAsStringSync(), contains('#2050E0'));
 
     await tester.tap(find.text('#E01020'));
@@ -1123,9 +1124,9 @@ void main() {
   });
 
   testWidgets('language page writes the locale', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
     await tester.tap(find.bySemanticsLabel('Language'));
     await tester.pump();
 
@@ -1133,25 +1134,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
 
-    expect(controller.settings.locale, 'zh');
+    expect(bloc.settings.locale, 'zh');
     expect(file.readAsStringSync(), contains('"locale": "zh"'));
 
     await tester.tap(find.byKey(const ValueKey<String>('language-system')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(controller.settings.locale, isNull);
+    expect(bloc.settings.locale, isNull);
   });
 
   testWidgets('about page shows versions and degrades without a bar', (
     tester,
   ) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
 
     Future<void> pumpAbout(Future<Map<String, Object?>> Function() loader) {
       return tester.pumpWidget(
-        SettingsAppScope(
-          notifier: controller,
+        BlocProvider.value(
+          value: bloc,
           child: TricksterLocalizationScope(
             child: MediaQuery(
               data: const MediaQueryData(size: Size(980, 720)),
@@ -1182,10 +1183,10 @@ void main() {
   });
 
   testWidgets('the close control announces and fires', (tester) async {
-    final controller = await _controller(file);
-    addTearDown(controller.dispose);
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
     var closed = 0;
-    await _pump(tester, controller, onClose: () => closed++);
+    await _pump(tester, bloc, onClose: () => closed++);
 
     expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
     await tester.tap(find.byType(SettingsCloseButton));

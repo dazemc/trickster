@@ -2,15 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/settings/availability.dart';
-import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/module_options.dart';
 import 'package:trickster/src/settings/saver.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -90,7 +90,7 @@ class _ModulesPageState extends State<ModulesPage> {
     super.dispose();
   }
 
-  DebouncedSaver _saverFor(SettingsAppController controller) =>
+  DebouncedSaver _saverFor(SettingsAppBloc controller) =>
       _saver ??= DebouncedSaver(controller);
 
   /// The configured modules per zone, in strip order; [exclude] removes the
@@ -114,7 +114,7 @@ class _ModulesPageState extends State<ModulesPage> {
     };
   }
 
-  void _toggle(SettingsAppController controller, String module, bool enabled) {
+  void _toggle(SettingsAppBloc controller, String module, bool enabled) {
     _saverFor(controller).apply((settings) {
       final modules = List<String>.of(settings.modules);
       if (enabled) {
@@ -129,11 +129,7 @@ class _ModulesPageState extends State<ModulesPage> {
   }
 
   /// Keyboard reorder within a zone: swaps [module] with its neighbour.
-  void _moveWithinZone(
-    SettingsAppController controller,
-    String module,
-    int delta,
-  ) {
+  void _moveWithinZone(SettingsAppBloc controller, String module, int delta) {
     _saverFor(controller).apply((settings) {
       final zone = settings.zoneFor(module);
       final segment = [
@@ -158,7 +154,7 @@ class _ModulesPageState extends State<ModulesPage> {
   /// Places [dragged] at [index] within [zone] (clamped); the rest of the
   /// strip keeps its order.
   void _dropOn(
-    SettingsAppController controller,
+    SettingsAppBloc controller,
     String dragged, {
     required ModuleZone zone,
     required int index,
@@ -187,7 +183,7 @@ class _ModulesPageState extends State<ModulesPage> {
     });
   }
 
-  void _moveZoneBy(SettingsAppController controller, String module, int delta) {
+  void _moveZoneBy(SettingsAppBloc controller, String module, int delta) {
     final current = controller.settings.zoneFor(module);
     final next = ModuleZone.values.indexOf(current) + delta;
     if (next < 0 || next >= ModuleZone.values.length) {
@@ -203,11 +199,7 @@ class _ModulesPageState extends State<ModulesPage> {
     );
   }
 
-  void _startDrag(
-    SettingsAppController controller,
-    String module,
-    ModuleZone zone,
-  ) {
+  void _startDrag(SettingsAppBloc controller, String module, ModuleZone zone) {
     final current = _groupsFor(controller.settings)[zone] ?? const <String>[];
     final index = current.indexOf(module).clamp(0, current.length);
     setState(() {
@@ -223,7 +215,7 @@ class _ModulesPageState extends State<ModulesPage> {
   /// The nearest zone wins wherever the pointer is, so releasing under the
   /// last row appends there. Hovering the Disabled area leaves the preview
   /// alone: that card is the drag-to-disable gesture.
-  void _updateDrag(SettingsAppController controller, Offset position) {
+  void _updateDrag(SettingsAppBloc controller, Offset position) {
     final dragging = _dragging;
     if (dragging == null) {
       return;
@@ -299,7 +291,7 @@ class _ModulesPageState extends State<ModulesPage> {
     return false;
   }
 
-  void _endDrag(SettingsAppController controller, bool accepted) {
+  void _endDrag(SettingsAppBloc controller, bool accepted) {
     final module = _dragging;
     final zone = _previewZone;
     final index = _previewIndex;
@@ -323,7 +315,7 @@ class _ModulesPageState extends State<ModulesPage> {
   }
 
   /// Turns [module] off from the Disabled section's drop target.
-  void _disableDropped(SettingsAppController controller, String module) {
+  void _disableDropped(SettingsAppBloc controller, String module) {
     _dropHandled = true;
     _saverFor(controller).apply((settings) {
       final modules = List<String>.of(settings.modules)..remove(module);
@@ -383,7 +375,7 @@ class _ModulesPageState extends State<ModulesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     final settings = controller.settings;
     // The dragged row stays in the tree (its Draggable collapses it to a
     // zero-height slot) so the drag survives the preview rebuilds.

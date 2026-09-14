@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
-import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/saver.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -49,10 +49,10 @@ class _AppearancePageState extends State<AppearancePage> {
     super.dispose();
   }
 
-  DebouncedSaver _saverFor(SettingsAppController controller) =>
+  DebouncedSaver _saverFor(SettingsAppBloc controller) =>
       _saver ??= DebouncedSaver(controller);
 
-  void _apply(SettingsAppController controller, Color? accent) {
+  void _apply(SettingsAppBloc controller, Color? accent) {
     final target = _target;
     if (target == null) {
       _saverFor(controller).apply((settings) => settings.withAccent(accent));
@@ -68,7 +68,7 @@ class _AppearancePageState extends State<AppearancePage> {
     );
   }
 
-  void _applySource(SettingsAppController controller, AccentSource source) {
+  void _applySource(SettingsAppBloc controller, AccentSource source) {
     final target = _target;
     if (target == null) {
       _saverFor(
@@ -86,7 +86,7 @@ class _AppearancePageState extends State<AppearancePage> {
     );
   }
 
-  void _applyPick(SettingsAppController controller, String? pick) {
+  void _applyPick(SettingsAppBloc controller, String? pick) {
     final target = _target;
     if (target == null) {
       _saverFor(
@@ -105,7 +105,7 @@ class _AppearancePageState extends State<AppearancePage> {
   }
 
   /// Drops the selected display's source override, falling back to global.
-  void _resetSource(SettingsAppController controller) {
+  void _resetSource(SettingsAppBloc controller) {
     _applyAppearance(
       controller,
       (current) => DisplayAppearance(
@@ -116,7 +116,7 @@ class _AppearancePageState extends State<AppearancePage> {
   }
 
   /// Removes every override for the selected display.
-  void _resetDisplay(SettingsAppController controller, String display) {
+  void _resetDisplay(SettingsAppBloc controller, String display) {
     _saverFor(controller).apply((settings) {
       final overrides = Map<String, DisplayAppearance>.of(
         settings.displayAppearance,
@@ -126,7 +126,7 @@ class _AppearancePageState extends State<AppearancePage> {
   }
 
   void _applyAppearance(
-    SettingsAppController controller,
+    SettingsAppBloc controller,
     DisplayAppearance Function(DisplayAppearance current) change,
   ) {
     final target = _target!;
@@ -147,7 +147,7 @@ class _AppearancePageState extends State<AppearancePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     final settings = controller.settings;
     final outputs = controller.availableOutputs;
     final target = _target;

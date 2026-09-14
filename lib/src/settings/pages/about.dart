@@ -1,8 +1,9 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/control_socket.dart';
-import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
@@ -31,7 +32,7 @@ class AboutPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    SettingsAppScope.of(context); // keep the page scoped to the controller
+    context.watch<SettingsAppBloc>(); // keep the page scoped to the controller
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

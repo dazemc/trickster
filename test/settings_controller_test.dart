@@ -7,16 +7,16 @@ import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
-import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/bloc.dart';
 
-/// A controller wired to no real socket, no real outputs file, and no real
-/// display: tests must never wait on the live session.
-SettingsAppController _controller({
+/// A bloc wired to no real socket, no real outputs file, and no real display:
+/// tests must never wait on the live session.
+SettingsAppBloc _bloc({
   required SettingsDocumentTransport socket,
   required Directory directory,
   File? settingsFile,
 }) {
-  return SettingsAppController(
+  return SettingsAppBloc(
     socket: socket,
     file: FileSettingsTransport(
       settingsFile ?? File('${directory.path}/unused-settings.json'),
@@ -27,6 +27,16 @@ SettingsAppController _controller({
     outputsFile: FileOutputsTransport(File('${directory.path}/outputs.conf')),
     layerShell: _FakeLayerShell(),
   );
+}
+
+Future<void> _load(SettingsAppBloc bloc) async {
+  bloc.add(const SettingsAppLoadRequested());
+  await bloc.stream.firstWhere((state) => state.loaded);
+}
+
+Future<void> _save(SettingsAppBloc bloc, BarSettings settings) async {
+  bloc.add(SettingsAppSaveRequested(settings));
+  await bloc.stream.firstWhere((state) => !state.busy);
 }
 
 class _FakeLayerShell extends LayerShell {
@@ -118,21 +128,21 @@ void main() {
   test('round-trips the document over the bar socket', () async {
     final bar = await _FakeBar.start();
     addTearDown(bar.dispose);
-    final controller = _controller(
+    final bloc = _bloc(
       socket: SocketSettingsTransport(socketPath: bar.path),
       directory: Directory.systemTemp,
     );
-    addTearDown(controller.dispose);
+    addTearDown(bloc.close);
 
-    await controller.load();
-    expect(controller.usingSocket, isTrue);
-    expect(controller.error, isNull);
-    expect(controller.settings.revision, 3);
+    await _load(bloc);
+    expect(bloc.usingSocket, isTrue);
+    expect(bloc.error, isNull);
+    expect(bloc.settings.revision, 3);
 
-    await controller.save(controller.settings.copyWith(accent: accent));
-    expect(controller.error, isNull);
-    expect(controller.settings.accent, accent);
-    expect(controller.settings.revision, 4);
+    await _save(bloc, bloc.settings.copyWith(accent: accent));
+    expect(bloc.error, isNull);
+    expect(bloc.settings.accent, accent);
+    expect(bloc.settings.revision, 4);
     expect(bar.revision, 4);
     expect(bar.document, contains('d0bcff'));
   });
@@ -140,18 +150,18 @@ void main() {
   test('absorbs one revision conflict without losing data', () async {
     final bar = await _FakeBar.start();
     addTearDown(bar.dispose);
-    final controller = _controller(
+    final bloc = _bloc(
       socket: SocketSettingsTransport(socketPath: bar.path),
       directory: Directory.systemTemp,
     );
-    addTearDown(controller.dispose);
+    addTearDown(bloc.close);
 
-    await controller.load();
+    await _load(bloc);
     bar.conflicts = 1;
-    await controller.save(controller.settings.copyWith(accent: accent));
+    await _save(bloc, bloc.settings.copyWith(accent: accent));
 
-    expect(controller.error, isNull);
-    expect(controller.settings.accent, accent);
+    expect(bloc.error, isNull);
+    expect(bloc.settings.accent, accent);
     expect(bar.revision, 5);
     expect(bar.document, contains('d0bcff'));
   });
@@ -159,17 +169,17 @@ void main() {
   test('surfaces a conflict that outlives the retry', () async {
     final bar = await _FakeBar.start();
     addTearDown(bar.dispose);
-    final controller = _controller(
+    final bloc = _bloc(
       socket: SocketSettingsTransport(socketPath: bar.path),
       directory: Directory.systemTemp,
     );
-    addTearDown(controller.dispose);
+    addTearDown(bloc.close);
 
-    await controller.load();
+    await _load(bloc);
     bar.conflicts = 2;
-    await controller.save(controller.settings.copyWith(accent: accent));
+    await _save(bloc, bloc.settings.copyWith(accent: accent));
 
-    expect(controller.error, contains('revision'));
+    expect(bloc.error, contains('revision'));
     expect(bar.document, contains('00ff00'));
   });
 
@@ -178,22 +188,22 @@ void main() {
     addTearDown(() => directory.delete(recursive: true));
     final file = File('${directory.path}/settings.json')
       ..writeAsStringSync(const BarSettings(revision: 7).encode());
-    final controller = _controller(
+    final bloc = _bloc(
       socket: SocketSettingsTransport(
         socketPath: '${directory.path}/gone.sock',
       ),
       directory: directory,
       settingsFile: file,
     );
-    addTearDown(controller.dispose);
+    addTearDown(bloc.close);
 
-    await controller.load();
-    expect(controller.usingSocket, isFalse);
-    expect(controller.error, isNull);
-    expect(controller.settings.revision, 7);
+    await _load(bloc);
+    expect(bloc.usingSocket, isFalse);
+    expect(bloc.error, isNull);
+    expect(bloc.settings.revision, 7);
 
-    await controller.save(controller.settings.copyWith(accent: accent));
-    expect(controller.error, isNull);
+    await _save(bloc, bloc.settings.copyWith(accent: accent));
+    expect(bloc.error, isNull);
     expect(file.readAsStringSync(), contains('d0bcff'));
   });
 }

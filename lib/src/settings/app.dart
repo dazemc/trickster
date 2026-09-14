@@ -1,16 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/availability.dart';
-import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/pages/about.dart';
 import 'package:trickster/src/settings/pages/appearance.dart';
 import 'package:trickster/src/settings/pages/displays.dart';
 import 'package:trickster/src/settings/pages/language.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -29,75 +29,80 @@ class TricksterSettingsApp extends StatefulWidget {
 }
 
 class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
-  late final SettingsAppController _controller;
+  late final SettingsAppBloc _bloc;
   late final WallpaperAccentController _wallpaperAccent;
 
   @override
   void initState() {
     super.initState();
-    _controller = SettingsAppController();
+    _bloc = SettingsAppBloc()..add(const SettingsAppLoadRequested());
     _wallpaperAccent = WallpaperAccentController();
-    // The settings process samples the wallpaper itself, so the appearance
-    // page can list the accents the bar is choosing from.
-    _controller.addListener(_syncWallpaperAccent);
-    unawaited(_controller.load());
-  }
-
-  void _syncWallpaperAccent() {
-    _wallpaperAccent.update(enabled: _controller.settings.usesWallpaperAccent);
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_syncWallpaperAccent);
+    unawaited(_bloc.close());
     _wallpaperAccent.dispose();
-    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final views = WidgetsBinding.instance.platformDispatcher.views;
-    return SettingsAppScope(
-      notifier: _controller,
-      child: WallpaperAccentScope(
-        notifier: _wallpaperAccent,
-        child: ViewCollection(
-          views: [
-            for (final view in views)
-              View(
-                view: view,
-                child: Builder(
-                  builder: (context) {
-                    // Depend on the controller so a language change rebuilds
-                    // the scope with the new catalog.
-                    final locale = SettingsAppScope.of(context).settings.locale;
-                    return TricksterLocalizationScope(
-                      locale: localeFromTag(locale),
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              SettingsColors.backgroundTop,
-                              SettingsColors.background,
+    return BlocProvider.value(
+      value: _bloc,
+      child: BlocListener<SettingsAppBloc, SettingsAppState>(
+        // The settings process samples the wallpaper itself, so the
+        // appearance page can list the accents the bar is choosing from.
+        listenWhen: (previous, next) =>
+            previous.settings.usesWallpaperAccent !=
+            next.settings.usesWallpaperAccent,
+        listener: (context, state) => _wallpaperAccent.update(
+          enabled: state.settings.usesWallpaperAccent,
+        ),
+        child: WallpaperAccentScope(
+          notifier: _wallpaperAccent,
+          child: ViewCollection(
+            views: [
+              for (final view in views)
+                View(
+                  view: view,
+                  child: Builder(
+                    builder: (context) {
+                      // Depend on the bloc so a language change rebuilds the
+                      // scope with the new catalog.
+                      final locale = context
+                          .watch<SettingsAppBloc>()
+                          .state
+                          .settings
+                          .locale;
+                      return TricksterLocalizationScope(
+                        locale: localeFromTag(locale),
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                SettingsColors.backgroundTop,
+                                SettingsColors.background,
+                              ],
+                            ),
+                          ),
+                          child: Overlay(
+                            initialEntries: [
+                              OverlayEntry(
+                                builder: (context) => const SettingsHome(),
+                              ),
                             ],
                           ),
                         ),
-                        child: Overlay(
-                          initialEntries: [
-                            OverlayEntry(
-                              builder: (context) => const SettingsHome(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -133,7 +138,7 @@ class _SettingsHomeState extends State<SettingsHome> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(

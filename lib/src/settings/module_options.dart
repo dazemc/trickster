@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
-import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/saver.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
@@ -40,7 +40,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
   }
 
   void _apply(
-    SettingsAppController controller,
+    SettingsAppBloc controller,
     BarSettings Function(BarSettings) change,
   ) {
     (_saver ??= DebouncedSaver(controller)).apply(change);
@@ -49,7 +49,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     final settings = controller.settings;
     return switch (widget.module) {
       'clock' => Column(

@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
-import 'package:trickster/src/settings/controller.dart';
-import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
@@ -40,27 +40,27 @@ class _DisplaysPageState extends State<DisplaysPage> {
   }
 
   /// Live preview while a control moves, saved once the movement pauses.
-  void _apply(SettingsAppController controller, OutputsConfig next) {
-    controller.previewOutputs(next);
+  void _apply(SettingsAppBloc bloc, OutputsConfig next) {
+    bloc.add(SettingsAppOutputsPreviewed(next));
     _saveTimer?.cancel();
     _saveTimer = Timer(
       const Duration(milliseconds: 250),
-      () => unawaited(controller.saveOutputs(next)),
+      () => bloc.add(SettingsAppOutputsSaveRequested(next)),
     );
   }
 
   /// Discrete choices save immediately.
-  void _applyNow(SettingsAppController controller, OutputsConfig next) {
+  void _applyNow(SettingsAppBloc bloc, OutputsConfig next) {
     _saveTimer?.cancel();
     _saveTimer = null;
-    controller.previewOutputs(next);
-    unawaited(controller.saveOutputs(next));
+    bloc.add(SettingsAppOutputsPreviewed(next));
+    bloc.add(SettingsAppOutputsSaveRequested(next));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     final outputs = controller.outputs;
     final available = controller.availableOutputs;
     final selected = outputs.connectors.isEmpty
@@ -271,7 +271,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
   }
 
   void _toggleOutput(
-    SettingsAppController controller,
+    SettingsAppBloc controller,
     OutputsConfig outputs,
     List<LayerOutput> available,
     String name,
