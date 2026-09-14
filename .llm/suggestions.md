@@ -35,3 +35,11 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   updates (version bumps, hash refreshes) without an explicit go-ahead, and
   add the AUR link to `docs_site/content/installation.md` when publishing
   resumes.
+
+- **Root `flutter analyze` needs `docs_site` dependencies.** The docs site is
+  a separate Jaspr project; a fresh clone that only runs the root
+  `flutter pub get` sees ~72 errors from `docs_site/**` until its own
+  `dart pub get` runs. The release workflow now scopes analysis to
+  `lib bin test`; either document the site's pub get in
+  `docs_site/content/development.md` or give the site its own analyzer
+  boundary.
