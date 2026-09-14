@@ -29,12 +29,6 @@ Deliberate, user-reviewed divergences:
   kept in state for the future caption option; AMD/Intel pips keep their
   vendor tags. NVIDIA therefore diverges from Denial's `NV`. Do not restore
   `NV`, or make device names the default, without asking.
-- **Display workspace chain.** Denial fixes one `1..count` rail on every
-  monitor. The user asked for a main display with appended ranges:
-  `workspaces.display_order` orders the displays (first connected entry is
-  main), each rail carries its own absolute range, and numbered workspaces
-  beyond the chain total stay on the main display's rail. Do not flatten it
-  back to per-display numbering.
 
 ## Reference tree
 
@@ -53,12 +47,11 @@ accent, theme tokens, or the `system_bar=` grammar. What moved:
   (`desktop_workspace_indicator.dart`, added in `fdb986e`, 2026-09-02):
   numbered pips in a card with a liquid active lens. Trickster ported it
   (centered indicator slot, numbered pips, dark lens,
-  takeoff/travel/settle deformation, and Denial's fixed 1..count rail —
-  chained per display in Trickster: `workspaces.display_order` orders the
-  displays, each rail carries its own absolute range from
-  `workspaces.workspace_count`/`per_output`, and numbers beyond the chain
-  total stay on the main display's rail, with active and occupied resolved
-  against each output).
+  takeoff/travel/settle deformation, and Denial's numbered rail — mirrored
+  from the compositor in Trickster: each rail shows the numbered workspaces
+  the snapshot places on its output, because a layer-shell guest does not
+  own placement, persistence, or the main display; active and occupied
+  resolve against each output).
 - `Motion` gained `workspaceIndicatorTakeoff` / `Travel` / `Settle` and the
   MD3 emphasized accelerate/decelerate curves; `springTo` now passes
   `snapToEnd: true` (Trickster has no spring paths to fix).
