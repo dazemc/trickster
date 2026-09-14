@@ -469,12 +469,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No outputs reported by the host.'**
   String get settingsOutputsUnavailable;
-
-  /// Note under the edge choices on the displays page.
-  ///
-  /// In en, this message translates to:
-  /// **'Edge and thickness changes apply after the bar restarts; output selection applies live.'**
-  String get settingsDisplaysRestartNote;
 }
 
 class _AppLocalizationsDelegate

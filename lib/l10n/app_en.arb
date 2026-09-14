@@ -263,9 +263,5 @@
   "settingsOutputsUnavailable": "No outputs reported by the host.",
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
-  },
-  "settingsDisplaysRestartNote": "Edge and thickness changes apply after the bar restarts; output selection applies live.",
-  "@settingsDisplaysRestartNote": {
-    "description": "Note under the edge choices on the displays page."
   }
 }

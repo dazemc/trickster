@@ -57,7 +57,10 @@ class TricksterBarStrip extends StatelessWidget {
       settings: settings.accent,
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
-    final horizontal = side.isHorizontal;
+    // The cluster is always laid out horizontally; a vertical strip rotates
+    // the whole cluster into place, so every module keeps one layout.
+    const horizontal = true;
+    final vertical = !side.isHorizontal;
 
     // One builder per module; the strip walks settings.modules so the
     // configured order is the rendered order.
@@ -71,9 +74,7 @@ class TricksterBarStrip extends StatelessWidget {
             index: position,
             horizontal: horizontal,
             child: Padding(
-              padding: horizontal
-                  ? const EdgeInsets.only(right: _cardGap)
-                  : const EdgeInsets.only(bottom: _cardGap),
+              padding: const EdgeInsets.only(right: _cardGap),
               child: RepaintBoundary(
                 child: TrayPill(
                   accent: accent,
@@ -105,9 +106,7 @@ class TricksterBarStrip extends StatelessWidget {
             index: position,
             horizontal: horizontal,
             child: Padding(
-              padding: horizontal
-                  ? const EdgeInsets.only(right: _cardGap)
-                  : const EdgeInsets.only(bottom: _cardGap),
+              padding: const EdgeInsets.only(right: _cardGap),
               child: RepaintBoundary(child: MediaPill(accent: accent)),
             ),
           );
@@ -135,9 +134,7 @@ class TricksterBarStrip extends StatelessWidget {
             index: position,
             horizontal: horizontal,
             child: Padding(
-              padding: horizontal
-                  ? const EdgeInsets.only(right: _cardGap)
-                  : const EdgeInsets.only(bottom: _cardGap),
+              padding: const EdgeInsets.only(right: _cardGap),
               child: RepaintBoundary(
                 child: WorkspacesPill(
                   accent: accent,
@@ -158,7 +155,7 @@ class TricksterBarStrip extends StatelessWidget {
             return const SizedBox.shrink();
           }
           return Flex(
-            direction: horizontal ? Axis.horizontal : Axis.vertical,
+            direction: Axis.horizontal,
             mainAxisSize: MainAxisSize.min,
             children: [
               for (var i = 0; i < state.loads.length; i += 1)
@@ -167,9 +164,7 @@ class TricksterBarStrip extends StatelessWidget {
                   index: position,
                   horizontal: horizontal,
                   child: Padding(
-                    padding: horizontal
-                        ? const EdgeInsets.only(right: _cardGap)
-                        : const EdgeInsets.only(bottom: _cardGap),
+                    padding: const EdgeInsets.only(right: _cardGap),
                     child: RepaintBoundary(
                       child: GpuPill(
                         accent: accent,
@@ -192,9 +187,7 @@ class TricksterBarStrip extends StatelessWidget {
             index: position,
             horizontal: horizontal,
             child: Padding(
-              padding: horizontal
-                  ? const EdgeInsets.only(right: _cardGap)
-                  : const EdgeInsets.only(bottom: _cardGap),
+              padding: const EdgeInsets.only(right: _cardGap),
               child: RepaintBoundary(
                 child: CpuPill(
                   accent: accent,
@@ -217,9 +210,7 @@ class TricksterBarStrip extends StatelessWidget {
             index: position,
             horizontal: horizontal,
             child: Padding(
-              padding: horizontal
-                  ? const EdgeInsets.only(right: _cardGap)
-                  : const EdgeInsets.only(bottom: _cardGap),
+              padding: const EdgeInsets.only(right: _cardGap),
               child: RepaintBoundary(
                 child: BatteryPill(
                   accent: accent,
@@ -242,20 +233,15 @@ class TricksterBarStrip extends StatelessWidget {
       ),
     };
 
-    return Padding(
-      padding: horizontal
-          ? const EdgeInsets.symmetric(
-              horizontal: _edgePadding,
-              vertical: _cardMargin,
-            )
-          : const EdgeInsets.symmetric(
-              horizontal: _cardMargin,
-              vertical: _edgePadding,
-            ),
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _edgePadding,
+        vertical: _cardMargin,
+      ),
       child: Align(
         alignment: Alignment.centerRight,
         child: Flex(
-          direction: horizontal ? Axis.horizontal : Axis.vertical,
+          direction: Axis.horizontal,
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             for (
@@ -269,6 +255,12 @@ class TricksterBarStrip extends StatelessWidget {
         ),
       ),
     );
+    if (!vertical) {
+      return content;
+    }
+    // Rotating clockwise puts the trailing cluster at the bottom for both
+    // side edges; the strip's cross axis becomes the cluster's height.
+    return RotatedBox(quarterTurns: 1, child: content);
   }
 }
 

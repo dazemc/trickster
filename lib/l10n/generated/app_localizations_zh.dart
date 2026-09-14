@@ -197,7 +197,4 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsOutputsUnavailable => '宿主未报告任何输出。';
-
-  @override
-  String get settingsDisplaysRestartNote => '边缘与厚度更改在状态栏重启后生效；输出选择即时生效。';
 }

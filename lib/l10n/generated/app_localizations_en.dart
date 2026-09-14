@@ -201,8 +201,4 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsOutputsUnavailable => 'No outputs reported by the host.';
-
-  @override
-  String get settingsDisplaysRestartNote =>
-      'Edge and thickness changes apply after the bar restarts; output selection applies live.';
 }

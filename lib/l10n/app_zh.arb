@@ -263,9 +263,5 @@
   "settingsOutputsUnavailable": "宿主未报告任何输出。",
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
-  },
-  "settingsDisplaysRestartNote": "边缘与厚度更改在状态栏重启后生效；输出选择即时生效。",
-  "@settingsDisplaysRestartNote": {
-    "description": "Note under the edge choices on the displays page."
   }
 }

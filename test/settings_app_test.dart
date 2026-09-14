@@ -199,7 +199,6 @@ void main() {
     expect(find.text('eDP-1  1920×1080'), findsOneWidget);
     expect(find.text('HDMI-A-1  2560×1440'), findsOneWidget);
 
-    expect(find.byKey(const ValueKey<String>('side-left')), findsNothing);
     await tester.tap(find.byKey(const ValueKey<String>('side-bottom')));
     await tester.pumpAndSettle();
     final outputs = File('${directory.path}/outputs.conf');

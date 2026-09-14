@@ -29,6 +29,8 @@ struct _MyApplication {
   gboolean settings_mode;
   GtkWindow* settings_window;
   FlView* settings_view;
+  GtkWindow* bootstrap_window;
+  FlView* bootstrap_view;
   gboolean blur_checked;
   gboolean blur_supported;
   struct wl_compositor* compositor;
@@ -109,10 +111,6 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
   } else {
     gtk_widget_set_size_request(GTK_WIDGET(window), -1, thickness);
   }
-  // gtk-layer-shell's documented way to apply a changed size request: the
-  // request on axes anchored to opposite edges is ignored, and the resize
-  // hint must stay bogus so GTK does not allocate an intermediate size.
-  gtk_window_resize(window, 1, 1);
 }
 
 struct _MyApplication;
@@ -796,14 +794,12 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
     }
     apply_layer_shell(surface, self->side, self->thickness, self->layer,
                       self->layer_namespace, self->keyboard);
-    // Map the layer surface and finish the initial-configure handshake before
-    // the engine starts. Dart modules open sockets to the compositor as soon
-    // as they run; a request in flight while gtk-layer-shell blocks on the
-    // initial configure stalls compositors that service IPC on their main
-    // loop, which pushes the configure past the map timeout and tears the
-    // surface down. Starting the engine after the handshake makes the race
-    // impossible. Contract: `.llm/performance.md` -> Hyprland IPC.
-    gtk_widget_show(GTK_WIDGET(window));
+    // Mapping is deferred to trickster_surface_configure, which runs right
+    // after the strip's Flutter view is realized: a mapped window with no
+    // view makes GTK wait for a GL frame that never comes. The strips are
+    // still mapped synchronously before Dart can issue compositor IPC, so
+    // the initial-configure handshake race stays closed. Contract:
+    // `.llm/performance.md` -> Hyprland IPC.
   } else {
     gtk_window_set_default_size(window, 1280, 32);
     gtk_widget_show(GTK_WIDGET(window));
@@ -820,6 +816,8 @@ static void trickster_surface_configure(TricksterSurface* surface,
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(surface->window), GTK_WIDGET(view));
   gtk_widget_realize(GTK_WIDGET(view));
+  // The view can produce frames now; map the strip.
+  gtk_widget_show(GTK_WIDGET(surface->window));
 }
 
 static void monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor,
@@ -937,25 +935,53 @@ static void my_application_activate(GApplication* application) {
     g_ptr_array_add(self->surfaces, trickster_surface_new(self, monitor));
   }
 
-  // The first view bootstraps the engine; every further surface attaches to
-  // that same engine with fl_view_new_for_engine. One engine, one isolate,
-  // one FlView per layer surface. Plugins are engine-scoped, so they register
-  // once on the first view. Note: fl_engine_new produces a handle that this
-  // embedder rejects at AddView ("Engine handle was invalid"), so the
-  // single-view bootstrap is the only working entry point.
-  FlEngine* engine = nullptr;
+  // The engine's implicit view lives on a mapped 1x1 background surface,
+  // never on a strip: the engine refuses to remove its implicit view, and a
+  // strip must be destroyable for disruptive config changes (edge,
+  // thickness) to rebuild surfaces. One engine, one isolate, one FlView per
+  // surface; plugins register once on the bootstrap view. The strips are
+  // configured (mapped) synchronously below, before Dart can issue
+  // compositor IPC.
+  GtkWindow* bootstrap_window =
+      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
+  gtk_window_set_title(bootstrap_window, "trickster-engine");
+  gtk_window_set_decorated(bootstrap_window, FALSE);
+  gtk_widget_set_app_paintable(GTK_WIDGET(bootstrap_window), TRUE);
+  GdkVisual* bootstrap_visual = gdk_screen_get_rgba_visual(
+      gtk_window_get_screen(bootstrap_window));
+  if (bootstrap_visual != nullptr) {
+    gtk_widget_set_visual(GTK_WIDGET(bootstrap_window), bootstrap_visual);
+  }
+  if (gtk_layer_is_supported()) {
+    gtk_layer_init_for_window(bootstrap_window);
+    gtk_layer_set_layer(bootstrap_window, GTK_LAYER_SHELL_LAYER_BACKGROUND);
+    gtk_layer_set_namespace(bootstrap_window, "trickster-engine");
+    gtk_layer_set_keyboard_mode(bootstrap_window,
+                                GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
+    gtk_layer_set_exclusive_zone(bootstrap_window, 0);
+    gtk_layer_set_anchor(bootstrap_window, GTK_LAYER_SHELL_EDGE_TOP, TRUE);
+    gtk_layer_set_anchor(bootstrap_window, GTK_LAYER_SHELL_EDGE_LEFT, TRUE);
+    gtk_widget_set_size_request(GTK_WIDGET(bootstrap_window), 1, 1);
+  } else {
+    gtk_window_set_default_size(bootstrap_window, 1, 1);
+  }
+  self->bootstrap_window = bootstrap_window;
+  FlView* bootstrap_view = fl_view_new(project);
+  self->bootstrap_view = bootstrap_view;
+  self->engine = fl_view_get_engine(bootstrap_view);
+  GdkRGBA bootstrap_background;
+  gdk_rgba_parse(&bootstrap_background, "#00000000");
+  fl_view_set_background_color(bootstrap_view, &bootstrap_background);
+  gtk_widget_show(GTK_WIDGET(bootstrap_view));
+  gtk_container_add(GTK_CONTAINER(bootstrap_window), GTK_WIDGET(bootstrap_view));
+  gtk_widget_realize(GTK_WIDGET(bootstrap_view));
+  gtk_widget_show(GTK_WIDGET(bootstrap_window));
+  fl_register_plugins(FL_PLUGIN_REGISTRY(bootstrap_view));
+
   for (guint i = 0; i < self->surfaces->len; i++) {
     TricksterSurface* surface =
         (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
-    if (engine == nullptr) {
-      FlView* view = fl_view_new(project);
-      engine = fl_view_get_engine(view);
-      self->engine = engine;
-      trickster_surface_configure(surface, view);
-      fl_register_plugins(FL_PLUGIN_REGISTRY(view));
-    } else {
-      trickster_surface_configure(surface, fl_view_new_for_engine(engine));
-    }
+    trickster_surface_configure(surface, fl_view_new_for_engine(self->engine));
   }
 
   trickster_install_method_channel(self);

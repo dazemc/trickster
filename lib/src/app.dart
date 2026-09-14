@@ -146,23 +146,40 @@ class _TricksterAppState extends State<TricksterApp>
         loaded.session.layer != _lastSession.layer ||
         loaded.session.namespace != _lastSession.namespace ||
         loaded.session.keyboard != _lastSession.keyboard;
-    if (loaded.outputs.side != _lastOutputs.side || sessionChanged) {
-      stderr.writeln('trickster: edge/layer changes apply after a restart');
-    }
-    if (loaded.outputs.thickness != _lastOutputs.thickness) {
-      stderr.writeln('trickster: thickness changes apply after a restart');
-    }
-    // Edge, layer, and thickness cannot be re-applied to an existing layer
-    // surface in this engine; they persist in the file and land at the next
-    // bar start. Output selection applies live.
-    final applied = loaded.outputs.copyWith(
-      side: _lastOutputs.side,
-      thickness: _lastOutputs.thickness,
-    );
-    context.read<OutputsBloc>().add(OutputsLoaded(applied));
-    _lastOutputs = applied;
+    final disruptive =
+        loaded.outputs.side != _lastOutputs.side ||
+        loaded.outputs.thickness != _lastOutputs.thickness ||
+        sessionChanged;
+    context.read<OutputsBloc>().add(OutputsLoaded(loaded.outputs));
+    _lastOutputs = loaded.outputs;
     _lastSession = loaded.session;
-    unawaited(_reconcileOutputs(applied));
+    if (disruptive) {
+      unawaited(_recreateSurfaces(loaded));
+    } else {
+      unawaited(_reconcileOutputs(loaded.outputs));
+    }
+  }
+
+  /// Rebuilds every strip for a disruptive change (edge, thickness, layer,
+  /// keyboard). Strips are destroyed before replacements are created: the
+  /// engine survives on its bootstrap view, and two mapped strips on one
+  /// monitor would make GTK abort waiting for a frame of the new size.
+  Future<void> _recreateSurfaces(RuntimeConfig loaded) async {
+    // Destroy first: applying a new size to mapped strips makes GTK wait
+    // for a frame of the new size while Flutter still renders the old one,
+    // which aborts. The engine survives on its bootstrap view.
+    final outputs = await _layerShell.outputs();
+    for (final output in outputs) {
+      if (output.viewId > 0) {
+        _hiddenSurfaces.remove(output.viewId);
+        await _layerShell.destroySurface(viewId: output.viewId);
+      }
+    }
+    await _layerShell.configure(
+      outputs: loaded.outputs,
+      session: loaded.session,
+    );
+    await _reconcileOutputs(loaded.outputs);
   }
 
   /// Creates, hides, or destroys strip surfaces so exactly the hosted

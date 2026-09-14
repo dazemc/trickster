@@ -80,28 +80,33 @@ class _DisplaysPageState extends State<DisplaysPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // Left and right need per-module vertical layouts; until
-                  // then the page offers the edges the bar renders well.
                   for (final side in const [
                     SystemBarSide.top,
                     SystemBarSide.bottom,
+                    SystemBarSide.left,
+                    SystemBarSide.right,
                     SystemBarSide.hidden,
                   ])
                     _ChoiceChip(
                       key: ValueKey<String>('side-${side.name}'),
                       label: _sideLabel(l10n, side),
                       selected: outputs.side == side,
-                      onPressed: () =>
-                          _applyNow(controller, outputs.copyWith(side: side)),
+                      onPressed: () => _applyNow(
+                        controller,
+                        outputs.copyWith(
+                          side: side,
+                          // `hidden` parses to thickness 0; leaving it
+                          // hidden would make the next visible choice a
+                          // zero-thickness bar.
+                          thickness: side == SystemBarSide.hidden
+                              ? outputs.thickness
+                              : (outputs.thickness > 0
+                                    ? outputs.thickness
+                                    : 32),
+                        ),
+                      ),
                     ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                l10n.settingsDisplaysRestartNote,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
               ),
               const SizedBox(height: 22),
               Row(
