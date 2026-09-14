@@ -60,14 +60,16 @@ ownership stays with the compositor.
   (ordered connectors, first is the main display) to the settings document
   and compute each connected display's range as the cumulative per-display
   counts: listed connectors first in list order, unlisted connected displays
-  appended in host order. Done when the document round-trips the order and
-  unit tests pin the range math (empty order, custom order, unlisted append,
-  disconnected main).
+  appended in host order. Workspaces numbered beyond the chain total belong
+  to the main display. Done when the document round-trips the order and unit
+  tests pin the range math (empty order, custom order, unlisted append,
+  disconnected main, overflow total).
 - **16.2 (M) Rail shows its assigned range.** The strip renders its output's
   absolute range (main 4 → 1-4, next 3 → 5-7) in place of the fixed
-  `1..count`; pip presses keep targeting the printed number. Done when the
-  live bars show different absolute ranges and widget tests cover the
-  mapping.
+  `1..count`, and the main display's rail also lists existing workspaces
+  numbered beyond the chain total; pip presses keep targeting the printed
+  number. Done when the live bars show different absolute ranges and widget
+  tests cover the mapping and the overflow pips.
 - **16.3 (M) Chain order controls.** The workspaces gear panel lists the
   connected displays in chain order with drag handles and a Main badge on
   the first row, each showing its resulting range; a set-as-main action
