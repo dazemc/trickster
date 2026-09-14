@@ -27,8 +27,10 @@ corrected.
 - When a phase's steps are all landed and removed, merge `main` into
   `working` first so the PR carries code only, merge `working` into `main`
   through a pull request, then reset `working` to the updated `main` for the
-  next phase. The merge updates the `.llm/docs.md` phase ledger and any
-  touched site pages; verify with `jaspr build`.
+  next phase. The merge updates the `.llm/docs.md` phase ledger; every
+  merge to `main` also updates the site pages it invalidates (walk
+  `docs_site/content/` first, land corrections on `main`); verify with
+  `jaspr build`.
 - Commits use the contributor's configured Git identity. Follow
   `scope: summary` in the imperative.
 - Any update to `AGENTS.md` itself is committed immediately on `main`, in
