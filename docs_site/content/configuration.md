@@ -51,10 +51,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "battery", "clock"],
-  "workspaces": {
-    "workspace_count": 4
-  }
+  "modules": ["workspaces", "cpu", "gpu", "battery", "clock"]
 }
 ```
 
@@ -79,15 +76,13 @@ rejected at decode, so a live reload keeps the last-good settings.
   main axis: `leading`, `center`, or `trailing`. Defaults: the tray leads,
   the workspace rail centers, and every other module trails. The settings
   application exposes the same choice per module.
-- `workspaces.workspace_count` (int 2–9, default `4`) — every rail shows
-  the numbers 1..count, Denial's model. Active and occupied states come
-  from the compositor for each output; pressing a number switches to it and
-  creates it where the compositor allows. The retired `show_empty`/`max`
-  keys are ignored on decode.
-- `workspaces.per_output` (optional object) — per-display rail lengths by
-  connector, e.g. `{"HDMI-A-1": 6}`; displays without an entry use
-  `workspace_count`. The settings application exposes one slider per
-  connected display under the workspaces gear.
+- The workspace rail mirrors the compositor: each strip shows the numbered
+  workspaces the compositor places on its output, in id order, and pressing
+  a pip focuses it. Placement, persistence, and the main display belong to
+  the compositor. On Hyprland, pin and keep a range with workspace rules,
+  e.g. `workspace = 1, monitor:HDMI-A-1, persistent:true`. The retired
+  `workspaces` document section (counts, per-output lengths, display order)
+  is ignored on decode.
 - `cpu.warn` / `cpu.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
   the CPU load percent when it crosses each level; `warn` must stay below
   `critical`.
