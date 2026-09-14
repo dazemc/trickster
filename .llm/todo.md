@@ -48,9 +48,6 @@ a standalone settings application. It is its own Flutter process and bundle
 (file transport as fallback), and covers exactly the settings the bar has.
 The version stays 0.1.0 until the user calls a bump.
 
-- [ ] **8.4 modules page** (S). Enable, disable, and reorder the configured
-      module list. Done when: membership and order round-trip through the
-      document and the bar rebuilds its providers.
 - [ ] **8.5 displays page** (M). Per-output side, thickness, and selection
       through the `system_bar=` grammar, with the live output list. Needs an
       `outputs.read`/`outputs.write` control command (or a watched-file
