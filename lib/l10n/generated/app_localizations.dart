@@ -332,6 +332,12 @@ abstract class AppLocalizations {
   /// **'Choose which pills the bar shows and in what order.'**
   String get settingsModulesCaption;
 
+  /// Hint for a control that reverts one option to its default.
+  ///
+  /// In en, this message translates to:
+  /// **'Revert to the default value'**
+  String get settingsResetHint;
+
   /// Caption above the per-module placement chips.
   ///
   /// In en, this message translates to:

@@ -130,6 +130,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsModulesCaption => '选择状态栏显示的组件及其顺序。';
 
   @override
+  String get settingsResetHint => '恢复默认值';
+
+  @override
   String get settingsModulePlacement => '位置';
 
   @override

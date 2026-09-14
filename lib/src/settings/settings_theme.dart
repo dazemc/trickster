@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/src/locale.dart';
@@ -394,4 +396,133 @@ class SettingsHeading extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A circular-arrow button that reverts one option to its shipped default.
+///
+/// [label] names the option for assistive tech; callers disable it while the
+/// value already equals the default so the affordance reads as inert.
+class SettingsResetButton extends StatefulWidget {
+  const SettingsResetButton({
+    required this.label,
+    required this.onPressed,
+    this.enabled = true,
+    super.key,
+  });
+
+  static const double extent = 24;
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool enabled;
+
+  @override
+  State<SettingsResetButton> createState() => _SettingsResetButtonState();
+}
+
+class _SettingsResetButtonState extends State<SettingsResetButton> {
+  var _hovered = false;
+  var _focused = false;
+
+  Color get _glyphColor {
+    if (!widget.enabled) {
+      return ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3);
+    }
+    return _hovered || _focused
+        ? ShellMediaColors.lightForeground
+        : ShellMediaColors.lightForegroundSecondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      label: widget.label,
+      hint: context.l10n.settingsResetHint,
+      onTap: widget.enabled ? widget.onPressed : null,
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: widget.enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: FocusableActionDetector(
+            enabled: widget.enabled,
+            onShowHoverHighlight: (value) => setState(() => _hovered = value),
+            onShowFocusHighlight: (value) => setState(() => _focused = value),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.enabled ? widget.onPressed : null,
+              child: SizedBox.square(
+                dimension: SettingsResetButton.extent,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _hovered || _focused
+                        ? SettingsColors.surfaceHigh
+                        : ShellMediaColors.transparentDark,
+                    border: _focused
+                        ? Border.all(
+                            color: ShellBrandColors.defaultAccent,
+                            width: 1.5,
+                          )
+                        : null,
+                  ),
+                  child: Center(
+                    child: CustomPaint(
+                      size: const Size(12, 12),
+                      painter: _ResetGlyphPainter(color: _glyphColor),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A clockwise circular arrow with the head at the top gap.
+class _ResetGlyphPainter extends CustomPainter {
+  const _ResetGlyphPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2 - 1;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    const start = -math.pi / 2 + 0.5;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      start,
+      math.pi * 1.75,
+      false,
+      paint,
+    );
+    final tip =
+        center + Offset(math.cos(start) * radius, math.sin(start) * radius);
+    final head = Path()
+      ..moveTo(tip.dx - 2.6, tip.dy - 1.8)
+      ..lineTo(tip.dx + 1.2, tip.dy)
+      ..lineTo(tip.dx - 2.4, tip.dy + 2.2)
+      ..close();
+    canvas.drawPath(
+      head,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ResetGlyphPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
