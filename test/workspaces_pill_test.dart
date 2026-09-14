@@ -52,23 +52,11 @@ Alignment _alignment(WidgetTester tester) =>
         as Alignment;
 
 void main() {
-  testWidgets('rail shows one pip per workspace and prints no names', (
-    tester,
-  ) async {
+  testWidgets('rail prints one label per workspace', (tester) async {
     await _pump(tester, _focused('2'));
-    expect(find.text('web'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('workspace-pip-1')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('workspace-pip-2')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('workspace-pip-3')),
-      findsOneWidget,
-    );
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('web'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
   });
 
   testWidgets('lens aligns with the focused id', (tester) async {
@@ -94,11 +82,13 @@ void main() {
       find.byKey(WorkspacesPill.lensKey),
     );
     expect(lens.duration, Duration.zero);
-    final pip = tester.widget<AnimatedContainer>(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('workspace-pip-1')),
-        matching: find.byType(AnimatedContainer),
-      ),
+    final pip = tester.widget<AnimatedDefaultTextStyle>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('workspace-pip-1')),
+            matching: find.byType(AnimatedDefaultTextStyle),
+          )
+          .last,
     );
     expect(pip.duration, Duration.zero);
   });
@@ -125,25 +115,34 @@ void main() {
     );
   });
 
-  testWidgets('pips distinguish empty, occupied, and urgent states', (
+  testWidgets('pip labels style active, occupied, and empty states', (
     tester,
   ) async {
     await _pump(tester, const [
       Workspace(id: '1', name: '1'),
       Workspace(id: '2', name: '2', occupied: true),
-      Workspace(id: '3', name: '3', urgent: true),
+      Workspace(id: '3', name: '3', focused: true),
     ]);
-    final empty = _pipColor(tester, '1');
-    final occupied = _pipColor(tester, '2');
-    final urgent = _pipColor(tester, '3');
-    expect(occupied, ShellMediaColors.lightForeground);
-    expect(urgent, ShellTelemetryColors.warning);
-    expect({empty, occupied, urgent}, hasLength(3));
+    final empty = _pipStyle(tester, '1');
+    final occupied = _pipStyle(tester, '2');
+    final active = _pipStyle(tester, '3');
+    expect(empty.color, _accent.captionColor());
+    expect(occupied.color, ShellMediaColors.lightForeground);
+    expect(active.color, _accent.color);
+    expect(active.fontSize, ShellText.systemBarValue.fontSize! + 1);
+    expect(empty.fontSize, ShellText.systemBarCaption.fontSize! + 2);
   });
 
-  testWidgets('focused pip carries the accent', (tester) async {
+  testWidgets('active lens uses the ported dark fill', (tester) async {
     await _pump(tester, _focused('2'));
-    expect(_pipColor(tester, '2'), _accent.color);
+    final lens = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: find.byKey(WorkspacesPill.lensKey),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+    final decoration = lens.decoration as BoxDecoration;
+    expect(decoration.color, ShellMediaColors.darkness.withValues(alpha: 0.36));
   });
   test('rail filtering picks exactly the outputs workspaces', () {
     const all = <Workspace>[
@@ -166,12 +165,14 @@ void main() {
   });
 }
 
-Color? _pipColor(WidgetTester tester, String id) {
-  final pip = tester.widget<AnimatedContainer>(
-    find.descendant(
-      of: find.byKey(ValueKey<String>('workspace-pip-$id')),
-      matching: find.byType(AnimatedContainer),
-    ),
+TextStyle _pipStyle(WidgetTester tester, String id) {
+  final pip = tester.widget<AnimatedDefaultTextStyle>(
+    find
+        .descendant(
+          of: find.byKey(ValueKey<String>('workspace-pip-$id')),
+          matching: find.byType(AnimatedDefaultTextStyle),
+        )
+        .last,
   );
-  return (pip.decoration as BoxDecoration?)?.color;
+  return pip.style;
 }

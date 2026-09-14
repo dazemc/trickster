@@ -9,6 +9,7 @@ abstract final class ShellMediaColors {
   static const Color lightForegroundSecondary = Color(0xffc7c9d1);
   static const Color glassSurface = Color(0x28070910);
   static const Color transparentDark = Color(0x00000000);
+  static const Color darkness = Color(0xff000000);
 }
 
 abstract final class ShellTelemetryColors {

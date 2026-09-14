@@ -187,13 +187,15 @@ void main() {
     expect(controller.color, const Color(0xffe01020));
 
     Color? pipColor() {
-      final pip = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byKey(const ValueKey<String>('workspace-pip-1')),
-          matching: find.byType(AnimatedContainer),
-        ),
+      final pip = tester.widget<AnimatedDefaultTextStyle>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey<String>('workspace-pip-1')),
+              matching: find.byType(AnimatedDefaultTextStyle),
+            )
+            .last,
       );
-      return (pip.decoration! as BoxDecoration).color;
+      return pip.style.color;
     }
 
     // No pick: the dominant (first) candidate is the accent.
