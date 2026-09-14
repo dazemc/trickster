@@ -21,6 +21,9 @@ Do not add features Denial's bar does not have until parity is real.
 
 Deliberate, user-reviewed divergences:
 
+- **Per-module placement.** The user asked for a settings control that
+  assigns each module to the strip's leading, center, or trailing zone;
+  Denial hardcodes tray/workspaces/the rest. Do not remove it for parity.
 - **Meter captions.** CPU and NVIDIA GPU meters default to `CPU`/`GPU`,
   with queried device names (`/proc/cpuinfo` model name, NVML device name)
   kept in state for the future caption option; AMD/Intel pips keep their
