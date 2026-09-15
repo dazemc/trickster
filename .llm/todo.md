@@ -23,10 +23,6 @@ settings application. One chosen asset applies to every pip unless the user
 asks for per-workspace mapping. Every style keeps the active lens,
 occupied/empty tinting, and the accessibility labels.
 
-- **17.1 (S) Pip style option.** Add `workspaces.pip_style` (`number`
-  default, `dot`, `roman`, `svg`, `image`) and the svg/image source keys to
-  the settings document. Done when the document round-trips every style and
-  decode rejects unknown values.
 - **17.2 (M) Dots and Roman numerals.** The rail paints the configured
   glyph for every pip, keeping the lens, tints, and labels. Done when the
   live bar shows each style and widget tests pin the glyphs and tints.
