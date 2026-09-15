@@ -28,9 +28,3 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   phase starts.
 
 ## Open suggestions
-
-- **NVML failures are silent.** `lib/src/services/nvidia.dart` turns every
-  NVML failure into an empty reading, so a driver/library mismatch (loaded
-  module 610.57.04 vs userspace 615.71) hid the GPU pill with no log line and
-  cost a debugging cycle. Log once per process when an NVIDIA driver is
-  present but NVML reports no devices; keep the best-effort behavior.
