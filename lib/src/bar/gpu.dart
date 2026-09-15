@@ -12,6 +12,7 @@ class GpuPill extends StatelessWidget {
     required this.accent,
     required this.load,
     this.captionSource = MeterCaptionSource.generic,
+    this.sparkline = true,
     this.vertical = false,
     super.key,
   });
@@ -19,6 +20,9 @@ class GpuPill extends StatelessWidget {
   final WallpaperAccent accent;
   final GpuLoad load;
   final MeterCaptionSource captionSource;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
   final bool vertical;
 
   @override
@@ -47,6 +51,7 @@ class GpuPill extends StatelessWidget {
           current: load.usage,
           history: load.history,
           capacity: GpuLoad.capacity,
+          sparkline: sparkline,
           vertical: vertical,
         ),
       ),

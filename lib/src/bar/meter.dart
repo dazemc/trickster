@@ -15,6 +15,7 @@ class LoadMeter extends StatelessWidget {
     required this.history,
     required this.capacity,
     this.valueColor,
+    this.sparkline = true,
     this.vertical = false,
     super.key,
   });
@@ -30,8 +31,10 @@ class LoadMeter extends StatelessWidget {
   /// Overrides the percent text color when a threshold is crossed.
   final Color? valueColor;
 
-  /// Vertical strips stack the caption over the percent and drop the
-  /// sparkline.
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
+
+  /// Vertical strips stack the caption over the percent.
   final bool vertical;
 
   @override
@@ -68,18 +71,20 @@ class LoadMeter extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 3),
-              RepaintBoundary(
-                child: CustomPaint(
-                  key: sparklineKey,
-                  size: const Size(38, 10),
-                  painter: _SparklinePainter(
-                    history: history,
-                    capacity: capacity,
-                    accent: accent.color,
+              if (sparkline) ...[
+                const SizedBox(height: 3),
+                RepaintBoundary(
+                  child: CustomPaint(
+                    key: sparklineKey,
+                    size: const Size(38, 10),
+                    painter: _SparklinePainter(
+                      history: history,
+                      capacity: capacity,
+                      accent: accent.color,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -98,18 +103,20 @@ class LoadMeter extends StatelessWidget {
               style: ShellText.systemBarCaption.copyWith(color: captionColor),
               child: Text(label),
             ),
-            const SizedBox(width: 6),
-            RepaintBoundary(
-              child: CustomPaint(
-                key: sparklineKey,
-                size: const Size(38, 14),
-                painter: _SparklinePainter(
-                  history: history,
-                  capacity: capacity,
-                  accent: accent.color,
+            if (sparkline) ...[
+              const SizedBox(width: 6),
+              RepaintBoundary(
+                child: CustomPaint(
+                  key: sparklineKey,
+                  size: const Size(38, 14),
+                  painter: _SparklinePainter(
+                    history: history,
+                    capacity: capacity,
+                    accent: accent.color,
+                  ),
                 ),
               ),
-            ),
+            ],
             const SizedBox(width: 7),
             SizedBox(
               width: 34,

@@ -8,6 +8,7 @@ import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
@@ -533,6 +534,23 @@ void main() {
         .map((text) => text.text.toPlainText())
         .join(' ');
     expect(texts, anyOf(contains('AM'), contains('PM')));
+  });
+
+  testWidgets('the bar paints meter sparklines by default', (tester) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(LoadMeter.sparklineKey), findsWidgets);
+  });
+
+  testWidgets('the bar hides meter sparklines with meter.sparkline off', (
+    tester,
+  ) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(cpu: CpuOptions(sparkline: false)),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(LoadMeter.sparklineKey), findsNothing);
   });
 
   testWidgets('the clock date caption hides with show_date off', (

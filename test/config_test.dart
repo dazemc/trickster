@@ -187,10 +187,18 @@ void main() {
     test('module options round-trip and validate', () {
       const settings = BarSettings(
         revision: 4,
-        cpu: CpuOptions(warn: 0.7, critical: 0.9),
+        cpu: CpuOptions(
+          warn: 0.7,
+          critical: 0.9,
+          captionSource: MeterCaptionSource.device,
+          sparkline: false,
+        ),
         clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
         battery: BatteryOptions(warn: 30, critical: 15),
-        meter: MeterOptions(captionSource: MeterCaptionSource.device),
+        gpu: GpuOptions(
+          captionSource: MeterCaptionSource.device,
+          sparkline: false,
+        ),
         appearance: AppearanceOptions(blur: false),
       );
       final decoded = BarSettings.decode(settings.encode());
@@ -200,15 +208,41 @@ void main() {
       expect(decoded.clock.showDate, isFalse);
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
-      expect(decoded.meter.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.sparkline, isFalse);
+      expect(decoded.gpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.gpu.sparkline, isFalse);
       expect(decoded.appearance.blur, isFalse);
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);
       expect(bare.clock.showDate, isTrue);
       expect(bare.battery.critical, 10);
-      expect(bare.meter.captionSource, MeterCaptionSource.generic);
+      expect(bare.cpu.captionSource, MeterCaptionSource.generic);
+      expect(bare.cpu.sparkline, isTrue);
+      expect(bare.gpu.captionSource, MeterCaptionSource.generic);
+      expect(bare.gpu.sparkline, isTrue);
       expect(bare.appearance.blur, isTrue);
+    });
+
+    test('the retired shared meter options migrate into both meters', () {
+      final decoded = BarSettings.decode(
+        '{"revision": 1, "meter": {"caption_source": "device", '
+        '"sparkline": false}}',
+      );
+      expect(decoded.cpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.sparkline, isFalse);
+      expect(decoded.gpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.gpu.sparkline, isFalse);
+
+      // Per-meter keys win over the legacy object.
+      final explicit = BarSettings.decode(
+        '{"revision": 1, "meter": {"caption_source": "device"}, '
+        '"cpu": {"caption_source": "generic", "sparkline": true}}',
+      );
+      expect(explicit.cpu.captionSource, MeterCaptionSource.generic);
+      expect(explicit.cpu.sparkline, isTrue);
+      expect(explicit.gpu.captionSource, MeterCaptionSource.device);
     });
 
     test('the accent source round-trips and rejects unknown values', () {

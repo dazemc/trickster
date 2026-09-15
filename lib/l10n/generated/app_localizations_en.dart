@@ -297,6 +297,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsMeterCaption => 'Caption source';
 
   @override
+  String get settingsMeterSparkline => 'Sparkline';
+
+  @override
   String get settingsMeterCaptionGeneric => 'Generic';
 
   @override

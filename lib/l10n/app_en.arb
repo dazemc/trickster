@@ -394,6 +394,10 @@
   "@settingsMeterCaption": {
     "description": "Label above the meter caption choices."
   },
+  "settingsMeterSparkline": "Sparkline",
+  "@settingsMeterSparkline": {
+    "description": "Toggle for the CPU/GPU recent-history sparkline."
+  },
   "settingsMeterCaptionGeneric": "Generic",
   "@settingsMeterCaptionGeneric": {
     "description": "Meter caption choice: generic CPU/GPU tags."

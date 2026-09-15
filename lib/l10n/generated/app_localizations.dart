@@ -650,6 +650,12 @@ abstract class AppLocalizations {
   /// **'Caption source'**
   String get settingsMeterCaption;
 
+  /// Toggle for the CPU/GPU recent-history sparkline.
+  ///
+  /// In en, this message translates to:
+  /// **'Sparkline'**
+  String get settingsMeterSparkline;
+
   /// Meter caption choice: generic CPU/GPU tags.
   ///
   /// In en, this message translates to:

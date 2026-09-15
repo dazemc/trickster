@@ -293,6 +293,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsMeterCaption => '标签来源';
 
   @override
+  String get settingsMeterSparkline => '迷你曲线';
+
+  @override
   String get settingsMeterCaptionGeneric => '通用';
 
   @override
