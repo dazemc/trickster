@@ -230,11 +230,55 @@
   "@settingsWorkspacesPipRoman": {
     "description": "Pip style choice: Roman numerals."
   },
-  "settingsWorkspacesPipSvg": "SVG 链接",
-  "@settingsWorkspacesPipSvg": {
-    "description": "Pip style choice: artwork from a linked SVG."
+  "settingsWorkspacesImage": "图片",
+  "@settingsWorkspacesImage": {
+    "description": "Label above the browsed image control for workspace pips."
   },
-  "settingsWorkspacesPipImage": "本地图片",
+  "settingsWorkspacesImageNone": "未选择图片",
+  "@settingsWorkspacesImageNone": {
+    "description": "Placeholder when no pip image has been browsed."
+  },
+  "settingsWorkspacesBrowse": "浏览…",
+  "@settingsWorkspacesBrowse": {
+    "description": "Button opening the host's image chooser."
+  },
+  "settingsWorkspacesImageClear": "清除图片",
+  "@settingsWorkspacesImageClear": {
+    "description": "Reset control dropping the browsed pip image."
+  },
+  "settingsWorkspacesTintSvg": "使用强调色",
+  "@settingsWorkspacesTintSvg": {
+    "description": "Label for recoloring SVG pip artwork with the accent."
+  },
+  "settingsWorkspacesRemoveMapping": "移除",
+  "@settingsWorkspacesRemoveMapping": {
+    "description": "Button dropping a per-workspace mapping."
+  },
+  "settingsWorkspacesTintSvgHint": "仅适用于 SVG 文件。",
+  "@settingsWorkspacesTintSvgHint": {
+    "description": "Caption clarifying the SVG recolor scope."
+  },
+  "settingsWorkspacesCustom": "自定义…",
+  "@settingsWorkspacesCustom": {
+    "description": "Dropdown entry enabling manual workspace-name entry."
+  },
+  "settingsWorkspacesChoose": "选择…",
+  "@settingsWorkspacesChoose": {
+    "description": "Dropdown trigger for picking an existing workspace name."
+  },
+  "settingsWorkspacesAddMapping": "添加",
+  "@settingsWorkspacesAddMapping": {
+    "description": "Button committing a new per-workspace mapping."
+  },
+  "settingsWorkspacesNameHint": "工作区名称",
+  "@settingsWorkspacesNameHint": {
+    "description": "Placeholder naming the workspace to map."
+  },
+  "settingsWorkspacesPerWorkspace": "按工作区",
+  "@settingsWorkspacesPerWorkspace": {
+    "description": "Section label for per-workspace artwork mappings."
+  },
+  "settingsWorkspacesPipImage": "图片",
   "@settingsWorkspacesPipImage": {
     "description": "Pip style choice: artwork from a browsed local image."
   },

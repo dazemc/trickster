@@ -230,11 +230,55 @@
   "@settingsWorkspacesPipRoman": {
     "description": "Pip style choice: Roman numerals."
   },
-  "settingsWorkspacesPipSvg": "SVG link",
-  "@settingsWorkspacesPipSvg": {
-    "description": "Pip style choice: artwork from a linked SVG."
+  "settingsWorkspacesImage": "Image",
+  "@settingsWorkspacesImage": {
+    "description": "Label above the browsed image control for workspace pips."
   },
-  "settingsWorkspacesPipImage": "Local image",
+  "settingsWorkspacesImageNone": "No image chosen",
+  "@settingsWorkspacesImageNone": {
+    "description": "Placeholder when no pip image has been browsed."
+  },
+  "settingsWorkspacesBrowse": "Browse…",
+  "@settingsWorkspacesBrowse": {
+    "description": "Button opening the host's image chooser."
+  },
+  "settingsWorkspacesImageClear": "Clear image",
+  "@settingsWorkspacesImageClear": {
+    "description": "Reset control dropping the browsed pip image."
+  },
+  "settingsWorkspacesTintSvg": "Color with accent",
+  "@settingsWorkspacesTintSvg": {
+    "description": "Label for recoloring SVG pip artwork with the accent."
+  },
+  "settingsWorkspacesRemoveMapping": "Remove",
+  "@settingsWorkspacesRemoveMapping": {
+    "description": "Button dropping a per-workspace mapping."
+  },
+  "settingsWorkspacesTintSvgHint": "Only applies to SVG files.",
+  "@settingsWorkspacesTintSvgHint": {
+    "description": "Caption clarifying the SVG recolor scope."
+  },
+  "settingsWorkspacesCustom": "Custom…",
+  "@settingsWorkspacesCustom": {
+    "description": "Dropdown entry enabling manual workspace-name entry."
+  },
+  "settingsWorkspacesChoose": "Choose…",
+  "@settingsWorkspacesChoose": {
+    "description": "Dropdown trigger for picking an existing workspace name."
+  },
+  "settingsWorkspacesAddMapping": "Add",
+  "@settingsWorkspacesAddMapping": {
+    "description": "Button committing a new per-workspace mapping."
+  },
+  "settingsWorkspacesNameHint": "Workspace name",
+  "@settingsWorkspacesNameHint": {
+    "description": "Placeholder naming the workspace to map."
+  },
+  "settingsWorkspacesPerWorkspace": "Per workspace",
+  "@settingsWorkspacesPerWorkspace": {
+    "description": "Section label for per-workspace artwork mappings."
+  },
+  "settingsWorkspacesPipImage": "Image",
   "@settingsWorkspacesPipImage": {
     "description": "Pip style choice: artwork from a browsed local image."
   },

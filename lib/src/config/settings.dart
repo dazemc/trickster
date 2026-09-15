@@ -403,7 +403,6 @@ enum PipStyle {
   number('number'),
   dot('dot'),
   roman('roman'),
-  svg('svg'),
   image('image');
 
   const PipStyle(this.wire);
@@ -432,25 +431,33 @@ enum PipStyle {
 class WorkspaceOptions extends Equatable {
   const WorkspaceOptions({
     this.pipStyle = PipStyle.number,
-    this.svgSource,
     this.imageSource,
+    this.imageByWorkspace = const {},
+    this.tintSvg = false,
   });
 
   final PipStyle pipStyle;
 
-  /// Link the `svg` style loads its artwork from.
-  final String? svgSource;
-
-  /// Local file the `image` style loads its artwork from.
+  /// Local file the `image` style loads its artwork from when the workspace
+  /// has no mapping of its own.
   final String? imageSource;
 
+  /// Per-workspace artwork files, keyed by the workspace name the rail
+  /// paints.
+  final Map<String, String> imageByWorkspace;
+
+  /// Whether vector artwork recolors to the accent.
+  final bool tintSvg;
+
   @override
-  List<Object?> get props => [pipStyle, svgSource, imageSource];
+  List<Object?> get props => [pipStyle, imageSource, imageByWorkspace, tintSvg];
 
   Map<String, Object?> toJson() => {
     'pip_style': pipStyle.wire,
-    if (svgSource != null) 'svg_source': svgSource,
     if (imageSource != null) 'image_source': imageSource,
+    if (imageByWorkspace.isNotEmpty)
+      'image_by_workspace': Map<String, String>.of(imageByWorkspace),
+    if (tintSvg) 'tint_svg': true,
   };
 
   static WorkspaceOptions fromJson(Object? json) {
@@ -462,20 +469,38 @@ class WorkspaceOptions extends Equatable {
     }
     return WorkspaceOptions(
       pipStyle: PipStyle.parse(json['pip_style']),
-      svgSource: _pipSource(json['svg_source']),
       imageSource: _pipSource(json['image_source']),
+      imageByWorkspace: _pipSources(json['image_by_workspace']),
+      tintSvg: (json['tint_svg'] as bool?) ?? false,
     );
   }
 }
 
-/// Pip artwork sources are strings; empty values clear the key.
+/// Per-workspace artwork paths: name to file, empty values dropped.
+Map<String, String> _pipSources(Object? value) {
+  if (value == null) {
+    return const {};
+  }
+  if (value is! Map<String, dynamic>) {
+    throw const FormatException(
+      'settings.workspaces.image_by_workspace must be an object',
+    );
+  }
+  return {
+    for (final entry in value.entries)
+      if (_pipSource(entry.value) case final path?)
+        if (entry.key.isNotEmpty) entry.key: path,
+  };
+}
+
+/// The browsed image path is a string; an empty value clears the key.
 String? _pipSource(Object? value) {
   if (value == null) {
     return null;
   }
   if (value is! String) {
     throw const FormatException(
-      'settings.workspaces pip sources must be strings',
+      'settings.workspaces.image_source must be a string',
     );
   }
   return value.isEmpty ? null : value;

@@ -404,16 +404,82 @@ abstract class AppLocalizations {
   /// **'Roman'**
   String get settingsWorkspacesPipRoman;
 
-  /// Pip style choice: artwork from a linked SVG.
+  /// Label above the browsed image control for workspace pips.
   ///
   /// In en, this message translates to:
-  /// **'SVG link'**
-  String get settingsWorkspacesPipSvg;
+  /// **'Image'**
+  String get settingsWorkspacesImage;
+
+  /// Placeholder when no pip image has been browsed.
+  ///
+  /// In en, this message translates to:
+  /// **'No image chosen'**
+  String get settingsWorkspacesImageNone;
+
+  /// Button opening the host's image chooser.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse…'**
+  String get settingsWorkspacesBrowse;
+
+  /// Reset control dropping the browsed pip image.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear image'**
+  String get settingsWorkspacesImageClear;
+
+  /// Label for recoloring SVG pip artwork with the accent.
+  ///
+  /// In en, this message translates to:
+  /// **'Color with accent'**
+  String get settingsWorkspacesTintSvg;
+
+  /// Button dropping a per-workspace mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get settingsWorkspacesRemoveMapping;
+
+  /// Caption clarifying the SVG recolor scope.
+  ///
+  /// In en, this message translates to:
+  /// **'Only applies to SVG files.'**
+  String get settingsWorkspacesTintSvgHint;
+
+  /// Dropdown entry enabling manual workspace-name entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom…'**
+  String get settingsWorkspacesCustom;
+
+  /// Dropdown trigger for picking an existing workspace name.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose…'**
+  String get settingsWorkspacesChoose;
+
+  /// Button committing a new per-workspace mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get settingsWorkspacesAddMapping;
+
+  /// Placeholder naming the workspace to map.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace name'**
+  String get settingsWorkspacesNameHint;
+
+  /// Section label for per-workspace artwork mappings.
+  ///
+  /// In en, this message translates to:
+  /// **'Per workspace'**
+  String get settingsWorkspacesPerWorkspace;
 
   /// Pip style choice: artwork from a browsed local image.
   ///
   /// In en, this message translates to:
-  /// **'Local image'**
+  /// **'Image'**
   String get settingsWorkspacesPipImage;
 
   /// Hint shown inside an empty placement segment.

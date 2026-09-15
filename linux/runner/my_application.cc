@@ -497,6 +497,25 @@ static GdkMonitor* trickster_monitor_for_bar(MyApplication* self,
   return nullptr;
 }
 
+// The settings window's image chooser: a modal GTK dialog parented to the
+// settings toplevel. Returns a newly allocated path, or null on dismissal.
+static gchar* trickster_pick_image(MyApplication* self) {
+  GtkWidget* dialog = gtk_file_chooser_dialog_new(
+      "Choose pip image", self->settings_window, GTK_FILE_CHOOSER_ACTION_OPEN,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, nullptr);
+  GtkFileFilter* filter = gtk_file_filter_new();
+  gtk_file_filter_set_name(filter, "Images");
+  gtk_file_filter_add_pixbuf_formats(filter);
+  gtk_file_filter_add_pattern(filter, "*.svg");
+  gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+  gchar* path = nullptr;
+  if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+    path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+  }
+  gtk_widget_destroy(dialog);
+  return path;
+}
+
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
                            gpointer user_data) {
   MyApplication* self = MY_APPLICATION(user_data);
@@ -510,6 +529,14 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   } else if (g_strcmp0(method, "blur") == 0) {
     g_autoptr(FlValue) result =
         fl_value_new_bool(trickster_probe_blur(self) ? TRUE : FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "pickImageFile") == 0) {
+    g_autoptr(FlValue) result = nullptr;
+    gchar* path = trickster_pick_image(self);
+    if (path != nullptr) {
+      result = fl_value_new_string(path);
+      g_free(path);
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "setBlur") == 0) {
     const gint64 view_id = method_arg_int(method_call, "viewId");

@@ -46,7 +46,11 @@ String _zoneLabel(AppLocalizations l10n, ModuleZone zone) {
 /// ordered as the strip renders it. Dragging a row lifts it whole, opens a
 /// live gap where it would land, and commits on release.
 class ModulesPage extends StatefulWidget {
-  const ModulesPage({super.key});
+  const ModulesPage({this.workspaceNames, super.key});
+
+  /// Source of live workspace names for the pip mapping editor; null asks
+  /// the running bar over the control socket.
+  final Future<List<String>> Function()? workspaceNames;
 
   @override
   State<ModulesPage> createState() => _ModulesPageState();
@@ -238,7 +242,12 @@ class _ModulesPageState extends State<ModulesPage> {
         label: moduleLabel(l10n, module),
         enabled: settings.includes(module),
         reorderable: reorderable || draggableOut,
-        options: hasOptions ? ModuleOptionsPanel(module: module) : null,
+        options: hasOptions
+            ? ModuleOptionsPanel(
+                module: module,
+                workspaceNames: widget.workspaceNames,
+              )
+            : null,
         optionsExpanded: state.expanded.contains(module),
         onToggleOptions: hasOptions
             ? () => modules.add(ModulesOptionsToggled(module))

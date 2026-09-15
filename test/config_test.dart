@@ -235,14 +235,18 @@ void main() {
         final settings = BarSettings(
           workspaces: WorkspaceOptions(
             pipStyle: style,
-            svgSource: 'https://example.com/pip.svg',
             imageSource: '/tmp/pip.png',
+            imageByWorkspace: const {'web': '/tmp/web.svg'},
+            tintSvg: style == PipStyle.image,
           ),
         );
         final decoded = BarSettings.decode(settings.encode());
         expect(decoded.workspaces.pipStyle, style);
-        expect(decoded.workspaces.svgSource, 'https://example.com/pip.svg');
         expect(decoded.workspaces.imageSource, '/tmp/pip.png');
+        expect(decoded.workspaces.imageByWorkspace, const {
+          'web': '/tmp/web.svg',
+        });
+        expect(decoded.workspaces.tintSvg, style == PipStyle.image);
       }
       expect(
         () => BarSettings.decode(
@@ -252,13 +256,18 @@ void main() {
       );
       expect(
         () => BarSettings.decode(
-          '{"revision": 1, "workspaces": {"svg_source": 7}}',
+          '{"revision": 1, "workspaces": {"image_source": 7}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"image_by_workspace": []}}',
         ),
         throwsFormatException,
       );
       const bare = BarSettings();
       expect(bare.workspaces.pipStyle, PipStyle.number);
-      expect(bare.workspaces.svgSource, isNull);
       expect(bare.workspaces.imageSource, isNull);
     });
 
