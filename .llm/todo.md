@@ -133,15 +133,3 @@ while other packages share the stock SDK.
   read it (section-scoped listenables; the shell keeps to locale and
   load/error). Done when a drag's build times fit the frame budget and the
   settings tests stay green.
-
-## Phase 20 — bloc-only state
-
-AGENTS now makes the rule explicit: `flutter_bloc` carries all state in both
-processes, and only per-frame ephemeral widget details may stay local. The
-settings document, wallpaper accent, modules page, tray menu, and tooltip
-sessions all read through blocs; the enforcement test keeps it that way.
-
-- **20.5 (S) Enforce the rule.** A test fails on `ChangeNotifier`,
-  `InheritedNotifier`, or `Cubit` usage under `lib/`, with the approved
-  ephemeral exceptions listed. Done when the check runs with `flutter test`
-  and passes.
