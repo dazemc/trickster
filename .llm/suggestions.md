@@ -33,3 +33,26 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   but the live check (two outputs holding different accent picks) never ran —
   no second monitor was available. Verify on a second display when one is
   connected; a failure becomes a new queued step.
+- **`appearance.blur` does not gate the settings window.** The bar forces
+  opaque pills when the key is off, while `lib/src/settings/app.dart` keys
+  translucency only on the host capability, so turning blur off still leaves
+  the window glass. Decide whether the key should gate both processes; the
+  change is one `&&` in the settings root.
+- **Workspace-name pip mappings detach silently.** `image_by_workspace` keys
+  on the workspace name, so a rename or a renumbered dynamic workspace drops
+  its artwork without any signal. Either surface detached keys in the mapping
+  editor or accept it as the documented behavior; ids are no more stable.
+- **`pickImageFile` runs a nested GTK main loop.** `my_application.cc` opens
+  the chooser with `gtk_dialog_run`, so the settings process is re-entrant
+  while it is open. Keep it modal and preview-free; if flicker or double-open
+  reports appear, move to `GtkFileChooserNative`/portal with a callback.
+- **Widget-test contract misses the single-pump rule.** Pumping
+  `pumpBarHarness` twice in one test reuses the providers and their blocs, so
+  a second `settings:` argument is silently ignored (the meter-sparkline test
+  had to split in two). Add a bullet to the contract in
+  `docs_site/content/development.md`: one harness pump per test.
+- **Tray SVG scaling has no regression test.** The corner-cropping fix in
+  `status_notifier.dart` mirrors the pip-artwork fix, but only
+  `test/pip_artwork_test.dart` pins the behavior. Extend
+  `decodeStatusNotifierIconForTesting` coverage with the same corner-pixel
+  assertion before the tray decode path changes again.
