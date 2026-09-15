@@ -22,12 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.1 (M) Pills resize to avoid overlap.** The strip's three zones share
-  one row but paint as a free stack, so a long leading/trailing cluster
-  overlaps the centered rail. Clamp each zone to its available span so
-  pills shrink or ellipsize instead of colliding. Done when a long-content
-  bar shows no overlap on the live strips and a widget test pins the
-  clamped widths.
 - **18.2 (M) Meter caption parity and custom prefixes.** CPU and GPU both
   expose the caption source choice, and the source gains a custom prefix
   typed in the settings UI. Done when both panels offer generic/device/
