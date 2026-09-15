@@ -20,11 +20,9 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 The settings window covers the bar's documents but not every knob, and is an
 opaque window while the bar is glass. This phase fills the surface out.
 
-- **14.12 (M) Appearance per display.** The appearance keys resolve per
-  output: the accent source and wallpaper pick become per-display values,
-  falling back to the global appearance keys, and the settings UI edits
-  each display's own. Done when two outputs can hold different picks and
-  the live bars show their own accents.
+Per-display appearance (14.12) landed without the two-output live check; the
+user verifies it on a second monitor later and any fix becomes a new step.
+
 - **14.13 (S) Hide the clock date caption.** Add `clock.show_date` (hide the
   date caption) with the settings toggle; the bar honors it live. Done when
   it renders on the bar, resets, and has config plus widget tests.
