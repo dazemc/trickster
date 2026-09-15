@@ -15,19 +15,11 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase 14 — settings depth
+## Verification pending
 
-The settings window covers the bar's documents but not every knob, and is an
-opaque window while the bar is glass. This phase fills the surface out.
-
-Per-display appearance (14.12) landed without the two-output live check; the
-user verifies it on a second monitor later and any fix becomes a new step.
-
-- **14.16 (M) Settings window transparency.** Make the settings toplevel
-  translucent (GTK RGBA visual plus translucent Flutter surfaces) so the
-  host blurs behind it, with an opaque fallback when the compositor cannot.
-  Done when the live window shows the blurred desktop on Hyprland and the
-  fallback stays legible.
+- Per-display appearance (14.12) landed without the two-output live check;
+  the user verifies it on a second monitor later and any fix becomes a new
+  step.
 
 ## Phase 17 — workspace pip styles
 
