@@ -28,3 +28,8 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   phase starts.
 
 ## Open suggestions
+
+- **Per-display appearance still needs a two-output check.** 14.12 is merged,
+  but the live check (two outputs holding different accent picks) never ran —
+  no second monitor was available. Verify on a second display when one is
+  connected; a failure becomes a new queued step.
