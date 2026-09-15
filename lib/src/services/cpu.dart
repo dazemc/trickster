@@ -26,11 +26,7 @@ class CpuSample extends Equatable {
     if (next.length > capacity) {
       next.removeRange(0, next.length - capacity);
     }
-    return CpuSample(
-      usage,
-      history: List.unmodifiable(next),
-      name: name,
-    );
+    return CpuSample(usage, history: List.unmodifiable(next), name: name);
   }
 
   @override

@@ -7,6 +7,8 @@ import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 final _epoch = DateTime.fromMillisecondsSinceEpoch(0);
@@ -64,9 +66,11 @@ Future<void> _pump(
   await tester.pumpWidget(
     BlocProvider<MediaBloc>.value(
       value: bloc,
-      child: TricksterLocalizationScope(
-        child: Center(
-          child: MediaPill(accent: _accent, vertical: vertical),
+      child: withOverlayBlocs(
+        TricksterLocalizationScope(
+          child: Center(
+            child: MediaPill(accent: _accent, vertical: vertical),
+          ),
         ),
       ),
     ),

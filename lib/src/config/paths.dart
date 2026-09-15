@@ -5,11 +5,12 @@ class ConfigPaths {
     String? configHome,
     String? outputOverride,
     this.sessionOverride,
-  }) : configHome = configHome ??
-            Platform.environment['XDG_CONFIG_HOME'] ??
-            '${Platform.environment['HOME']}/.config',
-        outputOverride = outputOverride ??
-            Platform.environment['TRICKSTER_OUTPUT_CONFIG'];
+  }) : configHome =
+           configHome ??
+           Platform.environment['XDG_CONFIG_HOME'] ??
+           '${Platform.environment['HOME']}/.config',
+       outputOverride =
+           outputOverride ?? Platform.environment['TRICKSTER_OUTPUT_CONFIG'];
 
   final String configHome;
   final String? outputOverride;

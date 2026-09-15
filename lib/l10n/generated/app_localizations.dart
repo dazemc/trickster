@@ -290,11 +290,29 @@ abstract class AppLocalizations {
   /// **'Accent used across the bar.'**
   String get settingsAppearanceCaption;
 
+  /// Caption above the appearance target chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Per display'**
+  String get settingsAppearancePerDisplay;
+
+  /// Appearance target chip that edits the global keys.
+  ///
+  /// In en, this message translates to:
+  /// **'All displays'**
+  String get settingsAppearanceAllDisplays;
+
   /// Accessible label for the accent preset swatches.
   ///
   /// In en, this message translates to:
   /// **'Presets'**
   String get settingsAccentPresets;
+
+  /// Name of the custom accent color option.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get settingsAccentColor;
 
   /// Button that clears the custom accent.
   ///
@@ -338,6 +356,36 @@ abstract class AppLocalizations {
   /// **'Reset {option}'**
   String settingsResetOption(String option);
 
+  /// Heading for modules this machine cannot run.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get settingsModulesUnavailable;
+
+  /// Reason shown when no battery is detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No battery detected'**
+  String get settingsUnavailableNoBattery;
+
+  /// Gear label revealing one module's options.
+  ///
+  /// In en, this message translates to:
+  /// **'{module} options'**
+  String settingsModuleOptions(String module);
+
+  /// Hint shown inside an empty placement segment.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop a module here'**
+  String get settingsModulesEmptyZone;
+
+  /// Heading for modules that are turned off.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get settingsModulesDisabled;
+
   /// Hint for a control that reverts one option to its default.
   ///
   /// In en, this message translates to:
@@ -367,6 +415,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Trailing'**
   String get settingsPlacementTrailing;
+
+  /// Handle label for dragging a module row.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder'**
+  String get settingsModuleDrag;
 
   /// Accessible hint for a module toggle.
   ///
@@ -517,18 +571,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tune the values each pill uses.'**
   String get settingsOptionsCaption;
-
-  /// Section heading for workspace rail options.
-  ///
-  /// In en, this message translates to:
-  /// **'Workspaces'**
-  String get settingsWorkspacesSection;
-
-  /// Label for the workspace count slider.
-  ///
-  /// In en, this message translates to:
-  /// **'Workspace count'**
-  String get settingsWorkspacesCount;
 
   /// Section heading for clock options.
   ///
@@ -709,6 +751,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Waiting for the wallpaper sample…'**
   String get settingsAccentWallpaperEmpty;
+
+  /// Hint beside the waiting message when no wallpaper sample exists.
+  ///
+  /// In en, this message translates to:
+  /// **'With grim installed, Trickster can sample the actual backdrop.'**
+  String get settingsAccentWallpaperGrim;
 
   /// Accessible label for copying an accent hex value.
   ///

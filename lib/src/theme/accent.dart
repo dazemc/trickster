@@ -14,11 +14,9 @@ class WallpaperAccent {
   final Color color;
   final bool isResolved;
 
-  Color cardFill() =>
-      Color.lerp(const Color(0xff1c1b22), color, 0.15)!;
+  Color cardFill() => Color.lerp(const Color(0xff1c1b22), color, 0.15)!;
 
-  Color cardFillTop() =>
-      Color.lerp(const Color(0xff1c1b22), color, 0.24)!;
+  Color cardFillTop() => Color.lerp(const Color(0xff1c1b22), color, 0.24)!;
 
   Color captionColor() =>
       Color.lerp(ShellMediaColors.lightForegroundSecondary, color, 0.35)!;
@@ -37,6 +35,4 @@ class WallpaperAccent {
 /// then session accent, then the brand default. Pure so widget and bloc
 /// tests can pin it without a tree.
 WallpaperAccent resolveAccent({Color? settings, Color? session}) =>
-    WallpaperAccent(
-      settings ?? session ?? ShellBrandColors.defaultAccent,
-    );
+    WallpaperAccent(settings ?? session ?? ShellBrandColors.defaultAccent);

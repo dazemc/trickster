@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
-import 'package:trickster/src/settings/controller.dart';
 import 'package:trickster/src/settings/saver.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -39,27 +39,126 @@ class AppearancePage extends StatefulWidget {
 class _AppearancePageState extends State<AppearancePage> {
   DebouncedSaver? _saver;
 
+  /// null edits the global appearance keys; a connector edits that display's
+  /// override, falling back field by field.
+  String? _target;
+
   @override
   void dispose() {
     _saver?.dispose();
     super.dispose();
   }
 
-  void _apply(SettingsAppController controller, Color? accent) {
-    _saver ??= DebouncedSaver(controller);
-    _saver!.apply((settings) => settings.withAccent(accent));
+  DebouncedSaver _saverFor(SettingsAppBloc controller) =>
+      _saver ??= DebouncedSaver(controller);
+
+  void _apply(SettingsAppBloc controller, Color? accent) {
+    final target = _target;
+    if (target == null) {
+      _saverFor(controller).apply((settings) => settings.withAccent(accent));
+      return;
+    }
+    _applyAppearance(
+      controller,
+      (current) => DisplayAppearance(
+        accent: accent,
+        accentSource: current.accentSource,
+        accentWallpaperPick: current.accentWallpaperPick,
+      ),
+    );
   }
 
-  void _applySource(SettingsAppController controller, AccentSource source) {
-    _saver ??= DebouncedSaver(controller);
-    _saver!.apply((settings) => settings.copyWith(accentSource: source));
+  void _applySource(SettingsAppBloc controller, AccentSource source) {
+    final target = _target;
+    if (target == null) {
+      _saverFor(
+        controller,
+      ).apply((settings) => settings.copyWith(accentSource: source));
+      return;
+    }
+    _applyAppearance(
+      controller,
+      (current) => DisplayAppearance(
+        accent: current.accent,
+        accentSource: source,
+        accentWallpaperPick: current.accentWallpaperPick,
+      ),
+    );
+  }
+
+  void _applyPick(SettingsAppBloc controller, String? pick) {
+    final target = _target;
+    if (target == null) {
+      _saverFor(
+        controller,
+      ).apply((settings) => settings.withAccentWallpaperPick(pick));
+      return;
+    }
+    _applyAppearance(
+      controller,
+      (current) => DisplayAppearance(
+        accent: current.accent,
+        accentSource: current.accentSource,
+        accentWallpaperPick: pick,
+      ),
+    );
+  }
+
+  /// Drops the selected display's source override, falling back to global.
+  void _resetSource(SettingsAppBloc controller) {
+    _applyAppearance(
+      controller,
+      (current) => DisplayAppearance(
+        accent: current.accent,
+        accentWallpaperPick: current.accentWallpaperPick,
+      ),
+    );
+  }
+
+  /// Removes every override for the selected display.
+  void _resetDisplay(SettingsAppBloc controller, String display) {
+    _saverFor(controller).apply((settings) {
+      final overrides = Map<String, DisplayAppearance>.of(
+        settings.displayAppearance,
+      )..remove(display);
+      return settings.copyWith(displayAppearance: overrides);
+    });
+  }
+
+  void _applyAppearance(
+    SettingsAppBloc controller,
+    DisplayAppearance Function(DisplayAppearance current) change,
+  ) {
+    final target = _target!;
+    _saverFor(controller).apply((settings) {
+      final overrides = Map<String, DisplayAppearance>.of(
+        settings.displayAppearance,
+      );
+      final next = change(overrides[target] ?? const DisplayAppearance());
+      if (next.isEmpty) {
+        overrides.remove(target);
+      } else {
+        overrides[target] = next;
+      }
+      return settings.copyWith(displayAppearance: overrides);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
-    final accent = controller.settings.accent ?? ShellBrandColors.defaultAccent;
+    final controller = context.watch<SettingsAppBloc>();
+    final settings = controller.settings;
+    final outputs = controller.availableOutputs;
+    final target = _target;
+    final wallpaper = context.watch<WallpaperAccentBloc>().state;
+    final source = settings.accentSourceFor(target);
+    final accent = settings.accentFor(target) ?? ShellBrandColors.defaultAccent;
+    final picked = colorFromHex(settings.accentWallpaperPickFor(target));
+    final candidates = target == null
+        ? wallpaper.topCandidates
+        : wallpaper.candidatesFor(target);
+    final override = target == null ? null : settings.displayAppearance[target];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -68,15 +167,83 @@ class _AppearancePageState extends State<AppearancePage> {
           caption: l10n.settingsAppearanceCaption,
         ),
         const SizedBox(height: 20),
+        if (outputs.isNotEmpty) ...[
+          SettingsCard(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l10n.settingsAppearancePerDisplay,
+                        style: ShellText.systemBarCaption.copyWith(
+                          color: ShellMediaColors.lightForegroundSecondary,
+                        ),
+                      ),
+                    ),
+                    if (target != null)
+                      SettingsResetButton(
+                        key: ValueKey<String>('reset-appearance-$target'),
+                        label: l10n.settingsResetOption(target),
+                        enabled: override != null,
+                        onPressed: () => _resetDisplay(controller, target),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    SettingsChoiceChip(
+                      key: const ValueKey<String>('appearance-target-all'),
+                      label: l10n.settingsAppearanceAllDisplays,
+                      selected: target == null,
+                      onPressed: () => setState(() => _target = null),
+                    ),
+                    for (final output in outputs)
+                      SettingsChoiceChip(
+                        key: ValueKey<String>(
+                          'appearance-target-${output.name}',
+                        ),
+                        label: output.name,
+                        selected: target == output.name,
+                        onPressed: () => setState(() => _target = output.name),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         SettingsCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                l10n.settingsAccentSource,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsAccentSource,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-accent-source'),
+                    label: l10n.settingsResetOption(l10n.settingsAccentSource),
+                    enabled: target == null
+                        ? settings.accentSource != AccentSource.custom
+                        : override?.accentSource != null,
+                    onPressed: target == null
+                        ? () => _applySource(controller, AccentSource.custom)
+                        : () => _resetSource(controller),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -86,36 +253,27 @@ class _AppearancePageState extends State<AppearancePage> {
                   SettingsChoiceChip(
                     key: const ValueKey<String>('accent-source-custom'),
                     label: l10n.settingsAccentSourceCustom,
-                    selected:
-                        controller.settings.accentSource == AccentSource.custom,
+                    selected: source == AccentSource.custom,
                     onPressed: () =>
                         _applySource(controller, AccentSource.custom),
                   ),
                   SettingsChoiceChip(
                     key: const ValueKey<String>('accent-source-wallpaper'),
                     label: l10n.settingsAccentSourceWallpaper,
-                    selected:
-                        controller.settings.accentSource ==
-                        AccentSource.wallpaper,
+                    selected: source == AccentSource.wallpaper,
                     onPressed: () =>
                         _applySource(controller, AccentSource.wallpaper),
                   ),
                 ],
               ),
               const SizedBox(height: 22),
-              if (controller.settings.accentSource == AccentSource.wallpaper)
+              if (source == AccentSource.wallpaper)
                 _WallpaperAccents(
-                  candidates:
-                      WallpaperAccentScope.maybeOf(context)?.candidates ??
-                      const <Color>[],
-                  picked: colorFromHex(controller.settings.accentWallpaperPick),
-                  onPick: (color) {
-                    final hex = formatOpaqueColorHex(color);
-                    _saver ??= DebouncedSaver(controller);
-                    _saver!.apply(
-                      (settings) => settings.copyWith(accentWallpaperPick: hex),
-                    );
-                  },
+                  candidates: candidates,
+                  picked: picked,
+                  onPick: (color) =>
+                      _applyPick(controller, formatOpaqueColorHex(color)),
+                  onReset: () => _applyPick(controller, null),
                 )
               else ...[
                 Text(
@@ -163,8 +321,14 @@ class _AppearancePageState extends State<AppearancePage> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        SettingsButton(
-                          label: l10n.settingsAccentReset,
+                        SettingsResetButton(
+                          key: const ValueKey<String>('reset-accent'),
+                          label: l10n.settingsResetOption(
+                            l10n.settingsAccentColor,
+                          ),
+                          enabled: target == null
+                              ? settings.accent != null
+                              : override?.accent != null,
                           onPressed: () => _apply(controller, null),
                         ),
                       ],
@@ -188,11 +352,13 @@ class _WallpaperAccents extends StatelessWidget {
     required this.candidates,
     required this.picked,
     required this.onPick,
+    required this.onReset,
   });
 
   final List<Color> candidates;
   final Color? picked;
   final ValueChanged<Color> onPick;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -204,21 +370,44 @@ class _WallpaperAccents extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n.settingsAccentWallpaperTitle,
-          style: ShellText.systemBarCaption.copyWith(
-            color: ShellMediaColors.lightForegroundSecondary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.settingsAccentWallpaperTitle,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: ShellMediaColors.lightForegroundSecondary,
+                ),
+              ),
+            ),
+            SettingsResetButton(
+              key: const ValueKey<String>('reset-wallpaper-pick'),
+              label: l10n.settingsResetOption(
+                l10n.settingsAccentWallpaperTitle,
+              ),
+              enabled: picked != null,
+              onPressed: onReset,
+            ),
+          ],
         ),
         const SizedBox(height: 12),
-        if (candidates.isEmpty)
+        if (candidates.isEmpty) ...[
           Text(
             l10n.settingsAccentWallpaperEmpty,
             style: ShellText.systemBarCaption.copyWith(
               color: ShellMediaColors.lightForegroundSecondary,
             ),
-          )
-        else
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.settingsAccentWallpaperGrim,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary.withValues(
+                alpha: 0.7,
+              ),
+            ),
+          ),
+        ] else
           Wrap(
             spacing: 18,
             runSpacing: 12,

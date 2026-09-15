@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:trickster/src/locale.dart';
-import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/saver.dart';
-import 'package:trickster/src/settings/scope.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 
 /// Language page: the catalog the bar and this window follow. `null` keeps
@@ -24,7 +24,7 @@ class _LanguagePageState extends State<LanguagePage> {
     super.dispose();
   }
 
-  void _apply(SettingsAppController controller, String? tag) {
+  void _apply(SettingsAppBloc controller, String? tag) {
     _saver ??= DebouncedSaver(controller);
     _saver!.apply((settings) => settings.withLocale(tag));
   }
@@ -32,7 +32,7 @@ class _LanguagePageState extends State<LanguagePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     final current = controller.settings.locale;
     final choices = <(String?, String)>[
       (null, l10n.settingsLanguageSystem),

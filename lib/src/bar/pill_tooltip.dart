@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
@@ -53,14 +54,14 @@ class PillTooltip extends StatefulWidget {
 
 class _PillTooltipState extends State<PillTooltip> {
   Timer? _timer;
-  OverlayTooltipController? _controller;
+  OverlayTooltipBloc? _tooltip;
   late final String _id = 'pill-${identityHashCode(this)}';
   var _hovered = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller = OverlayTooltipScope.maybeOf(context);
+    _tooltip = context.read<OverlayTooltipBloc>();
   }
 
   @override
@@ -80,14 +81,14 @@ class _PillTooltipState extends State<PillTooltip> {
   @override
   void dispose() {
     _timer?.cancel();
-    unawaited(_controller?.close(itemId: _id));
+    _tooltip?.add(OverlayTooltipDismissed(itemId: _id));
     super.dispose();
   }
 
   void _show() {
-    final controller = _controller;
+    final tooltip = _tooltip;
     final geometry = StripGeometry.maybeOf(context);
-    if (controller == null || geometry == null || !mounted) {
+    if (tooltip == null || geometry == null || !mounted) {
       return;
     }
     final box = context.findRenderObject() as RenderBox?;
@@ -95,8 +96,8 @@ class _PillTooltipState extends State<PillTooltip> {
       return;
     }
     final center = box.localToGlobal(box.size.center(Offset.zero));
-    unawaited(
-      controller.show(
+    tooltip.add(
+      OverlayTooltipRequested(
         barViewId: View.of(context).viewId,
         itemId: _id,
         label: widget.label,
@@ -118,7 +119,7 @@ class _PillTooltipState extends State<PillTooltip> {
     _hovered = false;
     _timer?.cancel();
     _timer = null;
-    unawaited(_controller?.close(itemId: _id));
+    _tooltip?.add(OverlayTooltipDismissed(itemId: _id));
   }
 
   @override

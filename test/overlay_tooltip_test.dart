@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/overlay_tooltip.dart';
 import 'package:trickster/src/bar/pill.dart';
@@ -57,15 +58,12 @@ class _FakeLayerShell extends LayerShell {
   }
 }
 
-Future<void> _pumpButton(
-  WidgetTester tester,
-  OverlayTooltipController controller,
-) {
+Future<void> _pumpButton(WidgetTester tester, OverlayTooltipBloc bloc) {
   return tester.pumpWidget(
-    TricksterLocalizationScope(
-      child: OverlayTooltipScope(
-        notifier: controller,
-        child: const Center(
+    BlocProvider<OverlayTooltipBloc>.value(
+      value: bloc,
+      child: const TricksterLocalizationScope(
+        child: Center(
           child: TrayItemButton(
             accent: _accent,
             item: _item,
@@ -79,61 +77,54 @@ Future<void> _pumpButton(
 
 void _noop(SystemTrayItem item, Offset position) {}
 
-void main() {
-  testWidgets('retargets one surface as hover moves between items', (
-    tester,
-  ) async {
-    final shell = _FakeLayerShell();
-    final controller = OverlayTooltipController(layerShell: shell);
-    addTearDown(controller.dispose);
+OverlayTooltipRequested _request(
+  String itemId,
+  String label, {
+  Offset click = const Offset(100, 16),
+  SystemBarSide side = SystemBarSide.top,
+}) {
+  return OverlayTooltipRequested(
+    barViewId: 0,
+    itemId: itemId,
+    label: label,
+    accent: _accent,
+    click: click,
+    side: side,
+    thickness: 32,
+  );
+}
 
-    await controller.show(
-      barViewId: 0,
-      itemId: 'a',
-      label: 'First',
-      accent: _accent,
-      click: const Offset(100, 16),
-      side: SystemBarSide.top,
-      thickness: 32,
-    );
-    await controller.show(
-      barViewId: 0,
-      itemId: 'b',
-      label: 'Second',
-      accent: _accent,
-      click: const Offset(200, 16),
-      side: SystemBarSide.top,
-      thickness: 32,
-    );
+void main() {
+  test('retargets one surface as hover moves between items', () async {
+    final shell = _FakeLayerShell();
+    final bloc = OverlayTooltipBloc(layerShell: shell);
+    addTearDown(bloc.close);
+
+    bloc.add(_request('a', 'First'));
+    bloc.add(_request('b', 'Second', click: const Offset(200, 16)));
+    await pumpEventQueue();
     expect(shell.opened, <int>[0]);
     expect(shell.closed, isEmpty);
-    expect(controller.session?.label, 'Second');
-    expect(controller.session?.viewId, 100);
+    expect(bloc.state.session?.label, 'Second');
+    expect(bloc.state.session?.viewId, 100);
 
-    await controller.close(itemId: 'a');
-    expect(controller.isOpen, isTrue);
-    await controller.close(itemId: 'b');
-    expect(controller.isOpen, isFalse);
+    bloc.add(const OverlayTooltipDismissed(itemId: 'a'));
+    await pumpEventQueue();
+    expect(bloc.state.isOpen, isTrue);
+    bloc.add(const OverlayTooltipDismissed(itemId: 'b'));
+    await pumpEventQueue();
+    expect(bloc.state.isOpen, isFalse);
     expect(shell.closed, <int>[100]);
   });
 
-  testWidgets('a failed surface open stays closed without throwing', (
-    tester,
-  ) async {
+  test('a failed surface open stays closed without throwing', () async {
     final shell = _FakeLayerShell()..failOpen = true;
-    final controller = OverlayTooltipController(layerShell: shell);
-    addTearDown(controller.dispose);
+    final bloc = OverlayTooltipBloc(layerShell: shell);
+    addTearDown(bloc.close);
 
-    await controller.show(
-      barViewId: 0,
-      itemId: 'a',
-      label: 'First',
-      accent: _accent,
-      click: const Offset(100, 16),
-      side: SystemBarSide.top,
-      thickness: 32,
-    );
-    expect(controller.isOpen, isFalse);
+    bloc.add(_request('a', 'First'));
+    await pumpEventQueue();
+    expect(bloc.state.isOpen, isFalse);
     expect(shell.shown, isEmpty);
   });
 
@@ -141,9 +132,9 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = OverlayTooltipController(layerShell: shell);
-    addTearDown(controller.dispose);
-    await _pumpButton(tester, controller);
+    final bloc = OverlayTooltipBloc(layerShell: shell);
+    addTearDown(bloc.close);
+    await _pumpButton(tester, bloc);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
@@ -151,17 +142,19 @@ void main() {
     await tester.pump();
     await mouse.moveTo(tester.getCenter(find.byType(TrayItemButton)));
     await tester.pump();
-    expect(controller.isOpen, isFalse);
+    expect(bloc.state.isOpen, isFalse);
 
     await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
     expect(shell.opened, <int>[0]);
     expect(shell.shown, <int>[100]);
-    expect(controller.session?.itemId, 'item');
-    expect(controller.session?.label, 'qBittorrent');
+    expect(bloc.state.session?.itemId, 'item');
+    expect(bloc.state.session?.label, 'qBittorrent');
 
     await mouse.moveTo(const Offset(5, 5));
     await tester.pump();
-    expect(controller.isOpen, isFalse);
+    await tester.pump();
+    expect(bloc.state.isOpen, isFalse);
     expect(shell.closed, <int>[100]);
   });
 

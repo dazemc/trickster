@@ -37,13 +37,15 @@ Future<void> _pumpClock(
   return tester.pumpWidget(
     MultiBlocProvider(
       providers: [BlocProvider(create: (_) => ClockBloc())],
-      child: TricksterLocalizationScope(
-        locale: locale,
-        child: Center(
-          child: ClockPill(
-            accent: const WallpaperAccent(Color(0xffd0bcff)),
-            format: format,
-            vertical: vertical,
+      child: withOverlayBlocs(
+        TricksterLocalizationScope(
+          locale: locale,
+          child: Center(
+            child: ClockPill(
+              accent: const WallpaperAccent(Color(0xffd0bcff)),
+              format: format,
+              vertical: vertical,
+            ),
           ),
         ),
       ),
@@ -60,7 +62,7 @@ void main() {
   testWidgets('strip shows clock, cpu, battery, and workspaces', (
     tester,
   ) async {
-    await pumpBarHarness(tester);
+    await pumpBarHarness(tester, output: 'HDMI-A-1');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('CPU'), findsOneWidget);
     expect(find.text('42%', findRichText: true), findsOneWidget);
@@ -165,7 +167,7 @@ void main() {
     cacheFile.parent.createSync(recursive: true);
     cacheFile.writeAsStringSync('/tmp/wall.png');
 
-    final controller = WallpaperAccentController(
+    final controller = WallpaperAccentBloc(
       cache: WallpaperCache(root: cacheFile.parent),
       sampleCandidates: (_) async => const [
         Color(0xffe01020),
@@ -173,7 +175,7 @@ void main() {
       ],
       watch: false,
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
     await pumpBarHarness(
       tester,
@@ -181,13 +183,14 @@ void main() {
         modules: ['workspaces'],
         accentSource: AccentSource.wallpaper,
       ),
+      output: 'HDMI-A-1',
       wallpaperAccent: controller,
       settle: const Duration(milliseconds: 500),
     );
-    controller.update(enabled: true);
+    controller.add(const WallpaperAccentEnabled(enabled: true));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
-    expect(controller.color, const Color(0xffe01020));
+    expect(controller.state.color, const Color(0xffe01020));
 
     Color? pipColor() {
       final pip = tester.widget<AnimatedDefaultTextStyle>(
@@ -213,22 +216,70 @@ void main() {
         accentSource: AccentSource.wallpaper,
         accentWallpaperPick: '#2050E0',
       ),
+      output: 'HDMI-A-1',
       wallpaperAccent: controller,
       settle: const Duration(milliseconds: 500),
     );
     expect(pipColor(), const Color(0xff2050e0));
   });
 
-  testWidgets('count rail maps active and occupied per output', (tester) async {
+  testWidgets('each display resolves its own wallpaper pick', (tester) async {
+    final directory = Directory.systemTemp.createTempSync('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final cacheFile = File('${directory.path}/awww/OUTPUT');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('/tmp/wall.png');
+
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: cacheFile.parent),
+      sampleCandidates: (_) async => const [
+        Color(0xffe01020),
+        Color(0xff2050e0),
+      ],
+      watch: false,
+    );
+    addTearDown(controller.close);
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+    expect(controller.state.color, const Color(0xffe01020));
+
+    Future<Color?> accentFor(String output, String pick) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await pumpBarHarness(
+        tester,
+        settings: BarSettings(
+          modules: const ['workspaces'],
+          accentSource: AccentSource.wallpaper,
+          displayAppearance: {
+            output: DisplayAppearance(accentWallpaperPick: pick),
+          },
+        ),
+        output: output,
+        workspacesBuilder: () => WorkspacesBloc(
+          initial: WorkspacesState([
+            Workspace(id: '1', name: '1', output: output, focused: true),
+          ]),
+        ),
+        wallpaperAccent: controller,
+        settle: const Duration(milliseconds: 500),
+      );
+      return _pipStyle(tester, '1').color;
+    }
+
+    // Each display resolves its own pick from the shared candidates.
+    expect(await accentFor('HDMI-A-1', '#2050E0'), const Color(0xff2050e0));
+    expect(await accentFor('HDMI-A-2', '#E01020'), const Color(0xffe01020));
+  });
+
+  testWidgets('rail mirrors the compositor placement per output', (
+    tester,
+  ) async {
     const accent = Color(0xffd0bcff);
     final handle = tester.ensureSemantics();
     await pumpBarHarness(
       tester,
-      settings: const BarSettings(
-        accent: accent,
-        modules: ['workspaces'],
-        workspaces: WorkspaceOptions(count: 3),
-      ),
+      settings: const BarSettings(accent: accent, modules: ['workspaces']),
       output: 'HDMI-A-1',
       workspacesBuilder: () => WorkspacesBloc(
         initial: const WorkspacesState([
@@ -239,26 +290,30 @@ void main() {
             focused: true,
             occupied: true,
           ),
-          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
-          Workspace(id: '3', name: '3', output: 'HDMI-A-1', occupied: true),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1'),
+          Workspace(id: '3', name: '3', output: 'HDMI-A-1', focused: true),
+          Workspace(id: '4', name: '4', output: 'HDMI-A-1', occupied: true),
         ]),
       ),
       settle: const Duration(milliseconds: 500),
     );
-    expect(find.text('1'), findsOneWidget);
+    // The foreign workspace stays off this rail; the output's own are shown
+    // in place, with empty/active/occupied each reading differently.
+    expect(find.text('1'), findsNothing);
     expect(find.text('2'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
     expect(
-      _pipStyle(tester, '1').color,
+      _pipStyle(tester, '2').color,
       ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3),
     );
-    expect(_pipStyle(tester, '2').color, accent);
-    expect(_pipStyle(tester, '3').color, ShellMediaColors.lightForeground);
+    expect(_pipStyle(tester, '3').color, accent);
+    expect(_pipStyle(tester, '4').color, ShellMediaColors.lightForeground);
     final lens = tester.widget<AnimatedAlign>(
       find.byKey(WorkspacesPill.lensKey),
     );
     expect(lens.alignment, Alignment.center);
-    expect(find.bySemanticsLabel('Workspace 1, empty'), findsOneWidget);
+    expect(find.bySemanticsLabel('Workspace 2, empty'), findsOneWidget);
     handle.dispose();
   });
 
@@ -361,6 +416,59 @@ void main() {
       tester.getCenter(find.byType(TrayPill)).dx,
       greaterThan(strip.center.dx),
     );
+  });
+
+  testWidgets('each rail shows only its output workspaces', (tester) async {
+    const settings = BarSettings(modules: ['workspaces']);
+    const workspaces = WorkspacesState([
+      Workspace(id: '1', name: '1', output: 'HDMI-A-2'),
+      Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
+    ]);
+
+    await pumpBarHarness(
+      tester,
+      settings: settings,
+      output: 'HDMI-A-1',
+      workspacesBuilder: () => WorkspacesBloc(initial: workspaces),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('1'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpBarHarness(
+      tester,
+      settings: settings,
+      output: 'HDMI-A-2',
+      workspacesBuilder: () => WorkspacesBloc(initial: workspaces),
+      settle: const Duration(milliseconds: 500),
+    );
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsNothing);
+  });
+
+  testWidgets('numbered rails keep numbers and drop specials', (tester) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['workspaces']),
+      output: 'HDMI-A-1',
+      workspacesBuilder: () => WorkspacesBloc(
+        initial: const WorkspacesState([
+          Workspace(id: '1', name: '1:web', output: 'HDMI-A-1'),
+          Workspace(id: '-99', name: 'special:magic', output: 'HDMI-A-1'),
+          Workspace(id: '3', name: '3', output: 'HDMI-A-2'),
+          Workspace(id: '2', name: '2', output: 'HDMI-A-1', focused: true),
+        ]),
+      ),
+      settle: const Duration(milliseconds: 500),
+    );
+    // Decorated names keep their number; named/special and foreign
+    // workspaces stay off the numbered rail.
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('1:web'), findsNothing);
+    expect(find.text('special:magic'), findsNothing);
+    expect(find.text('3'), findsNothing);
   });
 
   testWidgets('strip renders modules in configured order', (tester) async {

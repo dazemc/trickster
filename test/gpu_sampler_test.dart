@@ -116,9 +116,7 @@ void main() {
 
   test('skips NVML when no NVIDIA driver or card is present', () async {
     final root = _createRoot({}, nvidiaDriver: false);
-    final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.9),
-    ]);
+    final nvml = FakeNvmlReader(const [NvidiaGpuSample(index: 0, usage: 0.9)]);
     final sampler = GpuSampler(
       drmRoot: root.path,
       nvml: nvml,
@@ -130,26 +128,29 @@ void main() {
     expect(nvml.reads, 0);
   });
 
-  test('a discovered NVIDIA card opens the gate without the proc file', () async {
-    final root = _createRoot(
-      {'card1': ('0x10de', null)},
-      runtimeStatus: {'card1': 'active'},
-      nvidiaDriver: false,
-    );
-    final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.9),
-    ]);
-    final sampler = GpuSampler(
-      drmRoot: root.path,
-      nvml: nvml,
-      nvidiaDriverPath: _driverPath(root),
-    );
-    addTearDown(sampler.dispose);
+  test(
+    'a discovered NVIDIA card opens the gate without the proc file',
+    () async {
+      final root = _createRoot(
+        {'card1': ('0x10de', null)},
+        runtimeStatus: {'card1': 'active'},
+        nvidiaDriver: false,
+      );
+      final nvml = FakeNvmlReader(const [
+        NvidiaGpuSample(index: 0, usage: 0.9),
+      ]);
+      final sampler = GpuSampler(
+        drmRoot: root.path,
+        nvml: nvml,
+        nvidiaDriverPath: _driverPath(root),
+      );
+      addTearDown(sampler.dispose);
 
-    final loads = await sampler.sample();
-    expect(nvml.reads, 1);
-    expect(loads.single.id, 'nvml0');
-  });
+      final loads = await sampler.sample();
+      expect(nvml.reads, 1);
+      expect(loads.single.id, 'nvml0');
+    },
+  );
 
   test('merges NVML readings with stable nvml ids', () async {
     final root = _createRoot({'card0': ('0x1002', '40')});
@@ -187,10 +188,7 @@ void main() {
 
     final loads = await sampler.sample();
     expect(loads.map((load) => load.label), ['GPU0', 'GPU1']);
-    expect(loads.map((load) => load.name), [
-      'RTX 4070 Ti',
-      'RTX 4070 Ti',
-    ]);
+    expect(loads.map((load) => load.name), ['RTX 4070 Ti', 'RTX 4070 Ti']);
   });
 
   test('leaves a runtime-suspended NVIDIA GPU asleep', () async {
@@ -198,9 +196,7 @@ void main() {
       {'card1': ('0x10de', null)},
       runtimeStatus: {'card1': 'suspended'},
     );
-    final nvml = FakeNvmlReader(const [
-      NvidiaGpuSample(index: 0, usage: 0.9),
-    ]);
+    final nvml = FakeNvmlReader(const [NvidiaGpuSample(index: 0, usage: 0.9)]);
     final sampler = GpuSampler(
       drmRoot: root.path,
       nvml: nvml,
@@ -239,9 +235,10 @@ void main() {
   });
 
   test('gpu load json round-trips', () {
-    final load = const GpuLoad(id: 'card0', label: 'AMD')
-        .append(0.4)
-        .append(0.7);
+    final load = const GpuLoad(
+      id: 'card0',
+      label: 'AMD',
+    ).append(0.4).append(0.7);
     final decoded = GpuLoad.fromJson(Map<String, dynamic>.from(load.toJson()));
     expect(decoded, load);
   });

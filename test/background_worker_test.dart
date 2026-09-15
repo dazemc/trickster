@@ -28,10 +28,7 @@ void main() {
       expect(result, ['hello', 42]);
 
       await expectLater(
-        worker.invoke<Object?>(
-          operation: 2,
-          decode: (response) => response,
-        ),
+        worker.invoke<Object?>(operation: 2, decode: (response) => response),
         throwsA(isA<BackgroundWorkerException>()),
       );
     } finally {

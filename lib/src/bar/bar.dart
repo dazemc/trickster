@@ -59,20 +59,27 @@ class TricksterBarStrip extends StatelessWidget {
     // The configured accent is the source unless the wallpaper is; the
     // sampled color is null until extraction lands, so the session and
     // brand colors still fall through. A stored pick selects the candidate
-    // closest to it in hue.
-    final wallpaperScope = WallpaperAccentScope.maybeOf(context);
-    final picked = colorFromHex(settings.accentWallpaperPick);
-    final sampled = settings.accentSource == AccentSource.wallpaper
+    // closest to it in hue. Appearance resolves per display, falling back to
+    // the global keys.
+    final wallpaper = context.watch<WallpaperAccentBloc>().state;
+    final outputName = output;
+    final source = settings.accentSourceFor(outputName);
+    final picked = colorFromHex(settings.accentWallpaperPickFor(outputName));
+    // Per-output sampling falls back to the first sampled output, so a
+    // display sharing the wallpaper still gets candidates.
+    final candidates = outputName == null
+        ? wallpaper.topCandidates
+        : wallpaper.candidatesFor(outputName);
+    final sampledWallpaper = outputName == null
+        ? wallpaper.color
+        : wallpaper.accentFor(outputName) ?? wallpaper.color;
+    final sampled = source == AccentSource.wallpaper
         ? picked == null
-              ? wallpaperScope?.color
-              : closestAccentCandidate(
-                      wallpaperScope?.candidates ?? const <Color>[],
-                      picked,
-                    ) ??
-                    wallpaperScope?.color
+              ? sampledWallpaper
+              : closestAccentCandidate(candidates, picked) ?? sampledWallpaper
         : null;
     final accent = resolveAccent(
-      settings: sampled ?? settings.accent,
+      settings: sampled ?? settings.accentFor(outputName),
       session: context.select((SessionBloc bloc) => bloc.state.accent),
     );
     final horizontal = side.isHorizontal;
@@ -351,10 +358,7 @@ class _WorkspacesRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<WorkspacesBloc, WorkspacesState>(
       builder: (context, state) {
-        final options = context.select(
-          (SettingsBloc bloc) => bloc.state.workspaces,
-        );
-        final workspaces = _countRail(state.workspaces, options.count, output);
+        final workspaces = _outputRail(state.workspaces, output);
         final pill = WorkspacesPill(
           accent: accent,
           workspaces: workspaces,
@@ -379,41 +383,32 @@ class _WorkspacesRail extends StatelessWidget {
   }
 }
 
-/// Denial's 1..count rail: every strip shows the configured numbers, with
-/// active and occupied resolved against [output]'s slice of the compositor
-/// snapshot. A number living on another output renders empty here; the
-/// backends move or create it when pressed.
-List<Workspace> _countRail(
-  List<Workspace> workspaces,
-  int count,
-  String? output,
-) {
-  final byId = <String, Workspace>{
-    for (final workspace in workspaces) workspace.id: workspace,
-  };
-  final knownOutput = output != null && output.isNotEmpty;
-  return [
-    for (var number = 1; number <= count; number++)
-      _railEntry(byId['$number'], number, knownOutput ? output : null),
-  ];
-}
-
-Workspace _railEntry(Workspace? existing, int number, String? output) {
-  if (existing == null) {
-    return Workspace(id: '$number', name: '$number', output: output ?? '');
+/// The workspaces the compositor places on [output], ordered by id, with the
+/// numeric id as the printed label (decorated names keep their number). The
+/// rail mirrors the compositor; Trickster neither synthesizes numbers nor
+/// moves workspaces.
+List<Workspace> _outputRail(List<Workspace> workspaces, String? output) {
+  if (output == null || output.isEmpty) {
+    return const <Workspace>[];
   }
-  if (output != null &&
-      existing.output.isNotEmpty &&
-      existing.output != output) {
-    return Workspace(id: '$number', name: '$number', output: output);
+  final rail = <Workspace>[];
+  for (final workspace in workspaces) {
+    final number = int.tryParse(workspace.id);
+    if (workspace.output != output || number == null || number <= 0) {
+      continue;
+    }
+    rail.add(
+      Workspace(
+        id: workspace.id,
+        name: '$number',
+        output: workspace.output,
+        focused: workspace.focused,
+        occupied: workspace.occupied,
+        urgent: workspace.urgent,
+      ),
+    );
   }
-  return Workspace(
-    id: '$number',
-    name: '$number',
-    output: output ?? '',
-    focused: existing.focused,
-    occupied: existing.occupied,
-  );
+  return rail;
 }
 
 class TricksterBar {

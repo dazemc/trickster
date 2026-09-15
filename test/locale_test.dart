@@ -6,9 +6,7 @@ Future<void> _pumpScope(WidgetTester tester, {Locale? locale}) async {
   await tester.pumpWidget(
     TricksterLocalizationScope(
       locale: locale,
-      child: Builder(
-        builder: (context) => Text(context.l10n.batteryTitle),
-      ),
+      child: Builder(builder: (context) => Text(context.l10n.batteryTitle)),
     ),
   );
 }

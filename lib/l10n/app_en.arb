@@ -144,9 +144,21 @@
   "@settingsAppearanceCaption": {
     "description": "Caption under the appearance page title."
   },
+  "settingsAppearancePerDisplay": "Per display",
+  "@settingsAppearancePerDisplay": {
+    "description": "Caption above the appearance target chips."
+  },
+  "settingsAppearanceAllDisplays": "All displays",
+  "@settingsAppearanceAllDisplays": {
+    "description": "Appearance target chip that edits the global keys."
+  },
   "settingsAccentPresets": "Presets",
   "@settingsAccentPresets": {
     "description": "Accessible label for the accent preset swatches."
+  },
+  "settingsAccentColor": "Accent color",
+  "@settingsAccentColor": {
+    "description": "Name of the custom accent color option."
   },
   "settingsAccentReset": "Reset",
   "@settingsAccentReset": {
@@ -181,6 +193,31 @@
       }
     }
   },
+  "settingsModulesUnavailable": "Unavailable",
+  "@settingsModulesUnavailable": {
+    "description": "Heading for modules this machine cannot run."
+  },
+  "settingsUnavailableNoBattery": "No battery detected",
+  "@settingsUnavailableNoBattery": {
+    "description": "Reason shown when no battery is detected."
+  },
+  "settingsModuleOptions": "{module} options",
+  "@settingsModuleOptions": {
+    "description": "Gear label revealing one module's options.",
+    "placeholders": {
+      "module": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsModulesEmptyZone": "Drop a module here",
+  "@settingsModulesEmptyZone": {
+    "description": "Hint shown inside an empty placement segment."
+  },
+  "settingsModulesDisabled": "Disabled",
+  "@settingsModulesDisabled": {
+    "description": "Heading for modules that are turned off."
+  },
   "settingsResetHint": "Revert to the default value",
   "@settingsResetHint": {
     "description": "Hint for a control that reverts one option to its default."
@@ -200,6 +237,10 @@
   "settingsPlacementTrailing": "Trailing",
   "@settingsPlacementTrailing": {
     "description": "Placement chip for the strip's trailing edge."
+  },
+  "settingsModuleDrag": "Drag to reorder",
+  "@settingsModuleDrag": {
+    "description": "Handle label for dragging a module row."
   },
   "settingsModuleToggleHint": "Toggles the module",
   "@settingsModuleToggleHint": {
@@ -300,14 +341,6 @@
   "settingsOptionsCaption": "Tune the values each pill uses.",
   "@settingsOptionsCaption": {
     "description": "Caption under the module options page title."
-  },
-  "settingsWorkspacesSection": "Workspaces",
-  "@settingsWorkspacesSection": {
-    "description": "Section heading for workspace rail options."
-  },
-  "settingsWorkspacesCount": "Workspace count",
-  "@settingsWorkspacesCount": {
-    "description": "Label for the workspace count slider."
   },
   "settingsClockSection": "Clock",
   "@settingsClockSection": {
@@ -428,6 +461,10 @@
   "settingsAccentWallpaperEmpty": "Waiting for the wallpaper sample…",
   "@settingsAccentWallpaperEmpty": {
     "description": "Shown when the wallpaper sampler has produced no accent yet."
+  },
+  "settingsAccentWallpaperGrim": "With grim installed, Trickster can sample the actual backdrop.",
+  "@settingsAccentWallpaperGrim": {
+    "description": "Hint beside the waiting message when no wallpaper sample exists."
   },
   "settingsCopyHex": "Copy {hex}",
   "@settingsCopyHex": {

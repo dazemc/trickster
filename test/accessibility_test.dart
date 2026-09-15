@@ -22,6 +22,8 @@ import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 const _trayItem = SystemTrayItem(
@@ -36,13 +38,15 @@ const _trayItem = SystemTrayItem(
 );
 
 /// Mirrors the shell keymap the app root installs.
-Widget _keymap(Widget child) => Shortcuts(
-  shortcuts: shellShortcuts,
-  child: Actions(
-    actions: WidgetsApp.defaultActions,
-    child: FocusScope(
-      autofocus: true,
-      child: TricksterLocalizationScope(child: Center(child: child)),
+Widget _keymap(Widget child) => withOverlayBlocs(
+  Shortcuts(
+    shortcuts: shellShortcuts,
+    child: Actions(
+      actions: WidgetsApp.defaultActions,
+      child: FocusScope(
+        autofocus: true,
+        child: TricksterLocalizationScope(child: Center(child: child)),
+      ),
     ),
   ),
 );

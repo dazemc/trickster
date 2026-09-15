@@ -109,7 +109,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAppearanceCaption => '状态栏使用的强调色。';
 
   @override
+  String get settingsAppearancePerDisplay => '每个显示器';
+
+  @override
+  String get settingsAppearanceAllDisplays => '所有显示器';
+
+  @override
   String get settingsAccentPresets => '预设';
+
+  @override
+  String get settingsAccentColor => '强调色';
 
   @override
   String get settingsAccentReset => '重置';
@@ -135,6 +144,23 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get settingsModulesUnavailable => '不可用';
+
+  @override
+  String get settingsUnavailableNoBattery => '未检测到电池';
+
+  @override
+  String settingsModuleOptions(String module) {
+    return '$module 选项';
+  }
+
+  @override
+  String get settingsModulesEmptyZone => '将模块拖到这里';
+
+  @override
+  String get settingsModulesDisabled => '已禁用';
+
+  @override
   String get settingsResetHint => '恢复默认值';
 
   @override
@@ -148,6 +174,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsPlacementTrailing => '末尾';
+
+  @override
+  String get settingsModuleDrag => '拖动排序';
 
   @override
   String get settingsModuleToggleHint => '切换该模块';
@@ -223,12 +252,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsOptionsCaption => '调整各组件的具体数值。';
-
-  @override
-  String get settingsWorkspacesSection => '工作区';
-
-  @override
-  String get settingsWorkspacesCount => '工作区数量';
 
   @override
   String get settingsClockSection => '时钟';
@@ -319,6 +342,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsAccentWallpaperEmpty => '正在等待壁纸采样…';
+
+  @override
+  String get settingsAccentWallpaperGrim =>
+      '安装 grim 后，Trickster 可以采样此显示器的实际背景色。';
 
   @override
   String settingsCopyHex(Object hex) {

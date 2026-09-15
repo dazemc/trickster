@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
-import 'package:trickster/src/settings/controller.dart';
-import 'package:trickster/src/settings/scope.dart';
+import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
@@ -40,27 +40,27 @@ class _DisplaysPageState extends State<DisplaysPage> {
   }
 
   /// Live preview while a control moves, saved once the movement pauses.
-  void _apply(SettingsAppController controller, OutputsConfig next) {
-    controller.previewOutputs(next);
+  void _apply(SettingsAppBloc bloc, OutputsConfig next) {
+    bloc.add(SettingsAppOutputsPreviewed(next));
     _saveTimer?.cancel();
     _saveTimer = Timer(
       const Duration(milliseconds: 250),
-      () => unawaited(controller.saveOutputs(next)),
+      () => bloc.add(SettingsAppOutputsSaveRequested(next)),
     );
   }
 
   /// Discrete choices save immediately.
-  void _applyNow(SettingsAppController controller, OutputsConfig next) {
+  void _applyNow(SettingsAppBloc bloc, OutputsConfig next) {
     _saveTimer?.cancel();
     _saveTimer = null;
-    controller.previewOutputs(next);
-    unawaited(controller.saveOutputs(next));
+    bloc.add(SettingsAppOutputsPreviewed(next));
+    bloc.add(SettingsAppOutputsSaveRequested(next));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = SettingsAppScope.of(context);
+    final controller = context.watch<SettingsAppBloc>();
     final outputs = controller.outputs;
     final available = controller.availableOutputs;
     final selected = outputs.connectors.isEmpty
@@ -85,29 +85,52 @@ class _DisplaysPageState extends State<DisplaysPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final side in const [
-                    SystemBarSide.top,
-                    SystemBarSide.bottom,
-                    SystemBarSide.left,
-                    SystemBarSide.right,
-                    SystemBarSide.hidden,
-                  ])
-                    SettingsChoiceChip(
-                      key: ValueKey<String>('side-${side.name}'),
-                      label: _sideLabel(l10n, side),
-                      selected: outputs.side == side,
-                      onPressed: () => _applyNow(
-                        controller,
-                        outputs.copyWith(
-                          side: side,
-                          thickness: _thicknessForSide(side, outputs),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final side in const [
+                          SystemBarSide.top,
+                          SystemBarSide.bottom,
+                          SystemBarSide.left,
+                          SystemBarSide.right,
+                          SystemBarSide.hidden,
+                        ])
+                          SettingsChoiceChip(
+                            key: ValueKey<String>('side-${side.name}'),
+                            label: _sideLabel(l10n, side),
+                            selected: outputs.side == side,
+                            onPressed: () => _applyNow(
+                              controller,
+                              outputs.copyWith(
+                                side: side,
+                                thickness: _thicknessForSide(side, outputs),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-side'),
+                    label: l10n.settingsResetOption(l10n.settingsSideLabel),
+                    enabled: outputs.side != SystemBarSide.top,
+                    onPressed: () => _applyNow(
+                      controller,
+                      outputs.copyWith(
+                        side: SystemBarSide.top,
+                        thickness: _thicknessForSide(
+                          SystemBarSide.top,
+                          outputs,
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 22),
@@ -123,6 +146,23 @@ class _DisplaysPageState extends State<DisplaysPage> {
                   Text(
                     '${outputs.thickness.round()}',
                     style: ShellText.systemBarValue,
+                  ),
+                  const Spacer(),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-thickness'),
+                    label: l10n.settingsResetOption(
+                      l10n.settingsThicknessLabel,
+                    ),
+                    enabled:
+                        outputs.side != SystemBarSide.hidden &&
+                        outputs.thickness.round() !=
+                            _defaultThickness(outputs.side).round(),
+                    onPressed: () => _applyNow(
+                      controller,
+                      outputs.copyWith(
+                        thickness: _defaultThickness(outputs.side),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -146,11 +186,26 @@ class _DisplaysPageState extends State<DisplaysPage> {
                       ),
               ),
               const SizedBox(height: 22),
-              Text(
-                l10n.settingsOutputsLabel,
-                style: ShellText.systemBarCaption.copyWith(
-                  color: ShellMediaColors.lightForegroundSecondary,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.settingsOutputsLabel,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                  SettingsResetButton(
+                    key: const ValueKey<String>('reset-outputs'),
+                    label: l10n.settingsResetOption(l10n.settingsOutputsLabel),
+                    enabled: outputs.connectors.isNotEmpty,
+                    onPressed: () => _applyNow(
+                      controller,
+                      outputs.copyWith(connectors: const <String>[]),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               if (available.isEmpty)
@@ -216,7 +271,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
   }
 
   void _toggleOutput(
-    SettingsAppController controller,
+    SettingsAppBloc controller,
     OutputsConfig outputs,
     List<LayerOutput> available,
     String name,
@@ -249,6 +304,8 @@ class _DisplaysPageState extends State<DisplaysPage> {
 }
 
 /// The smallest band that does not clip that orientation's pills.
+double _defaultThickness(SystemBarSide side) => side.isHorizontal ? 32 : 72;
+
 double _minThickness(SystemBarSide side) {
   return side.isHorizontal ? 20 : _DisplaysPageState._verticalMinThickness;
 }

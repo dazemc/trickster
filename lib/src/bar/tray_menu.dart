@@ -27,14 +27,9 @@ import 'package:trickster/src/theme/tokens.dart';
 /// with the panel anchored at the strip's inner edge. Material's tap-region
 /// dismissal covers the whole output because the surface does.
 class TrayMenuSurface extends StatefulWidget {
-  const TrayMenuSurface({
-    required this.session,
-    required this.controller,
-    super.key,
-  });
+  const TrayMenuSurface({required this.session, super.key});
 
   final TrayMenuSession session;
-  final TrayMenuController controller;
 
   @override
   State<TrayMenuSurface> createState() => _TrayMenuSurfaceState();
@@ -70,7 +65,7 @@ class _TrayMenuSurfaceState extends State<TrayMenuSurface> {
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.escape) {
-      unawaited(widget.controller.close());
+      context.read<TrayMenuBloc>().add(const TrayMenuDismissed());
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -117,7 +112,8 @@ class _TrayMenuSurfaceState extends State<TrayMenuSurface> {
                 controller: _menuController,
                 consumeOutsideTap: true,
                 style: _menuStyle(context, session.accent),
-                onClose: () => unawaited(widget.controller.close()),
+                onClose: () =>
+                    context.read<TrayMenuBloc>().add(const TrayMenuDismissed()),
                 menuChildren: _buildMenuChildren(
                   context,
                   session.accent,
@@ -133,9 +129,10 @@ class _TrayMenuSurfaceState extends State<TrayMenuSurface> {
   }
 
   Future<void> _activate(SystemTrayMenuEntry entry) async {
-    final controller = widget.controller;
     await _trayBloc.activateMenuEntry(widget.session.item, entry.id);
-    await controller.close();
+    if (mounted) {
+      context.read<TrayMenuBloc>().add(const TrayMenuDismissed());
+    }
   }
 
   List<Widget> _buildMenuChildren(

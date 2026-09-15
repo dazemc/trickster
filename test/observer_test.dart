@@ -6,8 +6,6 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/observer.dart';
 
-
-
 class _FakeCpuSampler extends CpuSampler {
   final controller = StreamController<CpuSample>.broadcast();
 

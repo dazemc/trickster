@@ -144,9 +144,21 @@
   "@settingsAppearanceCaption": {
     "description": "Caption under the appearance page title."
   },
+  "settingsAppearancePerDisplay": "每个显示器",
+  "@settingsAppearancePerDisplay": {
+    "description": "Caption above the appearance target chips."
+  },
+  "settingsAppearanceAllDisplays": "所有显示器",
+  "@settingsAppearanceAllDisplays": {
+    "description": "Appearance target chip that edits the global keys."
+  },
   "settingsAccentPresets": "预设",
   "@settingsAccentPresets": {
     "description": "Accessible label for the accent preset swatches."
+  },
+  "settingsAccentColor": "强调色",
+  "@settingsAccentColor": {
+    "description": "Name of the custom accent color option."
   },
   "settingsAccentReset": "重置",
   "@settingsAccentReset": {
@@ -181,6 +193,31 @@
       }
     }
   },
+  "settingsModulesUnavailable": "不可用",
+  "@settingsModulesUnavailable": {
+    "description": "Heading for modules this machine cannot run."
+  },
+  "settingsUnavailableNoBattery": "未检测到电池",
+  "@settingsUnavailableNoBattery": {
+    "description": "Reason shown when no battery is detected."
+  },
+  "settingsModuleOptions": "{module} 选项",
+  "@settingsModuleOptions": {
+    "description": "Gear label revealing one module's options.",
+    "placeholders": {
+      "module": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsModulesEmptyZone": "将模块拖到这里",
+  "@settingsModulesEmptyZone": {
+    "description": "Hint shown inside an empty placement segment."
+  },
+  "settingsModulesDisabled": "已禁用",
+  "@settingsModulesDisabled": {
+    "description": "Heading for modules that are turned off."
+  },
   "settingsResetHint": "恢复默认值",
   "@settingsResetHint": {
     "description": "Hint for a control that reverts one option to its default."
@@ -200,6 +237,10 @@
   "settingsPlacementTrailing": "末尾",
   "@settingsPlacementTrailing": {
     "description": "Placement chip for the strip's trailing edge."
+  },
+  "settingsModuleDrag": "拖动排序",
+  "@settingsModuleDrag": {
+    "description": "Handle label for dragging a module row."
   },
   "settingsModuleToggleHint": "切换该模块",
   "@settingsModuleToggleHint": {
@@ -300,14 +341,6 @@
   "settingsOptionsCaption": "调整各组件的具体数值。",
   "@settingsOptionsCaption": {
     "description": "Caption under the module options page title."
-  },
-  "settingsWorkspacesSection": "工作区",
-  "@settingsWorkspacesSection": {
-    "description": "Section heading for workspace rail options."
-  },
-  "settingsWorkspacesCount": "工作区数量",
-  "@settingsWorkspacesCount": {
-    "description": "Label for the workspace count slider."
   },
   "settingsClockSection": "时钟",
   "@settingsClockSection": {
@@ -428,6 +461,10 @@
   "settingsAccentWallpaperEmpty": "正在等待壁纸采样…",
   "@settingsAccentWallpaperEmpty": {
     "description": "Shown when the wallpaper sampler has produced no accent yet."
+  },
+  "settingsAccentWallpaperGrim": "安装 grim 后，Trickster 可以采样此显示器的实际背景色。",
+  "@settingsAccentWallpaperGrim": {
+    "description": "Hint beside the waiting message when no wallpaper sample exists."
   },
   "settingsCopyHex": "复制 {hex}",
   "@settingsCopyHex": {

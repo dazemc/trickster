@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
@@ -41,16 +42,20 @@ class _FakeLayerShell extends LayerShell {
   }
 }
 
-Future<void> _pump(WidgetTester tester, OverlayTooltipController controller) {
+Future<void> _pump(
+  WidgetTester tester,
+  OverlayTooltipBloc bloc, {
+  CpuSample sample = const CpuSample(0.42),
+}) {
   return tester.pumpWidget(
-    OverlayTooltipScope(
-      notifier: controller,
-      child: const TricksterLocalizationScope(
+    BlocProvider<OverlayTooltipBloc>.value(
+      value: bloc,
+      child: TricksterLocalizationScope(
         child: StripGeometry(
           side: SystemBarSide.top,
           thickness: 32,
           child: Center(
-            child: CpuPill(accent: _accent, sample: CpuSample(0.42)),
+            child: CpuPill(accent: _accent, sample: sample),
           ),
         ),
       ),
@@ -63,9 +68,9 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = OverlayTooltipController(layerShell: shell);
-    addTearDown(controller.dispose);
-    await _pump(tester, controller);
+    final bloc = OverlayTooltipBloc(layerShell: shell);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
@@ -73,11 +78,12 @@ void main() {
     await tester.pump();
     await mouse.moveTo(tester.getCenter(find.byType(CpuPill)));
     await tester.pump();
-    expect(controller.isOpen, isFalse);
+    expect(bloc.state.isOpen, isFalse);
 
     await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
     expect(shell.opened, <int>[tester.view.viewId]);
-    expect(controller.session?.label, 'CPU 42%');
+    expect(bloc.state.session?.label, 'CPU 42%');
     expect(shell.shown, <int>[100]);
 
     // Hide-on-exit is the same controller path the tray tooltip tests cover;
@@ -86,23 +92,10 @@ void main() {
 
   testWidgets('a live label update retargets the open tooltip', (tester) async {
     final shell = _FakeLayerShell();
-    final controller = OverlayTooltipController(layerShell: shell);
-    addTearDown(controller.dispose);
+    final bloc = OverlayTooltipBloc(layerShell: shell);
+    addTearDown(bloc.close);
 
-    await tester.pumpWidget(
-      OverlayTooltipScope(
-        notifier: controller,
-        child: const TricksterLocalizationScope(
-          child: StripGeometry(
-            side: SystemBarSide.top,
-            thickness: 32,
-            child: Center(
-              child: CpuPill(accent: _accent, sample: CpuSample(0.42)),
-            ),
-          ),
-        ),
-      ),
-    );
+    await _pump(tester, bloc);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
@@ -110,25 +103,13 @@ void main() {
     await tester.pump();
     await mouse.moveTo(tester.getCenter(find.byType(CpuPill)));
     await tester.pump(const Duration(milliseconds: 600));
-    expect(controller.session?.label, 'CPU 42%');
+    await tester.pump();
+    expect(bloc.state.session?.label, 'CPU 42%');
 
     // Rebuilding the pill with a new sample updates the open tooltip.
-    await tester.pumpWidget(
-      OverlayTooltipScope(
-        notifier: controller,
-        child: const TricksterLocalizationScope(
-          child: StripGeometry(
-            side: SystemBarSide.top,
-            thickness: 32,
-            child: Center(
-              child: CpuPill(accent: _accent, sample: CpuSample(0.77)),
-            ),
-          ),
-        ),
-      ),
-    );
+    await _pump(tester, bloc, sample: const CpuSample(0.77));
     await tester.pump();
-    expect(controller.session?.label, 'CPU 77%');
+    expect(bloc.state.session?.label, 'CPU 77%');
     expect(shell.opened, hasLength(1));
   });
 }

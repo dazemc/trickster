@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/key_value.dart';
@@ -97,26 +99,58 @@ void main() {
       expect(() => BarSettings.decode('[]'), throwsFormatException);
     });
 
-    test('workspace count round-trips and retires the old keys', () {
+    test('the retired workspaces section is ignored', () {
+      // Chain settings retired: old documents still decode, the section is
+      // dropped, and workspace placement belongs to the compositor.
+      const legacy =
+          '{"revision": 1, "workspaces": {'
+          '"workspace_count": 7, '
+          '"per_output": {"HDMI-A-1": 6}, '
+          '"display_order": ["HDMI-A-1", "HDMI-A-2"]}}';
+      final decoded = BarSettings.decode(legacy);
+      expect(decoded.revision, 1);
+      expect(decoded.encode(), isNot(contains('"workspaces": {')));
+    });
+
+    test('per-display appearance round-trips and falls back', () {
       const settings = BarSettings(
-        revision: 3,
-        workspaces: WorkspaceOptions(count: 7),
+        revision: 2,
+        accent: Color(0xff112233),
+        accentSource: AccentSource.custom,
+        accentWallpaperPick: '#445566',
+        displayAppearance: {
+          'HDMI-A-1': DisplayAppearance(
+            accent: Color(0xff778899),
+            accentSource: AccentSource.wallpaper,
+            accentWallpaperPick: '#AABBCC',
+          ),
+          'HDMI-A-2': DisplayAppearance(accentSource: AccentSource.custom),
+        },
       );
       final decoded = BarSettings.decode(settings.encode());
-      expect(decoded.workspaces.count, 7);
-      const bare = BarSettings();
-      expect(bare.workspaces.count, 4);
+      expect(decoded.displayAppearance.length, 2);
+      expect(decoded.accentFor('HDMI-A-1'), const Color(0xff778899));
+      expect(decoded.accentSourceFor('HDMI-A-1'), AccentSource.wallpaper);
+      expect(decoded.accentWallpaperPickFor('HDMI-A-1'), '#AABBCC');
+      // Unset fields fall back to the global keys.
+      expect(decoded.accentFor('HDMI-A-2'), const Color(0xff112233));
+      expect(decoded.accentWallpaperPickFor('HDMI-A-2'), '#445566');
+      expect(decoded.accentSourceFor('HDMI-A-2'), AccentSource.custom);
+      expect(decoded.accentFor('eDP-1'), const Color(0xff112233));
+      expect(decoded.usesWallpaperAccent, isTrue);
+
       expect(
-        BarSettings.decode('{"revision": 1}').workspaces,
-        const WorkspaceOptions(),
+        () => BarSettings.decode(
+          '{"revision": 1, "display_appearance": {"HDMI-A-1": 3}}',
+        ),
+        throwsFormatException,
       );
-      // Documents written before the count option still decode; the retired
-      // keys are ignored.
       expect(
-        BarSettings.decode(
-          '{"revision": 1, "workspaces": {"show_empty": false, "max": 5}}',
-        ).workspaces.count,
-        4,
+        () => BarSettings.decode(
+          '{"revision": 1, "display_appearance": '
+          '{"HDMI-A-1": {"accent": "nope"}}}',
+        ),
+        throwsFormatException,
       );
     });
 
@@ -242,31 +276,6 @@ void main() {
         () => BarSettings.decode(
           '{"revision": 1, "meter": {"caption_source": "vendor"}}',
         ),
-        throwsFormatException,
-      );
-    });
-
-    test('invalid workspace options are rejected at decode', () {
-      expect(
-        () => BarSettings.decode(
-          '{"revision": 1, "workspaces": {"workspace_count": 1}}',
-        ),
-        throwsFormatException,
-      );
-      expect(
-        () => BarSettings.decode(
-          '{"revision": 1, "workspaces": {"workspace_count": 10}}',
-        ),
-        throwsFormatException,
-      );
-      expect(
-        () => BarSettings.decode(
-          '{"revision": 1, "workspaces": {"workspace_count": "4"}}',
-        ),
-        throwsFormatException,
-      );
-      expect(
-        () => BarSettings.decode('{"revision": 1, "workspaces": []}'),
         throwsFormatException,
       );
     });

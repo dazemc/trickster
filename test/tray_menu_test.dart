@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -10,6 +12,7 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/tray_menu.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -121,49 +124,64 @@ class _FakeTrayService extends StatusNotifierService {
 
 const _click = Offset(120, 10);
 
-Future<void> _show(TrayMenuController controller) {
-  return controller.show(
-    barViewId: 0,
-    item: _item,
-    entries: _entries,
-    accent: _accent,
-    click: _click,
-    side: SystemBarSide.top,
-    thickness: 32,
+/// The menu bloc wired like the app: a failed surface falls back to the
+/// item's own D-Bus context menu through the tray bloc.
+TrayMenuBloc _menuBloc(_FakeLayerShell shell, TrayBloc tray) {
+  return TrayMenuBloc(
+    layerShell: shell,
+    onUnavailable: (item, position) {
+      unawaited(tray.invoke(item, SystemTrayAction.contextMenu, position));
+    },
+  );
+}
+
+/// Queues the menu request; tests pump (or drain) to let the bloc open the
+/// surface.
+void _request(TrayMenuBloc menu) {
+  menu.add(
+    const TrayMenuRequested(
+      barViewId: 0,
+      item: _item,
+      entries: _entries,
+      accent: _accent,
+      click: _click,
+      side: SystemBarSide.top,
+      thickness: 32,
+    ),
   );
 }
 
 Future<void> _pumpMenu(
   WidgetTester tester,
-  TrayMenuController controller,
+  TrayMenuBloc menu,
   TrayBloc bloc,
 ) async {
-  await _show(controller);
+  _request(menu);
   await tester.pumpWidget(
     BlocProvider<TrayBloc>.value(
       value: bloc,
-      child: TricksterLocalizationScope(
-        child: MediaQuery(
-          data: const MediaQueryData(size: Size(800, 600)),
-          child: TapRegionSurface(
-            child: Overlay(
-              initialEntries: [
-                OverlayEntry(
-                  builder: (context) => ListenableBuilder(
-                    listenable: controller,
-                    builder: (context, _) {
-                      final session = controller.session;
-                      if (session == null) {
-                        return const SizedBox.shrink();
-                      }
-                      return TrayMenuSurface(
-                        session: session,
-                        controller: controller,
-                      );
-                    },
+      child: BlocProvider<TrayMenuBloc>.value(
+        value: menu,
+        child: TricksterLocalizationScope(
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(800, 600)),
+            child: TapRegionSurface(
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (context) =>
+                        BlocBuilder<TrayMenuBloc, TrayMenuState>(
+                          builder: (context, state) {
+                            final session = state.session;
+                            if (session == null) {
+                              return const SizedBox.shrink();
+                            }
+                            return TrayMenuSurface(session: session);
+                          },
+                        ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -174,38 +192,42 @@ Future<void> _pumpMenu(
 
 Future<void> _pumpPill(
   WidgetTester tester,
-  TrayMenuController controller,
-  TrayBloc bloc, {
+  TrayMenuBloc menu,
+  TrayBloc bloc,
+  _FakeLayerShell shell, {
   bool menuAvailable = true,
 }) {
   return tester.pumpWidget(
     BlocProvider<TrayBloc>.value(
       value: bloc,
-      child: Shortcuts(
-        shortcuts: shellShortcuts,
-        child: Actions(
-          actions: WidgetsApp.defaultActions,
-          child: FocusScope(
-            autofocus: true,
-            child: TricksterLocalizationScope(
-              child: TrayMenuScope(
-                notifier: controller,
-                child: Center(
-                  child: TrayPill(
-                    accent: _accent,
-                    items: [
-                      SystemTrayItem(
-                        id: _item.id,
-                        title: _item.title,
-                        status: _item.status,
-                        iconName: _item.iconName,
-                        iconThemePath: _item.iconThemePath,
-                        iconPixmap: _item.iconPixmap,
-                        menuAvailable: menuAvailable,
-                        primaryOpensMenu: _item.primaryOpensMenu,
-                      ),
-                    ],
-                    onActivate: (item, position) {},
+      child: BlocProvider<TrayMenuBloc>.value(
+        value: menu,
+        child: BlocProvider<OverlayTooltipBloc>(
+          create: (_) => OverlayTooltipBloc(layerShell: shell),
+          child: Shortcuts(
+            shortcuts: shellShortcuts,
+            child: Actions(
+              actions: WidgetsApp.defaultActions,
+              child: FocusScope(
+                autofocus: true,
+                child: TricksterLocalizationScope(
+                  child: Center(
+                    child: TrayPill(
+                      accent: _accent,
+                      items: [
+                        SystemTrayItem(
+                          id: _item.id,
+                          title: _item.title,
+                          status: _item.status,
+                          iconName: _item.iconName,
+                          iconThemePath: _item.iconThemePath,
+                          iconPixmap: _item.iconPixmap,
+                          menuAvailable: menuAvailable,
+                          primaryOpensMenu: _item.primaryOpensMenu,
+                        ),
+                      ],
+                      onActivate: (item, position) {},
+                    ),
                   ),
                 ),
               ),
@@ -222,11 +244,12 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final service = _FakeTrayService(_entries);
     final bloc = TrayBloc(service: service);
     addTearDown(bloc.close);
-    await _pumpMenu(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpMenu(tester, menu, bloc);
     await tester.pumpAndSettle();
 
     expect(find.text('Play'), findsOneWidget);
@@ -236,16 +259,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.activated, [10]);
-    expect(controller.session, isNull);
+    expect(menu.state.session, isNull);
     expect(shell.closed, contains(100));
   });
 
   testWidgets('tapping outside dismisses the menu surface', (tester) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: _FakeTrayService(_entries));
     addTearDown(bloc.close);
-    await _pumpMenu(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpMenu(tester, menu, bloc);
     await tester.pumpAndSettle();
     expect(find.text('Play'), findsOneWidget);
 
@@ -260,10 +284,11 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: _FakeTrayService(_entries));
     addTearDown(bloc.close);
-    await _pumpMenu(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpMenu(tester, menu, bloc);
     await tester.pumpAndSettle();
     expect(find.text('Play'), findsOneWidget);
 
@@ -276,10 +301,11 @@ void main() {
 
   testWidgets('escape dismisses the menu surface', (tester) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: _FakeTrayService(_entries));
     addTearDown(bloc.close);
-    await _pumpMenu(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpMenu(tester, menu, bloc);
     await tester.pumpAndSettle();
     expect(find.text('Play'), findsOneWidget);
 
@@ -294,10 +320,11 @@ void main() {
     tester,
   ) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: _FakeTrayService(_entries));
     addTearDown(bloc.close);
-    await _pumpPill(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpPill(tester, menu, bloc, shell);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('tray-item-item')),
@@ -306,8 +333,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shell.opened, [tester.view.viewId]);
-    expect(controller.session?.entries, hasLength(2));
-    expect(shell.shown, contains(controller.session!.viewId));
+    expect(menu.state.session?.entries, hasLength(2));
+    expect(shell.shown, contains(menu.state.session!.viewId));
   });
 
   testWidgets('items without a menu fall back to the D-Bus context menu', (
@@ -315,10 +342,11 @@ void main() {
   ) async {
     final shell = _FakeLayerShell();
     final service = _FakeTrayService(null);
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: service);
     addTearDown(bloc.close);
-    await _pumpPill(tester, controller, bloc, menuAvailable: false);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpPill(tester, menu, bloc, shell, menuAvailable: false);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('tray-item-item')),
@@ -335,10 +363,11 @@ void main() {
   ) async {
     final shell = _FakeLayerShell()..failOpen = true;
     final service = _FakeTrayService(_entries);
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: service);
     addTearDown(bloc.close);
-    await _pumpPill(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpPill(tester, menu, bloc, shell);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('tray-item-item')),
@@ -347,16 +376,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shell.opened, isNotEmpty);
-    expect(controller.session, isNull);
+    expect(menu.state.session, isNull);
     expect(service.invoked, [SystemTrayAction.contextMenu]);
   });
 
   testWidgets('shift+F10 opens the focused item menu', (tester) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: _FakeTrayService(_entries));
     addTearDown(bloc.close);
-    await _pumpPill(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpPill(tester, menu, bloc, shell);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
@@ -366,15 +396,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shell.opened, [tester.view.viewId]);
-    expect(controller.session?.entries, hasLength(2));
+    expect(menu.state.session?.entries, hasLength(2));
   });
 
   testWidgets('the Menu key opens the focused item menu', (tester) async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
     final bloc = TrayBloc(service: _FakeTrayService(_entries));
     addTearDown(bloc.close);
-    await _pumpPill(tester, controller, bloc);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
+    await _pumpPill(tester, menu, bloc, shell);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
@@ -382,27 +413,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shell.opened, [tester.view.viewId]);
-    expect(controller.session, isNotNull);
+    expect(menu.state.session, isNotNull);
   });
 
   test('opening a menu destroys the previous surface', () async {
     final shell = _FakeLayerShell();
-    final controller = TrayMenuController(layerShell: shell);
-    Future<bool> open() => controller.show(
-      barViewId: 0,
-      item: _item,
-      entries: _entries,
-      accent: _accent,
-      click: Offset.zero,
-      side: SystemBarSide.top,
-      thickness: 32,
-    );
+    final bloc = TrayBloc(service: _FakeTrayService(_entries));
+    addTearDown(bloc.close);
+    final menu = _menuBloc(shell, bloc);
+    addTearDown(menu.close);
 
-    expect(await open(), isTrue);
-    final first = controller.session!.viewId;
-    expect(await open(), isTrue);
+    _request(menu);
+    await pumpEventQueue();
+    final first = menu.state.session!.viewId;
+    _request(menu);
+    await pumpEventQueue();
 
     expect(shell.closed, contains(first));
-    expect(controller.session!.viewId, isNot(first));
+    expect(menu.state.session!.viewId, isNot(first));
   });
 }

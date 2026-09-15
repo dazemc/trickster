@@ -128,22 +128,52 @@ void main() {
     cacheFile.parent.createSync(recursive: true);
     cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
 
-    final controller = WallpaperAccentController(
+    final controller = WallpaperAccentBloc(
       cache: WallpaperCache(root: cacheFile.parent),
     );
-    addTearDown(controller.dispose);
+    addTearDown(controller.close);
 
-    controller.update(enabled: true);
-    await _waitFor(() => controller.color != null);
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.color != null);
 
     final gray = File('${directory.path}/gray.png')
       ..writeAsBytesSync(base64Decode(_grayPng));
     // Writing the cache file is the daemon's change signal.
     cacheFile.writeAsStringSync('\u0000crop\u0000${gray.path}');
-    await _waitFor(() => controller.color == null);
+    await _waitFor(() => controller.state.color == null);
 
-    controller.update(enabled: false);
-    expect(controller.color, isNull);
-    expect(controller.enabled, isFalse);
+    controller.add(const WallpaperAccentEnabled(enabled: false));
+    await controller.stream.firstWhere((state) => !state.enabled);
+    expect(controller.state.color, isNull);
+    expect(controller.state.enabled, isFalse);
   });
+
+  test(
+    'an output without a cache file falls back to the sampled one',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('trickster-wall');
+      addTearDown(() => directory.delete(recursive: true));
+      final red = File('${directory.path}/red.png')
+        ..writeAsBytesSync(base64Decode(_redPng));
+      final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+      cacheFile.parent.createSync(recursive: true);
+      cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
+
+      final controller = WallpaperAccentBloc(
+        cache: WallpaperCache(root: cacheFile.parent),
+      );
+      addTearDown(controller.close);
+
+      controller.add(const WallpaperAccentEnabled(enabled: true));
+      await _waitFor(() => controller.state.color != null);
+
+      expect(controller.state.accentFor('HDMI-A-1'), controller.state.color);
+      expect(controller.state.accentFor('HDMI-A-2'), controller.state.color);
+      expect(controller.state.candidatesFor('HDMI-A-1'), isNotEmpty);
+      expect(
+        controller.state.candidatesFor('HDMI-A-2'),
+        controller.state.candidatesFor('HDMI-A-1'),
+      );
+    },
+  );
 }

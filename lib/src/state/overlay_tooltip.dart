@@ -1,3 +1,5 @@
+import 'package:bloc/bloc.dart';
+import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/src/layout/system_bar.dart';
@@ -30,66 +32,195 @@ class OverlayTooltipSession {
   final double thickness;
 }
 
+sealed class OverlayTooltipEvent extends Equatable {
+  const OverlayTooltipEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+/// Shows [label] for [itemId] near the hovered item, replacing any tooltip
+/// already visible.
+class OverlayTooltipRequested extends OverlayTooltipEvent {
+  const OverlayTooltipRequested({
+    required this.barViewId,
+    required this.itemId,
+    required this.label,
+    required this.accent,
+    required this.click,
+    required this.side,
+    required this.thickness,
+  });
+
+  final int barViewId;
+  final String itemId;
+  final String label;
+  final WallpaperAccent accent;
+  final Offset click;
+  final SystemBarSide side;
+  final double thickness;
+
+  @override
+  List<Object?> get props => [
+    barViewId,
+    itemId,
+    label,
+    accent,
+    click,
+    side,
+    thickness,
+  ];
+}
+
+/// Dismisses the tooltip. When [itemId] names a different item the request
+/// is ignored, so a stale exit cannot hide a newer tooltip.
+class OverlayTooltipDismissed extends OverlayTooltipEvent {
+  const OverlayTooltipDismissed({this.itemId});
+
+  final String? itemId;
+
+  @override
+  List<Object?> get props => [itemId];
+}
+
+/// Drops remembered surfaces that no longer exist on the engine.
+class OverlayTooltipViewsRetained extends OverlayTooltipEvent {
+  const OverlayTooltipViewsRetained(this.viewIds);
+
+  final Set<int> viewIds;
+
+  @override
+  List<Object?> get props => [...viewIds];
+}
+
+/// The tooltip overlay: the visible session and the views it owns.
+class OverlayTooltipState extends Equatable {
+  const OverlayTooltipState({
+    this.session,
+    this.tooltipViewIds = const <int>{},
+  });
+
+  final OverlayTooltipSession? session;
+
+  /// Tooltip surfaces this process owns, open or closing; kept until the view
+  /// is gone so the surface never renders a bar strip mid-teardown.
+  final Set<int> tooltipViewIds;
+
+  bool get isOpen => session != null;
+
+  bool isTooltipView(int viewId) => tooltipViewIds.contains(viewId);
+
+  OverlayTooltipState copyWith({
+    Object? session = _unset,
+    Set<int>? tooltipViewIds,
+  }) {
+    return OverlayTooltipState(
+      session: identical(session, _unset)
+          ? this.session
+          : session as OverlayTooltipSession?,
+      tooltipViewIds: tooltipViewIds ?? this.tooltipViewIds,
+    );
+  }
+
+  @override
+  List<Object?> get props => [session, ...tooltipViewIds];
+
+  Map<String, Object?> toJson() {
+    final open = session;
+    return {
+      'tooltip_views': tooltipViewIds.toList()..sort(),
+      if (open != null)
+        'open': {
+          'view_id': open.viewId,
+          'item_id': open.itemId,
+          'label': open.label,
+          'click': {'dx': open.click.dx, 'dy': open.click.dy},
+          'side': open.side.name,
+          'thickness': open.thickness,
+        },
+    };
+  }
+
+  /// A session names a live engine view, so only the view bookkeeping is
+  /// rebuilt; the visible tooltip itself is runtime-only.
+  static OverlayTooltipState fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('overlay tooltip state must be an object');
+    }
+    final views = json['tooltip_views'];
+    return OverlayTooltipState(
+      tooltipViewIds: views is List
+          ? {
+              for (final view in views)
+                if (view is num) view.toInt(),
+            }
+          : const <int>{},
+    );
+  }
+}
+
+const _unset = Object();
+
 /// Owns the tooltip lifecycle: it opens a click-through overlay surface on
 /// the bar's output, retargets it as hover moves between items, and destroys
 /// it when the pointer leaves. The strip surface never changes size.
-class OverlayTooltipController extends ChangeNotifier {
-  OverlayTooltipController({required LayerShell layerShell})
-    : _layerShell = layerShell;
+class OverlayTooltipBloc
+    extends Bloc<OverlayTooltipEvent, OverlayTooltipState> {
+  OverlayTooltipBloc({required LayerShell layerShell})
+    : _layerShell = layerShell,
+      super(const OverlayTooltipState()) {
+    on<OverlayTooltipRequested>(_onRequested);
+    on<OverlayTooltipDismissed>(_onDismissed);
+    on<OverlayTooltipViewsRetained>((event, emit) {
+      emit(
+        state.copyWith(
+          tooltipViewIds: state.tooltipViewIds
+              .where((viewId) => event.viewIds.contains(viewId))
+              .toSet(),
+        ),
+      );
+    });
+  }
 
   final LayerShell _layerShell;
-  final Set<int> _tooltipViewIds = <int>{};
-  OverlayTooltipSession? _session;
   var _generation = 0;
-  var _disposed = false;
 
-  OverlayTooltipSession? get session => _session;
-  bool get isOpen => _session != null;
-
-  /// Whether [viewId] belongs to a tooltip surface (open or closing). Kept
-  /// until the view is gone so the surface never renders a strip mid-teardown.
-  bool isTooltipView(int viewId) => _tooltipViewIds.contains(viewId);
-
-  /// Shows [label] for [itemId] near the hovered item. A surface already
-  /// open on the same edge is retargeted in place, so moving between tray
-  /// items never churns Wayland surfaces.
-  Future<void> show({
-    required int barViewId,
-    required String itemId,
-    required String label,
-    required WallpaperAccent accent,
-    required Offset click,
-    required SystemBarSide side,
-    required double thickness,
-  }) async {
-    final existing = _session;
+  Future<void> _onRequested(
+    OverlayTooltipRequested event,
+    Emitter<OverlayTooltipState> emit,
+  ) async {
+    final existing = state.session;
     if (existing != null) {
-      if (existing.itemId == itemId && existing.label == label) {
+      if (existing.itemId == event.itemId && existing.label == event.label) {
         return;
       }
-      if (existing.side == side) {
-        _session = OverlayTooltipSession(
-          viewId: existing.viewId,
-          itemId: itemId,
-          label: label,
-          accent: accent,
-          click: click,
-          side: side,
-          thickness: thickness,
+      // A surface already open on the same edge is retargeted in place, so
+      // moving between tray items never churns Wayland surfaces.
+      if (existing.side == event.side) {
+        emit(
+          state.copyWith(
+            session: OverlayTooltipSession(
+              viewId: existing.viewId,
+              itemId: event.itemId,
+              label: event.label,
+              accent: event.accent,
+              click: event.click,
+              side: event.side,
+              thickness: event.thickness,
+            ),
+          ),
         );
-        _notify();
         return;
       }
     }
     final generation = ++_generation;
     if (existing != null) {
-      _session = null;
-      _notify();
+      emit(state.copyWith(session: null));
       await _layerShell.closeTooltipSurface(viewId: existing.viewId);
     }
     final viewId = await _layerShell.openTooltipSurface(
-      barViewId: barViewId,
-      side: side.name,
+      barViewId: event.barViewId,
+      side: event.side.name,
     );
     if (viewId == null || generation != _generation) {
       if (viewId != null) {
@@ -97,62 +228,34 @@ class OverlayTooltipController extends ChangeNotifier {
       }
       return;
     }
-    _tooltipViewIds.add(viewId);
-    _session = OverlayTooltipSession(
-      viewId: viewId,
-      itemId: itemId,
-      label: label,
-      accent: accent,
-      click: click,
-      side: side,
-      thickness: thickness,
+    emit(
+      state.copyWith(
+        session: OverlayTooltipSession(
+          viewId: viewId,
+          itemId: event.itemId,
+          label: event.label,
+          accent: event.accent,
+          click: event.click,
+          side: event.side,
+          thickness: event.thickness,
+        ),
+        tooltipViewIds: {...state.tooltipViewIds, viewId},
+      ),
     );
-    _notify();
     await _layerShell.showTooltipSurface(viewId: viewId);
   }
 
-  /// Dismisses the tooltip. When [itemId] names the hovered item the request
-  /// is ignored otherwise, so a stale exit cannot hide a newer tooltip.
-  Future<void> close({String? itemId}) async {
-    final session = _session;
-    if (session == null || (itemId != null && session.itemId != itemId)) {
+  Future<void> _onDismissed(
+    OverlayTooltipDismissed event,
+    Emitter<OverlayTooltipState> emit,
+  ) async {
+    final session = state.session;
+    if (session == null ||
+        (event.itemId != null && session.itemId != event.itemId)) {
       return;
     }
-    _session = null;
+    emit(state.copyWith(session: null));
     _generation += 1;
-    _notify();
     await _layerShell.closeTooltipSurface(viewId: session.viewId);
-  }
-
-  /// Drops remembered surfaces that no longer exist on the engine.
-  void retainViews(Set<int> viewIds) {
-    _tooltipViewIds.retainWhere(viewIds.contains);
-  }
-
-  void _notify() {
-    if (!_disposed) {
-      notifyListeners();
-    }
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
-  }
-}
-
-/// Exposes the [OverlayTooltipController] to the strip and tooltip surfaces.
-class OverlayTooltipScope extends InheritedNotifier<OverlayTooltipController> {
-  const OverlayTooltipScope({
-    required OverlayTooltipController super.notifier,
-    required super.child,
-    super.key,
-  });
-
-  static OverlayTooltipController? maybeOf(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<OverlayTooltipScope>()
-        ?.notifier;
   }
 }

@@ -1,30 +1,25 @@
 import 'dart:async';
 
 import 'package:trickster/src/config/settings.dart';
-import 'package:trickster/src/settings/controller.dart';
+import 'package:trickster/src/settings/bloc.dart';
 
-/// Applies a settings change to the controller immediately (live preview)
-/// and saves it after a short quiet period, so dragging a control or
-/// reordering several modules writes the document once.
+/// Applies a settings change to the bloc immediately (live preview) and saves
+/// it after a short quiet period, so dragging a control or reordering several
+/// modules writes the document once.
 class DebouncedSaver {
-  DebouncedSaver(
-    this.controller, {
-    this.delay = const Duration(milliseconds: 300),
-  });
+  DebouncedSaver(this.bloc, {this.delay = const Duration(milliseconds: 300)});
 
-  final SettingsAppController controller;
+  final SettingsAppBloc bloc;
   final Duration delay;
 
   Timer? _timer;
 
   /// [change] receives the current settings and returns the next ones.
   void apply(BarSettings Function(BarSettings) change) {
-    final next = change(controller.settings);
-    controller.preview(next);
+    final next = change(bloc.settings);
+    bloc.add(SettingsAppPreviewed(next));
     _timer?.cancel();
-    _timer = Timer(delay, () {
-      unawaited(controller.save(next));
-    });
+    _timer = Timer(delay, () => bloc.add(SettingsAppSaveRequested(next)));
   }
 
   void dispose() {

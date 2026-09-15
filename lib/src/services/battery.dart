@@ -12,16 +12,12 @@ class BatteryStatus extends Equatable {
   @override
   List<Object?> get props => [capacity, charging];
 
-  Map<String, Object?> toJson() => {
-    'capacity': capacity,
-    'charging': charging,
-  };
+  Map<String, Object?> toJson() => {'capacity': capacity, 'charging': charging};
 
-  static BatteryStatus fromJson(Map<String, dynamic> json) =>
-      BatteryStatus(
-        capacity: (json['capacity'] as num?)?.toInt(),
-        charging: (json['charging'] as bool?) ?? false,
-      );
+  static BatteryStatus fromJson(Map<String, dynamic> json) => BatteryStatus(
+    capacity: (json['capacity'] as num?)?.toInt(),
+    charging: (json['charging'] as bool?) ?? false,
+  );
 }
 
 class BatterySampler {

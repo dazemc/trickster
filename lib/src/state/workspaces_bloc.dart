@@ -50,7 +50,8 @@ class WorkspacesBloc extends Bloc<WorkspacesEvent, WorkspacesState> {
     on<WorkspacesStarted>(_onStarted);
     on<WorkspacesStopped>(_onStopped);
     on<WorkspacesSampled>(
-      (event, emit) => emit(WorkspacesState(sortedWorkspaces(event.workspaces))),
+      (event, emit) =>
+          emit(WorkspacesState(sortedWorkspaces(event.workspaces))),
     );
     on<WorkspacesFocusRequested>(_onFocusRequested);
   }

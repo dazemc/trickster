@@ -3,36 +3,6 @@ import 'dart:ui';
 
 import 'package:equatable/equatable.dart';
 
-/// Typed options for the workspace rail.
-class WorkspaceOptions extends Equatable {
-  const WorkspaceOptions({this.count = 4});
-
-  /// Workspaces shown on every rail as 1..count, Denial's model. The old
-  /// `show_empty`/`max` keys are retired and ignored on decode.
-  final int count;
-
-  @override
-  List<Object?> get props => [count];
-
-  Map<String, Object?> toJson() => {'workspace_count': count};
-
-  static WorkspaceOptions fromJson(Object? json) {
-    if (json == null) {
-      return const WorkspaceOptions();
-    }
-    if (json is! Map<String, dynamic>) {
-      throw const FormatException('settings.workspaces must be an object');
-    }
-    final count = json['workspace_count'];
-    if (count != null && (count is! int || count < 2 || count > 9)) {
-      throw const FormatException(
-        'settings.workspaces.workspace_count must be 2..9',
-      );
-    }
-    return WorkspaceOptions(count: count as int? ?? 4);
-  }
-}
-
 /// Where the bar's accent comes from.
 enum AccentSource {
   custom('custom'),
@@ -54,6 +24,61 @@ enum AccentSource {
     throw FormatException(
       'settings.accent_source must be one of '
       '${AccentSource.values.map((source) => source.wire).join(', ')}',
+    );
+  }
+}
+
+/// Per-display appearance overrides keyed by connector; absent keys fall
+/// back to the global appearance settings on [BarSettings].
+class DisplayAppearance extends Equatable {
+  const DisplayAppearance({
+    this.accent,
+    this.accentSource,
+    this.accentWallpaperPick,
+  });
+
+  final Color? accent;
+  final AccentSource? accentSource;
+  final String? accentWallpaperPick;
+
+  bool get isEmpty =>
+      accent == null && accentSource == null && accentWallpaperPick == null;
+
+  @override
+  List<Object?> get props => [accent, accentSource, accentWallpaperPick];
+
+  Map<String, Object?> toJson() => {
+    if (accent != null)
+      'accent':
+          '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
+    if (accentSource != null) 'accent_source': accentSource!.wire,
+    if (accentWallpaperPick != null)
+      'accent_wallpaper_pick': accentWallpaperPick,
+  };
+
+  static DisplayAppearance fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException(
+        'settings.display_appearance values must be objects',
+      );
+    }
+    final accent = json['accent'];
+    final parsedAccent = colorFromHex(accent);
+    if (accent != null && parsedAccent == null) {
+      throw FormatException(
+        'display appearance accent must be #RRGGBB: $accent',
+      );
+    }
+    final pick = json['accent_wallpaper_pick'];
+    if (pick != null && (pick is! String || colorFromHex(pick) == null)) {
+      throw const FormatException('display appearance pick must be #RRGGBB');
+    }
+    return DisplayAppearance(
+      accent: parsedAccent,
+      accentSource: json['accent_source'] == null
+          ? null
+          : AccentSource.parse(json['accent_source']),
+      accentWallpaperPick: pick as String?,
     );
   }
 }
@@ -277,6 +302,9 @@ Color? colorFromHex(Object? value) {
   return parsed == null ? null : Color(0xff000000 | parsed);
 }
 
+/// The versioned settings document. The retired `workspaces` section
+/// (counts, per-output overrides, display order) is ignored on decode:
+/// workspace placement belongs to the compositor.
 class BarSettings extends Equatable {
   /// Every module the bar can run, in the default strip order.
   static const List<String> knownModules = [
@@ -297,7 +325,7 @@ class BarSettings extends Equatable {
     this.locale,
     this.accentSource = AccentSource.custom,
     this.accentWallpaperPick,
-    this.workspaces = const WorkspaceOptions(),
+    this.displayAppearance = const {},
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
@@ -320,7 +348,9 @@ class BarSettings extends Equatable {
   /// Hex accent chosen from the wallpaper's candidates; null uses the
   /// dominant one.
   final String? accentWallpaperPick;
-  final WorkspaceOptions workspaces;
+
+  /// Per-display appearance overrides by connector.
+  final Map<String, DisplayAppearance> displayAppearance;
   final CpuOptions cpu;
   final ClockOptions clock;
   final BatteryOptions battery;
@@ -335,8 +365,10 @@ class BarSettings extends Equatable {
     locale,
     accentSource,
     accentWallpaperPick,
+    ...displayAppearance.entries.map(
+      (entry) => Object.hash(entry.key, entry.value),
+    ),
     ...modules,
-    workspaces,
     cpu,
     clock,
     battery,
@@ -348,6 +380,25 @@ class BarSettings extends Equatable {
   /// The zone [module] renders in: the explicit placement or the default.
   ModuleZone zoneFor(String module) =>
       modulePlacement[module] ?? defaultModuleZone(module);
+
+  /// The accent source [output] resolves: its override, else the global key.
+  AccentSource accentSourceFor(String? output) =>
+      displayAppearance[output]?.accentSource ?? accentSource;
+
+  /// The configured accent [output] resolves: its override, else global.
+  Color? accentFor(String? output) =>
+      displayAppearance[output]?.accent ?? accent;
+
+  /// The wallpaper pick [output] resolves: its override, else global.
+  String? accentWallpaperPickFor(String? output) =>
+      displayAppearance[output]?.accentWallpaperPick ?? accentWallpaperPick;
+
+  /// Whether any display samples the wallpaper; the sampler starts for this.
+  bool get usesWallpaperAccent =>
+      accentSource == AccentSource.wallpaper ||
+      displayAppearance.values.any(
+        (appearance) => appearance.accentSource == AccentSource.wallpaper,
+      );
 
   Map<String, Object?> toJson() => {
     'revision': revision,
@@ -364,7 +415,11 @@ class BarSettings extends Equatable {
     'accent_source': accentSource.wire,
     if (accentWallpaperPick != null)
       'accent_wallpaper_pick': accentWallpaperPick,
-    'workspaces': workspaces.toJson(),
+    if (displayAppearance.isNotEmpty)
+      'display_appearance': {
+        for (final entry in displayAppearance.entries)
+          if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
+      },
     'cpu': cpu.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
@@ -383,9 +438,9 @@ class BarSettings extends Equatable {
       locale: locale,
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
+      displayAppearance: displayAppearance,
       modules: modules,
       modulePlacement: modulePlacement,
-      workspaces: workspaces,
       cpu: cpu,
       clock: clock,
       battery: battery,
@@ -402,8 +457,28 @@ class BarSettings extends Equatable {
       locale: locale,
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
+      displayAppearance: displayAppearance,
       modules: modules,
-      workspaces: workspaces,
+      modulePlacement: modulePlacement,
+      cpu: cpu,
+      clock: clock,
+      battery: battery,
+      meter: meter,
+    );
+  }
+
+  /// Same settings with the wallpaper pick replaced; null clears it so the
+  /// dominant candidate applies again.
+  BarSettings withAccentWallpaperPick(String? pick) {
+    return BarSettings(
+      revision: revision,
+      accent: accent,
+      locale: locale,
+      accentSource: accentSource,
+      accentWallpaperPick: pick,
+      displayAppearance: displayAppearance,
+      modules: modules,
+      modulePlacement: modulePlacement,
       cpu: cpu,
       clock: clock,
       battery: battery,
@@ -416,7 +491,6 @@ class BarSettings extends Equatable {
     Color? accent,
     List<String>? modules,
     Map<String, ModuleZone>? modulePlacement,
-    WorkspaceOptions? workspaces,
     CpuOptions? cpu,
     ClockOptions? clock,
     BatteryOptions? battery,
@@ -424,6 +498,7 @@ class BarSettings extends Equatable {
     String? locale,
     AccentSource? accentSource,
     String? accentWallpaperPick,
+    Map<String, DisplayAppearance>? displayAppearance,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
@@ -432,9 +507,9 @@ class BarSettings extends Equatable {
       locale: locale ?? this.locale,
       accentSource: accentSource ?? this.accentSource,
       accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
+      displayAppearance: displayAppearance ?? this.displayAppearance,
       modules: modules ?? this.modules,
       modulePlacement: modulePlacement ?? this.modulePlacement,
-      workspaces: workspaces ?? this.workspaces,
       cpu: cpu ?? this.cpu,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
@@ -482,7 +557,7 @@ class BarSettings extends Equatable {
               'clock',
             ],
       modulePlacement: _modulePlacement(decoded['module_placement']),
-      workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
+      displayAppearance: _displayAppearance(decoded['display_appearance']),
       cpu: CpuOptions.fromJson(decoded['cpu']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
@@ -502,6 +577,21 @@ class BarSettings extends Equatable {
     return {
       for (final entry in value.entries)
         entry.key: ModuleZone.parse(entry.value),
+    };
+  }
+
+  static Map<String, DisplayAppearance> _displayAppearance(Object? value) {
+    if (value == null) {
+      return const {};
+    }
+    if (value is! Map<String, dynamic>) {
+      throw const FormatException(
+        'settings.display_appearance must be an object',
+      );
+    }
+    return {
+      for (final entry in value.entries)
+        entry.key: DisplayAppearance.fromJson(entry.value),
     };
   }
 

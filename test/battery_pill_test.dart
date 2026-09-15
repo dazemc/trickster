@@ -6,6 +6,8 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
+import 'support/strip_harness.dart';
+
 const _accent = WallpaperAccent(Color(0xffd0bcff));
 
 Future<void> _pump(
@@ -16,14 +18,16 @@ Future<void> _pump(
   int critical = 10,
 }) {
   return tester.pumpWidget(
-    TricksterLocalizationScope(
-      child: Center(
-        child: BatteryPill(
-          accent: _accent,
-          status: status,
-          onPressed: onPressed ?? () {},
-          warn: warn,
-          critical: critical,
+    withOverlayBlocs(
+      TricksterLocalizationScope(
+        child: Center(
+          child: BatteryPill(
+            accent: _accent,
+            status: status,
+            onPressed: onPressed ?? () {},
+            warn: warn,
+            critical: critical,
+          ),
         ),
       ),
     ),

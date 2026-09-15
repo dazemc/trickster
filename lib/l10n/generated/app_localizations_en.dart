@@ -111,7 +111,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAppearanceCaption => 'Accent used across the bar.';
 
   @override
+  String get settingsAppearancePerDisplay => 'Per display';
+
+  @override
+  String get settingsAppearanceAllDisplays => 'All displays';
+
+  @override
   String get settingsAccentPresets => 'Presets';
+
+  @override
+  String get settingsAccentColor => 'Accent color';
 
   @override
   String get settingsAccentReset => 'Reset';
@@ -138,6 +147,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsModulesUnavailable => 'Unavailable';
+
+  @override
+  String get settingsUnavailableNoBattery => 'No battery detected';
+
+  @override
+  String settingsModuleOptions(String module) {
+    return '$module options';
+  }
+
+  @override
+  String get settingsModulesEmptyZone => 'Drop a module here';
+
+  @override
+  String get settingsModulesDisabled => 'Disabled';
+
+  @override
   String get settingsResetHint => 'Revert to the default value';
 
   @override
@@ -151,6 +177,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPlacementTrailing => 'Trailing';
+
+  @override
+  String get settingsModuleDrag => 'Drag to reorder';
 
   @override
   String get settingsModuleToggleHint => 'Toggles the module';
@@ -227,12 +256,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsOptionsCaption => 'Tune the values each pill uses.';
-
-  @override
-  String get settingsWorkspacesSection => 'Workspaces';
-
-  @override
-  String get settingsWorkspacesCount => 'Workspace count';
 
   @override
   String get settingsClockSection => 'Clock';
@@ -324,6 +347,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsAccentWallpaperEmpty =>
       'Waiting for the wallpaper sample…';
+
+  @override
+  String get settingsAccentWallpaperGrim =>
+      'With grim installed, Trickster can sample the actual backdrop.';
 
   @override
   String settingsCopyHex(Object hex) {
