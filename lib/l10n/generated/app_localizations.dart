@@ -290,6 +290,12 @@ abstract class AppLocalizations {
   /// **'Accent used across the bar.'**
   String get settingsAppearanceCaption;
 
+  /// Toggle that lets pills blur the desktop when the host supports it.
+  ///
+  /// In en, this message translates to:
+  /// **'Hosted blur'**
+  String get settingsAppearanceBlur;
+
   /// Caption above the appearance target chips.
   ///
   /// In en, this message translates to:

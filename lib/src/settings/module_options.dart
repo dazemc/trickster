@@ -84,7 +84,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             ],
           ),
           const SizedBox(height: 18),
-          _ToggleRow(
+          SettingsToggleRow(
             toggleKey: const ValueKey<String>('clock-show-date'),
             label: l10n.settingsClockShowDate,
             value: settings.clock.showDate,
@@ -337,57 +337,6 @@ class _ChoiceHeader extends StatelessWidget {
             ),
           ),
         ),
-        SettingsResetButton(
-          key: resetKey,
-          label: resetLabel,
-          enabled: resetEnabled,
-          onPressed: onReset,
-        ),
-      ],
-    );
-  }
-}
-
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.toggleKey,
-    required this.label,
-    required this.value,
-    required this.resetKey,
-    required this.resetLabel,
-    required this.resetEnabled,
-    required this.onChanged,
-    required this.onReset,
-  });
-
-  final Key toggleKey;
-  final String label;
-  final bool value;
-  final Key resetKey;
-  final String resetLabel;
-  final bool resetEnabled;
-  final ValueChanged<bool> onChanged;
-  final VoidCallback onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: ShellText.systemBarCaption.copyWith(
-              color: ShellMediaColors.lightForegroundSecondary,
-            ),
-          ),
-        ),
-        SettingsToggle(
-          key: toggleKey,
-          label: label,
-          enabled: value,
-          onChanged: onChanged,
-        ),
-        const SizedBox(width: 12),
         SettingsResetButton(
           key: resetKey,
           label: resetLabel,

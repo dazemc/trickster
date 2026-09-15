@@ -109,6 +109,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAppearanceCaption => '状态栏使用的强调色。';
 
   @override
+  String get settingsAppearanceBlur => '毛玻璃';
+
+  @override
   String get settingsAppearancePerDisplay => '每个显示器';
 
   @override

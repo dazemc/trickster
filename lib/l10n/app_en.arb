@@ -144,6 +144,10 @@
   "@settingsAppearanceCaption": {
     "description": "Caption under the appearance page title."
   },
+  "settingsAppearanceBlur": "Hosted blur",
+  "@settingsAppearanceBlur": {
+    "description": "Toggle that lets pills blur the desktop when the host supports it."
+  },
   "settingsAppearancePerDisplay": "Per display",
   "@settingsAppearancePerDisplay": {
     "description": "Caption above the appearance target chips."

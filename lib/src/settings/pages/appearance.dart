@@ -339,6 +339,25 @@ class _AppearancePageState extends State<AppearancePage> {
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        SettingsCard(
+          child: SettingsToggleRow(
+            toggleKey: const ValueKey<String>('appearance-blur'),
+            label: l10n.settingsAppearanceBlur,
+            value: settings.appearance.blur,
+            resetKey: const ValueKey<String>('reset-appearance-blur'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsAppearanceBlur),
+            resetEnabled: !settings.appearance.blur,
+            onChanged: (value) => _saverFor(controller).apply(
+              (settings) =>
+                  settings.copyWith(appearance: AppearanceOptions(blur: value)),
+            ),
+            onReset: () => _saverFor(controller).apply(
+              (settings) =>
+                  settings.copyWith(appearance: const AppearanceOptions()),
+            ),
+          ),
+        ),
       ],
     );
   }

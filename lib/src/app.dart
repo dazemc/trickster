@@ -276,9 +276,11 @@ class _TricksterAppState extends State<TricksterApp>
               // One View per layer surface, all sharing this single engine and
               // the module blocs above the collection. A menu lives on its own
               // fullscreen overlay surface, so the strip surface never resizes.
-              final blur = context.select(
-                (CapabilitiesBloc bloc) => bloc.state.blur,
-              );
+              final blur =
+                  context.select((CapabilitiesBloc bloc) => bloc.state.blur) &&
+                  context.select(
+                    (SettingsBloc bloc) => bloc.state.appearance.blur,
+                  );
               // Null until the native enumeration lands: show every strip in the
               // meantime rather than flashing an empty desktop. Overlay surfaces
               // (menus, tooltips) belong to no output's strip, so they are always
@@ -485,7 +487,9 @@ class _BarSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = context.watch<OutputsBloc>().state;
-    final blur = context.select((CapabilitiesBloc bloc) => bloc.state.blur);
+    final blur =
+        context.select((CapabilitiesBloc bloc) => bloc.state.blur) &&
+        context.select((SettingsBloc bloc) => bloc.state.appearance.blur);
     return BackdropBlur(
       enabled: blur,
       child: NotificationListener<ScrollNotification>(

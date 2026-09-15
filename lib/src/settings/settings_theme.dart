@@ -416,6 +416,59 @@ class SettingsToggle extends StatelessWidget {
   }
 }
 
+/// A labeled [SettingsToggle] with its reset control, used by option panels.
+class SettingsToggleRow extends StatelessWidget {
+  const SettingsToggleRow({
+    required this.toggleKey,
+    required this.label,
+    required this.value,
+    required this.resetKey,
+    required this.resetLabel,
+    required this.resetEnabled,
+    required this.onChanged,
+    required this.onReset,
+    super.key,
+  });
+
+  final Key toggleKey;
+  final String label;
+  final bool value;
+  final Key resetKey;
+  final String resetLabel;
+  final bool resetEnabled;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary,
+            ),
+          ),
+        ),
+        SettingsToggle(
+          key: toggleKey,
+          label: label,
+          enabled: value,
+          onChanged: onChanged,
+        ),
+        const SizedBox(width: 12),
+        SettingsResetButton(
+          key: resetKey,
+          label: resetLabel,
+          enabled: resetEnabled,
+          onPressed: onReset,
+        ),
+      ],
+    );
+  }
+}
+
 /// A section heading inside the settings window.
 class SettingsHeading extends StatelessWidget {
   const SettingsHeading({required this.title, this.caption, super.key});

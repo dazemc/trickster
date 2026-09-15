@@ -111,6 +111,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAppearanceCaption => 'Accent used across the bar.';
 
   @override
+  String get settingsAppearanceBlur => 'Hosted blur';
+
+  @override
   String get settingsAppearancePerDisplay => 'Per display';
 
   @override

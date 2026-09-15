@@ -1051,6 +1051,30 @@ void main() {
     expect(bloc.settings.accentSource, AccentSource.custom);
   });
 
+  testWidgets('appearance blur toggle writes and resets', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    expect(bloc.settings.appearance.blur, isTrue);
+
+    final toggle = find.byKey(const ValueKey<String>('appearance-blur'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.appearance.blur, isFalse);
+    expect(file.readAsStringSync(), contains('"blur": false'));
+
+    final reset = find.byKey(const ValueKey<String>('reset-appearance-blur'));
+    await tester.ensureVisible(reset);
+    await tester.pumpAndSettle();
+    await tester.tap(reset);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.appearance.blur, isTrue);
+  });
+
   testWidgets('appearance target edits one display and resets', (tester) async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);

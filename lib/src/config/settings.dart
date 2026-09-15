@@ -201,6 +201,30 @@ class ClockOptions extends Equatable {
   }
 }
 
+/// Typed options for the strip's material.
+class AppearanceOptions extends Equatable {
+  const AppearanceOptions({this.blur = true});
+
+  /// Whether the pills may sit on the compositor's blur when the host
+  /// advertises it; false forces the opaque fill.
+  final bool blur;
+
+  @override
+  List<Object?> get props => [blur];
+
+  Map<String, Object?> toJson() => {'blur': blur};
+
+  static AppearanceOptions fromJson(Object? json) {
+    if (json == null) {
+      return const AppearanceOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.appearance must be an object');
+    }
+    return AppearanceOptions(blur: (json['blur'] as bool?) ?? true);
+  }
+}
+
 /// Typed options for the battery pill.
 class BatteryOptions extends Equatable {
   const BatteryOptions({this.warn = 20, this.critical = 10});
@@ -336,6 +360,7 @@ class BarSettings extends Equatable {
     this.accentSource = AccentSource.custom,
     this.accentWallpaperPick,
     this.displayAppearance = const {},
+    this.appearance = const AppearanceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
@@ -361,6 +386,9 @@ class BarSettings extends Equatable {
 
   /// Per-display appearance overrides by connector.
   final Map<String, DisplayAppearance> displayAppearance;
+
+  /// Material options for the strip's pills.
+  final AppearanceOptions appearance;
   final CpuOptions cpu;
   final ClockOptions clock;
   final BatteryOptions battery;
@@ -378,6 +406,7 @@ class BarSettings extends Equatable {
     ...displayAppearance.entries.map(
       (entry) => Object.hash(entry.key, entry.value),
     ),
+    appearance,
     ...modules,
     cpu,
     clock,
@@ -434,6 +463,7 @@ class BarSettings extends Equatable {
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'meter': meter.toJson(),
+    'appearance': appearance.toJson(),
   };
 
   String encode() =>
@@ -449,6 +479,7 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
       displayAppearance: displayAppearance,
+      appearance: appearance,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
@@ -468,6 +499,7 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
       displayAppearance: displayAppearance,
+      appearance: appearance,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
@@ -487,6 +519,7 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: pick,
       displayAppearance: displayAppearance,
+      appearance: appearance,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
@@ -509,6 +542,7 @@ class BarSettings extends Equatable {
     AccentSource? accentSource,
     String? accentWallpaperPick,
     Map<String, DisplayAppearance>? displayAppearance,
+    AppearanceOptions? appearance,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
@@ -518,6 +552,7 @@ class BarSettings extends Equatable {
       accentSource: accentSource ?? this.accentSource,
       accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
       displayAppearance: displayAppearance ?? this.displayAppearance,
+      appearance: appearance ?? this.appearance,
       modules: modules ?? this.modules,
       modulePlacement: modulePlacement ?? this.modulePlacement,
       cpu: cpu ?? this.cpu,
@@ -568,6 +603,7 @@ class BarSettings extends Equatable {
             ],
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
+      appearance: AppearanceOptions.fromJson(decoded['appearance']),
       cpu: CpuOptions.fromJson(decoded['cpu']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),

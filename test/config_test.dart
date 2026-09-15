@@ -191,6 +191,7 @@ void main() {
         clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
         battery: BatteryOptions(warn: 30, critical: 15),
         meter: MeterOptions(captionSource: MeterCaptionSource.device),
+        appearance: AppearanceOptions(blur: false),
       );
       final decoded = BarSettings.decode(settings.encode());
       expect(decoded.cpu.warn, 0.7);
@@ -200,12 +201,14 @@ void main() {
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
       expect(decoded.meter.captionSource, MeterCaptionSource.device);
+      expect(decoded.appearance.blur, isFalse);
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);
       expect(bare.clock.showDate, isTrue);
       expect(bare.battery.critical, 10);
       expect(bare.meter.captionSource, MeterCaptionSource.generic);
+      expect(bare.appearance.blur, isTrue);
     });
 
     test('the accent source round-trips and rejects unknown values', () {
