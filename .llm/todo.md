@@ -23,10 +23,6 @@ opaque window while the bar is glass. This phase fills the surface out.
 Per-display appearance (14.12) landed without the two-output live check; the
 user verifies it on a second monitor later and any fix becomes a new step.
 
-- **14.14 (S) Force the opaque bar fill.** Add `appearance.blur` (force the
-  opaque fill even when the host can blur) with the settings toggle; the bar
-  honors it live. Done when it renders on the bar, resets, and has config
-  plus widget tests.
 - **14.15 (S) Hide the meter sparkline.** Add `meter.sparkline` (hide CPU/GPU
   history) with the settings toggle; the bar honors it live. Done when it
   renders on the bar, resets, and has config plus widget tests.
