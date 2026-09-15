@@ -138,13 +138,9 @@ while other packages share the stock SDK.
 
 AGENTS now makes the rule explicit: `flutter_bloc` carries all state in both
 processes, and only per-frame ephemeral widget details may stay local. The
-settings document, the wallpaper accent, and the modules page are migrated;
-the tray menu and tooltip seams still run `ChangeNotifier`. Finish the
-migration so the rule holds everywhere.
+settings document, wallpaper accent, modules page, tray menu, and tooltip
+sessions all read through blocs; the enforcement test keeps it that way.
 
-- **20.4 (S) Overlay controllers as blocs.** Tray menu and tooltip sessions
-  become blocs read by the overlay surfaces. Done when no `ChangeNotifier`
-  remains on those paths.
 - **20.5 (S) Enforce the rule.** A test fails on `ChangeNotifier`,
   `InheritedNotifier`, or `Cubit` usage under `lib/`, with the approved
   ephemeral exceptions listed. Done when the check runs with `flutter test`
