@@ -113,3 +113,12 @@ while other packages share the stock SDK.
   read it (section-scoped listenables; the shell keeps to locale and
   load/error). Done when a drag's build times fit the frame budget and the
   settings tests stay green.
+
+## Phase 21 — service diagnostics
+
+- **21.1 (S) Log an unavailable NVIDIA stack once.** When the NVIDIA driver
+  is present (`/proc/driver/nvidia/version`) but NVML returns no devices, log
+  one line naming the failure (for example the driver/library version
+  mismatch) instead of the silent empty reading; keep the best-effort
+  behavior. Done when a forced NVML failure produces exactly one stderr line
+  and sampling still runs.
