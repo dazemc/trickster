@@ -602,6 +602,12 @@ abstract class AppLocalizations {
   /// **'12-hour'**
   String get settingsClockFormat12;
 
+  /// Toggle for the clock's date caption.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get settingsClockShowDate;
+
   /// Section heading for CPU threshold options.
   ///
   /// In en, this message translates to:

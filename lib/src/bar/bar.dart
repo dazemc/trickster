@@ -245,6 +245,7 @@ class TricksterBarStrip extends StatelessWidget {
             child: ClockPill(
               accent: accent,
               format: settings.clock.format,
+              showDate: settings.clock.showDate,
               vertical: vertical,
             ),
           ),

@@ -273,6 +273,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClockFormat12 => '12-hour';
 
   @override
+  String get settingsClockShowDate => 'Date';
+
+  @override
   String get settingsCpuSection => 'CPU thresholds';
 
   @override

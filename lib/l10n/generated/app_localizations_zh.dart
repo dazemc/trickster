@@ -269,6 +269,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClockFormat12 => '12 小时制';
 
   @override
+  String get settingsClockShowDate => '日期';
+
+  @override
   String get settingsCpuSection => 'CPU 阈值';
 
   @override

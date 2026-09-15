@@ -32,6 +32,7 @@ Future<void> _pumpClock(
   WidgetTester tester,
   Locale locale, {
   ClockFormat format = ClockFormat.locale,
+  bool showDate = true,
   bool vertical = false,
 }) {
   return tester.pumpWidget(
@@ -44,6 +45,7 @@ Future<void> _pumpClock(
             child: ClockPill(
               accent: const WallpaperAccent(Color(0xffd0bcff)),
               format: format,
+              showDate: showDate,
               vertical: vertical,
             ),
           ),
@@ -531,6 +533,29 @@ void main() {
         .map((text) => text.text.toPlainText())
         .join(' ');
     expect(texts, anyOf(contains('AM'), contains('PM')));
+  });
+
+  testWidgets('the clock date caption hides with show_date off', (
+    tester,
+  ) async {
+    final date = formatBarDate(DateTime.now(), 'en_US');
+
+    await _pumpClock(tester, const Locale('en', 'US'));
+    await tester.pump(const Duration(milliseconds: 500));
+    var texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, contains(date));
+
+    await _pumpClock(tester, const Locale('en', 'US'), showDate: false);
+    await tester.pump(const Duration(milliseconds: 500));
+    texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, isNot(contains(date)));
+    expect(texts, anyOf(contains(':'), contains('AM'), contains('PM')));
   });
 
   testWidgets('action card announces, taps, and rings on focus', (

@@ -362,6 +362,10 @@
   "@settingsClockFormat12": {
     "description": "Clock format choice: 12-hour."
   },
+  "settingsClockShowDate": "日期",
+  "@settingsClockShowDate": {
+    "description": "Toggle for the clock's date caption."
+  },
   "settingsCpuSection": "CPU 阈值",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."

@@ -353,6 +353,69 @@ class SettingsChoiceChip extends StatelessWidget {
   }
 }
 
+/// A pill switch with a label, used by option panels for boolean keys.
+class SettingsToggle extends StatelessWidget {
+  const SettingsToggle({
+    required this.label,
+    required this.enabled,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String label;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      toggled: enabled,
+      label: label,
+      hint: context.l10n.settingsModuleToggleHint,
+      onTap: () => onChanged(!enabled),
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(!enabled),
+            child: AnimatedContainer(
+              duration: Motion.pill,
+              curve: Motion.standard,
+              width: 44,
+              height: 24,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(999)),
+                color: enabled
+                    ? ShellBrandColors.defaultAccent
+                    : SettingsColors.surfaceHigh,
+                border: Border.all(color: SettingsColors.outline),
+              ),
+              child: AnimatedAlign(
+                duration: Motion.pill,
+                curve: Motion.standard,
+                alignment: enabled
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: enabled
+                        ? SettingsColors.background
+                        : ShellMediaColors.lightForegroundSecondary,
+                  ),
+                  child: const SizedBox.square(dimension: 16),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A section heading inside the settings window.
 class SettingsHeading extends StatelessWidget {
   const SettingsHeading({required this.title, this.caption, super.key});

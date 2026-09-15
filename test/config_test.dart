@@ -188,7 +188,7 @@ void main() {
       const settings = BarSettings(
         revision: 4,
         cpu: CpuOptions(warn: 0.7, critical: 0.9),
-        clock: ClockOptions(format: ClockFormat.hour24),
+        clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
         battery: BatteryOptions(warn: 30, critical: 15),
         meter: MeterOptions(captionSource: MeterCaptionSource.device),
       );
@@ -196,12 +196,14 @@ void main() {
       expect(decoded.cpu.warn, 0.7);
       expect(decoded.cpu.critical, 0.9);
       expect(decoded.clock.format, ClockFormat.hour24);
+      expect(decoded.clock.showDate, isFalse);
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
       expect(decoded.meter.captionSource, MeterCaptionSource.device);
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);
+      expect(bare.clock.showDate, isTrue);
       expect(bare.battery.critical, 10);
       expect(bare.meter.captionSource, MeterCaptionSource.generic);
     });

@@ -12,7 +12,6 @@ import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/module_options.dart';
 import 'package:trickster/src/settings/modules_bloc.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
-import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
 /// Pulls a module's display name from the shared catalog.
@@ -595,7 +594,7 @@ class _ModuleRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          _ModuleToggle(
+          SettingsToggle(
             key: ValueKey<String>('module-toggle-$module'),
             label: label,
             enabled: enabled,
@@ -686,70 +685,6 @@ class _ModuleOptionsButton extends StatelessWidget {
   }
 }
 
-class _ModuleToggle extends StatelessWidget {
-  const _ModuleToggle({
-    required this.label,
-    required this.enabled,
-    required this.onChanged,
-    super.key,
-  });
-
-  final String label;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      toggled: enabled,
-      label: label,
-      hint: context.l10n.settingsModuleToggleHint,
-      onTap: () => onChanged(!enabled),
-      child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onChanged(!enabled),
-            child: AnimatedContainer(
-              duration: Motion.pill,
-              curve: Motion.standard,
-              width: 44,
-              height: 24,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(999)),
-                color: enabled
-                    ? ShellBrandColors.defaultAccent
-                    : SettingsColors.surfaceHigh,
-                border: Border.all(color: SettingsColors.outline),
-              ),
-              child: AnimatedAlign(
-                duration: Motion.pill,
-                curve: Motion.standard,
-                alignment: enabled
-                    ? Alignment.centerRight
-                    : Alignment.centerLeft,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: enabled
-                        ? SettingsColors.background
-                        : ShellMediaColors.lightForegroundSecondary,
-                  ),
-                  child: const SizedBox.square(dimension: 16),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The drag affordance for a module row: pointer drag moves the row, and
-/// ctrl+arrow / ctrl+shift+arrow keep keyboard reordering and zone moves.
 class _ModuleDragHandle extends StatelessWidget {
   const _ModuleDragHandle({
     required this.label,
@@ -840,7 +775,7 @@ class _DragFeedback extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(label, style: ShellText.systemBarValue)),
-            _ModuleToggle(label: label, enabled: true, onChanged: (_) {}),
+            SettingsToggle(label: label, enabled: true, onChanged: (_) {}),
           ],
         ),
       ),

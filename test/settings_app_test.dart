@@ -1008,6 +1008,15 @@ void main() {
     await tester.pump();
     expect(bloc.settings.clock.format, ClockFormat.hour24);
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('clock-show-date')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('clock-show-date')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.clock.showDate, isFalse);
+
     await openOptions('gpu');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('meter-caption-device')),

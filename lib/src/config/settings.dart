@@ -171,14 +171,21 @@ enum ClockFormat {
 }
 
 class ClockOptions extends Equatable {
-  const ClockOptions({this.format = ClockFormat.locale});
+  const ClockOptions({this.format = ClockFormat.locale, this.showDate = true});
 
   final ClockFormat format;
 
-  @override
-  List<Object?> get props => [format];
+  /// Whether the date caption renders beside the time. Vertical strips drop
+  /// it regardless.
+  final bool showDate;
 
-  Map<String, Object?> toJson() => {'format': format.wire};
+  @override
+  List<Object?> get props => [format, showDate];
+
+  Map<String, Object?> toJson() => {
+    'format': format.wire,
+    'show_date': showDate,
+  };
 
   static ClockOptions fromJson(Object? json) {
     if (json == null) {
@@ -187,7 +194,10 @@ class ClockOptions extends Equatable {
     if (json is! Map<String, dynamic>) {
       throw const FormatException('settings.clock must be an object');
     }
-    return ClockOptions(format: ClockFormat.parse(json['format']));
+    return ClockOptions(
+      format: ClockFormat.parse(json['format']),
+      showDate: (json['show_date'] as bool?) ?? true,
+    );
   }
 }
 

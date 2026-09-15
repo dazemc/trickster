@@ -83,6 +83,30 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                 ),
             ],
           ),
+          const SizedBox(height: 18),
+          _ToggleRow(
+            toggleKey: const ValueKey<String>('clock-show-date'),
+            label: l10n.settingsClockShowDate,
+            value: settings.clock.showDate,
+            resetKey: const ValueKey<String>('reset-clock-show-date'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsClockShowDate),
+            resetEnabled: !settings.clock.showDate,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: ClockOptions(
+                  format: settings.clock.format,
+                  showDate: value,
+                ),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: ClockOptions(format: settings.clock.format),
+              ),
+            ),
+          ),
         ],
       ),
       'cpu' => Column(
@@ -313,6 +337,57 @@ class _ChoiceHeader extends StatelessWidget {
             ),
           ),
         ),
+        SettingsResetButton(
+          key: resetKey,
+          label: resetLabel,
+          enabled: resetEnabled,
+          onPressed: onReset,
+        ),
+      ],
+    );
+  }
+}
+
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.toggleKey,
+    required this.label,
+    required this.value,
+    required this.resetKey,
+    required this.resetLabel,
+    required this.resetEnabled,
+    required this.onChanged,
+    required this.onReset,
+  });
+
+  final Key toggleKey;
+  final String label;
+  final bool value;
+  final Key resetKey;
+  final String resetLabel;
+  final bool resetEnabled;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary,
+            ),
+          ),
+        ),
+        SettingsToggle(
+          key: toggleKey,
+          label: label,
+          enabled: value,
+          onChanged: onChanged,
+        ),
+        const SizedBox(width: 12),
         SettingsResetButton(
           key: resetKey,
           label: resetLabel,
