@@ -99,9 +99,10 @@ void main() {
       expect(() => BarSettings.decode('[]'), throwsFormatException);
     });
 
-    test('the retired workspaces section is ignored', () {
-      // Chain settings retired: old documents still decode, the section is
-      // dropped, and workspace placement belongs to the compositor.
+    test('the retired workspaces chain keys are dropped', () {
+      // Chain settings retired: old documents still decode, their keys are
+      // dropped, and workspace placement belongs to the compositor. Only the
+      // pip look survives in the section.
       const legacy =
           '{"revision": 1, "workspaces": {'
           '"workspace_count": 7, '
@@ -109,7 +110,11 @@ void main() {
           '"display_order": ["HDMI-A-1", "HDMI-A-2"]}}';
       final decoded = BarSettings.decode(legacy);
       expect(decoded.revision, 1);
-      expect(decoded.encode(), isNot(contains('"workspaces": {')));
+      expect(decoded.workspaces.pipStyle, PipStyle.number);
+      final encoded = decoded.encode();
+      expect(encoded, isNot(contains('workspace_count')));
+      expect(encoded, isNot(contains('per_output')));
+      expect(encoded, isNot(contains('display_order')));
     });
 
     test('per-display appearance round-trips and falls back', () {
@@ -223,6 +228,38 @@ void main() {
       expect(bare.gpu.captionSource, MeterCaptionSource.generic);
       expect(bare.gpu.sparkline, isTrue);
       expect(bare.appearance.blur, isTrue);
+    });
+
+    test('pip styles round-trip and reject unknown values', () {
+      for (final style in PipStyle.values) {
+        final settings = BarSettings(
+          workspaces: WorkspaceOptions(
+            pipStyle: style,
+            svgSource: 'https://example.com/pip.svg',
+            imageSource: '/tmp/pip.png',
+          ),
+        );
+        final decoded = BarSettings.decode(settings.encode());
+        expect(decoded.workspaces.pipStyle, style);
+        expect(decoded.workspaces.svgSource, 'https://example.com/pip.svg');
+        expect(decoded.workspaces.imageSource, '/tmp/pip.png');
+      }
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"pip_style": "stars"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "workspaces": {"svg_source": 7}}',
+        ),
+        throwsFormatException,
+      );
+      const bare = BarSettings();
+      expect(bare.workspaces.pipStyle, PipStyle.number);
+      expect(bare.workspaces.svgSource, isNull);
+      expect(bare.workspaces.imageSource, isNull);
     });
 
     test('the retired shared meter options migrate into both meters', () {
