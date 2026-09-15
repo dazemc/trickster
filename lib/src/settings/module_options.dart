@@ -62,7 +62,9 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetEnabled: settings.clock.format != ClockFormat.locale,
             onReset: () => _apply(
               controller,
-              (settings) => settings.copyWith(clock: const ClockOptions()),
+              (settings) => settings.copyWith(
+                clock: ClockOptions(showDate: settings.clock.showDate),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -77,11 +79,39 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   selected: settings.clock.format == format,
                   onPressed: () => _apply(
                     controller,
-                    (settings) =>
-                        settings.copyWith(clock: ClockOptions(format: format)),
+                    (settings) => settings.copyWith(
+                      clock: ClockOptions(
+                        format: format,
+                        showDate: settings.clock.showDate,
+                      ),
+                    ),
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 18),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('clock-show-date'),
+            label: l10n.settingsClockShowDate,
+            value: settings.clock.showDate,
+            resetKey: const ValueKey<String>('reset-clock-show-date'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsClockShowDate),
+            resetEnabled: !settings.clock.showDate,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: ClockOptions(
+                  format: settings.clock.format,
+                  showDate: value,
+                ),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: ClockOptions(format: settings.clock.format),
+              ),
+            ),
           ),
         ],
       ),
@@ -105,7 +135,12 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     ? (warn + 0.01).clamp(0.01, 1.0)
                     : settings.cpu.critical;
                 return settings.copyWith(
-                  cpu: CpuOptions(warn: warn, critical: critical),
+                  cpu: CpuOptions(
+                    warn: warn,
+                    critical: critical,
+                    captionSource: settings.cpu.captionSource,
+                    sparkline: settings.cpu.sparkline,
+                  ),
                 );
               });
             },
@@ -114,7 +149,12 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   .min(const CpuOptions().warn, settings.cpu.critical - 0.01)
                   .clamp(0.0, 0.99);
               return settings.copyWith(
-                cpu: CpuOptions(warn: warn, critical: settings.cpu.critical),
+                cpu: CpuOptions(
+                  warn: warn,
+                  critical: settings.cpu.critical,
+                  captionSource: settings.cpu.captionSource,
+                  sparkline: settings.cpu.sparkline,
+                ),
               );
             }),
           ),
@@ -136,7 +176,12 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     ? (critical - 0.01).clamp(0.0, 0.99)
                     : settings.cpu.warn;
                 return settings.copyWith(
-                  cpu: CpuOptions(warn: warn, critical: critical),
+                  cpu: CpuOptions(
+                    warn: warn,
+                    critical: critical,
+                    captionSource: settings.cpu.captionSource,
+                    sparkline: settings.cpu.sparkline,
+                  ),
                 );
               });
             },
@@ -145,9 +190,37 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   .max(const CpuOptions().critical, settings.cpu.warn + 0.01)
                   .clamp(0.01, 1.0);
               return settings.copyWith(
-                cpu: CpuOptions(warn: settings.cpu.warn, critical: critical),
+                cpu: CpuOptions(
+                  warn: settings.cpu.warn,
+                  critical: critical,
+                  captionSource: settings.cpu.captionSource,
+                  sparkline: settings.cpu.sparkline,
+                ),
               );
             }),
+          ),
+          ..._meterControls(
+            l10n: l10n,
+            controller: controller,
+            prefix: 'cpu',
+            captionSource: settings.cpu.captionSource,
+            sparkline: settings.cpu.sparkline,
+            onCaption: (settings, source) => settings.copyWith(
+              cpu: CpuOptions(
+                warn: settings.cpu.warn,
+                critical: settings.cpu.critical,
+                captionSource: source,
+                sparkline: settings.cpu.sparkline,
+              ),
+            ),
+            onSparkline: (settings, value) => settings.copyWith(
+              cpu: CpuOptions(
+                warn: settings.cpu.warn,
+                critical: settings.cpu.critical,
+                captionSource: settings.cpu.captionSource,
+                sparkline: value,
+              ),
+            ),
           ),
         ],
       ),
@@ -233,40 +306,87 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       'gpu' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ChoiceHeader(
-            label: l10n.settingsMeterCaption,
-            resetKey: const ValueKey<String>('reset-meter-caption'),
-            resetLabel: l10n.settingsResetOption(l10n.settingsMeterCaption),
-            resetEnabled:
-                settings.meter.captionSource != MeterCaptionSource.generic,
-            onReset: () => _apply(
-              controller,
-              (settings) => settings.copyWith(meter: const MeterOptions()),
+          ..._meterControls(
+            l10n: l10n,
+            controller: controller,
+            prefix: 'gpu',
+            captionSource: settings.gpu.captionSource,
+            sparkline: settings.gpu.sparkline,
+            onCaption: (settings, source) => settings.copyWith(
+              gpu: GpuOptions(
+                captionSource: source,
+                sparkline: settings.gpu.sparkline,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final source in MeterCaptionSource.values)
-                SettingsChoiceChip(
-                  key: ValueKey<String>('meter-caption-${source.name}'),
-                  label: _captionLabel(l10n, source),
-                  selected: settings.meter.captionSource == source,
-                  onPressed: () => _apply(
-                    controller,
-                    (settings) => settings.copyWith(
-                      meter: MeterOptions(captionSource: source),
-                    ),
-                  ),
-                ),
-            ],
+            onSparkline: (settings, value) => settings.copyWith(
+              gpu: GpuOptions(
+                captionSource: settings.gpu.captionSource,
+                sparkline: value,
+              ),
+            ),
           ),
         ],
       ),
       _ => const SizedBox.shrink(),
     };
+  }
+
+  /// The caption and sparkline controls one meter panel owns; CPU and GPU
+  /// both carry an identical set.
+  List<Widget> _meterControls({
+    required AppLocalizations l10n,
+    required SettingsAppBloc controller,
+    required String prefix,
+    required MeterCaptionSource captionSource,
+    required bool sparkline,
+    required BarSettings Function(
+      BarSettings settings,
+      MeterCaptionSource source,
+    )
+    onCaption,
+    required BarSettings Function(BarSettings settings, bool value) onSparkline,
+  }) {
+    return [
+      const SizedBox(height: 18),
+      _ChoiceHeader(
+        label: l10n.settingsMeterCaption,
+        resetKey: ValueKey<String>('reset-$prefix-meter-caption'),
+        resetLabel: l10n.settingsResetOption(l10n.settingsMeterCaption),
+        resetEnabled: captionSource != MeterCaptionSource.generic,
+        onReset: () => _apply(
+          controller,
+          (settings) => onCaption(settings, MeterCaptionSource.generic),
+        ),
+      ),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final source in MeterCaptionSource.values)
+            SettingsChoiceChip(
+              key: ValueKey<String>('$prefix-meter-caption-${source.name}'),
+              label: _captionLabel(l10n, source),
+              selected: captionSource == source,
+              onPressed: () =>
+                  _apply(controller, (settings) => onCaption(settings, source)),
+            ),
+        ],
+      ),
+      const SizedBox(height: 18),
+      SettingsToggleRow(
+        toggleKey: ValueKey<String>('$prefix-meter-sparkline'),
+        label: l10n.settingsMeterSparkline,
+        value: sparkline,
+        resetKey: ValueKey<String>('reset-$prefix-meter-sparkline'),
+        resetLabel: l10n.settingsResetOption(l10n.settingsMeterSparkline),
+        resetEnabled: !sparkline,
+        onChanged: (value) =>
+            _apply(controller, (settings) => onSparkline(settings, value)),
+        onReset: () =>
+            _apply(controller, (settings) => onSparkline(settings, true)),
+      ),
+    ];
   }
 }
 

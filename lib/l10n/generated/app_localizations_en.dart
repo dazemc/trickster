@@ -111,6 +111,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAppearanceCaption => 'Accent used across the bar.';
 
   @override
+  String get settingsAppearanceBlur => 'Hosted blur';
+
+  @override
   String get settingsAppearancePerDisplay => 'Per display';
 
   @override
@@ -273,6 +276,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClockFormat12 => '12-hour';
 
   @override
+  String get settingsClockShowDate => 'Date';
+
+  @override
   String get settingsCpuSection => 'CPU thresholds';
 
   @override
@@ -289,6 +295,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsMeterCaption => 'Caption source';
+
+  @override
+  String get settingsMeterSparkline => 'Sparkline';
 
   @override
   String get settingsMeterCaptionGeneric => 'Generic';

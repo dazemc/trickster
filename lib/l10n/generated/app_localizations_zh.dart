@@ -109,6 +109,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsAppearanceCaption => '状态栏使用的强调色。';
 
   @override
+  String get settingsAppearanceBlur => '毛玻璃';
+
+  @override
   String get settingsAppearancePerDisplay => '每个显示器';
 
   @override
@@ -269,6 +272,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClockFormat12 => '12 小时制';
 
   @override
+  String get settingsClockShowDate => '日期';
+
+  @override
   String get settingsCpuSection => 'CPU 阈值';
 
   @override
@@ -285,6 +291,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsMeterCaption => '标签来源';
+
+  @override
+  String get settingsMeterSparkline => '迷你曲线';
 
   @override
   String get settingsMeterCaptionGeneric => '通用';

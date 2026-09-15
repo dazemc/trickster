@@ -30,6 +30,7 @@ struct _MyApplication {
   gboolean settings_mode;
   GtkWindow* settings_window;
   FlView* settings_view;
+  struct ext_background_effect_surface_v1* settings_blur;
   GtkWindow* bootstrap_window;
   FlView* bootstrap_view;
   gboolean blur_checked;
@@ -922,9 +923,74 @@ static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor,
 // settings application is a normal Wayland client of the host compositor.
 static void trickster_settings_destroy_cb(GtkWidget* widget, gpointer data) {
   MyApplication* self = MY_APPLICATION(data);
+  if (self->settings_blur != nullptr) {
+    ext_background_effect_surface_v1_destroy(self->settings_blur);
+    self->settings_blur = nullptr;
+  }
   self->settings_window = nullptr;
   self->settings_view = nullptr;
   g_application_quit(G_APPLICATION(self));
+}
+
+// The settings toplevel asks the compositor to blur behind it; the Flutter
+// side paints translucent surfaces on top and falls back to opaque fills
+// when the manager is absent.
+static void trickster_settings_apply_blur(MyApplication* self) {
+  if (self->settings_window == nullptr) {
+    return;
+  }
+  GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(self->settings_window));
+  if (gdk_window == nullptr) {
+    return;
+  }
+  struct wl_surface* wl_surface = gdk_wayland_window_get_wl_surface(gdk_window);
+  if (wl_surface == nullptr) {
+    return;
+  }
+  if (self->settings_blur == nullptr) {
+    if (self->blur_manager == nullptr || self->compositor == nullptr) {
+      return;
+    }
+    self->settings_blur = ext_background_effect_manager_v1_get_background_effect(
+        self->blur_manager, wl_surface);
+    if (self->settings_blur == nullptr) {
+      return;
+    }
+  }
+  const int width =
+      gtk_widget_get_allocated_width(GTK_WIDGET(self->settings_window));
+  const int height =
+      gtk_widget_get_allocated_height(GTK_WIDGET(self->settings_window));
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+  struct wl_region* region = wl_compositor_create_region(self->compositor);
+  if (region == nullptr) {
+    return;
+  }
+  wl_region_add(region, 0, 0, width, height);
+  ext_background_effect_surface_v1_set_blur_region(self->settings_blur, region);
+  wl_region_destroy(region);
+  wl_surface_commit(wl_surface);
+}
+
+static void trickster_settings_realize_cb(GtkWidget* widget, gpointer data) {
+  trickster_settings_apply_blur(MY_APPLICATION(data));
+}
+
+static void trickster_settings_size_allocate_cb(GtkWidget* widget,
+                                                GtkAllocation* allocation,
+                                                gpointer data) {
+  trickster_settings_apply_blur(MY_APPLICATION(data));
+}
+
+// The RGBA visual only pays off with a cleared, transparent window backing.
+static gboolean trickster_window_draw_cb(GtkWidget* widget, cairo_t* cr,
+                                         gpointer data) {
+  cairo_set_source_rgba(cr, 0, 0, 0, 0);
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+  cairo_paint(cr);
+  return FALSE;
 }
 
 static void trickster_settings_show(MyApplication* self,
@@ -936,7 +1002,28 @@ static void trickster_settings_show(MyApplication* self,
   g_signal_connect(window, "destroy", G_CALLBACK(trickster_settings_destroy_cb),
                    self);
 
+  // Only a translucent toplevel is worth compositing a backdrop behind; with
+  // no manager the window stays opaque and the Dart fills match.
+  const gboolean blur = trickster_probe_blur(self);
+  if (blur) {
+    gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+    GdkScreen* screen = gtk_window_get_screen(window);
+    GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
+    if (visual != nullptr) {
+      gtk_widget_set_visual(GTK_WIDGET(window), visual);
+    }
+    g_signal_connect(window, "draw", G_CALLBACK(trickster_window_draw_cb),
+                     self);
+    g_signal_connect(window, "realize",
+                     G_CALLBACK(trickster_settings_realize_cb), self);
+    g_signal_connect(window, "size-allocate",
+                     G_CALLBACK(trickster_settings_size_allocate_cb), self);
+  }
+
   FlView* view = fl_view_new(project);
+  GdkRGBA background_color;
+  gdk_rgba_parse(&background_color, "#00000000");
+  fl_view_set_background_color(view, &background_color);
   self->settings_window = window;
   self->settings_view = view;
   self->engine = fl_view_get_engine(view);

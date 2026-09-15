@@ -8,6 +8,7 @@ import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
@@ -32,6 +33,7 @@ Future<void> _pumpClock(
   WidgetTester tester,
   Locale locale, {
   ClockFormat format = ClockFormat.locale,
+  bool showDate = true,
   bool vertical = false,
 }) {
   return tester.pumpWidget(
@@ -44,6 +46,7 @@ Future<void> _pumpClock(
             child: ClockPill(
               accent: const WallpaperAccent(Color(0xffd0bcff)),
               format: format,
+              showDate: showDate,
               vertical: vertical,
             ),
           ),
@@ -531,6 +534,46 @@ void main() {
         .map((text) => text.text.toPlainText())
         .join(' ');
     expect(texts, anyOf(contains('AM'), contains('PM')));
+  });
+
+  testWidgets('the bar paints meter sparklines by default', (tester) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(LoadMeter.sparklineKey), findsWidgets);
+  });
+
+  testWidgets('the bar hides meter sparklines with meter.sparkline off', (
+    tester,
+  ) async {
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(cpu: CpuOptions(sparkline: false)),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(LoadMeter.sparklineKey), findsNothing);
+  });
+
+  testWidgets('the clock date caption hides with show_date off', (
+    tester,
+  ) async {
+    final date = formatBarDate(DateTime.now(), 'en_US');
+
+    await _pumpClock(tester, const Locale('en', 'US'));
+    await tester.pump(const Duration(milliseconds: 500));
+    var texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, contains(date));
+
+    await _pumpClock(tester, const Locale('en', 'US'), showDate: false);
+    await tester.pump(const Duration(milliseconds: 500));
+    texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, isNot(contains(date)));
+    expect(texts, anyOf(contains(':'), contains('AM'), contains('PM')));
   });
 
   testWidgets('action card announces, taps, and rings on focus', (

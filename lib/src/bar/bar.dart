@@ -172,7 +172,8 @@ class TricksterBarStrip extends StatelessWidget {
                       child: GpuPill(
                         accent: accent,
                         load: state.loads[i],
-                        captionSource: settings.meter.captionSource,
+                        captionSource: settings.gpu.captionSource,
+                        sparkline: settings.gpu.sparkline,
                         vertical: vertical,
                       ),
                     ),
@@ -200,7 +201,8 @@ class TricksterBarStrip extends StatelessWidget {
                   sample: sample,
                   warn: settings.cpu.warn,
                   critical: settings.cpu.critical,
-                  captionSource: settings.meter.captionSource,
+                  captionSource: settings.cpu.captionSource,
+                  sparkline: settings.cpu.sparkline,
                   vertical: vertical,
                 ),
               ),
@@ -245,6 +247,7 @@ class TricksterBarStrip extends StatelessWidget {
             child: ClockPill(
               accent: accent,
               format: settings.clock.format,
+              showDate: settings.clock.showDate,
               vertical: vertical,
             ),
           ),

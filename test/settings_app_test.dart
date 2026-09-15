@@ -267,7 +267,10 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(file.readAsStringSync(), isNot(contains('"gpu"')));
+    expect(
+      BarSettings.decode(file.readAsStringSync()).modules,
+      isNot(contains('gpu')),
+    );
 
     final before = List<String>.of(bloc.settings.modules);
     await _dragModuleTo(
@@ -366,20 +369,17 @@ void main() {
 
     await openOptions('gpu');
     await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('meter-caption-device')),
+      find.byKey(const ValueKey<String>('gpu-meter-caption-device')),
     );
     await tester.pumpAndSettle();
     await tester.tap(
-      find.byKey(const ValueKey<String>('meter-caption-device')),
+      find.byKey(const ValueKey<String>('gpu-meter-caption-device')),
     );
     await tester.pump();
     await settle();
-    expect(bloc.settings.meter.captionSource, MeterCaptionSource.device);
-    await reset('reset-meter-caption');
-    expect(
-      bloc.settings.meter.captionSource,
-      const MeterOptions().captionSource,
-    );
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.device);
+    await reset('reset-gpu-meter-caption');
+    expect(bloc.settings.gpu.captionSource, const GpuOptions().captionSource);
 
     final decoded = BarSettings.decode(file.readAsStringSync());
     expect(decoded.clock.format, const ClockOptions().format);
@@ -387,7 +387,7 @@ void main() {
     expect(decoded.cpu.critical, const CpuOptions().critical);
     expect(decoded.battery.warn, const BatteryOptions().warn);
     expect(decoded.battery.critical, const BatteryOptions().critical);
-    expect(decoded.meter.captionSource, const MeterOptions().captionSource);
+    expect(decoded.gpu.captionSource, const GpuOptions().captionSource);
 
     await tester.tap(find.bySemanticsLabel('Language'));
     await tester.pump();
@@ -1008,17 +1008,58 @@ void main() {
     await tester.pump();
     expect(bloc.settings.clock.format, ClockFormat.hour24);
 
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('clock-show-date')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('clock-show-date')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.clock.showDate, isFalse);
+
     await openOptions('gpu');
     await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('meter-caption-device')),
+      find.byKey(const ValueKey<String>('gpu-meter-caption-device')),
     );
     await tester.pumpAndSettle();
     await tester.tap(
-      find.byKey(const ValueKey<String>('meter-caption-device')),
+      find.byKey(const ValueKey<String>('gpu-meter-caption-device')),
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(bloc.settings.meter.captionSource, MeterCaptionSource.device);
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.device);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('gpu-meter-sparkline')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('gpu-meter-sparkline')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.gpu.sparkline, isFalse);
+
+    // The CPU panel carries the same controls and writes its own options.
+    await openOptions('cpu');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('cpu-meter-caption-device')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('cpu-meter-caption-device')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.cpu.captionSource, MeterCaptionSource.device);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('cpu-meter-sparkline')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('cpu-meter-sparkline')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.cpu.sparkline, isFalse);
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.device);
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {
@@ -1040,6 +1081,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(bloc.settings.accentSource, AccentSource.custom);
+  });
+
+  testWidgets('appearance blur toggle writes and resets', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    expect(bloc.settings.appearance.blur, isTrue);
+
+    final toggle = find.byKey(const ValueKey<String>('appearance-blur'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.appearance.blur, isFalse);
+    expect(file.readAsStringSync(), contains('"blur": false'));
+
+    final reset = find.byKey(const ValueKey<String>('reset-appearance-blur'));
+    await tester.ensureVisible(reset);
+    await tester.pumpAndSettle();
+    await tester.tap(reset);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.appearance.blur, isTrue);
   });
 
   testWidgets('appearance target edits one display and resets', (tester) async {

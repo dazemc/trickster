@@ -118,29 +118,93 @@ ModuleZone defaultModuleZone(String module) {
 
 /// Typed options for the CPU meter.
 class CpuOptions extends Equatable {
-  const CpuOptions({this.warn = 0.85, this.critical = 0.95});
+  const CpuOptions({
+    this.warn = 0.85,
+    this.critical = 0.95,
+    this.captionSource = MeterCaptionSource.generic,
+    this.sparkline = true,
+  });
 
   final double warn;
   final double critical;
+  final MeterCaptionSource captionSource;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
 
   @override
-  List<Object?> get props => [warn, critical];
+  List<Object?> get props => [warn, critical, captionSource, sparkline];
 
-  Map<String, Object?> toJson() => {'warn': warn, 'critical': critical};
+  Map<String, Object?> toJson() => {
+    'warn': warn,
+    'critical': critical,
+    'caption_source': captionSource.name,
+    'sparkline': sparkline,
+  };
 
-  static CpuOptions fromJson(Object? json) {
-    if (json == null) {
+  /// [legacy] is the retired shared `meter` object, consulted when this
+  /// document predates per-meter options.
+  static CpuOptions fromJson(Object? json, {Object? legacy}) {
+    if (json == null && legacy == null) {
       return const CpuOptions();
     }
-    if (json is! Map<String, dynamic>) {
+    if (json != null && json is! Map<String, dynamic>) {
       throw const FormatException('settings.cpu must be an object');
     }
-    final warn = _ratio(json['warn'], 'settings.cpu.warn') ?? 0.85;
-    final critical = _ratio(json['critical'], 'settings.cpu.critical') ?? 0.95;
+    final decoded = json is Map<String, dynamic>
+        ? json
+        : const <String, dynamic>{};
+    final warn = _ratio(decoded['warn'], 'settings.cpu.warn') ?? 0.85;
+    final critical =
+        _ratio(decoded['critical'], 'settings.cpu.critical') ?? 0.95;
     if (warn >= critical) {
       throw const FormatException('settings.cpu.warn must be below critical');
     }
-    return CpuOptions(warn: warn, critical: critical);
+    return CpuOptions(
+      warn: warn,
+      critical: critical,
+      captionSource: _captionSource(decoded, legacy),
+      sparkline: _sparkline(decoded, legacy),
+    );
+  }
+}
+
+/// Typed options for the GPU meter; the same shape as the CPU's meter keys.
+class GpuOptions extends Equatable {
+  const GpuOptions({
+    this.captionSource = MeterCaptionSource.generic,
+    this.sparkline = true,
+  });
+
+  final MeterCaptionSource captionSource;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
+
+  @override
+  List<Object?> get props => [captionSource, sparkline];
+
+  Map<String, Object?> toJson() => {
+    'caption_source': captionSource.name,
+    'sparkline': sparkline,
+  };
+
+  /// [legacy] is the retired shared `meter` object, consulted when this
+  /// document predates per-meter options.
+  static GpuOptions fromJson(Object? json, {Object? legacy}) {
+    if (json == null && legacy == null) {
+      return const GpuOptions();
+    }
+    if (json != null && json is! Map<String, dynamic>) {
+      throw const FormatException('settings.gpu must be an object');
+    }
+    final decoded = json is Map<String, dynamic>
+        ? json
+        : const <String, dynamic>{};
+    return GpuOptions(
+      captionSource: _captionSource(decoded, legacy),
+      sparkline: _sparkline(decoded, legacy),
+    );
   }
 }
 
@@ -171,14 +235,21 @@ enum ClockFormat {
 }
 
 class ClockOptions extends Equatable {
-  const ClockOptions({this.format = ClockFormat.locale});
+  const ClockOptions({this.format = ClockFormat.locale, this.showDate = true});
 
   final ClockFormat format;
 
-  @override
-  List<Object?> get props => [format];
+  /// Whether the date caption renders beside the time. Vertical strips drop
+  /// it regardless.
+  final bool showDate;
 
-  Map<String, Object?> toJson() => {'format': format.wire};
+  @override
+  List<Object?> get props => [format, showDate];
+
+  Map<String, Object?> toJson() => {
+    'format': format.wire,
+    'show_date': showDate,
+  };
 
   static ClockOptions fromJson(Object? json) {
     if (json == null) {
@@ -187,7 +258,34 @@ class ClockOptions extends Equatable {
     if (json is! Map<String, dynamic>) {
       throw const FormatException('settings.clock must be an object');
     }
-    return ClockOptions(format: ClockFormat.parse(json['format']));
+    return ClockOptions(
+      format: ClockFormat.parse(json['format']),
+      showDate: (json['show_date'] as bool?) ?? true,
+    );
+  }
+}
+
+/// Typed options for the strip's material.
+class AppearanceOptions extends Equatable {
+  const AppearanceOptions({this.blur = true});
+
+  /// Whether the pills may sit on the compositor's blur when the host
+  /// advertises it; false forces the opaque fill.
+  final bool blur;
+
+  @override
+  List<Object?> get props => [blur];
+
+  Map<String, Object?> toJson() => {'blur': blur};
+
+  static AppearanceOptions fromJson(Object? json) {
+    if (json == null) {
+      return const AppearanceOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.appearance must be an object');
+    }
+    return AppearanceOptions(blur: (json['blur'] as bool?) ?? true);
   }
 }
 
@@ -237,33 +335,31 @@ enum MeterCaptionSource {
       }
     }
     throw FormatException(
-      'settings.meter.caption_source must be one of '
+      'caption_source must be one of '
       '${MeterCaptionSource.values.map((source) => source.name).join(', ')}',
     );
   }
 }
 
-class MeterOptions extends Equatable {
-  const MeterOptions({this.captionSource = MeterCaptionSource.generic});
+/// Caption source for one meter, falling back to the retired shared `meter`
+/// object when the document predates per-meter options.
+MeterCaptionSource _captionSource(
+  Map<String, dynamic> decoded,
+  Object? legacy,
+) {
+  final legacyMap = legacy is Map<String, dynamic> ? legacy : null;
+  return MeterCaptionSource.parse(
+    decoded['caption_source'] ?? legacyMap?['caption_source'],
+  );
+}
 
-  final MeterCaptionSource captionSource;
-
-  @override
-  List<Object?> get props => [captionSource];
-
-  Map<String, Object?> toJson() => {'caption_source': captionSource.name};
-
-  static MeterOptions fromJson(Object? json) {
-    if (json == null) {
-      return const MeterOptions();
-    }
-    if (json is! Map<String, dynamic>) {
-      throw const FormatException('settings.meter must be an object');
-    }
-    return MeterOptions(
-      captionSource: MeterCaptionSource.parse(json['caption_source']),
-    );
-  }
+/// Sparkline switch for one meter, falling back to the retired shared `meter`
+/// object when the document predates per-meter options.
+bool _sparkline(Map<String, dynamic> decoded, Object? legacy) {
+  final legacyMap = legacy is Map<String, dynamic> ? legacy : null;
+  return (decoded['sparkline'] as bool?) ??
+      (legacyMap?['sparkline'] as bool?) ??
+      true;
 }
 
 double? _ratio(Object? value, String key) {
@@ -326,10 +422,11 @@ class BarSettings extends Equatable {
     this.accentSource = AccentSource.custom,
     this.accentWallpaperPick,
     this.displayAppearance = const {},
+    this.appearance = const AppearanceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
-    this.meter = const MeterOptions(),
+    this.gpu = const GpuOptions(),
   });
 
   /// Supported UI language tag (`en`, `zh`); null follows the system.
@@ -351,10 +448,13 @@ class BarSettings extends Equatable {
 
   /// Per-display appearance overrides by connector.
   final Map<String, DisplayAppearance> displayAppearance;
+
+  /// Material options for the strip's pills.
+  final AppearanceOptions appearance;
   final CpuOptions cpu;
   final ClockOptions clock;
   final BatteryOptions battery;
-  final MeterOptions meter;
+  final GpuOptions gpu;
 
   // Spread: Equatable compares props element-wise, so spreading gives deep
   // equality over the module list.
@@ -368,11 +468,12 @@ class BarSettings extends Equatable {
     ...displayAppearance.entries.map(
       (entry) => Object.hash(entry.key, entry.value),
     ),
+    appearance,
     ...modules,
     cpu,
     clock,
     battery,
-    meter,
+    gpu,
   ];
 
   bool includes(String module) => modules.contains(module);
@@ -423,7 +524,8 @@ class BarSettings extends Equatable {
     'cpu': cpu.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
-    'meter': meter.toJson(),
+    'gpu': gpu.toJson(),
+    'appearance': appearance.toJson(),
   };
 
   String encode() =>
@@ -439,12 +541,13 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
       displayAppearance: displayAppearance,
+      appearance: appearance,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
       clock: clock,
       battery: battery,
-      meter: meter,
+      gpu: gpu,
     );
   }
 
@@ -458,12 +561,13 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: accentWallpaperPick,
       displayAppearance: displayAppearance,
+      appearance: appearance,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
       clock: clock,
       battery: battery,
-      meter: meter,
+      gpu: gpu,
     );
   }
 
@@ -477,12 +581,13 @@ class BarSettings extends Equatable {
       accentSource: accentSource,
       accentWallpaperPick: pick,
       displayAppearance: displayAppearance,
+      appearance: appearance,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
       clock: clock,
       battery: battery,
-      meter: meter,
+      gpu: gpu,
     );
   }
 
@@ -494,11 +599,12 @@ class BarSettings extends Equatable {
     CpuOptions? cpu,
     ClockOptions? clock,
     BatteryOptions? battery,
-    MeterOptions? meter,
+    GpuOptions? gpu,
     String? locale,
     AccentSource? accentSource,
     String? accentWallpaperPick,
     Map<String, DisplayAppearance>? displayAppearance,
+    AppearanceOptions? appearance,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
@@ -508,12 +614,13 @@ class BarSettings extends Equatable {
       accentSource: accentSource ?? this.accentSource,
       accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
       displayAppearance: displayAppearance ?? this.displayAppearance,
+      appearance: appearance ?? this.appearance,
       modules: modules ?? this.modules,
       modulePlacement: modulePlacement ?? this.modulePlacement,
       cpu: cpu ?? this.cpu,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
-      meter: meter ?? this.meter,
+      gpu: gpu ?? this.gpu,
     );
   }
 
@@ -534,6 +641,7 @@ class BarSettings extends Equatable {
     }
     final modules = decoded['modules'];
     final locale = decoded['locale'];
+    final legacyMeter = decoded['meter'];
     if (locale != null && !knownLocales.contains(locale)) {
       throw FormatException(
         'settings.locale must be one of ${knownLocales.join(', ')}',
@@ -558,10 +666,11 @@ class BarSettings extends Equatable {
             ],
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
-      cpu: CpuOptions.fromJson(decoded['cpu']),
+      appearance: AppearanceOptions.fromJson(decoded['appearance']),
+      cpu: CpuOptions.fromJson(decoded['cpu'], legacy: legacyMeter),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
-      meter: MeterOptions.fromJson(decoded['meter']),
+      gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),
     );
   }
 

@@ -13,6 +13,7 @@ import 'package:trickster/src/settings/pages/displays.dart';
 import 'package:trickster/src/settings/pages/language.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -63,46 +64,67 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
         ),
         child: BlocProvider.value(
           value: _wallpaperAccent,
-          child: ViewCollection(
-            views: [
-              for (final view in views)
-                View(
-                  view: view,
-                  child: Builder(
-                    builder: (context) {
-                      // Depend on the bloc so a language change rebuilds the
-                      // scope with the new catalog.
-                      final locale = context
-                          .watch<SettingsAppBloc>()
-                          .state
-                          .settings
-                          .locale;
-                      return TricksterLocalizationScope(
-                        locale: localeFromTag(locale),
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                SettingsColors.backgroundTop,
-                                SettingsColors.background,
-                              ],
+          child: BlocProvider<CapabilitiesBloc>(
+            create: (_) =>
+                CapabilitiesBloc()..add(const CapabilitiesProbeRequested()),
+            child: ViewCollection(
+              views: [
+                for (final view in views)
+                  View(
+                    view: view,
+                    child: Builder(
+                      builder: (context) {
+                        // Depend on the bloc so a language change rebuilds the
+                        // scope with the new catalog.
+                        final locale = context
+                            .watch<SettingsAppBloc>()
+                            .state
+                            .settings
+                            .locale;
+                        // With the compositor blurring behind the toplevel,
+                        // the shell veils it with translucent fills; without
+                        // the protocol the window stays opaque.
+                        final glass = context
+                            .watch<CapabilitiesBloc>()
+                            .state
+                            .blur;
+                        return TricksterLocalizationScope(
+                          locale: localeFromTag(locale),
+                          child: SettingsGlass(
+                            enabled: glass,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    glass
+                                        ? SettingsColors.backgroundTop
+                                              .withValues(alpha: 0.55)
+                                        : SettingsColors.backgroundTop,
+                                    glass
+                                        ? SettingsColors.background.withValues(
+                                            alpha: 0.62,
+                                          )
+                                        : SettingsColors.background,
+                                  ],
+                                ),
+                              ),
+                              child: Overlay(
+                                initialEntries: [
+                                  OverlayEntry(
+                                    builder: (context) => const SettingsHome(),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          child: Overlay(
-                            initialEntries: [
-                              OverlayEntry(
-                                builder: (context) => const SettingsHome(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

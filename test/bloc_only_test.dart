@@ -9,11 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 const _exceptions = <String, String>{};
 
 /// The shapes the architecture forbids under `lib/`.
-const _banned = <String>[
-  'ChangeNotifier',
-  'InheritedNotifier',
-  'Cubit',
-];
+const _banned = <String>['ChangeNotifier', 'InheritedNotifier', 'Cubit'];
 
 void main() {
   test('lib/ carries no notifier or cubit state', () {

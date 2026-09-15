@@ -15,6 +15,7 @@ class CpuPill extends StatelessWidget {
     this.warn = 0.85,
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.sparkline = true,
     this.vertical = false,
     super.key,
   });
@@ -24,6 +25,9 @@ class CpuPill extends StatelessWidget {
   final double warn;
   final double critical;
   final MeterCaptionSource captionSource;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
   final bool vertical;
 
   @override
@@ -56,6 +60,7 @@ class CpuPill extends StatelessWidget {
           history: sample.history,
           capacity: CpuSample.capacity,
           valueColor: valueColor,
+          sparkline: sparkline,
           vertical: vertical,
         ),
       ),

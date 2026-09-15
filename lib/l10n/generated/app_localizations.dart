@@ -290,6 +290,12 @@ abstract class AppLocalizations {
   /// **'Accent used across the bar.'**
   String get settingsAppearanceCaption;
 
+  /// Toggle that lets pills blur the desktop when the host supports it.
+  ///
+  /// In en, this message translates to:
+  /// **'Hosted blur'**
+  String get settingsAppearanceBlur;
+
   /// Caption above the appearance target chips.
   ///
   /// In en, this message translates to:
@@ -602,6 +608,12 @@ abstract class AppLocalizations {
   /// **'12-hour'**
   String get settingsClockFormat12;
 
+  /// Toggle for the clock's date caption.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get settingsClockShowDate;
+
   /// Section heading for CPU threshold options.
   ///
   /// In en, this message translates to:
@@ -637,6 +649,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Caption source'**
   String get settingsMeterCaption;
+
+  /// Toggle for the CPU/GPU recent-history sparkline.
+  ///
+  /// In en, this message translates to:
+  /// **'Sparkline'**
+  String get settingsMeterSparkline;
 
   /// Meter caption choice: generic CPU/GPU tags.
   ///

@@ -15,6 +15,32 @@ abstract final class SettingsColors {
   static const Color outline = Color(0x22ffffff);
 }
 
+/// Whether the settings window sits on a compositor-blurred backdrop. Absent
+/// means false, so tests and hosts without the protocol keep opaque fills.
+class SettingsGlass extends InheritedWidget {
+  const SettingsGlass({required this.enabled, required super.child, super.key});
+
+  final bool enabled;
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<SettingsGlass>()?.enabled ??
+      false;
+
+  /// A large panel fill: translucent over a blurred backdrop, opaque
+  /// otherwise.
+  static Color panel(BuildContext context, Color opaque) =>
+      of(context) ? opaque.withValues(alpha: 0.72) : opaque;
+
+  /// A control fill (chips, buttons, tracks): lighter than [panel] so the
+  /// controls read as raised glass.
+  static Color control(BuildContext context, Color opaque) =>
+      of(context) ? opaque.withValues(alpha: 0.62) : opaque;
+
+  @override
+  bool updateShouldNotify(SettingsGlass oldWidget) =>
+      oldWidget.enabled != enabled;
+}
+
 /// One panel in the settings window, mirroring the strip's pill fills.
 class SettingsCard extends StatelessWidget {
   const SettingsCard({
@@ -30,7 +56,7 @@ class SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: SettingsColors.surface,
+        color: SettingsGlass.panel(context, SettingsColors.surface),
         borderRadius: const BorderRadius.all(Radius.circular(18)),
         border: Border.all(color: SettingsColors.outline),
       ),
@@ -73,9 +99,12 @@ class _SettingsCloseButtonState extends State<SettingsCloseButton> {
               height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _hovered
-                    ? SettingsColors.surfaceHigh
-                    : SettingsColors.surface,
+                color: SettingsGlass.control(
+                  context,
+                  _hovered
+                      ? SettingsColors.surfaceHigh
+                      : SettingsColors.surface,
+                ),
                 border: Border.all(color: SettingsColors.outline),
               ),
               child: const Center(
@@ -130,9 +159,12 @@ class _SettingsButtonState extends State<SettingsButton> {
               curve: Motion.standard,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: _hovered
-                    ? SettingsColors.surfaceHigh
-                    : SettingsColors.surface,
+                color: SettingsGlass.control(
+                  context,
+                  _hovered
+                      ? SettingsColors.surfaceHigh
+                      : SettingsColors.surface,
+                ),
                 borderRadius: const BorderRadius.all(Radius.circular(999)),
                 border: Border.all(color: SettingsColors.outline),
               ),
@@ -251,7 +283,10 @@ class _SettingsSliderState extends State<SettingsSlider> {
                           borderRadius: const BorderRadius.all(
                             Radius.circular(999),
                           ),
-                          color: SettingsColors.surfaceHigh,
+                          color: SettingsGlass.control(
+                            context,
+                            SettingsColors.surfaceHigh,
+                          ),
                         ),
                         child: const SizedBox(
                           width: double.infinity,
@@ -334,7 +369,10 @@ class SettingsChoiceChip extends StatelessWidget {
                 borderRadius: const BorderRadius.all(Radius.circular(999)),
                 color: selected
                     ? ShellBrandColors.defaultAccent
-                    : SettingsColors.surfaceHigh,
+                    : SettingsGlass.control(
+                        context,
+                        SettingsColors.surfaceHigh,
+                      ),
                 border: Border.all(color: SettingsColors.outline),
               ),
               child: Text(
@@ -349,6 +387,125 @@ class SettingsChoiceChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A pill switch with a label, used by option panels for boolean keys.
+class SettingsToggle extends StatelessWidget {
+  const SettingsToggle({
+    required this.label,
+    required this.enabled,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String label;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      toggled: enabled,
+      label: label,
+      hint: context.l10n.settingsModuleToggleHint,
+      onTap: () => onChanged(!enabled),
+      child: ExcludeSemantics(
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(!enabled),
+            child: AnimatedContainer(
+              duration: Motion.pill,
+              curve: Motion.standard,
+              width: 44,
+              height: 24,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(999)),
+                color: enabled
+                    ? ShellBrandColors.defaultAccent
+                    : SettingsGlass.control(
+                        context,
+                        SettingsColors.surfaceHigh,
+                      ),
+                border: Border.all(color: SettingsColors.outline),
+              ),
+              child: AnimatedAlign(
+                duration: Motion.pill,
+                curve: Motion.standard,
+                alignment: enabled
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: enabled
+                        ? SettingsColors.background
+                        : ShellMediaColors.lightForegroundSecondary,
+                  ),
+                  child: const SizedBox.square(dimension: 16),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A labeled [SettingsToggle] with its reset control, used by option panels.
+class SettingsToggleRow extends StatelessWidget {
+  const SettingsToggleRow({
+    required this.toggleKey,
+    required this.label,
+    required this.value,
+    required this.resetKey,
+    required this.resetLabel,
+    required this.resetEnabled,
+    required this.onChanged,
+    required this.onReset,
+    super.key,
+  });
+
+  final Key toggleKey;
+  final String label;
+  final bool value;
+  final Key resetKey;
+  final String resetLabel;
+  final bool resetEnabled;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellMediaColors.lightForegroundSecondary,
+            ),
+          ),
+        ),
+        SettingsToggle(
+          key: toggleKey,
+          label: label,
+          enabled: value,
+          onChanged: onChanged,
+        ),
+        const SizedBox(width: 12),
+        SettingsResetButton(
+          key: resetKey,
+          label: resetLabel,
+          enabled: resetEnabled,
+          onPressed: onReset,
+        ),
+      ],
     );
   }
 }
@@ -441,7 +598,10 @@ class _SettingsResetButtonState extends State<SettingsResetButton> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: _hovered || _focused
-                        ? SettingsColors.surfaceHigh
+                        ? SettingsGlass.control(
+                            context,
+                            SettingsColors.surfaceHigh,
+                          )
                         : ShellMediaColors.transparentDark,
                     border: _focused
                         ? Border.all(

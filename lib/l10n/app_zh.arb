@@ -144,6 +144,10 @@
   "@settingsAppearanceCaption": {
     "description": "Caption under the appearance page title."
   },
+  "settingsAppearanceBlur": "毛玻璃",
+  "@settingsAppearanceBlur": {
+    "description": "Toggle that lets pills blur the desktop when the host supports it."
+  },
   "settingsAppearancePerDisplay": "每个显示器",
   "@settingsAppearancePerDisplay": {
     "description": "Caption above the appearance target chips."
@@ -362,6 +366,10 @@
   "@settingsClockFormat12": {
     "description": "Clock format choice: 12-hour."
   },
+  "settingsClockShowDate": "日期",
+  "@settingsClockShowDate": {
+    "description": "Toggle for the clock's date caption."
+  },
   "settingsCpuSection": "CPU 阈值",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."
@@ -385,6 +393,10 @@
   "settingsMeterCaption": "标签来源",
   "@settingsMeterCaption": {
     "description": "Label above the meter caption choices."
+  },
+  "settingsMeterSparkline": "迷你曲线",
+  "@settingsMeterSparkline": {
+    "description": "Toggle for the CPU/GPU recent-history sparkline."
   },
   "settingsMeterCaptionGeneric": "通用",
   "@settingsMeterCaptionGeneric": {

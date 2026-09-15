@@ -14,12 +14,16 @@ class ClockPill extends StatelessWidget {
   const ClockPill({
     required this.accent,
     this.format = ClockFormat.locale,
+    this.showDate = true,
     this.vertical = false,
     super.key,
   });
 
   final WallpaperAccent accent;
   final ClockFormat format;
+
+  /// Whether the date caption renders beside the time.
+  final bool showDate;
 
   /// Vertical strips drop the date caption and show only the time.
   final bool vertical;
@@ -34,6 +38,7 @@ class ClockPill extends StatelessWidget {
           accent: accent,
           now: state.now,
           format: format,
+          showDate: showDate,
           vertical: vertical,
         ),
       ),
@@ -46,29 +51,32 @@ class _ClockRow extends StatelessWidget {
     required this.accent,
     required this.now,
     required this.format,
+    required this.showDate,
     required this.vertical,
   });
 
   final WallpaperAccent accent;
   final DateTime now;
   final ClockFormat format;
+  final bool showDate;
   final bool vertical;
 
   @override
   Widget build(BuildContext context) {
     final time = _formatTime(context, now);
     final date = _formatDate(context, now);
+    final withDate = showDate && !vertical;
     return PillTooltip(
       accent: accent,
-      label: '$date $time',
+      label: withDate ? '$date $time' : time,
       child: Semantics(
         label: context.l10n.clockTitle,
-        value: '$date, $time',
+        value: withDate ? '$date, $time' : time,
         child: ExcludeSemantics(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!vertical) ...[
+              if (withDate) ...[
                 Text(
                   date,
                   style: ShellText.systemBarCaption.copyWith(
