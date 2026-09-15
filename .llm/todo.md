@@ -15,23 +15,6 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase 17 — workspace pip styles
-
-The rail draws numbers today. The user wants a style choice: dots, numbers,
-Roman numerals, an SVG from a link, or a local image browsed from the
-settings application. One chosen asset applies to every pip unless the user
-asks for per-workspace mapping. Every style keeps the active lens,
-occupied/empty tinting, and the accessibility labels.
-
-- **17.3 (M) SVG link pips.** An SVG fetched from the configured link
-  renders as pip artwork, decoded off the frame loop and cached at display
-  size with eviction, falling back to numbers when a load fails. Done when
-  the live rail paints a linked SVG.
-- **17.4 (M) Local image pips.** A browsed local image renders as pip
-  artwork through the same decode/cache path, with the settings application
-  offering a file browse control. Done when the live rail paints a browsed
-  image.
-
 ## Phase 18 — bar options and layout
 
 The user's review of the live bar: pills overlap when a cluster outgrows
