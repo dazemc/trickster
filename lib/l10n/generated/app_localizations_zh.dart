@@ -158,6 +158,57 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get settingsWorkspacesPipStyle => '工作区样式';
+
+  @override
+  String get settingsWorkspacesPipNumber => '数字';
+
+  @override
+  String get settingsWorkspacesPipDot => '圆点';
+
+  @override
+  String get settingsWorkspacesPipRoman => '罗马数字';
+
+  @override
+  String get settingsWorkspacesImage => '图片';
+
+  @override
+  String get settingsWorkspacesImageNone => '未选择图片';
+
+  @override
+  String get settingsWorkspacesBrowse => '浏览…';
+
+  @override
+  String get settingsWorkspacesImageClear => '清除图片';
+
+  @override
+  String get settingsWorkspacesTintSvg => '使用强调色';
+
+  @override
+  String get settingsWorkspacesRemoveMapping => '移除';
+
+  @override
+  String get settingsWorkspacesTintSvgHint => '仅适用于 SVG 文件。';
+
+  @override
+  String get settingsWorkspacesCustom => '自定义…';
+
+  @override
+  String get settingsWorkspacesChoose => '选择…';
+
+  @override
+  String get settingsWorkspacesAddMapping => '添加';
+
+  @override
+  String get settingsWorkspacesNameHint => '工作区名称';
+
+  @override
+  String get settingsWorkspacesPerWorkspace => '按工作区';
+
+  @override
+  String get settingsWorkspacesPipImage => '图片';
+
+  @override
   String get settingsModulesEmptyZone => '将模块拖到这里';
 
   @override

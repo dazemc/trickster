@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' as ui show Canvas, Image, Picture, PictureRecorder;
 import 'dart:ui' show ImageByteFormat, Offset, instantiateImageCodec;
 
 import 'package:dbus/dbus.dart';
@@ -1518,7 +1519,10 @@ Future<SystemTrayIconPixmap?> _decodeSvgIcon(List<int> bytes) async {
         height > _StatusNotifierLimits.maxOutputDimension) {
       return null;
     }
-    final image = await info.picture.toImage(width, height);
+    final image = await _scaledPicture(info.picture, width, height, scale);
+    if (image == null) {
+      return null;
+    }
     try {
       final data = await image.toByteData(format: ImageByteFormat.rawRgba);
       if (data == null) {
@@ -1534,6 +1538,30 @@ Future<SystemTrayIconPixmap?> _decodeSvgIcon(List<int> bytes) async {
     }
   } finally {
     info.picture.dispose();
+  }
+}
+
+/// `Picture.toImage` rasterizes at the picture's own coordinates, so the
+/// drawing is scaled through a recorder; without this, icons whose artwork
+/// is larger than the pixmap lose everything past the top-left corner.
+Future<ui.Image?> _scaledPicture(
+  ui.Picture picture,
+  int width,
+  int height,
+  double scale,
+) async {
+  ui.PictureRecorder? recorder;
+  ui.Picture? scaled;
+  try {
+    recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder)..scale(scale, scale);
+    canvas.drawPicture(picture);
+    scaled = recorder.endRecording();
+    return await scaled.toImage(width, height);
+  } on Object {
+    return null;
+  } finally {
+    scaled?.dispose();
   }
 }
 

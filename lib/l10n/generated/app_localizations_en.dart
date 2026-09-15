@@ -161,6 +161,57 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsWorkspacesPipStyle => 'Pip style';
+
+  @override
+  String get settingsWorkspacesPipNumber => 'Numbers';
+
+  @override
+  String get settingsWorkspacesPipDot => 'Dots';
+
+  @override
+  String get settingsWorkspacesPipRoman => 'Roman';
+
+  @override
+  String get settingsWorkspacesImage => 'Image';
+
+  @override
+  String get settingsWorkspacesImageNone => 'No image chosen';
+
+  @override
+  String get settingsWorkspacesBrowse => 'Browse…';
+
+  @override
+  String get settingsWorkspacesImageClear => 'Clear image';
+
+  @override
+  String get settingsWorkspacesTintSvg => 'Color with accent';
+
+  @override
+  String get settingsWorkspacesRemoveMapping => 'Remove';
+
+  @override
+  String get settingsWorkspacesTintSvgHint => 'Only applies to SVG files.';
+
+  @override
+  String get settingsWorkspacesCustom => 'Custom…';
+
+  @override
+  String get settingsWorkspacesChoose => 'Choose…';
+
+  @override
+  String get settingsWorkspacesAddMapping => 'Add';
+
+  @override
+  String get settingsWorkspacesNameHint => 'Workspace name';
+
+  @override
+  String get settingsWorkspacesPerWorkspace => 'Per workspace';
+
+  @override
+  String get settingsWorkspacesPipImage => 'Image';
+
+  @override
   String get settingsModulesEmptyZone => 'Drop a module here';
 
   @override

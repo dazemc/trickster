@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/availability.dart';
@@ -72,55 +73,70 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
                 for (final view in views)
                   View(
                     view: view,
-                    child: Builder(
-                      builder: (context) {
-                        // Depend on the bloc so a language change rebuilds the
-                        // scope with the new catalog.
-                        final locale = context
-                            .watch<SettingsAppBloc>()
-                            .state
-                            .settings
-                            .locale;
-                        // With the compositor blurring behind the toplevel,
-                        // the shell veils it with translucent fills; without
-                        // the protocol the window stays opaque.
-                        final glass = context
-                            .watch<CapabilitiesBloc>()
-                            .state
-                            .blur;
-                        return TricksterLocalizationScope(
-                          locale: localeFromTag(locale),
-                          child: SettingsGlass(
-                            enabled: glass,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    glass
-                                        ? SettingsColors.backgroundTop
-                                              .withValues(alpha: 0.55)
-                                        : SettingsColors.backgroundTop,
-                                    glass
-                                        ? SettingsColors.background.withValues(
-                                            alpha: 0.62,
-                                          )
-                                        : SettingsColors.background,
-                                  ],
-                                ),
-                              ),
-                              child: Overlay(
-                                initialEntries: [
-                                  OverlayEntry(
-                                    builder: (context) => const SettingsHome(),
+                    child: Shortcuts(
+                      shortcuts: shellShortcuts,
+                      child: Actions(
+                        actions: WidgetsApp.defaultActions,
+                        // Text fields in this window need the platform's
+                        // editing keys (backspace, select all, clipboard)
+                        // that a WidgetsApp would normally install.
+                        child: DefaultTextEditingShortcuts(
+                          child: FocusScope(
+                            autofocus: true,
+                            child: Builder(
+                              builder: (context) {
+                                // Depend on the bloc so a language change
+                                // rebuilds the scope with the new catalog.
+                                final locale = context
+                                    .watch<SettingsAppBloc>()
+                                    .state
+                                    .settings
+                                    .locale;
+                                // With the compositor blurring behind the
+                                // toplevel, the shell veils it with
+                                // translucent fills; without the protocol the
+                                // window stays opaque.
+                                final glass = context
+                                    .watch<CapabilitiesBloc>()
+                                    .state
+                                    .blur;
+                                return TricksterLocalizationScope(
+                                  locale: localeFromTag(locale),
+                                  child: SettingsGlass(
+                                    enabled: glass,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            glass
+                                                ? SettingsColors.backgroundTop
+                                                      .withValues(alpha: 0.55)
+                                                : SettingsColors.backgroundTop,
+                                            glass
+                                                ? SettingsColors.background
+                                                      .withValues(alpha: 0.62)
+                                                : SettingsColors.background,
+                                          ],
+                                        ),
+                                      ),
+                                      child: Overlay(
+                                        initialEntries: [
+                                          OverlayEntry(
+                                            builder: (context) =>
+                                                const SettingsHome(),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -138,6 +154,7 @@ class SettingsHome extends StatefulWidget {
   const SettingsHome({
     this.onClose,
     this.availabilityProbe = probeModuleAvailability,
+    this.workspaceNames,
     super.key,
   });
 
@@ -146,6 +163,10 @@ class SettingsHome extends StatefulWidget {
 
   /// Hardware probe for the modules page; tests substitute their own answer.
   final List<ModuleAvailability> Function() availabilityProbe;
+
+  /// Source of live workspace names for the pip mapping editor; null asks
+  /// the running bar over the control socket.
+  final Future<List<String>> Function()? workspaceNames;
 
   @override
   State<SettingsHome> createState() => _SettingsHomeState();
@@ -234,7 +255,9 @@ class _SettingsHomeState extends State<SettingsHome> {
                                   settings: context.read<SettingsAppBloc>(),
                                   availabilityProbe: widget.availabilityProbe,
                                 ),
-                                child: const ModulesPage(),
+                                child: ModulesPage(
+                                  workspaceNames: widget.workspaceNames,
+                                ),
                               ),
                             SettingsSection.displays => const DisplaysPage(),
                             SettingsSection.language => const LanguagePage(),

@@ -398,9 +398,117 @@ Color? colorFromHex(Object? value) {
   return parsed == null ? null : Color(0xff000000 | parsed);
 }
 
-/// The versioned settings document. The retired `workspaces` section
-/// (counts, per-output overrides, display order) is ignored on decode:
-/// workspace placement belongs to the compositor.
+/// How the workspace rail paints each pip.
+enum PipStyle {
+  number('number'),
+  dot('dot'),
+  roman('roman'),
+  image('image');
+
+  const PipStyle(this.wire);
+
+  final String wire;
+
+  static PipStyle parse(Object? value) {
+    if (value == null) {
+      return PipStyle.number;
+    }
+    for (final style in PipStyle.values) {
+      if (style.wire == value) {
+        return style;
+      }
+    }
+    throw FormatException(
+      'settings.workspaces.pip_style must be one of '
+      '${PipStyle.values.map((style) => style.wire).join(', ')}',
+    );
+  }
+}
+
+/// Typed options for the workspace rail. The retired counts, per-output
+/// overrides, and display order stay ignored: placement belongs to the
+/// compositor, only the look is configurable.
+class WorkspaceOptions extends Equatable {
+  const WorkspaceOptions({
+    this.pipStyle = PipStyle.number,
+    this.imageSource,
+    this.imageByWorkspace = const {},
+    this.tintSvg = false,
+  });
+
+  final PipStyle pipStyle;
+
+  /// Local file the `image` style loads its artwork from when the workspace
+  /// has no mapping of its own.
+  final String? imageSource;
+
+  /// Per-workspace artwork files, keyed by the workspace name the rail
+  /// paints.
+  final Map<String, String> imageByWorkspace;
+
+  /// Whether vector artwork recolors to the accent.
+  final bool tintSvg;
+
+  @override
+  List<Object?> get props => [pipStyle, imageSource, imageByWorkspace, tintSvg];
+
+  Map<String, Object?> toJson() => {
+    'pip_style': pipStyle.wire,
+    if (imageSource != null) 'image_source': imageSource,
+    if (imageByWorkspace.isNotEmpty)
+      'image_by_workspace': Map<String, String>.of(imageByWorkspace),
+    if (tintSvg) 'tint_svg': true,
+  };
+
+  static WorkspaceOptions fromJson(Object? json) {
+    if (json == null) {
+      return const WorkspaceOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.workspaces must be an object');
+    }
+    return WorkspaceOptions(
+      pipStyle: PipStyle.parse(json['pip_style']),
+      imageSource: _pipSource(json['image_source']),
+      imageByWorkspace: _pipSources(json['image_by_workspace']),
+      tintSvg: (json['tint_svg'] as bool?) ?? false,
+    );
+  }
+}
+
+/// Per-workspace artwork paths: name to file, empty values dropped.
+Map<String, String> _pipSources(Object? value) {
+  if (value == null) {
+    return const {};
+  }
+  if (value is! Map<String, dynamic>) {
+    throw const FormatException(
+      'settings.workspaces.image_by_workspace must be an object',
+    );
+  }
+  return {
+    for (final entry in value.entries)
+      if (_pipSource(entry.value) case final path?)
+        if (entry.key.isNotEmpty) entry.key: path,
+  };
+}
+
+/// The browsed image path is a string; an empty value clears the key.
+String? _pipSource(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String) {
+    throw const FormatException(
+      'settings.workspaces.image_source must be a string',
+    );
+  }
+  return value.isEmpty ? null : value;
+}
+
+/// The versioned settings document. The retired `workspaces` counts,
+/// per-output overrides, and display order are ignored on decode: workspace
+/// placement belongs to the compositor.
 class BarSettings extends Equatable {
   /// Every module the bar can run, in the default strip order.
   static const List<String> knownModules = [
@@ -423,6 +531,7 @@ class BarSettings extends Equatable {
     this.accentWallpaperPick,
     this.displayAppearance = const {},
     this.appearance = const AppearanceOptions(),
+    this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
@@ -451,6 +560,9 @@ class BarSettings extends Equatable {
 
   /// Material options for the strip's pills.
   final AppearanceOptions appearance;
+
+  /// Look of the workspace rail's pips.
+  final WorkspaceOptions workspaces;
   final CpuOptions cpu;
   final ClockOptions clock;
   final BatteryOptions battery;
@@ -469,6 +581,7 @@ class BarSettings extends Equatable {
       (entry) => Object.hash(entry.key, entry.value),
     ),
     appearance,
+    workspaces,
     ...modules,
     cpu,
     clock,
@@ -526,6 +639,7 @@ class BarSettings extends Equatable {
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
     'appearance': appearance.toJson(),
+    'workspaces': workspaces.toJson(),
   };
 
   String encode() =>
@@ -542,6 +656,7 @@ class BarSettings extends Equatable {
       accentWallpaperPick: accentWallpaperPick,
       displayAppearance: displayAppearance,
       appearance: appearance,
+      workspaces: workspaces,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
@@ -562,6 +677,7 @@ class BarSettings extends Equatable {
       accentWallpaperPick: accentWallpaperPick,
       displayAppearance: displayAppearance,
       appearance: appearance,
+      workspaces: workspaces,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
@@ -582,6 +698,7 @@ class BarSettings extends Equatable {
       accentWallpaperPick: pick,
       displayAppearance: displayAppearance,
       appearance: appearance,
+      workspaces: workspaces,
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
@@ -605,6 +722,7 @@ class BarSettings extends Equatable {
     String? accentWallpaperPick,
     Map<String, DisplayAppearance>? displayAppearance,
     AppearanceOptions? appearance,
+    WorkspaceOptions? workspaces,
   }) {
     return BarSettings(
       revision: revision ?? this.revision,
@@ -615,6 +733,7 @@ class BarSettings extends Equatable {
       accentWallpaperPick: accentWallpaperPick ?? this.accentWallpaperPick,
       displayAppearance: displayAppearance ?? this.displayAppearance,
       appearance: appearance ?? this.appearance,
+      workspaces: workspaces ?? this.workspaces,
       modules: modules ?? this.modules,
       modulePlacement: modulePlacement ?? this.modulePlacement,
       cpu: cpu ?? this.cpu,
@@ -667,6 +786,7 @@ class BarSettings extends Equatable {
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
       appearance: AppearanceOptions.fromJson(decoded['appearance']),
+      workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
       cpu: CpuOptions.fromJson(decoded['cpu'], legacy: legacyMeter),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),

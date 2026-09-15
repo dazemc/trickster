@@ -374,11 +374,113 @@ abstract class AppLocalizations {
   /// **'No battery detected'**
   String get settingsUnavailableNoBattery;
 
-  /// Gear label revealing one module's options.
+  /// Gear label revealing one module's typed options.
   ///
   /// In en, this message translates to:
   /// **'{module} options'**
   String settingsModuleOptions(String module);
+
+  /// Label above the workspace pip style choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Pip style'**
+  String get settingsWorkspacesPipStyle;
+
+  /// Pip style choice: the workspace's number.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbers'**
+  String get settingsWorkspacesPipNumber;
+
+  /// Pip style choice: one dot per workspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Dots'**
+  String get settingsWorkspacesPipDot;
+
+  /// Pip style choice: Roman numerals.
+  ///
+  /// In en, this message translates to:
+  /// **'Roman'**
+  String get settingsWorkspacesPipRoman;
+
+  /// Label above the browsed image control for workspace pips.
+  ///
+  /// In en, this message translates to:
+  /// **'Image'**
+  String get settingsWorkspacesImage;
+
+  /// Placeholder when no pip image has been browsed.
+  ///
+  /// In en, this message translates to:
+  /// **'No image chosen'**
+  String get settingsWorkspacesImageNone;
+
+  /// Button opening the host's image chooser.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse…'**
+  String get settingsWorkspacesBrowse;
+
+  /// Reset control dropping the browsed pip image.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear image'**
+  String get settingsWorkspacesImageClear;
+
+  /// Label for recoloring SVG pip artwork with the accent.
+  ///
+  /// In en, this message translates to:
+  /// **'Color with accent'**
+  String get settingsWorkspacesTintSvg;
+
+  /// Button dropping a per-workspace mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get settingsWorkspacesRemoveMapping;
+
+  /// Caption clarifying the SVG recolor scope.
+  ///
+  /// In en, this message translates to:
+  /// **'Only applies to SVG files.'**
+  String get settingsWorkspacesTintSvgHint;
+
+  /// Dropdown entry enabling manual workspace-name entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom…'**
+  String get settingsWorkspacesCustom;
+
+  /// Dropdown trigger for picking an existing workspace name.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose…'**
+  String get settingsWorkspacesChoose;
+
+  /// Button committing a new per-workspace mapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get settingsWorkspacesAddMapping;
+
+  /// Placeholder naming the workspace to map.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace name'**
+  String get settingsWorkspacesNameHint;
+
+  /// Section label for per-workspace artwork mappings.
+  ///
+  /// In en, this message translates to:
+  /// **'Per workspace'**
+  String get settingsWorkspacesPerWorkspace;
+
+  /// Pip style choice: artwork from a browsed local image.
+  ///
+  /// In en, this message translates to:
+  /// **'Image'**
+  String get settingsWorkspacesPipImage;
 
   /// Hint shown inside an empty placement segment.
   ///

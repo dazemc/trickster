@@ -54,6 +54,7 @@ Future<void> _pump(
   SettingsAppBloc bloc, {
   VoidCallback? onClose,
   List<ModuleAvailability> Function()? availabilityProbe,
+  Future<List<String>> Function()? workspaceNames,
 }) {
   return tester.pumpWidget(
     BlocProvider.value(
@@ -73,6 +74,7 @@ Future<void> _pump(
                       availabilityProbe:
                           availabilityProbe ??
                           () => const <ModuleAvailability>[],
+                      workspaceNames: workspaceNames,
                     ),
                   ),
                 ],
@@ -986,7 +988,7 @@ void main() {
   testWidgets('module gears round-trip typed options', (tester) async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);
-    await _pump(tester, bloc);
+    await _pump(tester, bloc, workspaceNames: () async => ['1', '2', 'web']);
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
@@ -1007,6 +1009,119 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(bloc.settings.clock.format, ClockFormat.hour24);
+
+    await openOptions('workspaces');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('workspaces-pip-dot')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('workspaces-pip-dot')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.pipStyle, PipStyle.dot);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('workspaces-pip-image')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.pipStyle, PipStyle.image);
+
+    // The gear's Browse button asks the host for a path and stores it.
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('org.trickster.bar/layer_shell'),
+      (call) async => call.method == 'pickImageFile' ? '/tmp/pip.svg' : null,
+    );
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(
+        const MethodChannel('org.trickster.bar/layer_shell'),
+        null,
+      ),
+    );
+    final browse = find.byKey(
+      const ValueKey<String>('workspaces-image-browse'),
+    );
+    await tester.ensureVisible(browse);
+    await tester.pumpAndSettle();
+    await tester.tap(browse);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.imageSource, '/tmp/pip.svg');
+
+    // An SVG file reveals the recolor option, which writes tint_svg.
+    final tint = find.byKey(const ValueKey<String>('workspaces-tint-svg'));
+    await tester.ensureVisible(tint);
+    await tester.pumpAndSettle();
+    await tester.tap(tint);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.tintSvg, isTrue);
+
+    // The dropdown offers the bar's live names; picking one fills the name
+    // without showing the text field.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('workspaces-map-pick')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('workspaces-map-pick')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('workspaces-map-pick-2')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('workspaces-map-pick-2')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('workspaces-map-name')),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.imageByWorkspace, {'2': '/tmp/pip.svg'});
+
+    final remove = find.byKey(
+      const ValueKey<String>('workspaces-map-2-remove'),
+    );
+    await tester.ensureVisible(remove);
+    await tester.pumpAndSettle();
+    await tester.tap(remove);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.imageByWorkspace, isEmpty);
+
+    // Custom entry still allows typing a name the bar did not report.
+    await tester.tap(find.byKey(const ValueKey<String>('workspaces-map-pick')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('workspaces-map-pick-custom')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('workspaces-map-name')),
+      'web',
+    );
+    final customBrowse = find.byKey(
+      const ValueKey<String>('workspaces-map-custom-browse'),
+    );
+    await tester.ensureVisible(customBrowse);
+    await tester.pumpAndSettle();
+    await tester.tap(customBrowse);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.imageByWorkspace, {'web': '/tmp/pip.svg'});
+
+    final clear = find.byKey(const ValueKey<String>('workspaces-image-clear'));
+    await tester.ensureVisible(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(clear);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.imageSource, isNull);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('clock-show-date')),

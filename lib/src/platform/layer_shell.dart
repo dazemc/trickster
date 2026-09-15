@@ -27,6 +27,12 @@ class LayerShell {
     return _channel.invokeMethod<void>('settingsClose');
   }
 
+  /// Opens the host's image chooser and resolves with the chosen absolute
+  /// path, or null when the picker was dismissed.
+  Future<String?> pickImageFile() {
+    return _channel.invokeMethod<String>('pickImageFile');
+  }
+
   /// Sets the background blur region of one strip surface to the pill
   /// rectangles; an empty list removes the effect. Only meaningful when
   /// [blurSupported] is true.
