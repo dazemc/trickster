@@ -23,9 +23,6 @@ settings application. One chosen asset applies to every pip unless the user
 asks for per-workspace mapping. Every style keeps the active lens,
 occupied/empty tinting, and the accessibility labels.
 
-- **17.2 (M) Dots and Roman numerals.** The rail paints the configured
-  glyph for every pip, keeping the lens, tints, and labels. Done when the
-  live bar shows each style and widget tests pin the glyphs and tints.
 - **17.3 (M) SVG link pips.** An SVG fetched from the configured link
   renders as pip artwork, decoded off the frame loop and cached at display
   size with eviction, falling back to numbers when a load fails. Done when
