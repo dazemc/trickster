@@ -77,10 +77,15 @@ class _ClockRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (withDate) ...[
-                Text(
-                  date,
-                  style: ShellText.systemBarCaption.copyWith(
-                    color: accent.captionColor(),
+                Flexible(
+                  child: Text(
+                    date,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: accent.captionColor(),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

@@ -52,22 +52,28 @@ class LoadMeter extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    style: ShellText.systemBarCaption.copyWith(
-                      color: captionColor,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: captionColor,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    '$percent%',
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    style: ShellText.systemBarValue.copyWith(color: valueColor),
+                  Flexible(
+                    child: Text(
+                      '$percent%',
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: ShellText.systemBarValue.copyWith(
+                        color: valueColor,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -97,11 +103,18 @@ class LoadMeter extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedDefaultTextStyle(
-              duration: Motion.wallpaperReveal,
-              curve: Motion.standard,
-              style: ShellText.systemBarCaption.copyWith(color: captionColor),
-              child: Text(label),
+            Flexible(
+              child: AnimatedDefaultTextStyle(
+                duration: Motion.wallpaperReveal,
+                curve: Motion.standard,
+                style: ShellText.systemBarCaption.copyWith(color: captionColor),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
             if (sparkline) ...[
               const SizedBox(width: 6),

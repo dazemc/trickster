@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' show max;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/flow.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/media.dart';
 import 'package:trickster/src/bar/pill.dart';
@@ -13,6 +15,7 @@ import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -30,7 +33,7 @@ import 'package:trickster/src/state/workspaces_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/wallpaper_accent.dart';
 
-class TricksterBarStrip extends StatelessWidget {
+class TricksterBarStrip extends StatefulWidget {
   const TricksterBarStrip({
     required this.side,
     this.thickness = 32,
@@ -41,7 +44,8 @@ class TricksterBarStrip extends StatelessWidget {
 
   final SystemBarSide side;
 
-  /// Cross-axis size of the strip band, used to place menus off the bar.
+  /// Configured cross-axis size; the strip grows past it when its wrapped
+  /// content needs more rows.
   final double thickness;
 
   /// Connector this strip is on, so per-output modules (workspaces) can
@@ -54,7 +58,43 @@ class TricksterBarStrip extends StatelessWidget {
   static const double _cardGap = 8;
 
   @override
+  State<TricksterBarStrip> createState() => _TricksterBarStripState();
+}
+
+class _TricksterBarStripState extends State<TricksterBarStrip> {
+  double? _surfaceCross;
+  double? _requested;
+
+  /// The zone layout asked for a cross extent; resize the layer surface and
+  /// its exclusive zone once per distinct target.
+  void _requestThickness(double needed) {
+    final target = needed + 2 * TricksterBarStrip._cardMargin;
+    final current = _surfaceCross;
+    if (current == null ||
+        (target - current).abs() < 0.5 ||
+        _requested == target) {
+      return;
+    }
+    _requested = target;
+    final viewId = View.of(context).viewId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        LayerShell()
+            .setSurfaceThickness(viewId: viewId, thickness: target)
+            .catchError((Object _) {}),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final side = widget.side;
+    final thickness = widget.thickness;
+    final output = widget.output;
+    final onOpenPowerSettings = widget.onOpenPowerSettings;
     final settings = context.watch<SettingsBloc>().state;
     // The configured accent is the source unless the wallpaper is; the
     // sampled color is null until extraction lands, so the session and
@@ -98,8 +138,8 @@ class TricksterBarStrip extends StatelessWidget {
             horizontal: horizontal,
             child: Padding(
               padding: vertical
-                  ? const EdgeInsets.only(bottom: _cardGap)
-                  : const EdgeInsets.only(right: _cardGap),
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
               child: RepaintBoundary(
                 child: TrayPill(
                   accent: accent,
@@ -133,8 +173,8 @@ class TricksterBarStrip extends StatelessWidget {
             horizontal: horizontal,
             child: Padding(
               padding: vertical
-                  ? const EdgeInsets.only(bottom: _cardGap)
-                  : const EdgeInsets.only(right: _cardGap),
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
               child: RepaintBoundary(
                 child: MediaPill(accent: accent, vertical: vertical),
               ),
@@ -170,8 +210,12 @@ class TricksterBarStrip extends StatelessWidget {
                   horizontal: horizontal,
                   child: Padding(
                     padding: vertical
-                        ? const EdgeInsets.only(bottom: _cardGap)
-                        : const EdgeInsets.only(right: _cardGap),
+                        ? const EdgeInsets.only(
+                            bottom: TricksterBarStrip._cardGap,
+                          )
+                        : const EdgeInsets.only(
+                            right: TricksterBarStrip._cardGap,
+                          ),
                     child: RepaintBoundary(
                       child: GpuPill(
                         accent: accent,
@@ -197,8 +241,8 @@ class TricksterBarStrip extends StatelessWidget {
             horizontal: horizontal,
             child: Padding(
               padding: vertical
-                  ? const EdgeInsets.only(bottom: _cardGap)
-                  : const EdgeInsets.only(right: _cardGap),
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
               child: RepaintBoundary(
                 child: CpuPill(
                   accent: accent,
@@ -224,8 +268,8 @@ class TricksterBarStrip extends StatelessWidget {
             horizontal: horizontal,
             child: Padding(
               padding: vertical
-                  ? const EdgeInsets.only(bottom: _cardGap)
-                  : const EdgeInsets.only(right: _cardGap),
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
               child: RepaintBoundary(
                 child: BatteryPill(
                   accent: accent,
@@ -245,8 +289,8 @@ class TricksterBarStrip extends StatelessWidget {
         horizontal: horizontal,
         child: Padding(
           padding: vertical
-              ? const EdgeInsets.only(bottom: _cardGap)
-              : const EdgeInsets.only(right: _cardGap),
+              ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+              : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
           child: RepaintBoundary(
             child: ClockPill(
               accent: accent,
@@ -259,93 +303,191 @@ class TricksterBarStrip extends StatelessWidget {
       ),
     };
 
-    return StripGeometry(
-      side: side,
-      thickness: thickness,
-      child: Padding(
-        padding: horizontal
-            ? const EdgeInsets.symmetric(
-                horizontal: _edgePadding,
-                vertical: _cardMargin,
-              )
-            : const EdgeInsets.symmetric(
-                horizontal: _cardMargin,
-                vertical: _edgePadding,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _surfaceCross = horizontal
+            ? constraints.maxHeight
+            : constraints.maxWidth;
+        // Rows wrap against the configured band, never the grown surface:
+        // deriving the band from the current size makes every grown frame
+        // demand another row and the resize never settles.
+        final bandCross = thickness - 2 * TricksterBarStrip._cardMargin;
+        return StripGeometry(
+          side: side,
+          thickness: _surfaceCross ?? thickness,
+          child: Padding(
+            padding: horizontal
+                ? const EdgeInsets.symmetric(
+                    horizontal: TricksterBarStrip._edgePadding,
+                    vertical: TricksterBarStrip._cardMargin,
+                  )
+                : const EdgeInsets.symmetric(
+                    horizontal: TricksterBarStrip._cardMargin,
+                    vertical: TricksterBarStrip._edgePadding,
+                  ),
+            child: CustomMultiChildLayout(
+              delegate: _StripZoneLayout(
+                horizontal: horizontal,
+                onNeeded: _requestThickness,
               ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _moduleZone(
-              settings: settings,
-              builders: builders,
-              zone: ModuleZone.leading,
-              alignment: horizontal
-                  ? Alignment.centerLeft
-                  : Alignment.topCenter,
-              horizontal: horizontal,
+              children: [
+                LayoutId(
+                  id: _StripZoneLayout.leadingId,
+                  child: _zoneWrap(
+                    key: const ValueKey<String>('strip-zone-leading'),
+                    horizontal: horizontal,
+                    child: _moduleZone(
+                      settings: settings,
+                      builders: builders,
+                      zone: ModuleZone.leading,
+                      horizontal: horizontal,
+                      bandCross: bandCross,
+                    ),
+                  ),
+                ),
+                LayoutId(
+                  id: _StripZoneLayout.centerId,
+                  child: _zoneWrap(
+                    key: const ValueKey<String>('strip-zone-center'),
+                    horizontal: horizontal,
+                    child: _moduleZone(
+                      settings: settings,
+                      builders: builders,
+                      zone: ModuleZone.center,
+                      horizontal: horizontal,
+                      bandCross: bandCross,
+                    ),
+                  ),
+                ),
+                LayoutId(
+                  id: _StripZoneLayout.trailingId,
+                  child: _zoneWrap(
+                    key: const ValueKey<String>('strip-zone-trailing'),
+                    horizontal: horizontal,
+                    child: _moduleZone(
+                      settings: settings,
+                      builders: builders,
+                      zone: ModuleZone.trailing,
+                      horizontal: horizontal,
+                      bandCross: bandCross,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            _moduleZone(
-              settings: settings,
-              builders: builders,
-              zone: ModuleZone.center,
-              alignment: Alignment.center,
-              horizontal: horizontal,
-            ),
-            _moduleZone(
-              settings: settings,
-              builders: builders,
-              zone: ModuleZone.trailing,
-              alignment: horizontal
-                  ? Alignment.centerRight
-                  : Alignment.bottomCenter,
-              horizontal: horizontal,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
 /// One placement zone: the modules assigned to [zone] in configured order,
-/// shrink-wrapped along the main axis and pinned to [alignment].
+/// shrink-wrapped along the main axis.
 Widget _moduleZone({
   required BarSettings settings,
   required Map<String, Widget Function(int position)> builders,
   required ModuleZone zone,
-  required Alignment alignment,
   required bool horizontal,
+  required double bandCross,
 }) {
-  return Align(
-    alignment: alignment,
-    child: Flex(
-      direction: horizontal ? Axis.horizontal : Axis.vertical,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var position = 0; position < settings.modules.length; position++)
-          if (settings.zoneFor(settings.modules[position]) == zone)
-            _zoneModule(
-              settings.modules[position],
-              builders[settings.modules[position]]?.call(position) ??
-                  const SizedBox.shrink(),
-              horizontal: horizontal,
-            ),
-      ],
-    ),
+  return BarFlow(
+    horizontal: horizontal,
+    alignment: switch (zone) {
+      ModuleZone.leading => MainAxisAlignment.start,
+      ModuleZone.center => MainAxisAlignment.center,
+      ModuleZone.trailing => MainAxisAlignment.end,
+    },
+    crossExtent: bandCross,
+    children: [
+      for (var position = 0; position < settings.modules.length; position++)
+        if (settings.zoneFor(settings.modules[position]) == zone)
+          builders[settings.modules[position]]?.call(position) ??
+              const SizedBox.shrink(),
+    ],
   );
 }
 
-Widget _zoneModule(String module, Widget child, {required bool horizontal}) {
-  if (module != 'tray') {
-    return child;
+/// The zone's box: marked for tests, sized by the layout delegate.
+Widget _zoneWrap({
+  required Key key,
+  required Widget child,
+  required bool horizontal,
+}) {
+  return KeyedSubtree(key: key, child: child);
+}
+
+/// Places the three zones without overlap: the center keeps its natural size
+/// up to the full span, each side clamps to the space the center leaves. The
+/// delegate reports the cross extent its wrapped content needs so the strip
+/// can grow past the configured thickness.
+class _StripZoneLayout extends MultiChildLayoutDelegate {
+  _StripZoneLayout({required this.horizontal, required this.onNeeded});
+
+  static const Object leadingId = 'leading';
+  static const Object centerId = 'center';
+  static const Object trailingId = 'trailing';
+
+  final bool horizontal;
+  final ValueChanged<double> onNeeded;
+
+  @override
+  void performLayout(Size size) {
+    final center = layoutChild(centerId, _zoneConstraints(size, size));
+    final mainMax = horizontal ? size.width : size.height;
+    final centerMain = horizontal ? center.width : center.height;
+    final sideMain = ((mainMax - centerMain) / 2).clamp(0.0, mainMax);
+    final sideConstraints = _zoneConstraints(size, Size(sideMain, mainMax));
+    final leading = layoutChild(leadingId, sideConstraints);
+    final trailing = layoutChild(trailingId, sideConstraints);
+
+    // Content may wrap past the current surface; report what it needs so the
+    // strip can resize its layer surface.
+    final needed = [
+      leading,
+      center,
+      trailing,
+    ].map((size) => horizontal ? size.height : size.width).reduce(max);
+    onNeeded(needed);
+
+    double cross(double extent) =>
+        ((horizontal ? size.height : size.width) - extent) / 2;
+
+    if (horizontal) {
+      positionChild(leadingId, Offset(0, cross(leading.height)));
+      positionChild(
+        centerId,
+        Offset((size.width - center.width) / 2, cross(center.height)),
+      );
+      positionChild(
+        trailingId,
+        Offset(size.width - trailing.width, cross(trailing.height)),
+      );
+    } else {
+      positionChild(leadingId, Offset(cross(leading.width), 0));
+      positionChild(
+        centerId,
+        Offset(cross(center.width), (size.height - center.height) / 2),
+      );
+      positionChild(
+        trailingId,
+        Offset(cross(trailing.width), size.height - trailing.height),
+      );
+    }
   }
-  // The tray can outgrow its zone; scroll it instead of overflowing.
-  return Flexible(
-    child: SingleChildScrollView(
-      scrollDirection: horizontal ? Axis.horizontal : Axis.vertical,
-      child: child,
-    ),
-  );
+
+  /// Loose along the main axis (up to the clamped width) and unbounded
+  /// across it, so a zone can report the taller band its wrapped rows need.
+  BoxConstraints _zoneConstraints(Size size, Size main) {
+    if (horizontal) {
+      return BoxConstraints(maxWidth: main.width);
+    }
+    return BoxConstraints(maxHeight: main.height);
+  }
+
+  @override
+  bool shouldRelayout(_StripZoneLayout oldDelegate) =>
+      oldDelegate.horizontal != horizontal;
 }
 
 class _WorkspacesRail extends StatelessWidget {

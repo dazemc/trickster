@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -480,6 +481,11 @@ void main() {
       settings: const BarSettings(modules: ['clock', 'cpu']),
       settle: const Duration(milliseconds: 500),
     );
+    debugPrint('clock rect: ${tester.getRect(find.byType(ClockPill))}');
+    debugPrint('cpu rect: ${tester.getRect(find.byType(CpuPill))}');
+    debugPrint(
+      'trailing zone: ${tester.getRect(find.byKey(const ValueKey<String>('strip-zone-trailing')))}',
+    );
     expect(
       tester.getCenter(find.byType(ClockPill)).dx,
       lessThan(tester.getCenter(find.byType(CpuPill)).dx),
@@ -497,6 +503,73 @@ void main() {
       tester.getCenter(find.byType(CpuPill)).dx,
       lessThan(tester.getCenter(find.byType(ClockPill)).dx),
     );
+  });
+
+  testWidgets('overgrown zones clamp instead of overlapping the rail', (
+    tester,
+  ) async {
+    // The strip asks the host to grow the band once the wrapped rows need it.
+    final requests = <double>[];
+    const channel = MethodChannel('org.trickster.bar/layer_shell');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'surfaceThickness') {
+        requests.add(
+          ((call.arguments as Map<Object?, Object?>)['thickness'] as num)
+              .toDouble(),
+        );
+      }
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['workspaces', 'tray', 'clock']),
+      trayBuilder: () => TrayBloc(
+        initial: TrayState([
+          for (var i = 0; i < 30; i++)
+            SystemTrayItem(
+              id: 'item-$i',
+              title: 'Item $i',
+              status: SystemTrayStatus.active,
+              iconName: 'icon',
+              iconThemePath: '',
+              iconPixmap: null,
+              menuAvailable: false,
+              primaryOpensMenu: false,
+            ),
+        ]),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final strip = tester.getRect(find.byType(TricksterBarStrip));
+    final leading = tester.getRect(
+      find.byKey(const ValueKey<String>('strip-zone-leading')),
+    );
+    final center = tester.getRect(
+      find.byKey(const ValueKey<String>('strip-zone-center')),
+    );
+    final trailing = tester.getRect(
+      find.byKey(const ValueKey<String>('strip-zone-trailing')),
+    );
+
+    // The tray outgrows its half, so it clamps to what the centered rail
+    // leaves and never crosses it. The strip's edge padding sits outside the
+    // zones, so the clamp lands just inside the geometric half.
+    expect(leading.right, lessThanOrEqualTo(center.left + 0.5));
+    expect(center.right, lessThanOrEqualTo(trailing.left + 0.5));
+    expect(
+      leading.width,
+      lessThanOrEqualTo((strip.width - center.width) / 2 + 1),
+    );
+    debugPrint('requests: $requests');
+    debugPrint('leading rect: $leading center: $center trailing: $trailing');
+    debugPrint('tray: ${find.byKey(const ValueKey<String>('tray-item-item-0')).evaluate().length}');
+    // Three tray rows later the strip has asked for a taller band.
+    expect(requests, isNotEmpty);
+    expect(requests.last, greaterThan(32));
   });
 
   testWidgets('clock follows the US 12-hour cycle', (tester) async {

@@ -57,6 +57,24 @@ class SilentLayerShell extends LayerShell {
   Future<void> closeTooltipSurface({required int viewId}) async {}
 }
 
+/// The strip's production band: the layer surface is exactly one strip tall
+/// (or wide on a side bar), so pills lay out against the configured
+/// thickness rather than the test viewport.
+Widget _band(SystemBarSide side, double thickness, String? output) {
+  return Align(
+    alignment: side.isHorizontal ? Alignment.topCenter : Alignment.centerLeft,
+    child: SizedBox(
+      width: side.isHorizontal ? double.infinity : thickness,
+      height: side.isHorizontal ? thickness : double.infinity,
+      child: TricksterBarStrip(
+        side: side,
+        thickness: thickness,
+        output: output,
+      ),
+    ),
+  );
+}
+
 /// Wraps [child] in the overlay host blocs the strip always carries, for
 /// tests that pump one pill instead of the whole strip.
 Widget withOverlayBlocs(Widget child) {
@@ -134,19 +152,11 @@ Future<void> pumpBarHarness(
             child: wallpaperAccent == null
                 ? BlocProvider<WallpaperAccentBloc>(
                     create: (_) => WallpaperAccentBloc(watch: false),
-                    child: TricksterBarStrip(
-                      side: side,
-                      thickness: thickness,
-                      output: output,
-                    ),
+                    child: _band(side, thickness, output),
                   )
                 : BlocProvider<WallpaperAccentBloc>.value(
                     value: wallpaperAccent,
-                    child: TricksterBarStrip(
-                      side: side,
-                      thickness: thickness,
-                      output: output,
-                    ),
+                    child: _band(side, thickness, output),
                   ),
           ),
         ),
