@@ -15,12 +15,6 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Verification pending
-
-- Per-display appearance (14.12) landed without the two-output live check;
-  the user verifies it on a second monitor later and any fix becomes a new
-  step.
-
 ## Phase 17 — workspace pip styles
 
 The rail draws numbers today. The user wants a style choice: dots, numbers,
