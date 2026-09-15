@@ -374,11 +374,47 @@ abstract class AppLocalizations {
   /// **'No battery detected'**
   String get settingsUnavailableNoBattery;
 
-  /// Gear label revealing one module's options.
+  /// Gear label revealing one module's typed options.
   ///
   /// In en, this message translates to:
   /// **'{module} options'**
   String settingsModuleOptions(String module);
+
+  /// Label above the workspace pip style choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Pip style'**
+  String get settingsWorkspacesPipStyle;
+
+  /// Pip style choice: the workspace's number.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbers'**
+  String get settingsWorkspacesPipNumber;
+
+  /// Pip style choice: one dot per workspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Dots'**
+  String get settingsWorkspacesPipDot;
+
+  /// Pip style choice: Roman numerals.
+  ///
+  /// In en, this message translates to:
+  /// **'Roman'**
+  String get settingsWorkspacesPipRoman;
+
+  /// Pip style choice: artwork from a linked SVG.
+  ///
+  /// In en, this message translates to:
+  /// **'SVG link'**
+  String get settingsWorkspacesPipSvg;
+
+  /// Pip style choice: artwork from a browsed local image.
+  ///
+  /// In en, this message translates to:
+  /// **'Local image'**
+  String get settingsWorkspacesPipImage;
 
   /// Hint shown inside an empty placement segment.
   ///

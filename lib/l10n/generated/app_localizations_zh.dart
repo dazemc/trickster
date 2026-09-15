@@ -158,6 +158,24 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get settingsWorkspacesPipStyle => '工作区样式';
+
+  @override
+  String get settingsWorkspacesPipNumber => '数字';
+
+  @override
+  String get settingsWorkspacesPipDot => '圆点';
+
+  @override
+  String get settingsWorkspacesPipRoman => '罗马数字';
+
+  @override
+  String get settingsWorkspacesPipSvg => 'SVG 链接';
+
+  @override
+  String get settingsWorkspacesPipImage => '本地图片';
+
+  @override
   String get settingsModulesEmptyZone => '将模块拖到这里';
 
   @override

@@ -1008,6 +1008,16 @@ void main() {
     await tester.pump();
     expect(bloc.settings.clock.format, ClockFormat.hour24);
 
+    await openOptions('workspaces');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('workspaces-pip-dot')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('workspaces-pip-dot')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.workspaces.pipStyle, PipStyle.dot);
+
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('clock-show-date')),
     );

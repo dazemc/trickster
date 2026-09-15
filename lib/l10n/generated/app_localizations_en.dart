@@ -161,6 +161,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsWorkspacesPipStyle => 'Pip style';
+
+  @override
+  String get settingsWorkspacesPipNumber => 'Numbers';
+
+  @override
+  String get settingsWorkspacesPipDot => 'Dots';
+
+  @override
+  String get settingsWorkspacesPipRoman => 'Roman';
+
+  @override
+  String get settingsWorkspacesPipSvg => 'SVG link';
+
+  @override
+  String get settingsWorkspacesPipImage => 'Local image';
+
+  @override
   String get settingsModulesEmptyZone => 'Drop a module here';
 
   @override

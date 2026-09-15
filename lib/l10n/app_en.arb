@@ -207,12 +207,36 @@
   },
   "settingsModuleOptions": "{module} options",
   "@settingsModuleOptions": {
-    "description": "Gear label revealing one module's options.",
+    "description": "Gear label revealing one module's typed options.",
     "placeholders": {
       "module": {
         "type": "String"
       }
     }
+  },
+  "settingsWorkspacesPipStyle": "Pip style",
+  "@settingsWorkspacesPipStyle": {
+    "description": "Label above the workspace pip style choices."
+  },
+  "settingsWorkspacesPipNumber": "Numbers",
+  "@settingsWorkspacesPipNumber": {
+    "description": "Pip style choice: the workspace's number."
+  },
+  "settingsWorkspacesPipDot": "Dots",
+  "@settingsWorkspacesPipDot": {
+    "description": "Pip style choice: one dot per workspace."
+  },
+  "settingsWorkspacesPipRoman": "Roman",
+  "@settingsWorkspacesPipRoman": {
+    "description": "Pip style choice: Roman numerals."
+  },
+  "settingsWorkspacesPipSvg": "SVG link",
+  "@settingsWorkspacesPipSvg": {
+    "description": "Pip style choice: artwork from a linked SVG."
+  },
+  "settingsWorkspacesPipImage": "Local image",
+  "@settingsWorkspacesPipImage": {
+    "description": "Pip style choice: artwork from a browsed local image."
   },
   "settingsModulesEmptyZone": "Drop a module here",
   "@settingsModulesEmptyZone": {

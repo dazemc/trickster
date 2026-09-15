@@ -214,6 +214,30 @@
       }
     }
   },
+  "settingsWorkspacesPipStyle": "工作区样式",
+  "@settingsWorkspacesPipStyle": {
+    "description": "Label above the workspace pip style choices."
+  },
+  "settingsWorkspacesPipNumber": "数字",
+  "@settingsWorkspacesPipNumber": {
+    "description": "Pip style choice: the workspace's number."
+  },
+  "settingsWorkspacesPipDot": "圆点",
+  "@settingsWorkspacesPipDot": {
+    "description": "Pip style choice: one dot per workspace."
+  },
+  "settingsWorkspacesPipRoman": "罗马数字",
+  "@settingsWorkspacesPipRoman": {
+    "description": "Pip style choice: Roman numerals."
+  },
+  "settingsWorkspacesPipSvg": "SVG 链接",
+  "@settingsWorkspacesPipSvg": {
+    "description": "Pip style choice: artwork from a linked SVG."
+  },
+  "settingsWorkspacesPipImage": "本地图片",
+  "@settingsWorkspacesPipImage": {
+    "description": "Pip style choice: artwork from a browsed local image."
+  },
   "settingsModulesEmptyZone": "将模块拖到这里",
   "@settingsModulesEmptyZone": {
     "description": "Hint shown inside an empty placement segment."

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/workspaces.dart';
+import 'package:trickster/src/config/settings.dart' show PipStyle;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -30,6 +31,7 @@ Future<void> _pump(
   List<Workspace> workspaces, {
   bool horizontal = true,
   bool reduceMotion = false,
+  PipStyle style = PipStyle.number,
   ValueChanged<Workspace>? onPressed,
 }) {
   return tester.pumpWidget(
@@ -42,6 +44,7 @@ Future<void> _pump(
               accent: _accent,
               workspaces: workspaces,
               horizontal: horizontal,
+              style: style,
               onPressed: onPressed,
             ),
           ),
@@ -170,6 +173,94 @@ void main() {
     expect(peak.scaleX, closeTo(1 - 0.34 * 0.34, 0.02));
   });
 
+  testWidgets(
+    'dot style paints one tinted dot per workspace and keeps the lens',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _focused('2'), style: PipStyle.dot);
+
+      // No name glyphs, one dot per workspace.
+      expect(find.text('1'), findsNothing);
+      expect(find.text('web'), findsNothing);
+      for (final id in ['1', '2', '3']) {
+        expect(
+          find.byKey(ValueKey<String>('workspace-dot-$id')),
+          findsOneWidget,
+        );
+      }
+      // The focused dot wears the accent; the rest keep the label tints.
+      expect(_dotColor(tester, '2'), _accent.color);
+      expect(
+        _dotColor(tester, '1'),
+        ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3),
+      );
+      // The active lens and the labels survive the style change.
+      expect(find.byKey(WorkspacesPill.lensKey), findsOneWidget);
+      final semantics = tester.widget<Semantics>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey<String>('workspace-pip-2')),
+              matching: find.byType(Semantics),
+            )
+            .first,
+      );
+      expect(semantics.properties.label, 'Workspace web, empty, active');
+      handle.dispose();
+    },
+  );
+
+  testWidgets('roman style paints numerals and falls back to names', (
+    tester,
+  ) async {
+    await _pump(tester, _focused('3'), style: PipStyle.roman);
+
+    expect(find.text('I'), findsOneWidget);
+    expect(find.text('III'), findsOneWidget);
+    // A named workspace has no numeral and stays as it is.
+    expect(find.text('web'), findsOneWidget);
+    expect(find.text('3'), findsNothing);
+  });
+
+  testWidgets('long roman numerals share one uniform scale', (tester) async {
+    await _pump(tester, const [
+      Workspace(id: '1', name: '1', focused: true),
+      Workspace(id: '8', name: '8'),
+    ], style: PipStyle.roman);
+    expect(find.text('I'), findsOneWidget);
+    expect(find.text('VIII'), findsOneWidget);
+
+    double scaleOf(String id) {
+      final transform = tester.widget<Transform>(
+        find
+            .descendant(
+              of: find.byKey(ValueKey<String>('workspace-pip-$id')),
+              matching: find.byType(Transform),
+            )
+            .first,
+      );
+      return transform.transform.entry(0, 0);
+    }
+
+    // Both pips paint at the same, shrunk scale: the wide numeral fits and
+    // the narrow one is not left visibly larger.
+    expect(scaleOf('1'), scaleOf('8'));
+    expect(scaleOf('1'), lessThan(1));
+  });
+
+  test('roman numerals cover the compact range', () {
+    expect(romanNumeral(1), 'I');
+    expect(romanNumeral(4), 'IV');
+    expect(romanNumeral(9), 'IX');
+    expect(romanNumeral(40), 'XL');
+    expect(romanNumeral(444), 'CDXLIV');
+    expect(romanNumeral(3999), 'MMMCMXCIX');
+    expect(romanNumeral(0), isNull);
+    expect(romanNumeral(4000), isNull);
+    expect(pipLabel('7', PipStyle.roman), 'VII');
+    expect(pipLabel('web', PipStyle.roman), 'web');
+    expect(pipLabel('7', PipStyle.number), '7');
+  });
+
   testWidgets('reduced motion keeps the lens at rest', (tester) async {
     await _pump(tester, _focused('1'), reduceMotion: true);
     await _pump(tester, _focused('2'), reduceMotion: true);
@@ -212,4 +303,14 @@ TextStyle _pipStyle(WidgetTester tester, String id) {
         .last,
   );
   return pip.style;
+}
+
+Color _dotColor(WidgetTester tester, String id) {
+  final dot = tester.widget<AnimatedContainer>(
+    find.descendant(
+      of: find.byKey(ValueKey<String>('workspace-dot-$id')),
+      matching: find.byType(AnimatedContainer),
+    ),
+  );
+  return (dot.decoration! as BoxDecoration).color!;
 }

@@ -148,6 +148,7 @@ class TricksterBarStrip extends StatelessWidget {
           output: output,
           thickness: thickness,
           vertical: vertical,
+          pipStyle: settings.workspaces.pipStyle,
         ),
       ),
       'gpu': (position) => BlocBuilder<GpuBloc, GpuState>(
@@ -350,12 +351,14 @@ class _WorkspacesRail extends StatelessWidget {
     required this.output,
     required this.thickness,
     required this.vertical,
+    required this.pipStyle,
   });
 
   final WallpaperAccent accent;
   final String? output;
   final double thickness;
   final bool vertical;
+  final PipStyle pipStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -366,6 +369,7 @@ class _WorkspacesRail extends StatelessWidget {
           accent: accent,
           workspaces: workspaces,
           horizontal: true,
+          style: pipStyle,
           onPressed: (workspace) => context.read<WorkspacesBloc>().add(
             WorkspacesFocusRequested(workspace),
           ),

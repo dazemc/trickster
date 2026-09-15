@@ -13,7 +13,7 @@ import 'package:trickster/src/theme/tokens.dart';
 /// Whether [module] owns any of the typed options the bar decodes.
 bool moduleHasOptions(String module) {
   return switch (module) {
-    'clock' || 'cpu' || 'gpu' || 'battery' => true,
+    'workspaces' || 'clock' || 'cpu' || 'gpu' || 'battery' => true,
     _ => false,
   };
 }
@@ -52,6 +52,55 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     final controller = context.watch<SettingsAppBloc>();
     final settings = controller.settings;
     return switch (widget.module) {
+      'workspaces' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ChoiceHeader(
+            label: l10n.settingsWorkspacesPipStyle,
+            resetKey: const ValueKey<String>('reset-workspaces-pip-style'),
+            resetLabel: l10n.settingsResetOption(
+              l10n.settingsWorkspacesPipStyle,
+            ),
+            resetEnabled: settings.workspaces.pipStyle != PipStyle.number,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                workspaces: WorkspaceOptions(
+                  svgSource: settings.workspaces.svgSource,
+                  imageSource: settings.workspaces.imageSource,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final style in const [
+                PipStyle.number,
+                PipStyle.dot,
+                PipStyle.roman,
+              ])
+                SettingsChoiceChip(
+                  key: ValueKey<String>('workspaces-pip-${style.wire}'),
+                  label: _pipStyleLabel(l10n, style),
+                  selected: settings.workspaces.pipStyle == style,
+                  onPressed: () => _apply(
+                    controller,
+                    (settings) => settings.copyWith(
+                      workspaces: WorkspaceOptions(
+                        pipStyle: style,
+                        svgSource: settings.workspaces.svgSource,
+                        imageSource: settings.workspaces.imageSource,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
       'clock' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -388,6 +437,16 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       ),
     ];
   }
+}
+
+String _pipStyleLabel(AppLocalizations l10n, PipStyle style) {
+  return switch (style) {
+    PipStyle.number => l10n.settingsWorkspacesPipNumber,
+    PipStyle.dot => l10n.settingsWorkspacesPipDot,
+    PipStyle.roman => l10n.settingsWorkspacesPipRoman,
+    PipStyle.svg => l10n.settingsWorkspacesPipSvg,
+    PipStyle.image => l10n.settingsWorkspacesPipImage,
+  };
 }
 
 String _clockFormatLabel(AppLocalizations l10n, ClockFormat format) {
