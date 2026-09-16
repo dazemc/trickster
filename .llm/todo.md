@@ -22,10 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.4 (M) Clock depth.** Add the clock options the user settles at
-  planning time (candidates: `clock.show_seconds`, a custom time pattern,
-  date caption style). Done when each option renders on the bar, resets,
-  and has config plus widget tests.
 - **18.5 (M) Media display modes.** `media.mode` picks full, semi-full, or
   compact; tapping the pill still cycles temporarily and the configured
   mode returns on relaunch. Done when the modes render, the tap cycle is
