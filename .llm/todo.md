@@ -22,11 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.7 (S) Unavailable modules refuse enablement.** The settings page
-  cannot enable a module whose probe failed, and the row carries the
-  reason; a configured module that fails its probe is surfaced as
-  unavailable instead of silently dead. Done when tests cover the refused
-  toggle and the reason text.
 - **18.8 (M) Screencopy backdrop sampling.** Outputs with no awww/swww
   image (a solid or compositor background) get no sample today. Capture the
   output's strip band with `grim` and run it through the existing candidate
