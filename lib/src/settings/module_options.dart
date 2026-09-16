@@ -32,7 +32,7 @@ import 'package:trickster/src/theme/tokens.dart';
 /// Whether [module] owns any of the typed options the bar decodes.
 bool moduleHasOptions(String module) {
   return switch (module) {
-    'workspaces' || 'clock' || 'cpu' || 'gpu' || 'battery' => true,
+    'workspaces' || 'clock' || 'cpu' || 'gpu' || 'battery' || 'media' => true,
     _ => false,
   };
 }
@@ -79,6 +79,39 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     final controller = context.watch<SettingsAppBloc>();
     final settings = controller.settings;
     return switch (widget.module) {
+      'media' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ChoiceHeader(
+            label: l10n.settingsMediaMode,
+            resetKey: const ValueKey<String>('reset-media-mode'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsMediaMode),
+            resetEnabled: settings.media.mode != MediaMode.semi,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(media: const MediaOptions()),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final mode in MediaMode.values)
+                SettingsChoiceChip(
+                  key: ValueKey<String>('media-mode-${mode.wire}'),
+                  label: _mediaModeLabel(l10n, mode),
+                  selected: settings.media.mode == mode,
+                  onPressed: () => _apply(
+                    controller,
+                    (settings) =>
+                        settings.copyWith(media: MediaOptions(mode: mode)),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
       'workspaces' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -770,6 +803,14 @@ bool _hasSvgArtwork(WorkspaceOptions workspaces) {
       workspaces.imageByWorkspace.values.any(
         (path) => path.toLowerCase().endsWith('.svg'),
       );
+}
+
+String _mediaModeLabel(AppLocalizations l10n, MediaMode mode) {
+  return switch (mode) {
+    MediaMode.full => l10n.settingsMediaModeFull,
+    MediaMode.semi => l10n.settingsMediaModeSemi,
+    MediaMode.compact => l10n.settingsMediaModeCompact,
+  };
 }
 
 String _dateStyleLabel(AppLocalizations l10n, ClockDateStyle style) {

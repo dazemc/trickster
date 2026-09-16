@@ -218,6 +218,7 @@ void main() {
           sparkline: false,
         ),
         appearance: AppearanceOptions(blur: false),
+        media: MediaOptions(mode: MediaMode.compact),
       );
       final decoded = BarSettings.decode(settings.encode());
       expect(decoded.cpu.warn, 0.7);
@@ -241,6 +242,7 @@ void main() {
       expect(decoded.cpu.criticalColor, const Color(0xffff00ff));
       expect(decoded.gpu.sparkline, isFalse);
       expect(decoded.appearance.blur, isFalse);
+      expect(decoded.media.mode, MediaMode.compact);
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);
@@ -260,6 +262,11 @@ void main() {
       expect(bare.gpu.captionSource, MeterCaptionSource.generic);
       expect(bare.gpu.sparkline, isTrue);
       expect(bare.appearance.blur, isTrue);
+      expect(bare.media.mode, MediaMode.semi);
+      expect(
+        () => BarSettings.decode('{"revision": 1, "media": {"mode": "tiny"}}'),
+        throwsFormatException,
+      );
     });
 
     test('pip styles round-trip and reject unknown values', () {

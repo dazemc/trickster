@@ -466,6 +466,59 @@ class AppearanceOptions extends Equatable {
   }
 }
 
+/// How much of the media pill the bar shows.
+enum MediaMode {
+  full('full'),
+  semi('semi'),
+  compact('compact');
+
+  const MediaMode(this.wire);
+
+  final String wire;
+
+  static MediaMode parse(Object? value) {
+    if (value == null) {
+      return MediaMode.semi;
+    }
+    for (final mode in MediaMode.values) {
+      if (mode.wire == value) {
+        return mode;
+      }
+    }
+    throw FormatException(
+      'settings.media.mode must be one of '
+      '${MediaMode.values.map((mode) => mode.wire).join(', ')}',
+    );
+  }
+}
+
+/// Typed options for the media pill.
+class MediaOptions extends Equatable {
+  const MediaOptions({this.mode = MediaMode.semi});
+
+  /// The display mode the pill returns to on relaunch; tapping cycles
+  /// transiently from it.
+  final MediaMode mode;
+
+  @override
+  List<Object?> get props => [mode];
+
+  MediaOptions copyWith({MediaMode? mode}) =>
+      MediaOptions(mode: mode ?? this.mode);
+
+  Map<String, Object?> toJson() => {'mode': mode.wire};
+
+  static MediaOptions fromJson(Object? json) {
+    if (json == null) {
+      return const MediaOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.media must be an object');
+    }
+    return MediaOptions(mode: MediaMode.parse(json['mode']));
+  }
+}
+
 /// Typed options for the battery pill.
 class BatteryOptions extends Equatable {
   const BatteryOptions({this.warn = 20, this.critical = 10});
@@ -742,6 +795,7 @@ class BarSettings extends Equatable {
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
+    this.media = const MediaOptions(),
   });
 
   /// Supported UI language tag (`en`, `zh`); null follows the system.
@@ -773,6 +827,7 @@ class BarSettings extends Equatable {
   final ClockOptions clock;
   final BatteryOptions battery;
   final GpuOptions gpu;
+  final MediaOptions media;
 
   // Spread: Equatable compares props element-wise, so spreading gives deep
   // equality over the module list.
@@ -793,6 +848,7 @@ class BarSettings extends Equatable {
     clock,
     battery,
     gpu,
+    media,
   ];
 
   bool includes(String module) => modules.contains(module);
@@ -844,6 +900,7 @@ class BarSettings extends Equatable {
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
+    'media': media.toJson(),
     'appearance': appearance.toJson(),
     'workspaces': workspaces.toJson(),
   };
@@ -869,6 +926,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      media: media,
     );
   }
 
@@ -890,6 +948,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      media: media,
     );
   }
 
@@ -911,6 +970,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      media: media,
     );
   }
 
@@ -923,6 +983,7 @@ class BarSettings extends Equatable {
     ClockOptions? clock,
     BatteryOptions? battery,
     GpuOptions? gpu,
+    MediaOptions? media,
     String? locale,
     AccentSource? accentSource,
     String? accentWallpaperPick,
@@ -946,6 +1007,7 @@ class BarSettings extends Equatable {
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
+      media: media ?? this.media,
     );
   }
 
@@ -997,6 +1059,7 @@ class BarSettings extends Equatable {
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),
+      media: MediaOptions.fromJson(decoded['media']),
     );
   }
 

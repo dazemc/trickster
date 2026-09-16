@@ -108,7 +108,7 @@
   "@batteryHint": {
     "description": "Accessible hint for the battery pill."
   },
-  "mediaHint": "显示播放控制",
+  "mediaHint": "左键控制播放；右键切换显示模式",
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
@@ -485,6 +485,22 @@
   "settingsMeterSparkline": "迷你曲线",
   "@settingsMeterSparkline": {
     "description": "Toggle for the CPU/GPU recent-history sparkline."
+  },
+  "settingsMediaModeCompact": "紧凑",
+  "@settingsMediaModeCompact": {
+    "description": "Media mode: title only."
+  },
+  "settingsMediaModeSemi": "半幅",
+  "@settingsMediaModeSemi": {
+    "description": "Media mode: text without controls."
+  },
+  "settingsMediaModeFull": "完整",
+  "@settingsMediaModeFull": {
+    "description": "Media mode: artwork, text, and controls."
+  },
+  "settingsMediaMode": "显示模式",
+  "@settingsMediaMode": {
+    "description": "Label above the media display mode choices."
   },
   "settingsMeterPrefixHint": "例如 CPU",
   "@settingsMeterPrefixHint": {

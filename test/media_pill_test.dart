@@ -1,7 +1,10 @@
+import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/media.dart';
+import 'package:trickster/src/bar/pill.dart';
+import 'package:trickster/src/config/settings.dart' show MediaMode;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
@@ -60,6 +63,7 @@ Future<void> _pump(
   MprisPlaybackState state,
   _FakeMediaPlayerService service, {
   bool vertical = false,
+  MediaMode mode = MediaMode.semi,
 }) async {
   final bloc = MediaBloc(service: service, initial: state);
   addTearDown(bloc.close);
@@ -69,12 +73,21 @@ Future<void> _pump(
       child: withOverlayBlocs(
         TricksterLocalizationScope(
           child: Center(
-            child: MediaPill(accent: _accent, vertical: vertical),
+            child: MediaPill(accent: _accent, mode: mode, vertical: vertical),
           ),
         ),
       ),
     ),
   );
+}
+
+/// Right-clicks the pill: the card-level cycle, wherever the pointer is.
+Future<void> _cycle(WidgetTester tester) async {
+  await tester.tap(
+    find.byType(SystemBarCard).first,
+    buttons: kSecondaryMouseButton,
+  );
+  await tester.pump();
 }
 
 void main() {
@@ -98,8 +111,7 @@ void main() {
     expect(find.text('Test Artist'), findsOneWidget);
     expect(find.bySemanticsLabel('Next track'), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Media controls'));
-    await tester.pump();
+    await _cycle(tester);
 
     expect(find.bySemanticsLabel('Previous track'), findsOneWidget);
     expect(find.bySemanticsLabel('Pause'), findsOneWidget);
@@ -110,8 +122,10 @@ void main() {
     expect(service.calls, <String>['next']);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Media controls'));
-    await tester.pump();
+    // The cycle returns to the text card after two more taps.
+    await _cycle(tester);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+    await _cycle(tester);
     expect(find.bySemanticsLabel('Next track'), findsNothing);
   });
 
@@ -121,13 +135,49 @@ void main() {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(status: MprisPlaybackStatus.paused), service);
 
-    await tester.tap(find.bySemanticsLabel('Media controls'));
-    await tester.pump();
+    await _cycle(tester);
     expect(find.bySemanticsLabel('Pause'), findsNothing);
 
     await tester.tap(find.bySemanticsLabel('Play'));
     await tester.pump();
     expect(service.calls, <String>['playPause']);
+  });
+
+  testWidgets('the configured mode sets what shows without a tap', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    await _pump(tester, _state(), service, mode: MediaMode.full);
+    expect(find.text('Test Song'), findsOneWidget);
+    expect(find.text('Test Artist'), findsOneWidget);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+
+    await _pump(tester, _state(), service, mode: MediaMode.compact);
+    expect(find.text('Test Song'), findsNothing);
+    expect(find.text('Test Artist'), findsNothing);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+  });
+
+  testWidgets('tapping cycles the modes transiently', (tester) async {
+    final service = _FakeMediaPlayerService();
+    await _pump(tester, _state(), service, mode: MediaMode.semi);
+    expect(find.text('Test Song'), findsOneWidget);
+    expect(find.bySemanticsLabel('Next track'), findsNothing);
+
+    // semi -> compact: only the transport keys remain.
+    await _cycle(tester);
+    expect(find.text('Test Song'), findsNothing);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+
+    // compact -> full: text and controls together.
+    await _cycle(tester);
+    expect(find.text('Test Song'), findsOneWidget);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+
+    // full -> semi: back to the text card.
+    await _cycle(tester);
+    expect(find.text('Test Song'), findsOneWidget);
+    expect(find.bySemanticsLabel('Next track'), findsNothing);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (
@@ -136,8 +186,7 @@ void main() {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(canGoNext: false), service);
 
-    await tester.tap(find.bySemanticsLabel('Media controls'));
-    await tester.pump();
+    await _cycle(tester);
 
     await tester.tap(find.bySemanticsLabel('Next track'));
     await tester.pump();

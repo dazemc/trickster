@@ -108,7 +108,7 @@
   "@batteryHint": {
     "description": "Accessible hint for the battery pill."
   },
-  "mediaHint": "Shows playback controls",
+  "mediaHint": "Left click controls playback; right click cycles the display mode",
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
@@ -485,6 +485,22 @@
   "settingsMeterSparkline": "Sparkline",
   "@settingsMeterSparkline": {
     "description": "Toggle for the CPU/GPU recent-history sparkline."
+  },
+  "settingsMediaModeCompact": "Compact",
+  "@settingsMediaModeCompact": {
+    "description": "Media mode: title only."
+  },
+  "settingsMediaModeSemi": "Semi",
+  "@settingsMediaModeSemi": {
+    "description": "Media mode: text without controls."
+  },
+  "settingsMediaModeFull": "Full",
+  "@settingsMediaModeFull": {
+    "description": "Media mode: artwork, text, and controls."
+  },
+  "settingsMediaMode": "Display mode",
+  "@settingsMediaMode": {
+    "description": "Label above the media display mode choices."
   },
   "settingsMeterPrefixHint": "e.g. CPU",
   "@settingsMeterPrefixHint": {

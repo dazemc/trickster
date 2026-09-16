@@ -176,7 +176,11 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                   ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
                   : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
               child: RepaintBoundary(
-                child: MediaPill(accent: accent, vertical: vertical),
+                child: MediaPill(
+                  accent: accent,
+                  mode: settings.media.mode,
+                  vertical: vertical,
+                ),
               ),
             ),
           );

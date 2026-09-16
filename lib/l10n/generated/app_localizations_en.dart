@@ -82,7 +82,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get batteryHint => 'Opens power settings';
 
   @override
-  String get mediaHint => 'Shows playback controls';
+  String get mediaHint =>
+      'Left click controls playback; right click cycles the display mode';
 
   @override
   String get trayItemHint => 'Activates the item';
@@ -364,6 +365,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsMeterSparkline => 'Sparkline';
+
+  @override
+  String get settingsMediaModeCompact => 'Compact';
+
+  @override
+  String get settingsMediaModeSemi => 'Semi';
+
+  @override
+  String get settingsMediaModeFull => 'Full';
+
+  @override
+  String get settingsMediaMode => 'Display mode';
 
   @override
   String get settingsMeterPrefixHint => 'e.g. CPU';

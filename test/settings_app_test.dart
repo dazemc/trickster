@@ -1028,6 +1028,24 @@ void main() {
     await tester.pump();
     expect(bloc.settings.clock.dateStyle, ClockDateStyle.weekday);
 
+    await openOptions('media');
+    final compactChip = find.byKey(
+      const ValueKey<String>('media-mode-compact'),
+    );
+    await tester.ensureVisible(compactChip);
+    await tester.pumpAndSettle();
+    await tester.tap(compactChip);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.mode, MediaMode.compact);
+    final resetMode = find.byKey(const ValueKey<String>('reset-media-mode'));
+    await tester.ensureVisible(resetMode);
+    await tester.pumpAndSettle();
+    await tester.tap(resetMode);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.mode, const MediaOptions().mode);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),

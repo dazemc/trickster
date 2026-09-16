@@ -82,7 +82,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batteryHint => '打开电源设置';
 
   @override
-  String get mediaHint => '显示播放控制';
+  String get mediaHint => '左键控制播放；右键切换显示模式';
 
   @override
   String get trayItemHint => '激活该项目';
@@ -360,6 +360,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsMeterSparkline => '迷你曲线';
+
+  @override
+  String get settingsMediaModeCompact => '紧凑';
+
+  @override
+  String get settingsMediaModeSemi => '半幅';
+
+  @override
+  String get settingsMediaModeFull => '完整';
+
+  @override
+  String get settingsMediaMode => '显示模式';
 
   @override
   String get settingsMeterPrefixHint => '例如 CPU';

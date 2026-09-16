@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/config/settings.dart' show MediaMode;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -13,12 +14,21 @@ import 'package:trickster/src/theme/tokens.dart';
 /// tap. Only the fields it paints are selected, so position ticks and
 /// `observedAt` churn never rebuild the strip.
 class MediaPill extends StatefulWidget {
-  const MediaPill({required this.accent, this.vertical = false, super.key});
+  const MediaPill({
+    required this.accent,
+    this.mode = MediaMode.semi,
+    this.vertical = false,
+    super.key,
+  });
 
   static const double maxTitleWidth = 190;
   static const double maxSecondaryWidth = 130;
 
   final WallpaperAccent accent;
+
+  /// The configured display mode; tapping cycles transiently from it and a
+  /// relaunch returns to it.
+  final MediaMode mode;
 
   /// Vertical strips show only the transport controls, stacked and always
   /// visible.
@@ -30,9 +40,18 @@ class MediaPill extends StatefulWidget {
 
 class _MediaPillState extends State<MediaPill> {
   final FocusNode _focusNode = FocusNode(debugLabel: 'media-pill');
-  var _expanded = false;
+  late var _mode = widget.mode;
   var _hovered = false;
   var _focused = false;
+
+  @override
+  void didUpdateWidget(covariant MediaPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A configured change resets the transient cycle.
+    if (oldWidget.mode != widget.mode) {
+      _mode = widget.mode;
+    }
+  }
 
   @override
   void dispose() {
@@ -40,7 +59,15 @@ class _MediaPillState extends State<MediaPill> {
     super.dispose();
   }
 
-  void _toggle() => setState(() => _expanded = !_expanded);
+  /// Transient cycle: the text card, then just the transport keys, then the
+  /// full card, back around.
+  void _cycle() => setState(() {
+    _mode = switch (_mode) {
+      MediaMode.semi => MediaMode.compact,
+      MediaMode.compact => MediaMode.full,
+      MediaMode.full => MediaMode.semi,
+    };
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +85,9 @@ class _MediaPillState extends State<MediaPill> {
         canPause: state.canPause,
       );
     });
+    final showText = _mode != MediaMode.compact;
+    final showSecondary = showText;
+    final showControls = _mode != MediaMode.semi;
     final secondary = media.artist.isNotEmpty
         ? media.artist
         : media.album.isNotEmpty
@@ -137,7 +167,7 @@ class _MediaPillState extends State<MediaPill> {
         label: label,
         value: value,
         hint: l10n.mediaHint,
-        onTap: _toggle,
+        onTap: _cycle,
         child: FocusableActionDetector(
           focusNode: _focusNode,
           mouseCursor: SystemMouseCursors.click,
@@ -146,14 +176,16 @@ class _MediaPillState extends State<MediaPill> {
           actions: <Type, Action<Intent>>{
             ActivateIntent: CallbackAction<ActivateIntent>(
               onInvoke: (intent) {
-                _toggle();
+                _cycle();
                 return null;
               },
             ),
           },
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _toggle,
+            // The transport buttons own the left button; the right button
+            // cycles the display mode anywhere on the pill.
+            onSecondaryTap: _cycle,
             child: SystemBarCard(
               accent: widget.accent,
               highlighted: _hovered || _focused,
@@ -161,50 +193,56 @@ class _MediaPillState extends State<MediaPill> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CustomPaint(
-                          size: const Size(14, 14),
-                          painter: _MediaIndicatorPainter(
-                            playing: media.playing,
-                            color: widget.accent.color,
+                  if (showText)
+                    ExcludeSemantics(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CustomPaint(
+                            size: const Size(14, 14),
+                            painter: _MediaIndicatorPainter(
+                              playing: media.playing,
+                              color: widget.accent.color,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 7),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: MediaPill.maxTitleWidth,
-                          ),
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: ShellText.systemBarValue,
-                          ),
-                        ),
-                        if (secondary.isNotEmpty && secondary != title) ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 7),
                           ConstrainedBox(
                             constraints: const BoxConstraints(
-                              maxWidth: MediaPill.maxSecondaryWidth,
+                              maxWidth: MediaPill.maxTitleWidth,
                             ),
                             child: Text(
-                              secondary,
+                              title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: ShellText.systemBarCaption.copyWith(
-                                color:
-                                    ShellMediaColors.lightForegroundSecondary,
-                              ),
+                              style: ShellText.systemBarValue,
                             ),
                           ),
+                          if (showSecondary &&
+                              secondary.isNotEmpty &&
+                              secondary != title) ...[
+                            const SizedBox(width: 6),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: MediaPill.maxSecondaryWidth,
+                              ),
+                              child: Text(
+                                secondary,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: ShellText.systemBarCaption.copyWith(
+                                  color:
+                                      ShellMediaColors.lightForegroundSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  if (_expanded) ...[const SizedBox(width: 9), ...controls],
+                  if (showControls) ...[
+                    if (showText) const SizedBox(width: 9),
+                    ...controls,
+                  ],
                 ],
               ),
             ),

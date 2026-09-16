@@ -239,7 +239,7 @@ abstract class AppLocalizations {
   /// Accessible hint for the media pill.
   ///
   /// In en, this message translates to:
-  /// **'Shows playback controls'**
+  /// **'Left click controls playback; right click cycles the display mode'**
   String get mediaHint;
 
   /// Accessible hint for a tray item button.
@@ -787,6 +787,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sparkline'**
   String get settingsMeterSparkline;
+
+  /// Media mode: title only.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get settingsMediaModeCompact;
+
+  /// Media mode: text without controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Semi'**
+  String get settingsMediaModeSemi;
+
+  /// Media mode: artwork, text, and controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get settingsMediaModeFull;
+
+  /// Label above the media display mode choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Display mode'**
+  String get settingsMediaMode;
 
   /// Placeholder for the custom meter caption input.
   ///
