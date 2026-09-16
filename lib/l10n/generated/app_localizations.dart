@@ -758,6 +758,24 @@ abstract class AppLocalizations {
   /// **'Sparkline'**
   String get settingsMeterSparkline;
 
+  /// Placeholder for the custom meter caption input.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. CPU'**
+  String get settingsMeterPrefixHint;
+
+  /// Label above the custom meter caption input.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefix'**
+  String get settingsMeterPrefix;
+
+  /// Meter caption choice: a typed prefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get settingsMeterCaptionCustom;
+
   /// Meter caption choice: generic CPU/GPU tags.
   ///
   /// In en, this message translates to:

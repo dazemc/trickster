@@ -1153,6 +1153,21 @@ void main() {
     await tester.pump();
     expect(bloc.settings.gpu.sparkline, isFalse);
 
+    // The custom source reveals the prefix field, which writes the document.
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gpu-meter-caption-custom')),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.custom);
+    final prefixField = find.byKey(const ValueKey<String>('gpu-meter-prefix'));
+    await tester.ensureVisible(prefixField);
+    await tester.pumpAndSettle();
+    await tester.enterText(prefixField, 'GPU0');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.gpu.captionPrefix, 'GPU0');
+
     // The CPU panel carries the same controls and writes its own options.
     await openOptions('cpu');
     await tester.ensureVisible(
@@ -1174,7 +1189,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(bloc.settings.cpu.sparkline, isFalse);
-    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.device);
+    // The GPU keeps its own custom source while the CPU switches.
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.custom);
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {

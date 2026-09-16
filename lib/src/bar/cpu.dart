@@ -15,6 +15,7 @@ class CpuPill extends StatelessWidget {
     this.warn = 0.85,
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
     this.sparkline = true,
     this.vertical = false,
     super.key,
@@ -25,6 +26,9 @@ class CpuPill extends StatelessWidget {
   final double warn;
   final double critical;
   final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
 
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
@@ -41,12 +45,12 @@ class CpuPill extends StatelessWidget {
         : current >= warn
         ? ShellTelemetryColors.warning
         : null;
-    final label =
-        captionSource == MeterCaptionSource.device &&
-            name != null &&
-            name.isNotEmpty
-        ? name
-        : context.l10n.metricCpu;
+    final label = switch (captionSource) {
+      MeterCaptionSource.device when name != null && name.isNotEmpty => name,
+      MeterCaptionSource.custom when captionPrefix?.isNotEmpty ?? false =>
+        captionPrefix!,
+      _ => context.l10n.metricCpu,
+    };
     return PillTooltip(
       accent: accent,
       label: '$label ${((current ?? 0.0) * 100).round()}%',

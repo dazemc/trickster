@@ -347,6 +347,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsMeterSparkline => '迷你曲线';
 
   @override
+  String get settingsMeterPrefixHint => '例如 CPU';
+
+  @override
+  String get settingsMeterPrefix => '前缀';
+
+  @override
+  String get settingsMeterCaptionCustom => '自定义';
+
+  @override
   String get settingsMeterCaptionGeneric => '通用';
 
   @override

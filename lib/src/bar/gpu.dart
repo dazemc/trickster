@@ -12,6 +12,7 @@ class GpuPill extends StatelessWidget {
     required this.accent,
     required this.load,
     this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
     this.sparkline = true,
     this.vertical = false,
     super.key,
@@ -20,6 +21,9 @@ class GpuPill extends StatelessWidget {
   final WallpaperAccent accent;
   final GpuLoad load;
   final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
 
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
@@ -30,15 +34,17 @@ class GpuPill extends StatelessWidget {
     final name = load.name;
     // Vertical pills keep the short identity label (`GPU`, `AMD0`, ...):
     // a queried device name would not fit a side strip.
-    final label =
-        !vertical &&
-            captionSource == MeterCaptionSource.device &&
-            name != null &&
-            name.isNotEmpty
-        ? name
-        : load.label == GpuLoad.genericLabel
-        ? context.l10n.desktopGpuLabel
-        : load.label;
+    final label = switch (captionSource) {
+      MeterCaptionSource.device
+          when !vertical && name != null && name.isNotEmpty =>
+        name,
+      MeterCaptionSource.custom when captionPrefix?.isNotEmpty ?? false =>
+        captionPrefix!,
+      _ =>
+        load.label == GpuLoad.genericLabel
+            ? context.l10n.desktopGpuLabel
+            : load.label,
+    };
     return PillTooltip(
       accent: accent,
       label: '$label ${((load.usage ?? 0.0) * 100).round()}%',

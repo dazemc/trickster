@@ -466,6 +466,18 @@
   "@settingsMeterSparkline": {
     "description": "Toggle for the CPU/GPU recent-history sparkline."
   },
+  "settingsMeterPrefixHint": "e.g. CPU",
+  "@settingsMeterPrefixHint": {
+    "description": "Placeholder for the custom meter caption input."
+  },
+  "settingsMeterPrefix": "Prefix",
+  "@settingsMeterPrefix": {
+    "description": "Label above the custom meter caption input."
+  },
+  "settingsMeterCaptionCustom": "Custom",
+  "@settingsMeterCaptionCustom": {
+    "description": "Meter caption choice: a typed prefix."
+  },
   "settingsMeterCaptionGeneric": "Generic",
   "@settingsMeterCaptionGeneric": {
     "description": "Meter caption choice: generic CPU/GPU tags."

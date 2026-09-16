@@ -351,6 +351,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsMeterSparkline => 'Sparkline';
 
   @override
+  String get settingsMeterPrefixHint => 'e.g. CPU';
+
+  @override
+  String get settingsMeterPrefix => 'Prefix';
+
+  @override
+  String get settingsMeterCaptionCustom => 'Custom';
+
+  @override
   String get settingsMeterCaptionGeneric => 'Generic';
 
   @override

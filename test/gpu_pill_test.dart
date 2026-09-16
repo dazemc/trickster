@@ -35,6 +35,30 @@ void main() {
     expect(find.byKey(LoadMeter.sparklineKey), paints..path());
   });
 
+  testWidgets('a custom prefix replaces the caption', (tester) async {
+    await tester.pumpWidget(
+      withOverlayBlocs(
+        const TricksterLocalizationScope(
+          child: Center(
+            child: GpuPill(
+              accent: _accent,
+              load: GpuLoad(
+                id: 'card0',
+                label: 'AMD0',
+                usage: 0.42,
+                history: [0.42],
+              ),
+              captionSource: MeterCaptionSource.custom,
+              captionPrefix: 'GPU0',
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('GPU0'), findsOneWidget);
+    expect(find.text('AMD0'), findsNothing);
+  });
+
   testWidgets('device caption source prefers the queried name', (tester) async {
     await tester.pumpWidget(
       withOverlayBlocs(

@@ -399,12 +399,23 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             controller: controller,
             prefix: 'cpu',
             captionSource: settings.cpu.captionSource,
+            captionPrefix: settings.cpu.captionPrefix,
             sparkline: settings.cpu.sparkline,
             onCaption: (settings, source) => settings.copyWith(
               cpu: CpuOptions(
                 warn: settings.cpu.warn,
                 critical: settings.cpu.critical,
                 captionSource: source,
+                captionPrefix: settings.cpu.captionPrefix,
+                sparkline: settings.cpu.sparkline,
+              ),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              cpu: CpuOptions(
+                warn: settings.cpu.warn,
+                critical: settings.cpu.critical,
+                captionSource: settings.cpu.captionSource,
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
                 sparkline: settings.cpu.sparkline,
               ),
             ),
@@ -413,6 +424,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                 warn: settings.cpu.warn,
                 critical: settings.cpu.critical,
                 captionSource: settings.cpu.captionSource,
+                captionPrefix: settings.cpu.captionPrefix,
                 sparkline: value,
               ),
             ),
@@ -506,16 +518,26 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             controller: controller,
             prefix: 'gpu',
             captionSource: settings.gpu.captionSource,
+            captionPrefix: settings.gpu.captionPrefix,
             sparkline: settings.gpu.sparkline,
             onCaption: (settings, source) => settings.copyWith(
               gpu: GpuOptions(
                 captionSource: source,
+                captionPrefix: settings.gpu.captionPrefix,
+                sparkline: settings.gpu.sparkline,
+              ),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              gpu: GpuOptions(
+                captionSource: settings.gpu.captionSource,
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
                 sparkline: settings.gpu.sparkline,
               ),
             ),
             onSparkline: (settings, value) => settings.copyWith(
               gpu: GpuOptions(
                 captionSource: settings.gpu.captionSource,
+                captionPrefix: settings.gpu.captionPrefix,
                 sparkline: value,
               ),
             ),
@@ -533,12 +555,15 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     required SettingsAppBloc controller,
     required String prefix,
     required MeterCaptionSource captionSource,
+    required String? captionPrefix,
     required bool sparkline,
     required BarSettings Function(
       BarSettings settings,
       MeterCaptionSource source,
     )
     onCaption,
+    required BarSettings Function(BarSettings settings, String value)
+    onCaptionPrefix,
     required BarSettings Function(BarSettings settings, bool value) onSparkline,
   }) {
     return [
@@ -568,6 +593,19 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             ),
         ],
       ),
+      if (captionSource == MeterCaptionSource.custom) ...[
+        const SizedBox(height: 12),
+        _PrefixField(
+          fieldKey: ValueKey<String>('$prefix-meter-prefix'),
+          label: l10n.settingsMeterPrefix,
+          hint: l10n.settingsMeterPrefixHint,
+          value: captionPrefix ?? '',
+          onChanged: (value) => _apply(
+            controller,
+            (settings) => onCaptionPrefix(settings, value),
+          ),
+        ),
+      ],
       const SizedBox(height: 18),
       SettingsToggleRow(
         toggleKey: ValueKey<String>('$prefix-meter-sparkline'),
@@ -616,6 +654,7 @@ String _captionLabel(AppLocalizations l10n, MeterCaptionSource source) {
   return switch (source) {
     MeterCaptionSource.generic => l10n.settingsMeterCaptionGeneric,
     MeterCaptionSource.device => l10n.settingsMeterCaptionDevice,
+    MeterCaptionSource.custom => l10n.settingsMeterCaptionCustom,
   };
 }
 
@@ -652,6 +691,96 @@ class _ChoiceHeader extends StatelessWidget {
           label: resetLabel,
           enabled: resetEnabled,
           onPressed: onReset,
+        ),
+      ],
+    );
+  }
+}
+
+/// A debounced text input for a meter's custom caption prefix.
+class _PrefixField extends StatefulWidget {
+  const _PrefixField({
+    required this.fieldKey,
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final String hint;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_PrefixField> createState() => _PrefixFieldState();
+}
+
+class _PrefixFieldState extends State<_PrefixField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void didUpdateWidget(covariant _PrefixField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // External edits land when the field is not being typed in.
+    if (widget.value != _controller.text && !_focus.hasFocus) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.label,
+          style: ShellText.systemBarCaption.copyWith(
+            color: ShellMediaColors.lightForegroundSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: SettingsGlass.control(context, SettingsColors.surfaceHigh),
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            border: Border.all(color: SettingsColors.outline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Material(
+              type: MaterialType.transparency,
+              child: TextField(
+                key: widget.fieldKey,
+                controller: _controller,
+                focusNode: _focus,
+                style: ShellText.systemBarValue,
+                cursorColor: ShellMediaColors.lightForeground,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: widget.hint,
+                  hintStyle: ShellText.systemBarCaption.copyWith(
+                    color: ShellMediaColors.lightForegroundSecondary.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
+                ),
+                onChanged: widget.onChanged,
+              ),
+            ),
+          ),
         ),
       ],
     );

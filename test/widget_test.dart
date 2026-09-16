@@ -566,7 +566,9 @@ void main() {
     );
     debugPrint('requests: $requests');
     debugPrint('leading rect: $leading center: $center trailing: $trailing');
-    debugPrint('tray: ${find.byKey(const ValueKey<String>('tray-item-item-0')).evaluate().length}');
+    debugPrint(
+      'tray: ${find.byKey(const ValueKey<String>('tray-item-item-0')).evaluate().length}',
+    );
     // Three tray rows later the strip has asked for a taller band.
     expect(requests, isNotEmpty);
     expect(requests.last, greaterThan(32));

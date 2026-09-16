@@ -122,6 +122,7 @@ class CpuOptions extends Equatable {
     this.warn = 0.85,
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
     this.sparkline = true,
   });
 
@@ -129,16 +130,26 @@ class CpuOptions extends Equatable {
   final double critical;
   final MeterCaptionSource captionSource;
 
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
 
   @override
-  List<Object?> get props => [warn, critical, captionSource, sparkline];
+  List<Object?> get props => [
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    sparkline,
+  ];
 
   Map<String, Object?> toJson() => {
     'warn': warn,
     'critical': critical,
     'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
     'sparkline': sparkline,
   };
 
@@ -164,6 +175,7 @@ class CpuOptions extends Equatable {
       warn: warn,
       critical: critical,
       captionSource: _captionSource(decoded, legacy),
+      captionPrefix: _prefix(decoded['caption_prefix']),
       sparkline: _sparkline(decoded, legacy),
     );
   }
@@ -173,19 +185,24 @@ class CpuOptions extends Equatable {
 class GpuOptions extends Equatable {
   const GpuOptions({
     this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
     this.sparkline = true,
   });
 
   final MeterCaptionSource captionSource;
 
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
 
   @override
-  List<Object?> get props => [captionSource, sparkline];
+  List<Object?> get props => [captionSource, captionPrefix, sparkline];
 
   Map<String, Object?> toJson() => {
     'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
     'sparkline': sparkline,
   };
 
@@ -203,6 +220,7 @@ class GpuOptions extends Equatable {
         : const <String, dynamic>{};
     return GpuOptions(
       captionSource: _captionSource(decoded, legacy),
+      captionPrefix: _prefix(decoded['caption_prefix']),
       sparkline: _sparkline(decoded, legacy),
     );
   }
@@ -323,7 +341,8 @@ class BatteryOptions extends Equatable {
 /// Where meter captions come from.
 enum MeterCaptionSource {
   generic,
-  device;
+  device,
+  custom;
 
   static MeterCaptionSource parse(Object? value) {
     if (value == null) {
@@ -351,6 +370,18 @@ MeterCaptionSource _captionSource(
   return MeterCaptionSource.parse(
     decoded['caption_source'] ?? legacyMap?['caption_source'],
   );
+}
+
+/// The custom caption text: strings only, empty values clear the key.
+String? _prefix(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String) {
+    throw const FormatException('caption_prefix must be a string');
+  }
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }
 
 /// Sparkline switch for one meter, falling back to the retired shared `meter`

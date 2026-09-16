@@ -195,13 +195,15 @@ void main() {
         cpu: CpuOptions(
           warn: 0.7,
           critical: 0.9,
-          captionSource: MeterCaptionSource.device,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'CPU0',
           sparkline: false,
         ),
         clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
         battery: BatteryOptions(warn: 30, critical: 15),
         gpu: GpuOptions(
-          captionSource: MeterCaptionSource.device,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'GPU0',
           sparkline: false,
         ),
         appearance: AppearanceOptions(blur: false),
@@ -213,9 +215,11 @@ void main() {
       expect(decoded.clock.showDate, isFalse);
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
-      expect(decoded.cpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.captionSource, MeterCaptionSource.custom);
+      expect(decoded.cpu.captionPrefix, 'CPU0');
       expect(decoded.cpu.sparkline, isFalse);
-      expect(decoded.gpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.gpu.captionSource, MeterCaptionSource.custom);
+      expect(decoded.gpu.captionPrefix, 'GPU0');
       expect(decoded.gpu.sparkline, isFalse);
       expect(decoded.appearance.blur, isFalse);
       const bare = BarSettings();
@@ -224,6 +228,7 @@ void main() {
       expect(bare.clock.showDate, isTrue);
       expect(bare.battery.critical, 10);
       expect(bare.cpu.captionSource, MeterCaptionSource.generic);
+      expect(bare.cpu.captionPrefix, isNull);
       expect(bare.cpu.sparkline, isTrue);
       expect(bare.gpu.captionSource, MeterCaptionSource.generic);
       expect(bare.gpu.sparkline, isTrue);
@@ -269,6 +274,11 @@ void main() {
       const bare = BarSettings();
       expect(bare.workspaces.pipStyle, PipStyle.number);
       expect(bare.workspaces.imageSource, isNull);
+      expect(
+        () =>
+            BarSettings.decode('{"revision": 1, "cpu": {"caption_prefix": 7}}'),
+        throwsFormatException,
+      );
     });
 
     test('the retired shared meter options migrate into both meters', () {
@@ -277,8 +287,10 @@ void main() {
         '"sparkline": false}}',
       );
       expect(decoded.cpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.captionPrefix, isNull);
       expect(decoded.cpu.sparkline, isFalse);
       expect(decoded.gpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.gpu.captionPrefix, isNull);
       expect(decoded.gpu.sparkline, isFalse);
 
       // Per-meter keys win over the legacy object.
