@@ -11,8 +11,12 @@ class GpuPill extends StatelessWidget {
   const GpuPill({
     required this.accent,
     required this.load,
+    this.warn = 0.85,
+    this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
     this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
     this.sparkline = true,
     this.vertical = false,
     super.key,
@@ -20,10 +24,16 @@ class GpuPill extends StatelessWidget {
 
   final WallpaperAccent accent;
   final GpuLoad load;
+  final double warn;
+  final double critical;
   final MeterCaptionSource captionSource;
 
   /// Caption text when [captionSource] is custom.
   final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
 
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
@@ -57,6 +67,13 @@ class GpuPill extends StatelessWidget {
           current: load.usage,
           history: load.history,
           capacity: GpuLoad.capacity,
+          valueColor: meterValueColor(
+            current: load.usage,
+            warn: warn,
+            critical: critical,
+            warnColor: warnColor,
+            criticalColor: criticalColor,
+          ),
           sparkline: sparkline,
           vertical: vertical,
         ),

@@ -6,7 +6,6 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/theme/accent.dart';
-import 'package:trickster/src/theme/tokens.dart';
 
 class CpuPill extends StatelessWidget {
   const CpuPill({
@@ -16,6 +15,8 @@ class CpuPill extends StatelessWidget {
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
     this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
     this.sparkline = true,
     this.vertical = false,
     super.key,
@@ -30,6 +31,10 @@ class CpuPill extends StatelessWidget {
   /// Caption text when [captionSource] is custom.
   final String? captionPrefix;
 
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
+
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
   final bool vertical;
@@ -38,13 +43,13 @@ class CpuPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = sample.current;
     final name = sample.name;
-    final valueColor = current == null
-        ? null
-        : current >= critical
-        ? ShellTelemetryColors.danger
-        : current >= warn
-        ? ShellTelemetryColors.warning
-        : null;
+    final valueColor = meterValueColor(
+      current: current,
+      warn: warn,
+      critical: critical,
+      warnColor: warnColor,
+      criticalColor: criticalColor,
+    );
     final label = switch (captionSource) {
       MeterCaptionSource.device when name != null && name.isNotEmpty => name,
       MeterCaptionSource.custom when captionPrefix?.isNotEmpty ?? false =>

@@ -1168,6 +1168,26 @@ void main() {
     await tester.pump();
     expect(bloc.settings.gpu.captionPrefix, 'GPU0');
 
+    // A wheel pick lands a threshold tint in the document, and reset drops it.
+    final wheel = find.byKey(const ValueKey<String>('gpu-critical-color'));
+    await tester.ensureVisible(wheel);
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(wheel) + const Offset(30, 0));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(bloc.settings.gpu.criticalColor, isNotNull);
+    final colorReset = find.byKey(
+      const ValueKey<String>('reset-gpu-critical-color'),
+    );
+    await tester.ensureVisible(colorReset);
+    await tester.pumpAndSettle();
+    await tester.tap(colorReset);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(bloc.settings.gpu.criticalColor, isNull);
+
     // The CPU panel carries the same controls and writes its own options.
     await openOptions('cpu');
     await tester.ensureVisible(

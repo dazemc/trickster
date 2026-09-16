@@ -197,13 +197,19 @@ void main() {
           critical: 0.9,
           captionSource: MeterCaptionSource.custom,
           captionPrefix: 'CPU0',
+          warnColor: Color(0xffffff00),
+          criticalColor: Color(0xffff00ff),
           sparkline: false,
         ),
         clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
         battery: BatteryOptions(warn: 30, critical: 15),
         gpu: GpuOptions(
+          warn: 0.6,
+          critical: 0.8,
           captionSource: MeterCaptionSource.custom,
           captionPrefix: 'GPU0',
+          warnColor: Color(0xffffaa00),
+          criticalColor: Color(0xffff0000),
           sparkline: false,
         ),
         appearance: AppearanceOptions(blur: false),
@@ -220,6 +226,12 @@ void main() {
       expect(decoded.cpu.sparkline, isFalse);
       expect(decoded.gpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.gpu.captionPrefix, 'GPU0');
+      expect(decoded.gpu.warn, 0.6);
+      expect(decoded.gpu.critical, 0.8);
+      expect(decoded.gpu.warnColor, const Color(0xffffaa00));
+      expect(decoded.gpu.criticalColor, const Color(0xffff0000));
+      expect(decoded.cpu.warnColor, const Color(0xffffff00));
+      expect(decoded.cpu.criticalColor, const Color(0xffff00ff));
       expect(decoded.gpu.sparkline, isFalse);
       expect(decoded.appearance.blur, isFalse);
       const bare = BarSettings();
@@ -277,6 +289,12 @@ void main() {
       expect(
         () =>
             BarSettings.decode('{"revision": 1, "cpu": {"caption_prefix": 7}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "gpu": {"critical_color": "not a color"}}',
+        ),
         throwsFormatException,
       );
     });

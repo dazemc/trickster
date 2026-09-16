@@ -350,6 +350,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsMeterPrefixHint => '例如 CPU';
 
   @override
+  String get settingsThresholdColorReset => '重置颜色';
+
+  @override
+  String get settingsCriticalColor => '严重颜色';
+
+  @override
+  String get settingsWarnColor => '警告颜色';
+
+  @override
   String get settingsMeterPrefix => '前缀';
 
   @override

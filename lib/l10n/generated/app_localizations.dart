@@ -764,6 +764,24 @@ abstract class AppLocalizations {
   /// **'e.g. CPU'**
   String get settingsMeterPrefixHint;
 
+  /// Reset control for a meter threshold color.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset color'**
+  String get settingsThresholdColorReset;
+
+  /// Label for the meter critical threshold color.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical color'**
+  String get settingsCriticalColor;
+
+  /// Label for the meter warning threshold color.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning color'**
+  String get settingsWarnColor;
+
   /// Label above the custom meter caption input.
   ///
   /// In en, this message translates to:

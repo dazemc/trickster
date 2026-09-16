@@ -470,6 +470,18 @@
   "@settingsMeterPrefixHint": {
     "description": "Placeholder for the custom meter caption input."
   },
+  "settingsThresholdColorReset": "Reset color",
+  "@settingsThresholdColorReset": {
+    "description": "Reset control for a meter threshold color."
+  },
+  "settingsCriticalColor": "Critical color",
+  "@settingsCriticalColor": {
+    "description": "Label for the meter critical threshold color."
+  },
+  "settingsWarnColor": "Warning color",
+  "@settingsWarnColor": {
+    "description": "Label for the meter warning threshold color."
+  },
   "settingsMeterPrefix": "Prefix",
   "@settingsMeterPrefix": {
     "description": "Label above the custom meter caption input."

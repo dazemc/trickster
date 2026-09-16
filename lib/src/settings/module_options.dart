@@ -22,6 +22,8 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/bloc.dart';
+import 'package:trickster/src/settings/color_format.dart';
+import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/settings/workspace_names.dart';
@@ -330,12 +332,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     ? (warn + 0.01).clamp(0.01, 1.0)
                     : settings.cpu.critical;
                 return settings.copyWith(
-                  cpu: CpuOptions(
-                    warn: warn,
-                    critical: critical,
-                    captionSource: settings.cpu.captionSource,
-                    sparkline: settings.cpu.sparkline,
-                  ),
+                  cpu: settings.cpu.copyWith(warn: warn, critical: critical),
                 );
               });
             },
@@ -343,15 +340,28 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final warn = math
                   .min(const CpuOptions().warn, settings.cpu.critical - 0.01)
                   .clamp(0.0, 0.99);
-              return settings.copyWith(
-                cpu: CpuOptions(
-                  warn: warn,
-                  critical: settings.cpu.critical,
-                  captionSource: settings.cpu.captionSource,
-                  sparkline: settings.cpu.sparkline,
-                ),
-              );
+              return settings.copyWith(cpu: settings.cpu.copyWith(warn: warn));
             }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('cpu-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.cpu.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-cpu-warn-color'),
           ),
           const SizedBox(height: 10),
           _SliderRow(
@@ -371,12 +381,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     ? (critical - 0.01).clamp(0.0, 0.99)
                     : settings.cpu.warn;
                 return settings.copyWith(
-                  cpu: CpuOptions(
-                    warn: warn,
-                    critical: critical,
-                    captionSource: settings.cpu.captionSource,
-                    sparkline: settings.cpu.sparkline,
-                  ),
+                  cpu: settings.cpu.copyWith(warn: warn, critical: critical),
                 );
               });
             },
@@ -385,14 +390,29 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   .max(const CpuOptions().critical, settings.cpu.warn + 0.01)
                   .clamp(0.01, 1.0);
               return settings.copyWith(
-                cpu: CpuOptions(
-                  warn: settings.cpu.warn,
-                  critical: critical,
-                  captionSource: settings.cpu.captionSource,
-                  sparkline: settings.cpu.sparkline,
-                ),
+                cpu: settings.cpu.copyWith(critical: critical),
               );
             }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('cpu-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.cpu.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-cpu-critical-color'),
           ),
           ..._meterControls(
             l10n: l10n,
@@ -402,32 +422,15 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             captionPrefix: settings.cpu.captionPrefix,
             sparkline: settings.cpu.sparkline,
             onCaption: (settings, source) => settings.copyWith(
-              cpu: CpuOptions(
-                warn: settings.cpu.warn,
-                critical: settings.cpu.critical,
-                captionSource: source,
-                captionPrefix: settings.cpu.captionPrefix,
-                sparkline: settings.cpu.sparkline,
-              ),
+              cpu: settings.cpu.copyWith(captionSource: source),
             ),
             onCaptionPrefix: (settings, value) => settings.copyWith(
-              cpu: CpuOptions(
-                warn: settings.cpu.warn,
-                critical: settings.cpu.critical,
-                captionSource: settings.cpu.captionSource,
+              cpu: settings.cpu.copyWith(
                 captionPrefix: value.trim().isEmpty ? null : value.trim(),
-                sparkline: settings.cpu.sparkline,
               ),
             ),
-            onSparkline: (settings, value) => settings.copyWith(
-              cpu: CpuOptions(
-                warn: settings.cpu.warn,
-                critical: settings.cpu.critical,
-                captionSource: settings.cpu.captionSource,
-                captionPrefix: settings.cpu.captionPrefix,
-                sparkline: value,
-              ),
-            ),
+            onSparkline: (settings, value) =>
+                settings.copyWith(cpu: settings.cpu.copyWith(sparkline: value)),
           ),
         ],
       ),
@@ -513,6 +516,105 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       'gpu' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-gpu-warn'),
+            label: l10n.settingsWarnLabel,
+            value: settings.gpu.warn,
+            min: 0,
+            max: 1,
+            display: '${(settings.gpu.warn * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-gpu-warn'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+            resetEnabled: settings.gpu.warn != const GpuOptions().warn,
+            onChanged: (value) {
+              final warn = value;
+              _apply(controller, (settings) {
+                final critical = settings.gpu.critical <= warn
+                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    : settings.gpu.critical;
+                return settings.copyWith(
+                  gpu: settings.gpu.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final warn = math
+                  .min(const GpuOptions().warn, settings.gpu.critical - 0.01)
+                  .clamp(0.0, 0.99);
+              return settings.copyWith(gpu: settings.gpu.copyWith(warn: warn));
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('gpu-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.gpu.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-gpu-warn-color'),
+          ),
+          const SizedBox(height: 10),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-gpu-critical'),
+            label: l10n.settingsCriticalLabel,
+            value: settings.gpu.critical,
+            min: 0,
+            max: 1,
+            display: '${(settings.gpu.critical * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-gpu-critical'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
+            resetEnabled: settings.gpu.critical != const GpuOptions().critical,
+            onChanged: (value) {
+              final critical = value;
+              _apply(controller, (settings) {
+                final warn = settings.gpu.warn >= critical
+                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    : settings.gpu.warn;
+                return settings.copyWith(
+                  gpu: settings.gpu.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final critical = math
+                  .max(const GpuOptions().critical, settings.gpu.warn + 0.01)
+                  .clamp(0.01, 1.0);
+              return settings.copyWith(
+                gpu: settings.gpu.copyWith(critical: critical),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('gpu-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.gpu.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-gpu-critical-color'),
+          ),
           ..._meterControls(
             l10n: l10n,
             controller: controller,
@@ -521,26 +623,15 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             captionPrefix: settings.gpu.captionPrefix,
             sparkline: settings.gpu.sparkline,
             onCaption: (settings, source) => settings.copyWith(
-              gpu: GpuOptions(
-                captionSource: source,
-                captionPrefix: settings.gpu.captionPrefix,
-                sparkline: settings.gpu.sparkline,
-              ),
+              gpu: settings.gpu.copyWith(captionSource: source),
             ),
             onCaptionPrefix: (settings, value) => settings.copyWith(
-              gpu: GpuOptions(
-                captionSource: settings.gpu.captionSource,
+              gpu: settings.gpu.copyWith(
                 captionPrefix: value.trim().isEmpty ? null : value.trim(),
-                sparkline: settings.gpu.sparkline,
               ),
             ),
-            onSparkline: (settings, value) => settings.copyWith(
-              gpu: GpuOptions(
-                captionSource: settings.gpu.captionSource,
-                captionPrefix: settings.gpu.captionPrefix,
-                sparkline: value,
-              ),
-            ),
+            onSparkline: (settings, value) =>
+                settings.copyWith(gpu: settings.gpu.copyWith(sparkline: value)),
           ),
         ],
       ),
@@ -691,6 +782,70 @@ class _ChoiceHeader extends StatelessWidget {
           label: resetLabel,
           enabled: resetEnabled,
           onPressed: onReset,
+        ),
+      ],
+    );
+  }
+}
+
+/// One threshold tint, picked on the same wheel as the accent.
+class _ColorRow extends StatelessWidget {
+  const _ColorRow({
+    required this.fieldKey,
+    required this.label,
+    required this.color,
+    required this.fallback,
+    required this.resetKey,
+    required this.onChanged,
+    required this.onReset,
+  });
+
+  final Key fieldKey;
+  final String label;
+
+  /// The stored tint; null means the shell default ([fallback]).
+  final Color? color;
+  final Color fallback;
+  final Key resetKey;
+  final ValueChanged<Color> onChanged;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = color ?? fallback;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox.square(
+          dimension: 88,
+          child: HsvColorWheel(
+            key: fieldKey,
+            color: active,
+            semanticsLabel: label,
+            onChanged: onChanged,
+          ),
+        ),
+        const SizedBox(width: 18),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(formatOpaqueColorHex(active), style: ShellText.systemBarValue),
+            const SizedBox(height: 8),
+            SettingsResetButton(
+              key: resetKey,
+              label: context.l10n.settingsThresholdColorReset,
+              enabled: color != null,
+              onPressed: onReset,
+            ),
+          ],
         ),
       ],
     );

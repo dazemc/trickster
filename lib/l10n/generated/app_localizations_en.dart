@@ -354,6 +354,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsMeterPrefixHint => 'e.g. CPU';
 
   @override
+  String get settingsThresholdColorReset => 'Reset color';
+
+  @override
+  String get settingsCriticalColor => 'Critical color';
+
+  @override
+  String get settingsWarnColor => 'Warning color';
+
+  @override
   String get settingsMeterPrefix => 'Prefix';
 
   @override

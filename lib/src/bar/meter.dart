@@ -157,6 +157,27 @@ class LoadMeter extends StatelessWidget {
   }
 }
 
+/// The percent tint for one meter reading: the configured threshold colors
+/// when set, the shell telemetry defaults otherwise.
+Color? meterValueColor({
+  required double? current,
+  required double warn,
+  required double critical,
+  Color? warnColor,
+  Color? criticalColor,
+}) {
+  if (current == null) {
+    return null;
+  }
+  if (current >= critical) {
+    return criticalColor ?? ShellTelemetryColors.danger;
+  }
+  if (current >= warn) {
+    return warnColor ?? ShellTelemetryColors.warning;
+  }
+  return null;
+}
+
 /// Maps [history] (oldest first, 0-1 values) onto sparkline points inside
 /// [size]. The newest sample sits on the right edge; a partial history leaves
 /// the left side empty so the line grows leftward as samples arrive.
