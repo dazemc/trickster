@@ -22,12 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.6 (S) Complete the module drop targets.** "Drop a module here"
-  shows on empty zones and an empty Disabled section; the Disabled section
-  accepts drops to turn a module off; a disabled row can be dragged back
-  into a zone; and releasing below a zone's last row appends there. Done
-  when widget tests drop below the last trailing row, drag a module to
-  Disabled, and drag one back out.
 - **18.7 (S) Unavailable modules refuse enablement.** The settings page
   cannot enable a module whose probe failed, and the row carries the
   reason; a configured module that fails its probe is surfaced as
