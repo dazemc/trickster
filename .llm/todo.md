@@ -22,10 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.3 (M) Meter thresholds and colors.** GPU gains warn/critical
-  thresholds like CPU, and both meters' threshold tint colors become
-  configurable in the document and the settings UI. Done when the colors
-  round-trip and the live pills tint with them.
 - **18.4 (M) Clock depth.** Add the clock options the user settles at
   planning time (candidates: `clock.show_seconds`, a custom time pattern,
   date caption style). Done when each option renders on the bar, resets,
