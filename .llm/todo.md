@@ -22,10 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.2 (M) Meter caption parity and custom prefixes.** CPU and GPU both
-  expose the caption source choice, and the source gains a custom prefix
-  typed in the settings UI. Done when both panels offer generic/device/
-  custom, the typed prefix round-trips, and the live pills show it.
 - **18.3 (M) Meter thresholds and colors.** GPU gains warn/critical
   thresholds like CPU, and both meters' threshold tint colors become
   configurable in the document and the settings UI. Done when the colors
