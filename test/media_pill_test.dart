@@ -101,18 +101,15 @@ void main() {
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
   });
 
-  testWidgets('shows the now-playing text and taps reveal controls', (
+  testWidgets('full mode shows the text beside the equalizer and keys', (
     tester,
   ) async {
     final service = _FakeMediaPlayerService();
-    await _pump(tester, _state(), service);
+    await _pump(tester, _state(), service, mode: MediaMode.full);
 
     expect(find.text('Test Song'), findsOneWidget);
     expect(find.text('Test Artist'), findsOneWidget);
-    expect(find.bySemanticsLabel('Next track'), findsNothing);
-
-    await _cycle(tester);
-
+    expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.bySemanticsLabel('Previous track'), findsOneWidget);
     expect(find.bySemanticsLabel('Pause'), findsOneWidget);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
@@ -120,13 +117,6 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Next track'));
     await tester.pump();
     expect(service.calls, <String>['next']);
-    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
-
-    // The cycle returns to the text card after two more taps.
-    await _cycle(tester);
-    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
-    await _cycle(tester);
-    expect(find.bySemanticsLabel('Next track'), findsNothing);
   });
 
   testWidgets('paused playback shows play and drives the player', (
@@ -135,7 +125,6 @@ void main() {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(status: MprisPlaybackStatus.paused), service);
 
-    await _cycle(tester);
     expect(find.bySemanticsLabel('Pause'), findsNothing);
 
     await tester.tap(find.bySemanticsLabel('Play'));
@@ -150,34 +139,42 @@ void main() {
     await _pump(tester, _state(), service, mode: MediaMode.full);
     expect(find.text('Test Song'), findsOneWidget);
     expect(find.text('Test Artist'), findsOneWidget);
+    expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+
+    await _pump(tester, _state(), service, mode: MediaMode.semi);
+    expect(find.text('Test Song'), findsNothing);
+    expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
 
     await _pump(tester, _state(), service, mode: MediaMode.compact);
     expect(find.text('Test Song'), findsNothing);
-    expect(find.text('Test Artist'), findsNothing);
+    expect(find.byKey(MediaPill.equalizerKey), findsNothing);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
   });
 
-  testWidgets('tapping cycles the modes transiently', (tester) async {
+  testWidgets('right-clicking cycles the modes transiently', (tester) async {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(), service, mode: MediaMode.semi);
-    expect(find.text('Test Song'), findsOneWidget);
-    expect(find.bySemanticsLabel('Next track'), findsNothing);
-
-    // semi -> compact: only the transport keys remain.
-    await _cycle(tester);
+    expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.text('Test Song'), findsNothing);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
 
-    // compact -> full: text and controls together.
+    // semi -> compact: the keys alone remain.
     await _cycle(tester);
+    expect(find.byKey(MediaPill.equalizerKey), findsNothing);
+    expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+
+    // compact -> full: keys, equalizer, and text together.
+    await _cycle(tester);
+    expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.text('Test Song'), findsOneWidget);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
 
-    // full -> semi: back to the text card.
+    // full -> semi: the text drops again.
     await _cycle(tester);
-    expect(find.text('Test Song'), findsOneWidget);
-    expect(find.bySemanticsLabel('Next track'), findsNothing);
+    expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
+    expect(find.text('Test Song'), findsNothing);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (
@@ -185,8 +182,6 @@ void main() {
   ) async {
     final service = _FakeMediaPlayerService();
     await _pump(tester, _state(canGoNext: false), service);
-
-    await _cycle(tester);
 
     await tester.tap(find.bySemanticsLabel('Next track'));
     await tester.pump();
