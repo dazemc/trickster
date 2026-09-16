@@ -22,10 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.5 (M) Media display modes.** `media.mode` picks full, semi-full, or
-  compact; tapping the pill still cycles temporarily and the configured
-  mode returns on relaunch. Done when the modes render, the tap cycle is
-  transient, and a relaunch restores the setting.
 - **18.6 (S) Complete the module drop targets.** "Drop a module here"
   shows on empty zones and an empty Disabled section; the Disabled section
   accepts drops to turn a module off; a disabled row can be dragged back
