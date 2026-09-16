@@ -438,6 +438,26 @@
   "@settingsClockShowDate": {
     "description": "Toggle for the clock's date caption."
   },
+  "settingsClockDateWeekday": "Weekday",
+  "@settingsClockDateWeekday": {
+    "description": "Date style choice: Mon Sep 15."
+  },
+  "settingsClockDateLong": "Long",
+  "@settingsClockDateLong": {
+    "description": "Date style choice: September 15."
+  },
+  "settingsClockDateShort": "Short",
+  "@settingsClockDateShort": {
+    "description": "Date style choice: Sep 15."
+  },
+  "settingsClockDateStyle": "Date style",
+  "@settingsClockDateStyle": {
+    "description": "Label above the clock date caption styles."
+  },
+  "settingsClockShowSeconds": "Seconds",
+  "@settingsClockShowSeconds": {
+    "description": "Toggle showing seconds on the clock."
+  },
   "settingsCpuSection": "CPU thresholds",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."

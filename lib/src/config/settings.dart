@@ -356,8 +356,39 @@ enum ClockFormat {
   }
 }
 
+/// How much of the date the clock's caption shows.
+enum ClockDateStyle {
+  short('short'),
+  long('long'),
+  weekday('weekday');
+
+  const ClockDateStyle(this.wire);
+
+  final String wire;
+
+  static ClockDateStyle parse(Object? value) {
+    if (value == null) {
+      return ClockDateStyle.short;
+    }
+    for (final style in ClockDateStyle.values) {
+      if (style.wire == value) {
+        return style;
+      }
+    }
+    throw FormatException(
+      'settings.clock.date_style must be one of '
+      '${ClockDateStyle.values.map((style) => style.wire).join(', ')}',
+    );
+  }
+}
+
 class ClockOptions extends Equatable {
-  const ClockOptions({this.format = ClockFormat.locale, this.showDate = true});
+  const ClockOptions({
+    this.format = ClockFormat.locale,
+    this.showDate = true,
+    this.showSeconds = false,
+    this.dateStyle = ClockDateStyle.short,
+  });
 
   final ClockFormat format;
 
@@ -365,12 +396,34 @@ class ClockOptions extends Equatable {
   /// it regardless.
   final bool showDate;
 
+  /// Whether seconds join the time; the clock then ticks every second.
+  final bool showSeconds;
+
+  /// How much of the date the caption shows.
+  final ClockDateStyle dateStyle;
+
   @override
-  List<Object?> get props => [format, showDate];
+  List<Object?> get props => [format, showDate, showSeconds, dateStyle];
+
+  ClockOptions copyWith({
+    ClockFormat? format,
+    bool? showDate,
+    bool? showSeconds,
+    ClockDateStyle? dateStyle,
+  }) {
+    return ClockOptions(
+      format: format ?? this.format,
+      showDate: showDate ?? this.showDate,
+      showSeconds: showSeconds ?? this.showSeconds,
+      dateStyle: dateStyle ?? this.dateStyle,
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'format': format.wire,
     'show_date': showDate,
+    'show_seconds': showSeconds,
+    'date_style': dateStyle.wire,
   };
 
   static ClockOptions fromJson(Object? json) {
@@ -383,6 +436,8 @@ class ClockOptions extends Equatable {
     return ClockOptions(
       format: ClockFormat.parse(json['format']),
       showDate: (json['show_date'] as bool?) ?? true,
+      showSeconds: (json['show_seconds'] as bool?) ?? false,
+      dateStyle: ClockDateStyle.parse(json['date_style']),
     );
   }
 }

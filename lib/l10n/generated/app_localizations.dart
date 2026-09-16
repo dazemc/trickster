@@ -716,6 +716,36 @@ abstract class AppLocalizations {
   /// **'Date'**
   String get settingsClockShowDate;
 
+  /// Date style choice: Mon Sep 15.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekday'**
+  String get settingsClockDateWeekday;
+
+  /// Date style choice: September 15.
+  ///
+  /// In en, this message translates to:
+  /// **'Long'**
+  String get settingsClockDateLong;
+
+  /// Date style choice: Sep 15.
+  ///
+  /// In en, this message translates to:
+  /// **'Short'**
+  String get settingsClockDateShort;
+
+  /// Label above the clock date caption styles.
+  ///
+  /// In en, this message translates to:
+  /// **'Date style'**
+  String get settingsClockDateStyle;
+
+  /// Toggle showing seconds on the clock.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds'**
+  String get settingsClockShowSeconds;
+
   /// Section heading for CPU threshold options.
   ///
   /// In en, this message translates to:

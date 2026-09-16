@@ -330,6 +330,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClockShowDate => 'Date';
 
   @override
+  String get settingsClockDateWeekday => 'Weekday';
+
+  @override
+  String get settingsClockDateLong => 'Long';
+
+  @override
+  String get settingsClockDateShort => 'Short';
+
+  @override
+  String get settingsClockDateStyle => 'Date style';
+
+  @override
+  String get settingsClockShowSeconds => 'Seconds';
+
+  @override
   String get settingsCpuSection => 'CPU thresholds';
 
   @override

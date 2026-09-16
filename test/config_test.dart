@@ -201,7 +201,12 @@ void main() {
           criticalColor: Color(0xffff00ff),
           sparkline: false,
         ),
-        clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
+        clock: ClockOptions(
+          format: ClockFormat.hour24,
+          showDate: false,
+          showSeconds: true,
+          dateStyle: ClockDateStyle.weekday,
+        ),
         battery: BatteryOptions(warn: 30, critical: 15),
         gpu: GpuOptions(
           warn: 0.6,
@@ -219,6 +224,8 @@ void main() {
       expect(decoded.cpu.critical, 0.9);
       expect(decoded.clock.format, ClockFormat.hour24);
       expect(decoded.clock.showDate, isFalse);
+      expect(decoded.clock.showSeconds, isTrue);
+      expect(decoded.clock.dateStyle, ClockDateStyle.weekday);
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
       expect(decoded.cpu.captionSource, MeterCaptionSource.custom);
@@ -238,6 +245,14 @@ void main() {
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);
       expect(bare.clock.showDate, isTrue);
+      expect(bare.clock.showSeconds, isFalse);
+      expect(bare.clock.dateStyle, ClockDateStyle.short);
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "clock": {"date_style": "huge"}}',
+        ),
+        throwsFormatException,
+      );
       expect(bare.battery.critical, 10);
       expect(bare.cpu.captionSource, MeterCaptionSource.generic);
       expect(bare.cpu.captionPrefix, isNull);

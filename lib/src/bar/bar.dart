@@ -304,6 +304,8 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
               accent: accent,
               format: settings.clock.format,
               showDate: settings.clock.showDate,
+              showSeconds: settings.clock.showSeconds,
+              dateStyle: settings.clock.dateStyle,
               vertical: vertical,
             ),
           ),

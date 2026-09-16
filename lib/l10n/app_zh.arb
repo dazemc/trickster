@@ -438,6 +438,26 @@
   "@settingsClockShowDate": {
     "description": "Toggle for the clock's date caption."
   },
+  "settingsClockDateWeekday": "星期",
+  "@settingsClockDateWeekday": {
+    "description": "Date style choice: Mon Sep 15."
+  },
+  "settingsClockDateLong": "完整",
+  "@settingsClockDateLong": {
+    "description": "Date style choice: September 15."
+  },
+  "settingsClockDateShort": "简短",
+  "@settingsClockDateShort": {
+    "description": "Date style choice: Sep 15."
+  },
+  "settingsClockDateStyle": "日期样式",
+  "@settingsClockDateStyle": {
+    "description": "Label above the clock date caption styles."
+  },
+  "settingsClockShowSeconds": "秒",
+  "@settingsClockShowSeconds": {
+    "description": "Toggle showing seconds on the clock."
+  },
   "settingsCpuSection": "CPU 阈值",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."

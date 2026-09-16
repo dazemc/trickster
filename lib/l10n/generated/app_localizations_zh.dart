@@ -326,6 +326,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClockShowDate => '日期';
 
   @override
+  String get settingsClockDateWeekday => '星期';
+
+  @override
+  String get settingsClockDateLong => '完整';
+
+  @override
+  String get settingsClockDateShort => '简短';
+
+  @override
+  String get settingsClockDateStyle => '日期样式';
+
+  @override
+  String get settingsClockShowSeconds => '秒';
+
+  @override
   String get settingsCpuSection => 'CPU 阈值';
 
   @override

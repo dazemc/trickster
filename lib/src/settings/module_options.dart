@@ -260,7 +260,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             onReset: () => _apply(
               controller,
               (settings) => settings.copyWith(
-                clock: ClockOptions(showDate: settings.clock.showDate),
+                clock: settings.clock.copyWith(format: ClockFormat.locale),
               ),
             ),
           ),
@@ -277,10 +277,61 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   onPressed: () => _apply(
                     controller,
                     (settings) => settings.copyWith(
-                      clock: ClockOptions(
-                        format: format,
-                        showDate: settings.clock.showDate,
-                      ),
+                      clock: settings.clock.copyWith(format: format),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const SizedBox(height: 18),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('clock-show-seconds'),
+            label: l10n.settingsClockShowSeconds,
+            value: settings.clock.showSeconds,
+            resetKey: const ValueKey<String>('reset-clock-show-seconds'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsClockShowSeconds),
+            resetEnabled: settings.clock.showSeconds,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: settings.clock.copyWith(showSeconds: value),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: settings.clock.copyWith(showSeconds: false),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          _ChoiceHeader(
+            label: l10n.settingsClockDateStyle,
+            resetKey: const ValueKey<String>('reset-clock-date-style'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsClockDateStyle),
+            resetEnabled: settings.clock.dateStyle != ClockDateStyle.short,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: settings.clock.copyWith(dateStyle: ClockDateStyle.short),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final style in ClockDateStyle.values)
+                SettingsChoiceChip(
+                  key: ValueKey<String>('clock-date-style-${style.wire}'),
+                  label: _dateStyleLabel(l10n, style),
+                  selected: settings.clock.dateStyle == style,
+                  onPressed: () => _apply(
+                    controller,
+                    (settings) => settings.copyWith(
+                      clock: settings.clock.copyWith(dateStyle: style),
                     ),
                   ),
                 ),
@@ -297,16 +348,13 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             onChanged: (value) => _apply(
               controller,
               (settings) => settings.copyWith(
-                clock: ClockOptions(
-                  format: settings.clock.format,
-                  showDate: value,
-                ),
+                clock: settings.clock.copyWith(showDate: value),
               ),
             ),
             onReset: () => _apply(
               controller,
               (settings) => settings.copyWith(
-                clock: ClockOptions(format: settings.clock.format),
+                clock: settings.clock.copyWith(showDate: true),
               ),
             ),
           ),
@@ -686,7 +734,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       ),
       if (captionSource == MeterCaptionSource.custom) ...[
         const SizedBox(height: 12),
-        _PrefixField(
+        _OptionTextField(
           fieldKey: ValueKey<String>('$prefix-meter-prefix'),
           label: l10n.settingsMeterPrefix,
           hint: l10n.settingsMeterPrefixHint,
@@ -722,6 +770,14 @@ bool _hasSvgArtwork(WorkspaceOptions workspaces) {
       workspaces.imageByWorkspace.values.any(
         (path) => path.toLowerCase().endsWith('.svg'),
       );
+}
+
+String _dateStyleLabel(AppLocalizations l10n, ClockDateStyle style) {
+  return switch (style) {
+    ClockDateStyle.short => l10n.settingsClockDateShort,
+    ClockDateStyle.long => l10n.settingsClockDateLong,
+    ClockDateStyle.weekday => l10n.settingsClockDateWeekday,
+  };
 }
 
 String _pipStyleLabel(AppLocalizations l10n, PipStyle style) {
@@ -852,9 +908,9 @@ class _ColorRow extends StatelessWidget {
   }
 }
 
-/// A debounced text input for a meter's custom caption prefix.
-class _PrefixField extends StatefulWidget {
-  const _PrefixField({
+/// A debounced text input for one typed option.
+class _OptionTextField extends StatefulWidget {
+  const _OptionTextField({
     required this.fieldKey,
     required this.label,
     required this.hint,
@@ -869,17 +925,17 @@ class _PrefixField extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  State<_PrefixField> createState() => _PrefixFieldState();
+  State<_OptionTextField> createState() => _OptionTextFieldState();
 }
 
-class _PrefixFieldState extends State<_PrefixField> {
+class _OptionTextFieldState extends State<_OptionTextField> {
   late final TextEditingController _controller = TextEditingController(
     text: widget.value,
   );
   final FocusNode _focus = FocusNode();
 
   @override
-  void didUpdateWidget(covariant _PrefixField oldWidget) {
+  void didUpdateWidget(covariant _OptionTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
     // External edits land when the field is not being typed in.
     if (widget.value != _controller.text && !_focus.hasFocus) {

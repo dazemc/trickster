@@ -35,11 +35,16 @@ Future<void> _pumpClock(
   Locale locale, {
   ClockFormat format = ClockFormat.locale,
   bool showDate = true,
+  bool showSeconds = false,
+  ClockDateStyle dateStyle = ClockDateStyle.short,
   bool vertical = false,
+  ClockBloc Function()? clockBuilder,
 }) {
   return tester.pumpWidget(
     MultiBlocProvider(
-      providers: [BlocProvider(create: (_) => ClockBloc())],
+      providers: [
+        BlocProvider(create: (_) => (clockBuilder ?? ClockBloc.new)()),
+      ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
           locale: locale,
@@ -48,6 +53,8 @@ Future<void> _pumpClock(
               accent: const WallpaperAccent(Color(0xffd0bcff)),
               format: format,
               showDate: showDate,
+              showSeconds: showSeconds,
+              dateStyle: dateStyle,
               vertical: vertical,
             ),
           ),
@@ -626,6 +633,52 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(LoadMeter.sparklineKey), findsNothing);
+  });
+
+  testWidgets('seconds render and tick every second', (tester) async {
+    var current = DateTime(2026, 1, 1, 12, 0, 0);
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      showSeconds: true,
+      clockBuilder: () => ClockBloc(now: () => current),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    String clock() => tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(clock(), contains('12:00:00'));
+
+    current = current.add(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(clock(), contains('12:00:01'));
+  });
+
+  testWidgets('date styles shape the caption', (tester) async {
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      dateStyle: ClockDateStyle.weekday,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    final texts = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(texts, matches(RegExp(r'[A-Z][a-z]{2}')));
+
+    await _pumpClock(
+      tester,
+      const Locale('en', 'US'),
+      dateStyle: ClockDateStyle.long,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    final long = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .map((text) => text.text.toPlainText())
+        .join(' ');
+    expect(long, isNot(equals(texts)));
   });
 
   testWidgets('the clock date caption hides with show_date off', (

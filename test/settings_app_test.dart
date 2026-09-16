@@ -1010,6 +1010,24 @@ void main() {
     await tester.pump();
     expect(bloc.settings.clock.format, ClockFormat.hour24);
 
+    final seconds = find.byKey(const ValueKey<String>('clock-show-seconds'));
+    await tester.ensureVisible(seconds);
+    await tester.pumpAndSettle();
+    await tester.tap(seconds);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.clock.showSeconds, isTrue);
+
+    final weekday = find.byKey(
+      const ValueKey<String>('clock-date-style-weekday'),
+    );
+    await tester.ensureVisible(weekday);
+    await tester.pumpAndSettle();
+    await tester.tap(weekday);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.clock.dateStyle, ClockDateStyle.weekday);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),
@@ -1154,9 +1172,12 @@ void main() {
     expect(bloc.settings.gpu.sparkline, isFalse);
 
     // The custom source reveals the prefix field, which writes the document.
-    await tester.tap(
-      find.byKey(const ValueKey<String>('gpu-meter-caption-custom')),
+    final customChip = find.byKey(
+      const ValueKey<String>('gpu-meter-caption-custom'),
     );
+    await tester.ensureVisible(customChip);
+    await tester.pumpAndSettle();
+    await tester.tap(customChip);
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(bloc.settings.gpu.captionSource, MeterCaptionSource.custom);
