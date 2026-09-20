@@ -34,10 +34,6 @@ subsurface renderer from `#191389`. The decision is to wait for that work
 to reach a stable release — do not fork, patch, or pin a patched engine
 while other packages share the stock SDK.
 
-- **19.1 (S) Measure the settings frame budget.** A profile build of
-  settings mode records build/raster/vsyncOverhead per frame plus the
-  number of rebuilds and pointer events during a slider drag. Done when the
-  numbers say whether the app's build work or the engine cadence dominates.
 - **19.2 (M) Scope and coalesce settings rebuilds.** Drag previews collapse
   to one per frame, and a controller change rebuilds only the widgets that
   read it (section-scoped listenables; the shell keeps to locale and
