@@ -39,7 +39,11 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
   void initState() {
     super.initState();
     _bloc = SettingsAppBloc()..add(const SettingsAppLoadRequested());
-    _wallpaperAccent = WallpaperAccentBloc();
+    _wallpaperAccent = WallpaperAccentBloc(
+      outputs: () => _bloc.availableOutputs,
+      strip: () =>
+          (side: _bloc.outputs.side, thickness: _bloc.outputs.thickness),
+    );
   }
 
   @override

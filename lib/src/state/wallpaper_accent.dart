@@ -6,6 +6,9 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/grim_sampler.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/theme/wallpaper_accent.dart';
 
@@ -26,9 +29,10 @@ class WallpaperAccentEnabled extends WallpaperAccentEvent {
   List<Object?> get props => [enabled];
 }
 
-/// Internal: the debounce elapsed or a cache file changed.
-class _WallpaperAccentSampleRequested extends WallpaperAccentEvent {
-  const _WallpaperAccentSampleRequested();
+/// Internal: the debounce elapsed, a cache file changed, or the display set
+/// changed.
+class WallpaperAccentSampleRequested extends WallpaperAccentEvent {
+  const WallpaperAccentSampleRequested();
 }
 
 String _hex(Color color) =>
@@ -151,14 +155,20 @@ class WallpaperAccentBloc
     WallpaperCache? cache,
     Future<List<Color>> Function(Uint8List encoded)? extractCandidates,
     Future<List<Color>> Function(String path)? sampleCandidates,
+    GrimSampler? grim,
+    List<LayerOutput> Function()? outputs,
+    ({SystemBarSide side, double thickness}) Function()? strip,
     bool watch = true,
   }) : _cache = cache ?? WallpaperCache(),
        _extractCandidates = extractCandidates ?? extractWallpaperAccents,
        _samplePathOverride = sampleCandidates,
+       _grim = grim ?? GrimSampler(),
+       _outputs = outputs,
+       _strip = strip,
        _watchEnabled = watch,
        super(const WallpaperAccentState()) {
     on<WallpaperAccentEnabled>(_onEnabled);
-    on<_WallpaperAccentSampleRequested>(_onSample);
+    on<WallpaperAccentSampleRequested>(_onSample);
   }
 
   static const int _maxCacheEntries = 8;
@@ -167,7 +177,14 @@ class WallpaperAccentBloc
   final WallpaperCache _cache;
   final Future<List<Color>> Function(Uint8List encoded) _extractCandidates;
   final Future<List<Color>> Function(String path)? _samplePathOverride;
+  final GrimSampler _grim;
+  final List<LayerOutput> Function()? _outputs;
+  final ({SystemBarSide side, double thickness}) Function()? _strip;
   final bool _watchEnabled;
+
+  /// Screencopy candidates per output, keyed by what the capture depended
+  /// on; only start/display changes re-capture.
+  final Map<String, (String key, List<Color> candidates)> _grimSamples = {};
 
   final Map<String, (int modified, List<Color> candidates)> _samples = {};
   StreamSubscription<FileSystemEvent>? _watch;
@@ -199,7 +216,7 @@ class WallpaperAccentBloc
   }
 
   Future<void> _onSample(
-    _WallpaperAccentSampleRequested event,
+    WallpaperAccentSampleRequested event,
     Emitter<WallpaperAccentState> emit,
   ) async {
     final generation = ++_generation;
@@ -207,6 +224,36 @@ class WallpaperAccentBloc
     final candidates = <String, List<Color>>{};
     for (final entry in entries) {
       candidates[entry.output] = await _samplePath(entry.path);
+    }
+    for (final output in _outputs?.call() ?? const <LayerOutput>[]) {
+      if (candidates.containsKey(output.name)) {
+        continue;
+      }
+      final strip = _strip?.call();
+      if (strip == null) {
+        break;
+      }
+      final key =
+          '${output.width}x${output.height}-${strip.side.name}-'
+          '${strip.thickness}';
+      final cached = _grimSamples[output.name];
+      if (cached != null && cached.$1 == key) {
+        candidates[output.name] = cached.$2;
+        continue;
+      }
+      if (!await _grim.available()) {
+        break;
+      }
+      final sampled = await _grim.sample(
+        output: output,
+        side: strip.side,
+        thickness: strip.thickness,
+      );
+      if (generation != _generation || !state.enabled) {
+        return;
+      }
+      _grimSamples[output.name] = (key, sampled);
+      candidates[output.name] = sampled;
     }
     if (generation != _generation || !state.enabled) {
       return;
@@ -257,7 +304,7 @@ class WallpaperAccentBloc
     _timer?.cancel();
     _timer = Timer(
       _debounce,
-      () => add(const _WallpaperAccentSampleRequested()),
+      () => add(const WallpaperAccentSampleRequested()),
     );
   }
 

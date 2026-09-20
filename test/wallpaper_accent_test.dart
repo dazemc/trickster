@@ -4,6 +4,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/grim_sampler.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/wallpaper_accent.dart';
@@ -147,6 +150,52 @@ void main() {
     expect(controller.state.color, isNull);
     expect(controller.state.enabled, isFalse);
   });
+
+  test(
+    'an output with no daemon file falls back to a screencopy sample',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('trickster-wall');
+      addTearDown(() => directory.delete(recursive: true));
+      final red = File('${directory.path}/red.png')
+        ..writeAsBytesSync(base64Decode(_redPng));
+      final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+      cacheFile.parent.createSync(recursive: true);
+      cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
+
+      final captures = <String>[];
+      final controller = WallpaperAccentBloc(
+        cache: WallpaperCache(root: cacheFile.parent),
+        outputs: () => const [
+          LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+          LayerOutput(name: 'HDMI-A-2', width: 2560, height: 1440),
+        ],
+        strip: () => (side: SystemBarSide.top, thickness: 32),
+        grim: GrimSampler(
+          available: true,
+          run: (args) async {
+            captures.add(args[1]);
+            return base64Decode(_redPng);
+          },
+        ),
+      );
+      addTearDown(controller.close);
+
+      controller.add(const WallpaperAccentEnabled(enabled: true));
+      await _waitFor(
+        () => controller.state.candidatesFor('HDMI-A-2').isNotEmpty,
+      );
+      // Only the output without a daemon image was captured.
+      expect(captures, <String>['HDMI-A-2']);
+      expect(controller.state.candidatesFor('HDMI-A-1'), isNotEmpty);
+
+      // A later sample reuses the capture; only the display set re-captures.
+      controller.add(const WallpaperAccentSampleRequested());
+      await _waitFor(
+        () => controller.state.candidatesFor('HDMI-A-2').isNotEmpty,
+      );
+      expect(captures, <String>['HDMI-A-2']);
+    },
+  );
 
   test(
     'an output without a cache file falls back to the sampled one',
