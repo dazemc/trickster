@@ -29,6 +29,12 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
 
 ## Open suggestions
 
+- **The grim fallback needs its second-output check.** 18.8 is merged, but
+  the live check on an output with no awww image (HDMI-A-2) never ran — the
+  user deferred it. Select that display on the appearance page and confirm
+  its candidate swatches come from the screencopy capture; a failure becomes
+  a new queued step.
+
 - **Per-display appearance still needs a two-output check.** 14.12 is merged,
   but the live check (two outputs holding different accent picks) never ran —
   no second monitor was available. Verify on a second display when one is
