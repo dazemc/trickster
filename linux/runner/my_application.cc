@@ -18,6 +18,8 @@ typedef struct {
   struct ext_background_effect_surface_v1* blur;
   gboolean blur_enabled;
   FlValue* blur_regions;
+  gint thickness;
+  gboolean horizontal;
 } TricksterSurface;
 
 struct _MyApplication {
@@ -111,7 +113,9 @@ static void apply_layer_shell(TricksterSurface* surface, const gchar* side,
     gtk_layer_set_exclusive_zone(window, 0);
     return;
   }
-  if (g_strcmp0(side, "left") == 0 || g_strcmp0(side, "right") == 0) {
+  surface->thickness = thickness;
+  surface->horizontal = horizontal;
+  if (!horizontal) {
     gtk_widget_set_size_request(GTK_WIDGET(window), thickness, -1);
   } else {
     gtk_widget_set_size_request(GTK_WIDGET(window), -1, thickness);
@@ -530,6 +534,34 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     g_autoptr(FlValue) result =
         fl_value_new_bool(trickster_probe_blur(self) ? TRUE : FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "surfaceThickness") == 0) {
+    // The strip grows and shrinks with its wrapped content: the exclusive
+    // zone always equals the laid-out band.
+    const gint64 view_id = method_arg_int(method_call, "viewId");
+    const gint64 thickness = method_arg_int(method_call, "thickness");
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->view == nullptr ||
+          fl_view_get_id(surface->view) != view_id ||
+          surface->window == nullptr) {
+        continue;
+      }
+      if (thickness <= 0 || thickness == surface->thickness) {
+        break;
+      }
+      surface->thickness = (gint)thickness;
+      gtk_layer_set_exclusive_zone(surface->window, (gint)thickness);
+      if (surface->horizontal) {
+        gtk_widget_set_size_request(GTK_WIDGET(surface->window), -1,
+                                    (gint)thickness);
+      } else {
+        gtk_widget_set_size_request(GTK_WIDGET(surface->window),
+                                    (gint)thickness, -1);
+      }
+      break;
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (g_strcmp0(method, "pickImageFile") == 0) {
     g_autoptr(FlValue) result = nullptr;
     gchar* path = trickster_pick_image(self);

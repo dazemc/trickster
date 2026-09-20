@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trickster/src/bar/flow.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/layout/system_bar.dart';
@@ -45,21 +46,21 @@ class TrayPill extends StatelessWidget {
     return SystemBarCard(
       accent: accent,
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Flex(
-        direction: vertical ? Axis.vertical : Axis.horizontal,
-        mainAxisSize: MainAxisSize.min,
+      child: BarFlow(
+        horizontal: !vertical,
+        alignment: MainAxisAlignment.start,
+        spacing: 2,
+        // The tray wraps inside its pill; items keep their natural size.
         children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) SizedBox(width: vertical ? 0 : 2, height: 2),
+          for (final item in items)
             TrayItemButton(
-              key: ValueKey<String>('tray-item-${items[i].id}'),
+              key: ValueKey<String>('tray-item-${item.id}'),
               accent: accent,
-              item: items[i],
+              item: item,
               onActivate: onActivate,
               side: side,
               thickness: thickness,
             ),
-          ],
         ],
       ),
     );

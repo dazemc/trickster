@@ -108,7 +108,7 @@
   "@batteryHint": {
     "description": "Accessible hint for the battery pill."
   },
-  "mediaHint": "Shows playback controls",
+  "mediaHint": "Left click controls playback; right click cycles the display mode",
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
@@ -438,6 +438,26 @@
   "@settingsClockShowDate": {
     "description": "Toggle for the clock's date caption."
   },
+  "settingsClockDateWeekday": "Weekday",
+  "@settingsClockDateWeekday": {
+    "description": "Date style choice: Mon Sep 15."
+  },
+  "settingsClockDateLong": "Long",
+  "@settingsClockDateLong": {
+    "description": "Date style choice: September 15."
+  },
+  "settingsClockDateShort": "Short",
+  "@settingsClockDateShort": {
+    "description": "Date style choice: Sep 15."
+  },
+  "settingsClockDateStyle": "Date style",
+  "@settingsClockDateStyle": {
+    "description": "Label above the clock date caption styles."
+  },
+  "settingsClockShowSeconds": "Seconds",
+  "@settingsClockShowSeconds": {
+    "description": "Toggle showing seconds on the clock."
+  },
   "settingsCpuSection": "CPU thresholds",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."
@@ -465,6 +485,46 @@
   "settingsMeterSparkline": "Sparkline",
   "@settingsMeterSparkline": {
     "description": "Toggle for the CPU/GPU recent-history sparkline."
+  },
+  "settingsMediaModeCompact": "Compact",
+  "@settingsMediaModeCompact": {
+    "description": "Media mode: title only."
+  },
+  "settingsMediaModeSemi": "Semi",
+  "@settingsMediaModeSemi": {
+    "description": "Media mode: text without controls."
+  },
+  "settingsMediaModeFull": "Full",
+  "@settingsMediaModeFull": {
+    "description": "Media mode: artwork, text, and controls."
+  },
+  "settingsMediaMode": "Display mode",
+  "@settingsMediaMode": {
+    "description": "Label above the media display mode choices."
+  },
+  "settingsMeterPrefixHint": "e.g. CPU",
+  "@settingsMeterPrefixHint": {
+    "description": "Placeholder for the custom meter caption input."
+  },
+  "settingsThresholdColorReset": "Reset color",
+  "@settingsThresholdColorReset": {
+    "description": "Reset control for a meter threshold color."
+  },
+  "settingsCriticalColor": "Critical color",
+  "@settingsCriticalColor": {
+    "description": "Label for the meter critical threshold color."
+  },
+  "settingsWarnColor": "Warning color",
+  "@settingsWarnColor": {
+    "description": "Label for the meter warning threshold color."
+  },
+  "settingsMeterPrefix": "Prefix",
+  "@settingsMeterPrefix": {
+    "description": "Label above the custom meter caption input."
+  },
+  "settingsMeterCaptionCustom": "Custom",
+  "@settingsMeterCaptionCustom": {
+    "description": "Meter caption choice: a typed prefix."
   },
   "settingsMeterCaptionGeneric": "Generic",
   "@settingsMeterCaptionGeneric": {

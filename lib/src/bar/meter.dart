@@ -52,22 +52,28 @@ class LoadMeter extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    style: ShellText.systemBarCaption.copyWith(
-                      color: captionColor,
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: ShellText.systemBarCaption.copyWith(
+                        color: captionColor,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    '$percent%',
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    style: ShellText.systemBarValue.copyWith(color: valueColor),
+                  Flexible(
+                    child: Text(
+                      '$percent%',
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: ShellText.systemBarValue.copyWith(
+                        color: valueColor,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -97,11 +103,18 @@ class LoadMeter extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedDefaultTextStyle(
-              duration: Motion.wallpaperReveal,
-              curve: Motion.standard,
-              style: ShellText.systemBarCaption.copyWith(color: captionColor),
-              child: Text(label),
+            Flexible(
+              child: AnimatedDefaultTextStyle(
+                duration: Motion.wallpaperReveal,
+                curve: Motion.standard,
+                style: ShellText.systemBarCaption.copyWith(color: captionColor),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
             if (sparkline) ...[
               const SizedBox(width: 6),
@@ -142,6 +155,27 @@ class LoadMeter extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The percent tint for one meter reading: the configured threshold colors
+/// when set, the shell telemetry defaults otherwise.
+Color? meterValueColor({
+  required double? current,
+  required double warn,
+  required double critical,
+  Color? warnColor,
+  Color? criticalColor,
+}) {
+  if (current == null) {
+    return null;
+  }
+  if (current >= critical) {
+    return criticalColor ?? ShellTelemetryColors.danger;
+  }
+  if (current >= warn) {
+    return warnColor ?? ShellTelemetryColors.warning;
+  }
+  return null;
 }
 
 /// Maps [history] (oldest first, 0-1 values) onto sparkline points inside

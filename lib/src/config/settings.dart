@@ -116,12 +116,17 @@ ModuleZone defaultModuleZone(String module) {
   };
 }
 
+const _unset = Object();
+
 /// Typed options for the CPU meter.
 class CpuOptions extends Equatable {
   const CpuOptions({
     this.warn = 0.85,
     this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
     this.sparkline = true,
   });
 
@@ -129,18 +134,62 @@ class CpuOptions extends Equatable {
   final double critical;
   final MeterCaptionSource captionSource;
 
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
+
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
 
   @override
-  List<Object?> get props => [warn, critical, captionSource, sparkline];
+  List<Object?> get props => [
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    warnColor,
+    criticalColor,
+    sparkline,
+  ];
 
   Map<String, Object?> toJson() => {
     'warn': warn,
     'critical': critical,
     'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
+    if (warnColor != null) 'warn_color': _hex(warnColor!),
+    if (criticalColor != null) 'critical_color': _hex(criticalColor!),
     'sparkline': sparkline,
   };
+
+  CpuOptions copyWith({
+    double? warn,
+    double? critical,
+    MeterCaptionSource? captionSource,
+    Object? captionPrefix = _unset,
+    Object? warnColor = _unset,
+    Object? criticalColor = _unset,
+    bool? sparkline,
+  }) {
+    return CpuOptions(
+      warn: warn ?? this.warn,
+      critical: critical ?? this.critical,
+      captionSource: captionSource ?? this.captionSource,
+      captionPrefix: identical(captionPrefix, _unset)
+          ? this.captionPrefix
+          : captionPrefix as String?,
+      warnColor: identical(warnColor, _unset)
+          ? this.warnColor
+          : warnColor as Color?,
+      criticalColor: identical(criticalColor, _unset)
+          ? this.criticalColor
+          : criticalColor as Color?,
+      sparkline: sparkline ?? this.sparkline,
+    );
+  }
 
   /// [legacy] is the retired shared `meter` object, consulted when this
   /// document predates per-meter options.
@@ -164,6 +213,12 @@ class CpuOptions extends Equatable {
       warn: warn,
       critical: critical,
       captionSource: _captionSource(decoded, legacy),
+      captionPrefix: _prefix(decoded['caption_prefix']),
+      warnColor: _meterColor(decoded['warn_color'], 'settings.cpu.warn_color'),
+      criticalColor: _meterColor(
+        decoded['critical_color'],
+        'settings.cpu.critical_color',
+      ),
       sparkline: _sparkline(decoded, legacy),
     );
   }
@@ -172,22 +227,75 @@ class CpuOptions extends Equatable {
 /// Typed options for the GPU meter; the same shape as the CPU's meter keys.
 class GpuOptions extends Equatable {
   const GpuOptions({
+    this.warn = 0.85,
+    this.critical = 0.95,
     this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
     this.sparkline = true,
   });
 
+  final double warn;
+  final double critical;
   final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
 
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
 
   @override
-  List<Object?> get props => [captionSource, sparkline];
+  List<Object?> get props => [
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    warnColor,
+    criticalColor,
+    sparkline,
+  ];
 
   Map<String, Object?> toJson() => {
+    'warn': warn,
+    'critical': critical,
     'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
+    if (warnColor != null) 'warn_color': _hex(warnColor!),
+    if (criticalColor != null) 'critical_color': _hex(criticalColor!),
     'sparkline': sparkline,
   };
+
+  GpuOptions copyWith({
+    double? warn,
+    double? critical,
+    MeterCaptionSource? captionSource,
+    Object? captionPrefix = _unset,
+    Object? warnColor = _unset,
+    Object? criticalColor = _unset,
+    bool? sparkline,
+  }) {
+    return GpuOptions(
+      warn: warn ?? this.warn,
+      critical: critical ?? this.critical,
+      captionSource: captionSource ?? this.captionSource,
+      captionPrefix: identical(captionPrefix, _unset)
+          ? this.captionPrefix
+          : captionPrefix as String?,
+      warnColor: identical(warnColor, _unset)
+          ? this.warnColor
+          : warnColor as Color?,
+      criticalColor: identical(criticalColor, _unset)
+          ? this.criticalColor
+          : criticalColor as Color?,
+      sparkline: sparkline ?? this.sparkline,
+    );
+  }
 
   /// [legacy] is the retired shared `meter` object, consulted when this
   /// document predates per-meter options.
@@ -201,8 +309,22 @@ class GpuOptions extends Equatable {
     final decoded = json is Map<String, dynamic>
         ? json
         : const <String, dynamic>{};
+    final warn = _ratio(decoded['warn'], 'settings.gpu.warn') ?? 0.85;
+    final critical =
+        _ratio(decoded['critical'], 'settings.gpu.critical') ?? 0.95;
+    if (warn >= critical) {
+      throw const FormatException('settings.gpu.warn must be below critical');
+    }
     return GpuOptions(
+      warn: warn,
+      critical: critical,
       captionSource: _captionSource(decoded, legacy),
+      captionPrefix: _prefix(decoded['caption_prefix']),
+      warnColor: _meterColor(decoded['warn_color'], 'settings.gpu.warn_color'),
+      criticalColor: _meterColor(
+        decoded['critical_color'],
+        'settings.gpu.critical_color',
+      ),
       sparkline: _sparkline(decoded, legacy),
     );
   }
@@ -234,8 +356,39 @@ enum ClockFormat {
   }
 }
 
+/// How much of the date the clock's caption shows.
+enum ClockDateStyle {
+  short('short'),
+  long('long'),
+  weekday('weekday');
+
+  const ClockDateStyle(this.wire);
+
+  final String wire;
+
+  static ClockDateStyle parse(Object? value) {
+    if (value == null) {
+      return ClockDateStyle.short;
+    }
+    for (final style in ClockDateStyle.values) {
+      if (style.wire == value) {
+        return style;
+      }
+    }
+    throw FormatException(
+      'settings.clock.date_style must be one of '
+      '${ClockDateStyle.values.map((style) => style.wire).join(', ')}',
+    );
+  }
+}
+
 class ClockOptions extends Equatable {
-  const ClockOptions({this.format = ClockFormat.locale, this.showDate = true});
+  const ClockOptions({
+    this.format = ClockFormat.locale,
+    this.showDate = true,
+    this.showSeconds = false,
+    this.dateStyle = ClockDateStyle.short,
+  });
 
   final ClockFormat format;
 
@@ -243,12 +396,34 @@ class ClockOptions extends Equatable {
   /// it regardless.
   final bool showDate;
 
+  /// Whether seconds join the time; the clock then ticks every second.
+  final bool showSeconds;
+
+  /// How much of the date the caption shows.
+  final ClockDateStyle dateStyle;
+
   @override
-  List<Object?> get props => [format, showDate];
+  List<Object?> get props => [format, showDate, showSeconds, dateStyle];
+
+  ClockOptions copyWith({
+    ClockFormat? format,
+    bool? showDate,
+    bool? showSeconds,
+    ClockDateStyle? dateStyle,
+  }) {
+    return ClockOptions(
+      format: format ?? this.format,
+      showDate: showDate ?? this.showDate,
+      showSeconds: showSeconds ?? this.showSeconds,
+      dateStyle: dateStyle ?? this.dateStyle,
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'format': format.wire,
     'show_date': showDate,
+    'show_seconds': showSeconds,
+    'date_style': dateStyle.wire,
   };
 
   static ClockOptions fromJson(Object? json) {
@@ -261,6 +436,8 @@ class ClockOptions extends Equatable {
     return ClockOptions(
       format: ClockFormat.parse(json['format']),
       showDate: (json['show_date'] as bool?) ?? true,
+      showSeconds: (json['show_seconds'] as bool?) ?? false,
+      dateStyle: ClockDateStyle.parse(json['date_style']),
     );
   }
 }
@@ -286,6 +463,59 @@ class AppearanceOptions extends Equatable {
       throw const FormatException('settings.appearance must be an object');
     }
     return AppearanceOptions(blur: (json['blur'] as bool?) ?? true);
+  }
+}
+
+/// How much of the media pill the bar shows.
+enum MediaMode {
+  full('full'),
+  semi('semi'),
+  compact('compact');
+
+  const MediaMode(this.wire);
+
+  final String wire;
+
+  static MediaMode parse(Object? value) {
+    if (value == null) {
+      return MediaMode.semi;
+    }
+    for (final mode in MediaMode.values) {
+      if (mode.wire == value) {
+        return mode;
+      }
+    }
+    throw FormatException(
+      'settings.media.mode must be one of '
+      '${MediaMode.values.map((mode) => mode.wire).join(', ')}',
+    );
+  }
+}
+
+/// Typed options for the media pill.
+class MediaOptions extends Equatable {
+  const MediaOptions({this.mode = MediaMode.semi});
+
+  /// The display mode the pill returns to on relaunch; tapping cycles
+  /// transiently from it.
+  final MediaMode mode;
+
+  @override
+  List<Object?> get props => [mode];
+
+  MediaOptions copyWith({MediaMode? mode}) =>
+      MediaOptions(mode: mode ?? this.mode);
+
+  Map<String, Object?> toJson() => {'mode': mode.wire};
+
+  static MediaOptions fromJson(Object? json) {
+    if (json == null) {
+      return const MediaOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.media must be an object');
+    }
+    return MediaOptions(mode: MediaMode.parse(json['mode']));
   }
 }
 
@@ -323,7 +553,8 @@ class BatteryOptions extends Equatable {
 /// Where meter captions come from.
 enum MeterCaptionSource {
   generic,
-  device;
+  device,
+  custom;
 
   static MeterCaptionSource parse(Object? value) {
     if (value == null) {
@@ -351,6 +582,34 @@ MeterCaptionSource _captionSource(
   return MeterCaptionSource.parse(
     decoded['caption_source'] ?? legacyMap?['caption_source'],
   );
+}
+
+/// `#RRGGBB` for a meter threshold tint.
+String _hex(Color color) =>
+    '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
+/// A threshold tint: `#RRGGBB`, rejected with [key] in the message otherwise.
+Color? _meterColor(Object? value, String key) {
+  if (value == null) {
+    return null;
+  }
+  final color = colorFromHex(value);
+  if (color == null) {
+    throw FormatException('$key must be #RRGGBB: $value');
+  }
+  return color;
+}
+
+/// The custom caption text: strings only, empty values clear the key.
+String? _prefix(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String) {
+    throw const FormatException('caption_prefix must be a string');
+  }
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }
 
 /// Sparkline switch for one meter, falling back to the retired shared `meter`
@@ -536,6 +795,7 @@ class BarSettings extends Equatable {
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
+    this.media = const MediaOptions(),
   });
 
   /// Supported UI language tag (`en`, `zh`); null follows the system.
@@ -567,6 +827,7 @@ class BarSettings extends Equatable {
   final ClockOptions clock;
   final BatteryOptions battery;
   final GpuOptions gpu;
+  final MediaOptions media;
 
   // Spread: Equatable compares props element-wise, so spreading gives deep
   // equality over the module list.
@@ -587,6 +848,7 @@ class BarSettings extends Equatable {
     clock,
     battery,
     gpu,
+    media,
   ];
 
   bool includes(String module) => modules.contains(module);
@@ -638,6 +900,7 @@ class BarSettings extends Equatable {
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
+    'media': media.toJson(),
     'appearance': appearance.toJson(),
     'workspaces': workspaces.toJson(),
   };
@@ -663,6 +926,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      media: media,
     );
   }
 
@@ -684,6 +948,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      media: media,
     );
   }
 
@@ -705,6 +970,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      media: media,
     );
   }
 
@@ -717,6 +983,7 @@ class BarSettings extends Equatable {
     ClockOptions? clock,
     BatteryOptions? battery,
     GpuOptions? gpu,
+    MediaOptions? media,
     String? locale,
     AccentSource? accentSource,
     String? accentWallpaperPick,
@@ -740,6 +1007,7 @@ class BarSettings extends Equatable {
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
+      media: media ?? this.media,
     );
   }
 
@@ -791,6 +1059,7 @@ class BarSettings extends Equatable {
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),
+      media: MediaOptions.fromJson(decoded['media']),
     );
   }
 

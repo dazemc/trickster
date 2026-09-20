@@ -82,7 +82,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get batteryHint => 'Opens power settings';
 
   @override
-  String get mediaHint => 'Shows playback controls';
+  String get mediaHint =>
+      'Left click controls playback; right click cycles the display mode';
 
   @override
   String get trayItemHint => 'Activates the item';
@@ -330,6 +331,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClockShowDate => 'Date';
 
   @override
+  String get settingsClockDateWeekday => 'Weekday';
+
+  @override
+  String get settingsClockDateLong => 'Long';
+
+  @override
+  String get settingsClockDateShort => 'Short';
+
+  @override
+  String get settingsClockDateStyle => 'Date style';
+
+  @override
+  String get settingsClockShowSeconds => 'Seconds';
+
+  @override
   String get settingsCpuSection => 'CPU thresholds';
 
   @override
@@ -349,6 +365,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsMeterSparkline => 'Sparkline';
+
+  @override
+  String get settingsMediaModeCompact => 'Compact';
+
+  @override
+  String get settingsMediaModeSemi => 'Semi';
+
+  @override
+  String get settingsMediaModeFull => 'Full';
+
+  @override
+  String get settingsMediaMode => 'Display mode';
+
+  @override
+  String get settingsMeterPrefixHint => 'e.g. CPU';
+
+  @override
+  String get settingsThresholdColorReset => 'Reset color';
+
+  @override
+  String get settingsCriticalColor => 'Critical color';
+
+  @override
+  String get settingsWarnColor => 'Warning color';
+
+  @override
+  String get settingsMeterPrefix => 'Prefix';
+
+  @override
+  String get settingsMeterCaptionCustom => 'Custom';
 
   @override
   String get settingsMeterCaptionGeneric => 'Generic';

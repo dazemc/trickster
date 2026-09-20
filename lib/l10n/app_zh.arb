@@ -108,7 +108,7 @@
   "@batteryHint": {
     "description": "Accessible hint for the battery pill."
   },
-  "mediaHint": "显示播放控制",
+  "mediaHint": "左键控制播放；右键切换显示模式",
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
@@ -438,6 +438,26 @@
   "@settingsClockShowDate": {
     "description": "Toggle for the clock's date caption."
   },
+  "settingsClockDateWeekday": "星期",
+  "@settingsClockDateWeekday": {
+    "description": "Date style choice: Mon Sep 15."
+  },
+  "settingsClockDateLong": "完整",
+  "@settingsClockDateLong": {
+    "description": "Date style choice: September 15."
+  },
+  "settingsClockDateShort": "简短",
+  "@settingsClockDateShort": {
+    "description": "Date style choice: Sep 15."
+  },
+  "settingsClockDateStyle": "日期样式",
+  "@settingsClockDateStyle": {
+    "description": "Label above the clock date caption styles."
+  },
+  "settingsClockShowSeconds": "秒",
+  "@settingsClockShowSeconds": {
+    "description": "Toggle showing seconds on the clock."
+  },
   "settingsCpuSection": "CPU 阈值",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."
@@ -465,6 +485,46 @@
   "settingsMeterSparkline": "迷你曲线",
   "@settingsMeterSparkline": {
     "description": "Toggle for the CPU/GPU recent-history sparkline."
+  },
+  "settingsMediaModeCompact": "紧凑",
+  "@settingsMediaModeCompact": {
+    "description": "Media mode: title only."
+  },
+  "settingsMediaModeSemi": "半幅",
+  "@settingsMediaModeSemi": {
+    "description": "Media mode: text without controls."
+  },
+  "settingsMediaModeFull": "完整",
+  "@settingsMediaModeFull": {
+    "description": "Media mode: artwork, text, and controls."
+  },
+  "settingsMediaMode": "显示模式",
+  "@settingsMediaMode": {
+    "description": "Label above the media display mode choices."
+  },
+  "settingsMeterPrefixHint": "例如 CPU",
+  "@settingsMeterPrefixHint": {
+    "description": "Placeholder for the custom meter caption input."
+  },
+  "settingsThresholdColorReset": "重置颜色",
+  "@settingsThresholdColorReset": {
+    "description": "Reset control for a meter threshold color."
+  },
+  "settingsCriticalColor": "严重颜色",
+  "@settingsCriticalColor": {
+    "description": "Label for the meter critical threshold color."
+  },
+  "settingsWarnColor": "警告颜色",
+  "@settingsWarnColor": {
+    "description": "Label for the meter warning threshold color."
+  },
+  "settingsMeterPrefix": "前缀",
+  "@settingsMeterPrefix": {
+    "description": "Label above the custom meter caption input."
+  },
+  "settingsMeterCaptionCustom": "自定义",
+  "@settingsMeterCaptionCustom": {
+    "description": "Meter caption choice: a typed prefix."
   },
   "settingsMeterCaptionGeneric": "通用",
   "@settingsMeterCaptionGeneric": {

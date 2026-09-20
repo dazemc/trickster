@@ -239,7 +239,7 @@ abstract class AppLocalizations {
   /// Accessible hint for the media pill.
   ///
   /// In en, this message translates to:
-  /// **'Shows playback controls'**
+  /// **'Left click controls playback; right click cycles the display mode'**
   String get mediaHint;
 
   /// Accessible hint for a tray item button.
@@ -716,6 +716,36 @@ abstract class AppLocalizations {
   /// **'Date'**
   String get settingsClockShowDate;
 
+  /// Date style choice: Mon Sep 15.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekday'**
+  String get settingsClockDateWeekday;
+
+  /// Date style choice: September 15.
+  ///
+  /// In en, this message translates to:
+  /// **'Long'**
+  String get settingsClockDateLong;
+
+  /// Date style choice: Sep 15.
+  ///
+  /// In en, this message translates to:
+  /// **'Short'**
+  String get settingsClockDateShort;
+
+  /// Label above the clock date caption styles.
+  ///
+  /// In en, this message translates to:
+  /// **'Date style'**
+  String get settingsClockDateStyle;
+
+  /// Toggle showing seconds on the clock.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds'**
+  String get settingsClockShowSeconds;
+
   /// Section heading for CPU threshold options.
   ///
   /// In en, this message translates to:
@@ -757,6 +787,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sparkline'**
   String get settingsMeterSparkline;
+
+  /// Media mode: title only.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get settingsMediaModeCompact;
+
+  /// Media mode: text without controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Semi'**
+  String get settingsMediaModeSemi;
+
+  /// Media mode: artwork, text, and controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get settingsMediaModeFull;
+
+  /// Label above the media display mode choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Display mode'**
+  String get settingsMediaMode;
+
+  /// Placeholder for the custom meter caption input.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. CPU'**
+  String get settingsMeterPrefixHint;
+
+  /// Reset control for a meter threshold color.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset color'**
+  String get settingsThresholdColorReset;
+
+  /// Label for the meter critical threshold color.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical color'**
+  String get settingsCriticalColor;
+
+  /// Label for the meter warning threshold color.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning color'**
+  String get settingsWarnColor;
+
+  /// Label above the custom meter caption input.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefix'**
+  String get settingsMeterPrefix;
+
+  /// Meter caption choice: a typed prefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get settingsMeterCaptionCustom;
 
   /// Meter caption choice: generic CPU/GPU tags.
   ///

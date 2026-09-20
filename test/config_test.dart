@@ -195,39 +195,78 @@ void main() {
         cpu: CpuOptions(
           warn: 0.7,
           critical: 0.9,
-          captionSource: MeterCaptionSource.device,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'CPU0',
+          warnColor: Color(0xffffff00),
+          criticalColor: Color(0xffff00ff),
           sparkline: false,
         ),
-        clock: ClockOptions(format: ClockFormat.hour24, showDate: false),
+        clock: ClockOptions(
+          format: ClockFormat.hour24,
+          showDate: false,
+          showSeconds: true,
+          dateStyle: ClockDateStyle.weekday,
+        ),
         battery: BatteryOptions(warn: 30, critical: 15),
         gpu: GpuOptions(
-          captionSource: MeterCaptionSource.device,
+          warn: 0.6,
+          critical: 0.8,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'GPU0',
+          warnColor: Color(0xffffaa00),
+          criticalColor: Color(0xffff0000),
           sparkline: false,
         ),
         appearance: AppearanceOptions(blur: false),
+        media: MediaOptions(mode: MediaMode.compact),
       );
       final decoded = BarSettings.decode(settings.encode());
       expect(decoded.cpu.warn, 0.7);
       expect(decoded.cpu.critical, 0.9);
       expect(decoded.clock.format, ClockFormat.hour24);
       expect(decoded.clock.showDate, isFalse);
+      expect(decoded.clock.showSeconds, isTrue);
+      expect(decoded.clock.dateStyle, ClockDateStyle.weekday);
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
-      expect(decoded.cpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.captionSource, MeterCaptionSource.custom);
+      expect(decoded.cpu.captionPrefix, 'CPU0');
       expect(decoded.cpu.sparkline, isFalse);
-      expect(decoded.gpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.gpu.captionSource, MeterCaptionSource.custom);
+      expect(decoded.gpu.captionPrefix, 'GPU0');
+      expect(decoded.gpu.warn, 0.6);
+      expect(decoded.gpu.critical, 0.8);
+      expect(decoded.gpu.warnColor, const Color(0xffffaa00));
+      expect(decoded.gpu.criticalColor, const Color(0xffff0000));
+      expect(decoded.cpu.warnColor, const Color(0xffffff00));
+      expect(decoded.cpu.criticalColor, const Color(0xffff00ff));
       expect(decoded.gpu.sparkline, isFalse);
       expect(decoded.appearance.blur, isFalse);
+      expect(decoded.media.mode, MediaMode.compact);
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);
       expect(bare.clock.showDate, isTrue);
+      expect(bare.clock.showSeconds, isFalse);
+      expect(bare.clock.dateStyle, ClockDateStyle.short);
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "clock": {"date_style": "huge"}}',
+        ),
+        throwsFormatException,
+      );
       expect(bare.battery.critical, 10);
       expect(bare.cpu.captionSource, MeterCaptionSource.generic);
+      expect(bare.cpu.captionPrefix, isNull);
       expect(bare.cpu.sparkline, isTrue);
       expect(bare.gpu.captionSource, MeterCaptionSource.generic);
       expect(bare.gpu.sparkline, isTrue);
       expect(bare.appearance.blur, isTrue);
+      expect(bare.media.mode, MediaMode.semi);
+      expect(
+        () => BarSettings.decode('{"revision": 1, "media": {"mode": "tiny"}}'),
+        throwsFormatException,
+      );
     });
 
     test('pip styles round-trip and reject unknown values', () {
@@ -269,6 +308,17 @@ void main() {
       const bare = BarSettings();
       expect(bare.workspaces.pipStyle, PipStyle.number);
       expect(bare.workspaces.imageSource, isNull);
+      expect(
+        () =>
+            BarSettings.decode('{"revision": 1, "cpu": {"caption_prefix": 7}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "gpu": {"critical_color": "not a color"}}',
+        ),
+        throwsFormatException,
+      );
     });
 
     test('the retired shared meter options migrate into both meters', () {
@@ -277,8 +327,10 @@ void main() {
         '"sparkline": false}}',
       );
       expect(decoded.cpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.cpu.captionPrefix, isNull);
       expect(decoded.cpu.sparkline, isFalse);
       expect(decoded.gpu.captionSource, MeterCaptionSource.device);
+      expect(decoded.gpu.captionPrefix, isNull);
       expect(decoded.gpu.sparkline, isFalse);
 
       // Per-meter keys win over the legacy object.

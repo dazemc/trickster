@@ -1010,6 +1010,42 @@ void main() {
     await tester.pump();
     expect(bloc.settings.clock.format, ClockFormat.hour24);
 
+    final seconds = find.byKey(const ValueKey<String>('clock-show-seconds'));
+    await tester.ensureVisible(seconds);
+    await tester.pumpAndSettle();
+    await tester.tap(seconds);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.clock.showSeconds, isTrue);
+
+    final weekday = find.byKey(
+      const ValueKey<String>('clock-date-style-weekday'),
+    );
+    await tester.ensureVisible(weekday);
+    await tester.pumpAndSettle();
+    await tester.tap(weekday);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.clock.dateStyle, ClockDateStyle.weekday);
+
+    await openOptions('media');
+    final compactChip = find.byKey(
+      const ValueKey<String>('media-mode-compact'),
+    );
+    await tester.ensureVisible(compactChip);
+    await tester.pumpAndSettle();
+    await tester.tap(compactChip);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.mode, MediaMode.compact);
+    final resetMode = find.byKey(const ValueKey<String>('reset-media-mode'));
+    await tester.ensureVisible(resetMode);
+    await tester.pumpAndSettle();
+    await tester.tap(resetMode);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.mode, const MediaOptions().mode);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),
@@ -1153,6 +1189,44 @@ void main() {
     await tester.pump();
     expect(bloc.settings.gpu.sparkline, isFalse);
 
+    // The custom source reveals the prefix field, which writes the document.
+    final customChip = find.byKey(
+      const ValueKey<String>('gpu-meter-caption-custom'),
+    );
+    await tester.ensureVisible(customChip);
+    await tester.pumpAndSettle();
+    await tester.tap(customChip);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.custom);
+    final prefixField = find.byKey(const ValueKey<String>('gpu-meter-prefix'));
+    await tester.ensureVisible(prefixField);
+    await tester.pumpAndSettle();
+    await tester.enterText(prefixField, 'GPU0');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.gpu.captionPrefix, 'GPU0');
+
+    // A wheel pick lands a threshold tint in the document, and reset drops it.
+    final wheel = find.byKey(const ValueKey<String>('gpu-critical-color'));
+    await tester.ensureVisible(wheel);
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getCenter(wheel) + const Offset(30, 0));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(bloc.settings.gpu.criticalColor, isNotNull);
+    final colorReset = find.byKey(
+      const ValueKey<String>('reset-gpu-critical-color'),
+    );
+    await tester.ensureVisible(colorReset);
+    await tester.pumpAndSettle();
+    await tester.tap(colorReset);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(bloc.settings.gpu.criticalColor, isNull);
+
     // The CPU panel carries the same controls and writes its own options.
     await openOptions('cpu');
     await tester.ensureVisible(
@@ -1174,7 +1248,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(bloc.settings.cpu.sparkline, isFalse);
-    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.device);
+    // The GPU keeps its own custom source while the CPU switches.
+    expect(bloc.settings.gpu.captionSource, MeterCaptionSource.custom);
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {

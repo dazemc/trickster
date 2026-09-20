@@ -27,6 +27,18 @@ class LayerShell {
     return _channel.invokeMethod<void>('settingsClose');
   }
 
+  /// Resizes one strip surface and its exclusive zone to [thickness]; the
+  /// bar grows and shrinks with its wrapped content.
+  Future<void> setSurfaceThickness({
+    required int viewId,
+    required double thickness,
+  }) {
+    return _channel.invokeMethod<void>('surfaceThickness', {
+      'viewId': viewId,
+      'thickness': thickness.round(),
+    });
+  }
+
   /// Opens the host's image chooser and resolves with the chosen absolute
   /// path, or null when the picker was dismissed.
   Future<String?> pickImageFile() {

@@ -82,7 +82,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batteryHint => '打开电源设置';
 
   @override
-  String get mediaHint => '显示播放控制';
+  String get mediaHint => '左键控制播放；右键切换显示模式';
 
   @override
   String get trayItemHint => '激活该项目';
@@ -326,6 +326,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClockShowDate => '日期';
 
   @override
+  String get settingsClockDateWeekday => '星期';
+
+  @override
+  String get settingsClockDateLong => '完整';
+
+  @override
+  String get settingsClockDateShort => '简短';
+
+  @override
+  String get settingsClockDateStyle => '日期样式';
+
+  @override
+  String get settingsClockShowSeconds => '秒';
+
+  @override
   String get settingsCpuSection => 'CPU 阈值';
 
   @override
@@ -345,6 +360,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsMeterSparkline => '迷你曲线';
+
+  @override
+  String get settingsMediaModeCompact => '紧凑';
+
+  @override
+  String get settingsMediaModeSemi => '半幅';
+
+  @override
+  String get settingsMediaModeFull => '完整';
+
+  @override
+  String get settingsMediaMode => '显示模式';
+
+  @override
+  String get settingsMeterPrefixHint => '例如 CPU';
+
+  @override
+  String get settingsThresholdColorReset => '重置颜色';
+
+  @override
+  String get settingsCriticalColor => '严重颜色';
+
+  @override
+  String get settingsWarnColor => '警告颜色';
+
+  @override
+  String get settingsMeterPrefix => '前缀';
+
+  @override
+  String get settingsMeterCaptionCustom => '自定义';
 
   @override
   String get settingsMeterCaptionGeneric => '通用';

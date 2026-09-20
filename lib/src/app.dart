@@ -86,7 +86,10 @@ class _TricksterAppState extends State<TricksterApp>
       },
     );
     _tooltipBloc = OverlayTooltipBloc(layerShell: _layerShell);
-    _wallpaperAccent = WallpaperAccentBloc();
+    _wallpaperAccent = WallpaperAccentBloc(
+      outputs: () => _outputs ?? const <LayerOutput>[],
+      strip: () => (side: _lastOutputs.side, thickness: _lastOutputs.thickness),
+    );
     _settingsTransport = FileSettingsTransport(
       File(widget.initial.paths.settings),
     );
@@ -231,7 +234,17 @@ class _TricksterAppState extends State<TricksterApp>
         if (!mounted) {
           return;
         }
+        final changed = !setEquals(
+          outputs.map((output) => output.name).toSet(),
+          (_outputs ?? const <LayerOutput>[])
+              .map((output) => output.name)
+              .toSet(),
+        );
         setState(() => _outputs = outputs);
+        if (changed) {
+          // A new display set resamples screencopy accents.
+          _wallpaperAccent.add(const WallpaperAccentSampleRequested());
+        }
         for (final output in outputs) {
           if (config.hosts(output.name)) {
             if (output.viewId < 0) {

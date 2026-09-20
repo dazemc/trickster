@@ -22,6 +22,8 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/bloc.dart';
+import 'package:trickster/src/settings/color_format.dart';
+import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/settings/workspace_names.dart';
@@ -30,7 +32,7 @@ import 'package:trickster/src/theme/tokens.dart';
 /// Whether [module] owns any of the typed options the bar decodes.
 bool moduleHasOptions(String module) {
   return switch (module) {
-    'workspaces' || 'clock' || 'cpu' || 'gpu' || 'battery' => true,
+    'workspaces' || 'clock' || 'cpu' || 'gpu' || 'battery' || 'media' => true,
     _ => false,
   };
 }
@@ -77,6 +79,39 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     final controller = context.watch<SettingsAppBloc>();
     final settings = controller.settings;
     return switch (widget.module) {
+      'media' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ChoiceHeader(
+            label: l10n.settingsMediaMode,
+            resetKey: const ValueKey<String>('reset-media-mode'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsMediaMode),
+            resetEnabled: settings.media.mode != MediaMode.semi,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(media: const MediaOptions()),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final mode in MediaMode.values)
+                SettingsChoiceChip(
+                  key: ValueKey<String>('media-mode-${mode.wire}'),
+                  label: _mediaModeLabel(l10n, mode),
+                  selected: settings.media.mode == mode,
+                  onPressed: () => _apply(
+                    controller,
+                    (settings) =>
+                        settings.copyWith(media: MediaOptions(mode: mode)),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
       'workspaces' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -258,7 +293,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             onReset: () => _apply(
               controller,
               (settings) => settings.copyWith(
-                clock: ClockOptions(showDate: settings.clock.showDate),
+                clock: settings.clock.copyWith(format: ClockFormat.locale),
               ),
             ),
           ),
@@ -275,10 +310,61 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   onPressed: () => _apply(
                     controller,
                     (settings) => settings.copyWith(
-                      clock: ClockOptions(
-                        format: format,
-                        showDate: settings.clock.showDate,
-                      ),
+                      clock: settings.clock.copyWith(format: format),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const SizedBox(height: 18),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('clock-show-seconds'),
+            label: l10n.settingsClockShowSeconds,
+            value: settings.clock.showSeconds,
+            resetKey: const ValueKey<String>('reset-clock-show-seconds'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsClockShowSeconds),
+            resetEnabled: settings.clock.showSeconds,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: settings.clock.copyWith(showSeconds: value),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: settings.clock.copyWith(showSeconds: false),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          _ChoiceHeader(
+            label: l10n.settingsClockDateStyle,
+            resetKey: const ValueKey<String>('reset-clock-date-style'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsClockDateStyle),
+            resetEnabled: settings.clock.dateStyle != ClockDateStyle.short,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                clock: settings.clock.copyWith(dateStyle: ClockDateStyle.short),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final style in ClockDateStyle.values)
+                SettingsChoiceChip(
+                  key: ValueKey<String>('clock-date-style-${style.wire}'),
+                  label: _dateStyleLabel(l10n, style),
+                  selected: settings.clock.dateStyle == style,
+                  onPressed: () => _apply(
+                    controller,
+                    (settings) => settings.copyWith(
+                      clock: settings.clock.copyWith(dateStyle: style),
                     ),
                   ),
                 ),
@@ -295,16 +381,13 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             onChanged: (value) => _apply(
               controller,
               (settings) => settings.copyWith(
-                clock: ClockOptions(
-                  format: settings.clock.format,
-                  showDate: value,
-                ),
+                clock: settings.clock.copyWith(showDate: value),
               ),
             ),
             onReset: () => _apply(
               controller,
               (settings) => settings.copyWith(
-                clock: ClockOptions(format: settings.clock.format),
+                clock: settings.clock.copyWith(showDate: true),
               ),
             ),
           ),
@@ -330,12 +413,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     ? (warn + 0.01).clamp(0.01, 1.0)
                     : settings.cpu.critical;
                 return settings.copyWith(
-                  cpu: CpuOptions(
-                    warn: warn,
-                    critical: critical,
-                    captionSource: settings.cpu.captionSource,
-                    sparkline: settings.cpu.sparkline,
-                  ),
+                  cpu: settings.cpu.copyWith(warn: warn, critical: critical),
                 );
               });
             },
@@ -343,15 +421,28 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final warn = math
                   .min(const CpuOptions().warn, settings.cpu.critical - 0.01)
                   .clamp(0.0, 0.99);
-              return settings.copyWith(
-                cpu: CpuOptions(
-                  warn: warn,
-                  critical: settings.cpu.critical,
-                  captionSource: settings.cpu.captionSource,
-                  sparkline: settings.cpu.sparkline,
-                ),
-              );
+              return settings.copyWith(cpu: settings.cpu.copyWith(warn: warn));
             }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('cpu-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.cpu.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-cpu-warn-color'),
           ),
           const SizedBox(height: 10),
           _SliderRow(
@@ -371,12 +462,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     ? (critical - 0.01).clamp(0.0, 0.99)
                     : settings.cpu.warn;
                 return settings.copyWith(
-                  cpu: CpuOptions(
-                    warn: warn,
-                    critical: critical,
-                    captionSource: settings.cpu.captionSource,
-                    sparkline: settings.cpu.sparkline,
-                  ),
+                  cpu: settings.cpu.copyWith(warn: warn, critical: critical),
                 );
               });
             },
@@ -385,37 +471,47 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   .max(const CpuOptions().critical, settings.cpu.warn + 0.01)
                   .clamp(0.01, 1.0);
               return settings.copyWith(
-                cpu: CpuOptions(
-                  warn: settings.cpu.warn,
-                  critical: critical,
-                  captionSource: settings.cpu.captionSource,
-                  sparkline: settings.cpu.sparkline,
-                ),
+                cpu: settings.cpu.copyWith(critical: critical),
               );
             }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('cpu-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.cpu.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-cpu-critical-color'),
           ),
           ..._meterControls(
             l10n: l10n,
             controller: controller,
             prefix: 'cpu',
             captionSource: settings.cpu.captionSource,
+            captionPrefix: settings.cpu.captionPrefix,
             sparkline: settings.cpu.sparkline,
             onCaption: (settings, source) => settings.copyWith(
-              cpu: CpuOptions(
-                warn: settings.cpu.warn,
-                critical: settings.cpu.critical,
-                captionSource: source,
-                sparkline: settings.cpu.sparkline,
+              cpu: settings.cpu.copyWith(captionSource: source),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              cpu: settings.cpu.copyWith(
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
               ),
             ),
-            onSparkline: (settings, value) => settings.copyWith(
-              cpu: CpuOptions(
-                warn: settings.cpu.warn,
-                critical: settings.cpu.critical,
-                captionSource: settings.cpu.captionSource,
-                sparkline: value,
-              ),
-            ),
+            onSparkline: (settings, value) =>
+                settings.copyWith(cpu: settings.cpu.copyWith(sparkline: value)),
           ),
         ],
       ),
@@ -501,24 +597,122 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
       'gpu' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-gpu-warn'),
+            label: l10n.settingsWarnLabel,
+            value: settings.gpu.warn,
+            min: 0,
+            max: 1,
+            display: '${(settings.gpu.warn * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-gpu-warn'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+            resetEnabled: settings.gpu.warn != const GpuOptions().warn,
+            onChanged: (value) {
+              final warn = value;
+              _apply(controller, (settings) {
+                final critical = settings.gpu.critical <= warn
+                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    : settings.gpu.critical;
+                return settings.copyWith(
+                  gpu: settings.gpu.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final warn = math
+                  .min(const GpuOptions().warn, settings.gpu.critical - 0.01)
+                  .clamp(0.0, 0.99);
+              return settings.copyWith(gpu: settings.gpu.copyWith(warn: warn));
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('gpu-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.gpu.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-gpu-warn-color'),
+          ),
+          const SizedBox(height: 10),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-gpu-critical'),
+            label: l10n.settingsCriticalLabel,
+            value: settings.gpu.critical,
+            min: 0,
+            max: 1,
+            display: '${(settings.gpu.critical * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-gpu-critical'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
+            resetEnabled: settings.gpu.critical != const GpuOptions().critical,
+            onChanged: (value) {
+              final critical = value;
+              _apply(controller, (settings) {
+                final warn = settings.gpu.warn >= critical
+                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    : settings.gpu.warn;
+                return settings.copyWith(
+                  gpu: settings.gpu.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final critical = math
+                  .max(const GpuOptions().critical, settings.gpu.warn + 0.01)
+                  .clamp(0.01, 1.0);
+              return settings.copyWith(
+                gpu: settings.gpu.copyWith(critical: critical),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('gpu-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.gpu.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                gpu: settings.gpu.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-gpu-critical-color'),
+          ),
           ..._meterControls(
             l10n: l10n,
             controller: controller,
             prefix: 'gpu',
             captionSource: settings.gpu.captionSource,
+            captionPrefix: settings.gpu.captionPrefix,
             sparkline: settings.gpu.sparkline,
             onCaption: (settings, source) => settings.copyWith(
-              gpu: GpuOptions(
-                captionSource: source,
-                sparkline: settings.gpu.sparkline,
+              gpu: settings.gpu.copyWith(captionSource: source),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              gpu: settings.gpu.copyWith(
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
               ),
             ),
-            onSparkline: (settings, value) => settings.copyWith(
-              gpu: GpuOptions(
-                captionSource: settings.gpu.captionSource,
-                sparkline: value,
-              ),
-            ),
+            onSparkline: (settings, value) =>
+                settings.copyWith(gpu: settings.gpu.copyWith(sparkline: value)),
           ),
         ],
       ),
@@ -533,12 +727,15 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     required SettingsAppBloc controller,
     required String prefix,
     required MeterCaptionSource captionSource,
+    required String? captionPrefix,
     required bool sparkline,
     required BarSettings Function(
       BarSettings settings,
       MeterCaptionSource source,
     )
     onCaption,
+    required BarSettings Function(BarSettings settings, String value)
+    onCaptionPrefix,
     required BarSettings Function(BarSettings settings, bool value) onSparkline,
   }) {
     return [
@@ -568,6 +765,19 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             ),
         ],
       ),
+      if (captionSource == MeterCaptionSource.custom) ...[
+        const SizedBox(height: 12),
+        _OptionTextField(
+          fieldKey: ValueKey<String>('$prefix-meter-prefix'),
+          label: l10n.settingsMeterPrefix,
+          hint: l10n.settingsMeterPrefixHint,
+          value: captionPrefix ?? '',
+          onChanged: (value) => _apply(
+            controller,
+            (settings) => onCaptionPrefix(settings, value),
+          ),
+        ),
+      ],
       const SizedBox(height: 18),
       SettingsToggleRow(
         toggleKey: ValueKey<String>('$prefix-meter-sparkline'),
@@ -595,6 +805,22 @@ bool _hasSvgArtwork(WorkspaceOptions workspaces) {
       );
 }
 
+String _mediaModeLabel(AppLocalizations l10n, MediaMode mode) {
+  return switch (mode) {
+    MediaMode.full => l10n.settingsMediaModeFull,
+    MediaMode.semi => l10n.settingsMediaModeSemi,
+    MediaMode.compact => l10n.settingsMediaModeCompact,
+  };
+}
+
+String _dateStyleLabel(AppLocalizations l10n, ClockDateStyle style) {
+  return switch (style) {
+    ClockDateStyle.short => l10n.settingsClockDateShort,
+    ClockDateStyle.long => l10n.settingsClockDateLong,
+    ClockDateStyle.weekday => l10n.settingsClockDateWeekday,
+  };
+}
+
 String _pipStyleLabel(AppLocalizations l10n, PipStyle style) {
   return switch (style) {
     PipStyle.number => l10n.settingsWorkspacesPipNumber,
@@ -616,6 +842,7 @@ String _captionLabel(AppLocalizations l10n, MeterCaptionSource source) {
   return switch (source) {
     MeterCaptionSource.generic => l10n.settingsMeterCaptionGeneric,
     MeterCaptionSource.device => l10n.settingsMeterCaptionDevice,
+    MeterCaptionSource.custom => l10n.settingsMeterCaptionCustom,
   };
 }
 
@@ -652,6 +879,160 @@ class _ChoiceHeader extends StatelessWidget {
           label: resetLabel,
           enabled: resetEnabled,
           onPressed: onReset,
+        ),
+      ],
+    );
+  }
+}
+
+/// One threshold tint, picked on the same wheel as the accent.
+class _ColorRow extends StatelessWidget {
+  const _ColorRow({
+    required this.fieldKey,
+    required this.label,
+    required this.color,
+    required this.fallback,
+    required this.resetKey,
+    required this.onChanged,
+    required this.onReset,
+  });
+
+  final Key fieldKey;
+  final String label;
+
+  /// The stored tint; null means the shell default ([fallback]).
+  final Color? color;
+  final Color fallback;
+  final Key resetKey;
+  final ValueChanged<Color> onChanged;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = color ?? fallback;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox.square(
+          dimension: 88,
+          child: HsvColorWheel(
+            key: fieldKey,
+            color: active,
+            semanticsLabel: label,
+            onChanged: onChanged,
+          ),
+        ),
+        const SizedBox(width: 18),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(formatOpaqueColorHex(active), style: ShellText.systemBarValue),
+            const SizedBox(height: 8),
+            SettingsResetButton(
+              key: resetKey,
+              label: context.l10n.settingsThresholdColorReset,
+              enabled: color != null,
+              onPressed: onReset,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A debounced text input for one typed option.
+class _OptionTextField extends StatefulWidget {
+  const _OptionTextField({
+    required this.fieldKey,
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final String hint;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_OptionTextField> createState() => _OptionTextFieldState();
+}
+
+class _OptionTextFieldState extends State<_OptionTextField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void didUpdateWidget(covariant _OptionTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // External edits land when the field is not being typed in.
+    if (widget.value != _controller.text && !_focus.hasFocus) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.label,
+          style: ShellText.systemBarCaption.copyWith(
+            color: ShellMediaColors.lightForegroundSecondary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: SettingsGlass.control(context, SettingsColors.surfaceHigh),
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            border: Border.all(color: SettingsColors.outline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Material(
+              type: MaterialType.transparency,
+              child: TextField(
+                key: widget.fieldKey,
+                controller: _controller,
+                focusNode: _focus,
+                style: ShellText.systemBarValue,
+                cursorColor: ShellMediaColors.lightForeground,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: widget.hint,
+                  hintStyle: ShellText.systemBarCaption.copyWith(
+                    color: ShellMediaColors.lightForegroundSecondary.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
+                ),
+                onChanged: widget.onChanged,
+              ),
+            ),
+          ),
         ),
       ],
     );
