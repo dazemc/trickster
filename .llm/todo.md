@@ -22,13 +22,6 @@ its space; meters and clock need more options; media needs display modes;
 and the modules page needs visible drop targets and honest unavailable
 rows.
 
-- **18.8 (M) Screencopy backdrop sampling.** Outputs with no awww/swww
-  image (a solid or compositor background) get no sample today. Capture the
-  output's strip band with `grim` and run it through the existing candidate
-  extractor, cached and sampled only on start/display change. Done when a
-  display with no cache file still reports candidates on the live bar and
-  settings page, and grim's absence degrades silently.
-
 ## Phase 19 — settings frame performance
 
 The settings window stutters below 60 fps on the 4K@60 output (scale 2).
