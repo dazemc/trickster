@@ -44,6 +44,14 @@ as first-class bugs.
   from `#191389`. Do not fork, patch, or pin a patched engine; revisit when
   that work reaches a stable release. App-side rebuild cost is still ours to
   fix (Phase 19).
+  Measured (19.1, profile build, accent-wheel drag on the 4K@60 output at
+  scale 2, via `SchedulerBinding.addTimingsCallback` plus temporary rebuild
+  and pointer counters): build avg 0.7-1.1 ms and p95 <= 1.7 ms, raster avg
+  ~1 ms and p95 <= 1.9 ms, vsyncOverhead avg 2.3-3.0 ms against the 16.7 ms
+  budget. The engine cadence, not our build work, dominates; the remaining
+  app-side cost is that every pointer event rebuilds the shell and the
+  active page 1:1 (rebuild counts track pointer counts), which 19.2 scopes
+  and coalesces.
 
 ### Hyprland IPC contract
 
