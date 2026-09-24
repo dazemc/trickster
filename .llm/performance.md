@@ -49,9 +49,12 @@ as first-class bugs.
   and pointer counters): build avg 0.7-1.1 ms and p95 <= 1.7 ms, raster avg
   ~1 ms and p95 <= 1.9 ms, vsyncOverhead avg 2.3-3.0 ms against the 16.7 ms
   budget. The engine cadence, not our build work, dominates; the remaining
-  app-side cost is that every pointer event rebuilds the shell and the
-  active page 1:1 (rebuild counts track pointer counts), which 19.2 scopes
-  and coalesces.
+  app-side cost was that every pointer event rebuilt the shell and the active
+  page 1:1 (rebuild counts tracked pointer counts).
+  Measured (19.2, same setup after the fix): a drag rebuilds the shell twice
+  and the nav once over ~250 frames, while the active page and its wheel
+  rebuild about once per frame — `DebouncedSaver` coalesces previews per
+  frame and the shell selects only load state and error.
 
 ### Hyprland IPC contract
 
