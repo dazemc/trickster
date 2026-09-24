@@ -15,25 +15,6 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase 18 — bar options and layout
-
-The user's review of the live bar: pills overlap when a cluster outgrows
-its space; meters and clock need more options; media needs display modes;
-and the modules page needs visible drop targets and honest unavailable
-rows.
-
-## Phase 19 — settings frame performance
-
-The settings window stutters below 60 fps on the 4K@60 output (scale 2).
-Ours: every controller notification rebuilds the shell and the active page,
-and drags preview on every pointer event. Not ours: the Linux GTK embedder
-provides no vsync callback, so the engine paces on a fixed 60 Hz fallback
-that is not phase-locked to the compositor. Upstream
-`flutter/flutter#191245` tracks compositor-driven pacing with the Wayland
-subsurface renderer from `#191389`. The decision is to wait for that work
-to reach a stable release — do not fork, patch, or pin a patched engine
-while other packages share the stock SDK.
-
 ## Phase 22 — settings fixes and bar interactions
 
 - **22.1 (S) Displays shows the real output mode.** The settings page's
