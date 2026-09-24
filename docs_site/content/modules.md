@@ -9,12 +9,12 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 
 | Name | Pill | Source | Visibility rule |
 | --- | --- | --- | --- |
-| `clock` | Date caption + `HH:MM`, minute crossfade | Local time, minute-aligned single timer | Always renders |
+| `clock` | Date caption + time; optional seconds (1 Hz while shown) and date styles | Local time, minute-aligned timer (per second with seconds shown) | Always renders |
 | `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer | Hidden if unreadable |
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler | Hidden with no reading |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
-| `workspaces` | Numbered pip rail with a deforming lens; active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
-| `media` | Title + artist with a playing indicator; tap reveals previous/play/pause/next | MPRIS (`org.mpris.MediaPlayer2.*`), event-driven properties | Hidden with no playing or paused player |
+| `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
+| `media` | Equalizer mark, now-playing text, and transport keys in full/semi/compact modes; left-click controls, right-click cycles | MPRIS (`org.mpris.MediaPlayer2.*`), event-driven properties | Hidden with no playing or paused player |
 | `tray` | Icon per StatusNotifier item; right-click opens the D-Bus menu | StatusNotifier watcher (SNI) and `com.canonical.dbusmenu` | Hidden with no items |
 
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
