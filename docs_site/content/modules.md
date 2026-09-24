@@ -9,7 +9,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 
 | Name | Pill | Source | Visibility rule |
 | --- | --- | --- | --- |
-| `clock` | Date caption + time; optional seconds (1 Hz while shown) and date styles | Local time, minute-aligned timer (per second with seconds shown) | Always renders |
+| `clock` | Date caption + time; optional seconds (1 Hz while shown) and date styles; clicking opens a month calendar on an overlay | Local time, minute-aligned timer (per second with seconds shown) | Always renders |
 | `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer | Hidden if unreadable |
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler | Hidden with no reading |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
