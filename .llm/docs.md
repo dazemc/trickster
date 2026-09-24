@@ -9,6 +9,10 @@ Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
 `AGENTS.md` → Instruction precedence); the index and phase ledger carry no
 authority of their own.
 
+The docs site serves this file as its status page through a symlink
+(`docs_site/content/status.md`): edit and commit this `.llm/docs.md` path,
+never the symlink.
+
 Start with the [readme](readme.md), then pick a guide. The rendered site
 serves the same pages with sidebar and search.
 
