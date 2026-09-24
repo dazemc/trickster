@@ -76,7 +76,8 @@ rejected at decode, so a live reload keeps the last-good settings.
 - `display_appearance` (optional object keyed by connector) — per-display
   overrides of the accent keys; a missing key falls back to the global one.
 - `appearance.blur` (bool, default `true`) — when false the pills keep the
-  opaque fill even if the host advertises `ext-background-effect`.
+  opaque fill even if the host advertises `ext-background-effect`; the clock
+  calendar's panel follows the same choice.
 - `module_placement` (optional object) — per-module zone along the strip's
   main axis: `leading`, `center`, or `trailing`. Defaults: the tray leads,
   the workspace rail centers, and every other module trails. The settings
