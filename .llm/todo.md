@@ -17,12 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase 22 — settings fixes and bar interactions
 
-- **22.2 (M) Clock calendar popup.** Clicking the clock pill opens a month
-  calendar on a transient overlay surface (same lifecycle as the tray menu:
-  opens toward the output's interior, closes on outside click and Escape,
-  honors the accent). Done when the live bar opens the calendar from the
-  clock and widget tests pin the grid, keys, and dismissal.
-
 ## Phase 23 — media visualizer
 
 The media pill's equalizer is decorative today: MPRIS carries no audio data,
