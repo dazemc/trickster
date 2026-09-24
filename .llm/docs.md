@@ -45,3 +45,7 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 13 — bar zones and placement | `working` | done | Tray pinned to the leading edge (Denial layout), per-module `module_placement` zones, Position selector in the settings application |
 | 14 — settings depth | `working` | in progress | Lucide icons for every glyph; per-option reset arrows on module options (steps 1-3 landed) |
 | 15 — docs site delivery | `main` | done | Trickster mark favicon and logo, GitHub Pages workflow at dazemc.github.io/trickster |
+| 16 — workspace rail from the compositor | `working` | done | Rail mirrors compositor placement; chain settings retired |
+| 17 — workspace pip styles | `working` | done | Number/dot/Roman/image pips, per-workspace artwork with own colors, SVG recolor, uniform numeral scaling |
+| 18 — bar options and layout | `working` | done | Zones clamp and wrap with an auto-growing strip; meter parity, custom prefixes, GPU thresholds, wheel-picked colors; clock seconds and date styles; media modes with equalizer and right-click cycling; grim screencopy sampling; drop targets and unavailable rows |
+| 20 — bloc-only state | `working` | done | Settings document, wallpaper accent, modules page, tray and tooltip hosts on blocs; `ChangeNotifier`/`Cubit` guard test |
