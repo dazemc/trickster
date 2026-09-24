@@ -127,3 +127,4 @@ Planned, not published:
 | Stale pills after editing config | Invalid file — check stderr; last-good state is kept by design |
 | No workspaces pill | Unsupported compositor (needs Sway, Hyprland, or niri IPC) |
 | No battery pill | Desktop without a `BAT*` sysfs device — expected |
+| No GPU pill, stderr names an NVML failure | Driver/library version mismatch after an update; reload the NVIDIA kernel modules or reboot |
