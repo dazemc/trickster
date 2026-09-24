@@ -32,7 +32,9 @@ class AboutPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    context.watch<SettingsAppBloc>(); // keep the page scoped to the controller
+    // The page renders static versions; it only needs a rebuild once the
+    // document loads (the shell already gates on that).
+    context.select((SettingsAppBloc bloc) => bloc.state.loaded);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -60,9 +60,11 @@ class _DisplaysPageState extends State<DisplaysPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = context.watch<SettingsAppBloc>();
-    final outputs = controller.outputs;
-    final available = controller.availableOutputs;
+    final controller = context.read<SettingsAppBloc>();
+    final (outputs, available) = context.select(
+      (SettingsAppBloc bloc) =>
+          (bloc.state.outputs, bloc.state.availableOutputs),
+    );
     final selected = outputs.connectors.isEmpty
         ? available.map((output) => output.name).toSet()
         : outputs.connectors.toSet();

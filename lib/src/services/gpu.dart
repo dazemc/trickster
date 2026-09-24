@@ -112,14 +112,18 @@ class GpuSampler {
     String drmRoot = '/sys/class/drm',
     NvmlReader? nvml,
     String nvidiaDriverPath = '/proc/driver/nvidia/version',
+    void Function(String message)? log,
   }) : _drmRoot = drmRoot,
        _nvml = nvml ?? NvmlReader(),
-       _nvidiaDriverPath = nvidiaDriverPath;
+       _nvidiaDriverPath = nvidiaDriverPath,
+       _log = log ?? _stderrLog;
 
   final Duration interval;
   final String _drmRoot;
   final NvmlReader _nvml;
   final String _nvidiaDriverPath;
+  final void Function(String message) _log;
+  var _nvidiaFailureLogged = false;
   final Uint8List _buffer = Uint8List(256);
   List<_GpuDevice>? _devices;
   List<File>? _nvidiaRuntimeStatusFiles;
@@ -172,7 +176,15 @@ class GpuSampler {
     ];
     if (_hasNvidia) {
       if (await _canReadNvidiaWithoutWake()) {
-        for (final nvidia in await _nvml.read()) {
+        final read = await _nvml.read();
+        final error = read.error;
+        if (error != null && !_nvidiaFailureLogged) {
+          // One line per process, not one per sample: a driver update that
+          // left the kernel module behind must not spam the log.
+          _nvidiaFailureLogged = true;
+          _log('trickster: NVIDIA GPU unavailable: $error');
+        }
+        for (final nvidia in read.samples) {
           final name = nvidia.name?.trim();
           reads.add((
             id: 'nvml${nvidia.index}',
@@ -349,3 +361,5 @@ class _GpuDevice {
   final String label;
   final File busyFile;
 }
+
+void _stderrLog(String message) => stderr.writeln(message);

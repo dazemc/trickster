@@ -18,6 +18,7 @@ import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/pages/about.dart';
+import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 
@@ -1250,6 +1251,35 @@ void main() {
     expect(bloc.settings.cpu.sparkline, isFalse);
     // The GPU keeps its own custom source while the CPU switches.
     expect(bloc.settings.gpu.captionSource, MeterCaptionSource.custom);
+  });
+
+  testWidgets('rapid changes preview at most once per frame', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final saver = DebouncedSaver(bloc);
+    addTearDown(saver.dispose);
+
+    var states = 0;
+    final subscription = bloc.stream.listen((_) => states++);
+    addTearDown(subscription.cancel);
+
+    // Three changes before any frame: one preview carries the last one.
+    saver.apply((settings) => settings.withAccent(const Color(0xff112233)));
+    saver.apply((settings) => settings.withAccent(const Color(0xff445566)));
+    saver.apply((settings) => settings.withAccent(const Color(0xff778899)));
+    await tester.pump();
+    expect(states, 1);
+    expect(bloc.settings.accent, const Color(0xff778899));
+
+    // The next frame coalesces a second batch.
+    saver.apply((settings) => settings.withAccent(const Color(0xff010203)));
+    saver.apply((settings) => settings.withAccent(const Color(0xff040506)));
+    await tester.pump();
+    expect(states, 2);
+    expect(bloc.settings.accent, const Color(0xff040506));
+
+    // Cancel the pending save so the test leaves no timer behind.
+    saver.dispose();
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {
