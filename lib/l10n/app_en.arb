@@ -414,6 +414,14 @@
   "@settingsOptionsCaption": {
     "description": "Caption under the module options page title."
   },
+  "calendarPreviousMonth": "Previous month",
+  "@calendarPreviousMonth": {
+    "description": "Accessible label for the calendar's previous-month control."
+  },
+  "calendarNextMonth": "Next month",
+  "@calendarNextMonth": {
+    "description": "Accessible label for the calendar's next-month control."
+  },
   "settingsClockSection": "Clock",
   "@settingsClockSection": {
     "description": "Section heading for clock options."

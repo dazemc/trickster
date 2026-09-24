@@ -680,6 +680,18 @@ abstract class AppLocalizations {
   /// **'Tune the values each pill uses.'**
   String get settingsOptionsCaption;
 
+  /// Accessible label for the calendar's previous-month control.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous month'**
+  String get calendarPreviousMonth;
+
+  /// Accessible label for the calendar's next-month control.
+  ///
+  /// In en, this message translates to:
+  /// **'Next month'**
+  String get calendarNextMonth;
+
   /// Section heading for clock options.
   ///
   /// In en, this message translates to:
