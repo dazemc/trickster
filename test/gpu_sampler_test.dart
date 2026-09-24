@@ -37,15 +37,16 @@ Directory _createRoot(
 String _driverPath(Directory root) => '${root.path}/nvidia-version';
 
 class FakeNvmlReader extends NvmlReader {
-  FakeNvmlReader([this.samples = const []]);
+  FakeNvmlReader([this.samples = const [], this.error]);
 
   final List<NvidiaGpuSample> samples;
+  final String? error;
   var reads = 0;
 
   @override
-  Future<List<NvidiaGpuSample>> read() async {
+  Future<NvmlRead> read() async {
     reads += 1;
-    return samples;
+    return (samples: samples, error: error);
   }
 
   @override
@@ -151,6 +152,29 @@ void main() {
       expect(loads.single.id, 'nvml0');
     },
   );
+
+  test('a failed NVML stack logs one line and sampling continues', () async {
+    final root = _createRoot({'card3': ('0x10de', null)});
+    final logs = <String>[];
+    final nvml = FakeNvmlReader(
+      const [],
+      'NVML driver/library version mismatch',
+    );
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+      log: logs.add,
+    );
+    addTearDown(sampler.dispose);
+
+    expect(await sampler.sample(), isEmpty);
+    expect(await sampler.sample(), isEmpty);
+    expect(nvml.reads, 2);
+    // One line for the process, not one per sample.
+    expect(logs, hasLength(1));
+    expect(logs.single, contains('driver/library version mismatch'));
+  });
 
   test('merges NVML readings with stable nvml ids', () async {
     final root = _createRoot({'card0': ('0x1002', '40')});

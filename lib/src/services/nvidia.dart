@@ -5,6 +5,11 @@ import 'package:ffi/ffi.dart' as pkg_ffi;
 
 import 'package:trickster/src/services/background_worker.dart';
 
+/// One NVML pass: the samples, and the failure reason when the stack is
+/// unavailable (a missing library, a driver/library mismatch, a dead
+/// worker).
+typedef NvmlRead = ({List<NvidiaGpuSample> samples, String? error});
+
 /// One NVIDIA GPU utilization reading as a 0-1 fraction.
 class NvidiaGpuSample {
   const NvidiaGpuSample({required this.index, required this.usage, this.name});
@@ -23,7 +28,8 @@ class NvidiaGpuSample {
 ///
 /// The direct FFI calls execute only on its worker — never on the UI isolate,
 /// where a blocking `nvmlInit`/query would stall the frame loop. A missing
-/// library or worker failure remains a best-effort empty reading.
+/// library or worker failure remains a best-effort empty reading, with the
+/// reason carried back so the caller can log it once.
 class NvmlReader {
   NvmlReader({BackgroundWorker? worker})
     : _worker =
@@ -35,14 +41,14 @@ class NvmlReader {
 
   final BackgroundWorker _worker;
 
-  Future<List<NvidiaGpuSample>> read() async {
+  Future<NvmlRead> read() async {
     try {
-      return await _worker.invoke<List<NvidiaGpuSample>>(
+      return await _worker.invoke<NvmlRead>(
         operation: _readNvidiaGpuSamples,
-        decode: _decodeNvidiaGpuSamples,
+        decode: _decodeNvmlRead,
       );
-    } on Object {
-      return const <NvidiaGpuSample>[];
+    } on Object catch (error) {
+      return (samples: const <NvidiaGpuSample>[], error: '$error');
     }
   }
 
@@ -51,25 +57,33 @@ class NvmlReader {
 
 const int _readNvidiaGpuSamples = 1;
 
-List<NvidiaGpuSample> _decodeNvidiaGpuSamples(Object? response) {
-  if (response is! List<Object?>) {
+NvmlRead _decodeNvmlRead(Object? response) {
+  if (response is! List<Object?> || response.length != 2) {
     throw const FormatException('Invalid NVIDIA worker response');
   }
-  return <NvidiaGpuSample>[
-    for (final row in response)
-      if (row is List<Object?> &&
-          row.length == 3 &&
-          row[0] is int &&
-          row[1] is double &&
-          (row[2] == null || row[2] is String))
-        NvidiaGpuSample(
-          index: row[0]! as int,
-          usage: row[1]! as double,
-          name: row[2] as String?,
-        )
-      else
-        throw const FormatException('Invalid NVIDIA GPU sample'),
-  ];
+  final error = response[0];
+  final rows = response[1];
+  if ((error != null && error is! String) || rows is! List<Object?>) {
+    throw const FormatException('Invalid NVIDIA worker response');
+  }
+  return (
+    samples: <NvidiaGpuSample>[
+      for (final row in rows)
+        if (row is List<Object?> &&
+            row.length == 3 &&
+            row[0] is int &&
+            row[1] is double &&
+            (row[2] == null || row[2] is String))
+          NvidiaGpuSample(
+            index: row[0]! as int,
+            usage: row[1]! as double,
+            name: row[2] as String?,
+          )
+        else
+          throw const FormatException('Invalid NVIDIA GPU sample'),
+    ],
+    error: error as String?,
+  );
 }
 
 @pragma('vm:entry-point')
@@ -87,6 +101,7 @@ void _nvidiaWorkerMain(List<SendPort> bootstrap) {
 /// handles or FFI-backed objects cross the isolate boundary.
 final class _NativeNvmlReader {
   bool _unavailable = false;
+  String? _failure;
   ffi.DynamicLibrary? _library;
   List<ffi.Pointer<ffi.Void>> _devices = const <ffi.Pointer<ffi.Void>>[];
   late final int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_NvmlUtilization>)
@@ -98,7 +113,7 @@ final class _NativeNvmlReader {
 
   List<Object?> read() {
     if (_unavailable || (_library == null && !_initialize())) {
-      return const <Object?>[];
+      return <Object?>[_failure ?? 'NVML unavailable', const <Object?>[]];
     }
     final utilization = pkg_ffi.calloc<_NvmlUtilization>();
     final name = pkg_ffi.calloc<ffi.Uint8>(_deviceNameCapacity);
@@ -115,7 +130,7 @@ final class _NativeNvmlReader {
           _readName(device, name),
         ]);
       }
-      return samples;
+      return <Object?>[null, samples];
     } finally {
       pkg_ffi.calloc.free(utilization);
       pkg_ffi.calloc.free(name);
@@ -140,7 +155,14 @@ final class _NativeNvmlReader {
       final init = library.lookupFunction<ffi.Int32 Function(), int Function()>(
         'nvmlInit_v2',
       );
-      if (init() != 0) {
+      final initCode = init();
+      if (initCode != 0) {
+        // NVML error 18 is NVML_ERROR_LIB_RM_VERSION_MISMATCH: the userspace
+        // library and the loaded kernel module disagree (a driver update
+        // without a module reload).
+        _failure = initCode == 18
+            ? 'NVML driver/library version mismatch'
+            : 'nvmlInit failed (code $initCode)';
         _unavailable = true;
         return false;
       }
@@ -193,7 +215,8 @@ final class _NativeNvmlReader {
       }
       _library = library;
       return true;
-    } on Object {
+    } on Object catch (error) {
+      _failure ??= 'NVML unavailable: $error';
       _unavailable = true;
       return false;
     }
