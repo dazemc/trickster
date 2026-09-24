@@ -55,3 +55,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 19 — settings frame performance | `working` | done | Frame budget measured (the engine's fixed cadence dominates); drag previews coalesce per frame and the shell rebuilds only on load/error |
 | 20 — bloc-only state | `working` | done | Settings document, wallpaper accent, modules page, tray and tooltip hosts on blocs; `ChangeNotifier`/`Cubit` guard test |
 | 21 — service diagnostics | `working` | done | An unavailable NVIDIA stack (driver/library mismatch) logs one line instead of failing silently |
+| 22 — settings fixes and bar interactions | `working` | done | Displays reports the driven output mode; the clock opens a clamped month calendar that follows the hosted-blur choice |
