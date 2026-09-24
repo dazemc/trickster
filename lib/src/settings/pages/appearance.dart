@@ -147,18 +147,34 @@ class _AppearancePageState extends State<AppearancePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = context.watch<SettingsAppBloc>();
-    final settings = controller.settings;
-    final outputs = controller.availableOutputs;
+    final controller = context.read<SettingsAppBloc>();
+    final (
+      globalAccent,
+      globalSource,
+      globalPick,
+      overrides,
+      blur,
+      outputs,
+    ) = context.select(
+      (SettingsAppBloc bloc) => (
+        bloc.state.settings.accent,
+        bloc.state.settings.accentSource,
+        bloc.state.settings.accentWallpaperPick,
+        bloc.state.settings.displayAppearance,
+        bloc.state.settings.appearance.blur,
+        bloc.state.availableOutputs,
+      ),
+    );
     final target = _target;
     final wallpaper = context.watch<WallpaperAccentBloc>().state;
-    final source = settings.accentSourceFor(target);
-    final accent = settings.accentFor(target) ?? ShellBrandColors.defaultAccent;
-    final picked = colorFromHex(settings.accentWallpaperPickFor(target));
+    final override = target == null ? null : overrides[target];
+    final source = override?.accentSource ?? globalSource;
+    final accent =
+        override?.accent ?? globalAccent ?? ShellBrandColors.defaultAccent;
+    final picked = colorFromHex(override?.accentWallpaperPick ?? globalPick);
     final candidates = target == null
         ? wallpaper.topCandidates
         : wallpaper.candidatesFor(target);
-    final override = target == null ? null : settings.displayAppearance[target];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -237,7 +253,7 @@ class _AppearancePageState extends State<AppearancePage> {
                     key: const ValueKey<String>('reset-accent-source'),
                     label: l10n.settingsResetOption(l10n.settingsAccentSource),
                     enabled: target == null
-                        ? settings.accentSource != AccentSource.custom
+                        ? globalSource != AccentSource.custom
                         : override?.accentSource != null,
                     onPressed: target == null
                         ? () => _applySource(controller, AccentSource.custom)
@@ -327,7 +343,7 @@ class _AppearancePageState extends State<AppearancePage> {
                             l10n.settingsAccentColor,
                           ),
                           enabled: target == null
-                              ? settings.accent != null
+                              ? globalAccent != null
                               : override?.accent != null,
                           onPressed: () => _apply(controller, null),
                         ),
@@ -344,10 +360,10 @@ class _AppearancePageState extends State<AppearancePage> {
           child: SettingsToggleRow(
             toggleKey: const ValueKey<String>('appearance-blur'),
             label: l10n.settingsAppearanceBlur,
-            value: settings.appearance.blur,
+            value: blur,
             resetKey: const ValueKey<String>('reset-appearance-blur'),
             resetLabel: l10n.settingsResetOption(l10n.settingsAppearanceBlur),
-            resetEnabled: !settings.appearance.blur,
+            resetEnabled: !blur,
             onChanged: (value) => _saverFor(controller).apply(
               (settings) =>
                   settings.copyWith(appearance: AppearanceOptions(blur: value)),

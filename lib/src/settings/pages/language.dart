@@ -32,8 +32,10 @@ class _LanguagePageState extends State<LanguagePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = context.watch<SettingsAppBloc>();
-    final current = controller.settings.locale;
+    final controller = context.read<SettingsAppBloc>();
+    final current = context.select(
+      (SettingsAppBloc bloc) => bloc.state.settings.locale,
+    );
     final choices = <(String?, String)>[
       (null, l10n.settingsLanguageSystem),
       ('en', l10n.settingsLanguageEnglish),

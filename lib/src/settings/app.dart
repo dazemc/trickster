@@ -91,11 +91,10 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
                               builder: (context) {
                                 // Depend on the bloc so a language change
                                 // rebuilds the scope with the new catalog.
-                                final locale = context
-                                    .watch<SettingsAppBloc>()
-                                    .state
-                                    .settings
-                                    .locale;
+                                final locale = context.select(
+                                  (SettingsAppBloc bloc) =>
+                                      bloc.state.settings.locale,
+                                );
                                 // With the compositor blurring behind the
                                 // toplevel, the shell veils it with
                                 // translucent fills; without the protocol the
@@ -186,7 +185,11 @@ class _SettingsHomeState extends State<SettingsHome> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = context.watch<SettingsAppBloc>();
+    // The shell itself reads only the load state and the error; a settings
+    // preview never rebuilds the header and nav.
+    final (loaded, error) = context.select(
+      (SettingsAppBloc bloc) => (bloc.state.loaded, bloc.state.error),
+    );
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -220,12 +223,12 @@ class _SettingsHomeState extends State<SettingsHome> {
               ),
             ],
           ),
-          if (controller.error != null) ...[
+          if (error != null) ...[
             const SizedBox(height: 16),
             SettingsCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Text(
-                controller.error!,
+                error,
                 style: ShellText.systemBarCaption.copyWith(
                   color: ShellTelemetryColors.danger,
                 ),
@@ -234,7 +237,7 @@ class _SettingsHomeState extends State<SettingsHome> {
           ],
           const SizedBox(height: 24),
           Expanded(
-            child: !controller.loaded
+            child: !loaded
                 ? Center(
                     child: Text(
                       l10n.settingsLoading,
