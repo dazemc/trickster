@@ -313,6 +313,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOptionsCaption => 'Tune the values each pill uses.';
 
   @override
+  String get calendarPreviousMonth => 'Previous month';
+
+  @override
+  String get calendarNextMonth => 'Next month';
+
+  @override
   String get settingsClockSection => 'Clock';
 
   @override

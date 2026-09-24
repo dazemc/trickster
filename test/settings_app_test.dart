@@ -28,7 +28,8 @@ class _FakeLayerShell extends LayerShell {
   @override
   Future<List<LayerOutput>> outputs() async => const <LayerOutput>[
     LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
-    LayerOutput(name: 'HDMI-A-1', width: 2560, height: 1440),
+    // A scaled output: 1280x720 logical is a 2560x1440 mode at scale 2.
+    LayerOutput(name: 'HDMI-A-1', width: 1280, height: 720, scale: 2),
   ];
 }
 

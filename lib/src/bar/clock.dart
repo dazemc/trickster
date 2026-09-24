@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/state/calendar_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -70,20 +72,46 @@ class _ClockPillState extends State<ClockPill> {
     });
   }
 
+  /// Opens the month calendar on a transient overlay, anchored at the pill.
+  void _openCalendar() {
+    final geometry = StripGeometry.maybeOf(context);
+    final box = context.findRenderObject() as RenderBox?;
+    context.read<CalendarBloc>().add(
+      CalendarRequested(
+        barViewId: View.of(context).viewId,
+        month: DateTime.now(),
+        accent: widget.accent,
+        click: box == null
+            ? Offset.zero
+            : box.localToGlobal(box.size.center(Offset.zero)),
+        side: geometry?.side ?? SystemBarSide.top,
+        thickness: geometry?.thickness ?? 32,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SystemBarCard(
-      accent: widget.accent,
-      padding: EdgeInsets.symmetric(horizontal: widget.vertical ? 6 : 12),
-      child: BlocBuilder<ClockBloc, ClockState>(
-        builder: (context, state) => _ClockRow(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openCalendar,
+        child: SystemBarCard(
           accent: widget.accent,
-          now: state.now,
-          format: widget.format,
-          showDate: widget.showDate,
-          showSeconds: widget.showSeconds,
-          dateStyle: widget.dateStyle,
-          vertical: widget.vertical,
+          padding: EdgeInsets.symmetric(horizontal: widget.vertical ? 6 : 12),
+          child: BlocBuilder<ClockBloc, ClockState>(
+            builder: (context, state) => _ClockRow(
+              accent: widget.accent,
+              now: state.now,
+              format: widget.format,
+              showDate: widget.showDate,
+              showSeconds: widget.showSeconds,
+              dateStyle: widget.dateStyle,
+              vertical: widget.vertical,
+              onTap: _openCalendar,
+            ),
+          ),
         ),
       ),
     );
@@ -99,6 +127,7 @@ class _ClockRow extends StatelessWidget {
     required this.showSeconds,
     required this.dateStyle,
     required this.vertical,
+    required this.onTap,
   });
 
   final WallpaperAccent accent;
@@ -108,6 +137,7 @@ class _ClockRow extends StatelessWidget {
   final bool showSeconds;
   final ClockDateStyle dateStyle;
   final bool vertical;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -118,8 +148,10 @@ class _ClockRow extends StatelessWidget {
       accent: accent,
       label: withDate ? '$date $time' : time,
       child: Semantics(
+        button: true,
         label: context.l10n.clockTitle,
         value: withDate ? '$date, $time' : time,
+        onTap: onTap,
         child: ExcludeSemantics(
           child: Row(
             mainAxisSize: MainAxisSize.min,

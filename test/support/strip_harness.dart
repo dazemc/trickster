@@ -14,6 +14,7 @@ import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/calendar_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
@@ -81,9 +82,12 @@ Widget withOverlayBlocs(Widget child) {
   final shell = SilentLayerShell();
   return BlocProvider<TrayMenuBloc>(
     create: (_) => TrayMenuBloc(layerShell: shell),
-    child: BlocProvider<OverlayTooltipBloc>(
-      create: (_) => OverlayTooltipBloc(layerShell: shell),
-      child: child,
+    child: BlocProvider<CalendarBloc>(
+      create: (_) => CalendarBloc(layerShell: shell),
+      child: BlocProvider<OverlayTooltipBloc>(
+        create: (_) => OverlayTooltipBloc(layerShell: shell),
+        child: child,
+      ),
     ),
   );
 }

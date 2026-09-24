@@ -308,6 +308,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOptionsCaption => '调整各组件的具体数值。';
 
   @override
+  String get calendarPreviousMonth => '上个月';
+
+  @override
+  String get calendarNextMonth => '下个月';
+
+  @override
   String get settingsClockSection => '时钟';
 
   @override
