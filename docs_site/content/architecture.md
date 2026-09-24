@@ -25,6 +25,8 @@ Dart owns visual policy, module state, and config. The host owns KMS, input seat
 
 Trickster renders a ~32px strip into client buffers; the host composites it. That is one more composite step than Denial, which renders the whole desktop into a shared GBM atlas scanned out directly. At bar scale the cost is negligible: a frame of latency on updates and a small standing GPU cost, in exchange for running anywhere layer-shell exists.
 
+A cluster that outgrows its share of the strip wraps into rows: the zones clamp around the centered rail and the strip grows past its configured thickness (the exclusive zone follows), shrinking back when the content clears. Nothing scrolls.
+
 The widget split mirrors Denial: the strip paints nothing, modules are borderless pills, each pill repaints only on its own data (`select` watches, `RepaintBoundary` per pill, a clock that ticks inside its own widget).
 
 ## State
@@ -35,7 +37,7 @@ The widget split mirrors Denial: the strip paints nothing, modules are borderles
 
 Ported from Denial's `dart_shell` (GPL-3.0-or-later, attribution preserved): pill cards, theme tokens, motion springs, clock behavior, UPower/MPRIS/SNI service shapes, CPU/GPU status, settings-store shape, `system_bar=` grammar, strip math.
 
-Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-socket backends; wallpaper accent → configured color plus the optional local sampler; XEmbed tray → omitted; exclusive zone → layer-shell request.
+Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-socket backends; wallpaper accent → configured color plus the optional local sampler (the awww/swww cache, falling back to a `grim` screencopy of the strip band for outputs without a cache image); XEmbed tray → omitted; exclusive zone → layer-shell request.
 
 ## Performance rules
 
