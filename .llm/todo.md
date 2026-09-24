@@ -17,12 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase 22 — settings fixes and bar interactions
 
-- **22.1 (S) Displays shows the real output mode.** The settings page's
-  output list reports a size that does not match the monitor's mode (a
-  scaled 4K display reads 1920x1080 at scale 2). Report the mode the
-  compositor drives, or label the logical size honestly, from the native
-  outputs enumeration. Done when the live page matches the compositor's mode
-  for every connected output and a test pins the mapping.
 - **22.2 (M) Clock calendar popup.** Clicking the clock pill opens a month
   calendar on a transient overlay surface (same lifecycle as the tray menu:
   opens toward the output's interior, closes on outside click and Escape,
