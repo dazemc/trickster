@@ -48,6 +48,6 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 16 — workspace rail from the compositor | `working` | done | Rail mirrors compositor placement; chain settings retired |
 | 17 — workspace pip styles | `working` | done | Number/dot/Roman/image pips, per-workspace artwork with own colors, SVG recolor, uniform numeral scaling |
 | 18 — bar options and layout | `working` | done | Zones clamp and wrap with an auto-growing strip; meter parity, custom prefixes, GPU thresholds, wheel-picked colors; clock seconds and date styles; media modes with equalizer and right-click cycling; grim screencopy sampling; drop targets and unavailable rows |
-| 20 — bloc-only state | `working` | done | Settings document, wallpaper accent, modules page, tray and tooltip hosts on blocs; `ChangeNotifier`/`Cubit` guard test |
 | 19 — settings frame performance | `working` | done | Frame budget measured (the engine's fixed cadence dominates); drag previews coalesce per frame and the shell rebuilds only on load/error |
+| 20 — bloc-only state | `working` | done | Settings document, wallpaper accent, modules page, tray and tooltip hosts on blocs; `ChangeNotifier`/`Cubit` guard test |
 | 21 — service diagnostics | `working` | done | An unavailable NVIDIA stack (driver/library mismatch) logs one line instead of failing silently |
