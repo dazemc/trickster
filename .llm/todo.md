@@ -34,15 +34,6 @@ subsurface renderer from `#191389`. The decision is to wait for that work
 to reach a stable release — do not fork, patch, or pin a patched engine
 while other packages share the stock SDK.
 
-## Phase 21 — service diagnostics
-
-- **21.1 (S) Log an unavailable NVIDIA stack once.** When the NVIDIA driver
-  is present (`/proc/driver/nvidia/version`) but NVML returns no devices, log
-  one line naming the failure (for example the driver/library version
-  mismatch) instead of the silent empty reading; keep the best-effort
-  behavior. Done when a forced NVML failure produces exactly one stderr line
-  and sampling still runs.
-
 ## Phase 22 — settings fixes and bar interactions
 
 - **22.1 (S) Displays shows the real output mode.** The settings page's
