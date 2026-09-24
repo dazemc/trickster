@@ -354,7 +354,7 @@ class _OutputRow extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${output.name}  ${output.width}×${output.height}',
+                      '${output.name}  ${output.modeLabel}',
                       style: ShellText.systemBarValue.copyWith(
                         color: selected
                             ? ShellMediaColors.lightForeground

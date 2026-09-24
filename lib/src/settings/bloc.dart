@@ -131,7 +131,12 @@ class SettingsAppState extends Equatable {
     'outputs': outputs.encode(),
     'available_outputs': [
       for (final output in availableOutputs)
-        {'name': output.name, 'width': output.width, 'height': output.height},
+        {
+          'name': output.name,
+          'width': output.width,
+          'height': output.height,
+          'scale': output.scale,
+        },
     ],
     'busy': busy,
     'loaded': loaded,

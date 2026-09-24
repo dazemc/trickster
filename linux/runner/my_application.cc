@@ -632,6 +632,9 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
         fl_value_set_string_take(entry, "height",
                                  fl_value_new_int(geometry.height));
         fl_value_set_string_take(entry, "viewId", fl_value_new_int(view_id));
+        fl_value_set_string_take(
+            entry, "scale",
+            fl_value_new_int(gdk_monitor_get_scale_factor(monitor)));
         fl_value_append_take(list, fl_value_ref(entry));
       }
     }

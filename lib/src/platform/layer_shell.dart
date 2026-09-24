@@ -103,6 +103,7 @@ class LayerShell {
             viewId: (entry['viewId'] as num?)?.toInt() ?? -1,
             width: (entry['width'] as num?)?.toInt() ?? 0,
             height: (entry['height'] as num?)?.toInt() ?? 0,
+            scale: (entry['scale'] as num?)?.toInt().clamp(1, 8) ?? 1,
           ),
         )
         .toList(growable: false);
@@ -178,6 +179,7 @@ class LayerOutput {
     this.viewId = -1,
     required this.width,
     required this.height,
+    this.scale = 1,
   });
 
   /// Connector name when the host exposes one (`HDMI-A-1`), else the model.
@@ -185,8 +187,17 @@ class LayerOutput {
 
   /// The Flutter view of the layer surface on this output.
   final int viewId;
+
+  /// Logical size in layer-surface coordinates.
   final int width;
   final int height;
+
+  /// The output's scale factor: the mode the compositor drives is the
+  /// logical size times this factor.
+  final int scale;
+
+  /// The driven mode as `WIDTHxHEIGHT` in physical pixels.
+  String get modeLabel => '${width * scale}×${height * scale}';
 }
 
 /// The outputs that host a strip: every one when the config names no
