@@ -34,12 +34,6 @@ subsurface renderer from `#191389`. The decision is to wait for that work
 to reach a stable release — do not fork, patch, or pin a patched engine
 while other packages share the stock SDK.
 
-- **19.2 (M) Scope and coalesce settings rebuilds.** Drag previews collapse
-  to one per frame, and a controller change rebuilds only the widgets that
-  read it (section-scoped listenables; the shell keeps to locale and
-  load/error). Done when a drag's build times fit the frame budget and the
-  settings tests stay green.
-
 ## Phase 21 — service diagnostics
 
 - **21.1 (S) Log an unavailable NVIDIA stack once.** When the NVIDIA driver
