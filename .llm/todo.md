@@ -15,8 +15,6 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase 22 — settings fixes and bar interactions
-
 ## Phase 23 — media visualizer
 
 The media pill's equalizer is decorative today: MPRIS carries no audio data,
