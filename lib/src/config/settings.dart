@@ -496,8 +496,8 @@ enum MediaMode {
 class MediaOptions extends Equatable {
   const MediaOptions({this.mode = MediaMode.semi});
 
-  /// The display mode the pill returns to on relaunch; tapping cycles
-  /// transiently from it.
+  /// The display mode the pill shows; right-clicking cycles it and saves the
+  /// new mode to the document.
   final MediaMode mode;
 
   @override

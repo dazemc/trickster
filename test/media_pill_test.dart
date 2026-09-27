@@ -4,12 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/media.dart';
 import 'package:trickster/src/bar/pill.dart';
-import 'package:trickster/src/config/settings.dart' show MediaMode;
+import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
+import 'support/fake_pipewire.dart';
 import 'support/strip_harness.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
@@ -64,12 +66,25 @@ Future<void> _pump(
   _FakeMediaPlayerService service, {
   bool vertical = false,
   MediaMode mode = MediaMode.semi,
+  FakePipeWireCapture? capture,
+  SettingsBloc? settings,
 }) async {
-  final bloc = MediaBloc(service: service, initial: state);
+  final bloc = MediaBloc(
+    service: service,
+    initial: state,
+    capture: capture ?? FakePipeWireCapture(),
+  );
   addTearDown(bloc.close);
+  // The pill persists its mode cycle through the settings bloc; _pump owns
+  // whichever instance it uses.
+  final settingsBloc = settings ?? SettingsBloc();
+  addTearDown(settingsBloc.close);
   await tester.pumpWidget(
-    BlocProvider<MediaBloc>.value(
-      value: bloc,
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<MediaBloc>.value(value: bloc),
+        BlocProvider<SettingsBloc>.value(value: settingsBloc),
+      ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
           child: Center(
@@ -79,6 +94,15 @@ Future<void> _pump(
       ),
     ),
   );
+}
+
+/// Pumps until [ready], so the test never guesses how many frames the
+/// post-frame dispatch and the bloc's async start/stop chain need.
+Future<void> _until(WidgetTester tester, bool Function() ready) async {
+  for (var i = 0; i < 30 && !ready(); i++) {
+    await tester.pump();
+  }
+  expect(ready(), isTrue);
 }
 
 /// Right-clicks the pill: the card-level cycle, wherever the pointer is.
@@ -153,9 +177,22 @@ void main() {
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
   });
 
-  testWidgets('right-clicking cycles the modes transiently', (tester) async {
+  testWidgets('right-clicking cycles the modes and saves the choice', (
+    tester,
+  ) async {
     final service = _FakeMediaPlayerService();
-    await _pump(tester, _state(), service, mode: MediaMode.semi);
+    final saved = <MediaMode>[];
+    final settings = SettingsBloc(
+      const BarSettings(),
+      (next) async => saved.add(next.media.mode),
+    );
+    await _pump(
+      tester,
+      _state(),
+      service,
+      mode: MediaMode.semi,
+      settings: settings,
+    );
     expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.text('Test Song'), findsNothing);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
@@ -164,17 +201,38 @@ void main() {
     await _cycle(tester);
     expect(find.byKey(MediaPill.equalizerKey), findsNothing);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+    expect(settings.state.media.mode, MediaMode.compact);
 
     // compact -> full: keys, equalizer, and text together.
     await _cycle(tester);
     expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.text('Test Song'), findsOneWidget);
     expect(find.bySemanticsLabel('Next track'), findsOneWidget);
+    expect(settings.state.media.mode, MediaMode.full);
 
     // full -> semi: the text drops again.
     await _cycle(tester);
     expect(find.byKey(MediaPill.equalizerKey), findsOneWidget);
     expect(find.text('Test Song'), findsNothing);
+    expect(settings.state.media.mode, MediaMode.semi);
+    expect(saved, [MediaMode.compact, MediaMode.full, MediaMode.semi]);
+  });
+
+  testWidgets('the capture follows the visualizer through the mode cycle', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final capture = FakePipeWireCapture();
+    await _pump(tester, _state(), service, capture: capture);
+    await _until(tester, () => capture.starts.length == 1);
+
+    // semi -> compact: the equalizer hides, so the monitor closes.
+    await _cycle(tester);
+    await _until(tester, () => capture.stops.isNotEmpty);
+
+    // compact -> full: it shows again and the monitor reopens.
+    await _cycle(tester);
+    await _until(tester, () => capture.starts.length == 2);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (

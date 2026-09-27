@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/app.dart';
 import 'package:trickster/src/bootstrap.dart';
 import 'package:trickster/src/cli.dart';
+import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/app.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
@@ -37,6 +38,11 @@ Future<void> main(List<String> args) async {
     return;
   }
   final runtime = Bootstrap.load(configPath: cli.configPath, edge: cli.edge);
+  // One settings transport for the whole bar: the control socket serves the
+  // settings application from it, and the media pill persists its mode
+  // through the same instance so revisions never race each other.
+  final settingsTransport = FileSettingsTransport(File(runtime.paths.settings));
+  final settingsStore = NativeSettingsStore(settingsTransport);
   // Config blocs live above the app; ModuleScope (inside TricksterApp)
   // builds one provider per enabled module below SettingsBloc so live
   // reloads can add and remove module blocs with the module list.
@@ -46,7 +52,9 @@ Future<void> main(List<String> args) async {
   runWidget(
     MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => SettingsBloc(runtime.settings)),
+        BlocProvider(
+          create: (_) => SettingsBloc(runtime.settings, settingsStore.write),
+        ),
         BlocProvider(create: (_) => SessionBloc(runtime.session)),
         BlocProvider(create: (_) => OutputsBloc(runtime.outputs)),
         BlocProvider(
@@ -54,7 +62,10 @@ Future<void> main(List<String> args) async {
               CapabilitiesBloc()..add(const CapabilitiesProbeRequested()),
         ),
       ],
-      child: TricksterApp(initial: runtime),
+      child: TricksterApp(
+        initial: runtime,
+        settingsTransport: settingsTransport,
+      ),
     ),
   );
 }

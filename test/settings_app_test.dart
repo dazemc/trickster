@@ -1446,6 +1446,29 @@ void main() {
     expect(find.text('#E01020'), findsOneWidget);
   });
 
+  test('an external document change reloads the settings', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    expect(bloc.settings.media.mode, MediaMode.semi);
+
+    // The bar writes a new revision underneath the open window.
+    final next = bloc.settings
+        .copyWith(media: bloc.settings.media.copyWith(mode: MediaMode.compact))
+        .copyWith(revision: bloc.settings.revision + 1);
+    final writer = FileSettingsTransport(file);
+    await writer.read();
+    await writer.write(
+      expectedRevision: bloc.settings.revision,
+      document: next.encode(),
+    );
+
+    bloc.add(const SettingsAppDocumentChanged());
+    final reloaded = await bloc.stream.firstWhere(
+      (state) => state.settings.media.mode == MediaMode.compact,
+    );
+    expect(reloaded.settings.revision, next.revision);
+  });
+
   testWidgets('language page writes the locale', (tester) async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);

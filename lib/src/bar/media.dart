@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart' show MediaMode;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -49,6 +50,13 @@ class _MediaPillState extends State<MediaPill> {
   late var _mode = widget.mode;
   var _hovered = false;
   var _focused = false;
+  bool? _visualizerVisible;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncVisualizer();
+  }
 
   @override
   void didUpdateWidget(covariant MediaPill oldWidget) {
@@ -57,6 +65,7 @@ class _MediaPillState extends State<MediaPill> {
     if (oldWidget.mode != widget.mode) {
       _mode = widget.mode;
     }
+    _syncVisualizer();
   }
 
   @override
@@ -65,15 +74,35 @@ class _MediaPillState extends State<MediaPill> {
     super.dispose();
   }
 
-  /// Transient cycle: the text card, then just the transport keys, then the
-  /// full card, back around.
-  void _cycle() => setState(() {
-    _mode = switch (_mode) {
-      MediaMode.semi => MediaMode.compact,
-      MediaMode.compact => MediaMode.full,
-      MediaMode.full => MediaMode.semi,
-    };
-  });
+  /// Tells the bloc whether the pill paints the visualizer, so the capture
+  /// stream runs only while its levels are seen.
+  void _syncVisualizer() {
+    final visible = !widget.vertical && _mode != MediaMode.compact;
+    if (_visualizerVisible == visible) {
+      return;
+    }
+    _visualizerVisible = visible;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<MediaBloc>().add(MediaVisualizerChanged(visible: visible));
+      }
+    });
+  }
+
+  /// Right-click cycle: the text card, then just the transport keys, then the
+  /// full card, back around. The choice is saved, so the document and the
+  /// settings application follow it.
+  void _cycle() {
+    setState(() {
+      _mode = switch (_mode) {
+        MediaMode.semi => MediaMode.compact,
+        MediaMode.compact => MediaMode.full,
+        MediaMode.full => MediaMode.semi,
+      };
+    });
+    context.read<SettingsBloc>().add(SettingsMediaModeChanged(_mode));
+    _syncVisualizer();
+  }
 
   @override
   Widget build(BuildContext context) {
