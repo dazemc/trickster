@@ -9,9 +9,9 @@ and this file is corrected.
 - One Flutter Linux process and engine runs the bar. One `wlr-layer-shell`
   strip surface per connected output (layer, anchors, exclusive zone via
   `gtk-layer-shell` FFI), plus one transient overlay surface per open tray
-  menu, tooltip, or clock calendar; all created as native multi-view windows
-  (`fl_engine_new` + `fl_view_new_for_engine`), never through Flutter's
-  master-only, private-import experimental windowing API.
+  menu, tooltip, clock calendar, or volume slider; all created as native
+  multi-view windows (`fl_engine_new` + `fl_view_new_for_engine`), never
+  through Flutter's master-only, private-import experimental windowing API.
 - Denial's settings application in parity: the same binary run in settings
   mode (`trickster-settings`, i.e. `trickster --settings`). It is its own
   process with its own engine and no strip surfaces, writing the same
@@ -46,7 +46,7 @@ trickster
   Dart bootstrap
     session.conf / outputs.conf / settings.json
     layer-shell surfaces (one strip per output, transient overlays:
-    menu, tooltip, calendar)
+    menu, tooltip, calendar, volume slider)
     flutter_bloc module graph
     control socket (tricksterctl)
 
@@ -78,7 +78,7 @@ Resemble Denial at every seam that does not require compositor ownership:
   state a test, log, or another widget observes; only per-frame ephemeral
   details that never leave one widget may stay in widget state. A bloc
   carries the shared services too: settings document, wallpaper accent,
-  tray menus, tooltips, the clock calendar.
+  tray menus, tooltips, the clock calendar, the volume slider.
 - Every bloc state ships `toJson`/`fromJson` from day one (convention only,
   no HydratedBloc) so `tricksterctl status` reads real state later.
 - Same theme tokens, motion springs, and accent model.
@@ -89,6 +89,6 @@ Resemble Denial at every seam that does not require compositor ownership:
   niri), auto-detected — the honest replacement for Denial's native state.
 - Backdrop blur only when the host advertises `ext-background-effect`;
   otherwise translucent fill. Never fake blur with a full-screen copy.
-  Overlay surfaces (menu, tooltip, calendar) composite translucent fills and
-  never take the native effect: an effect on a hidden overlay black-screens
-  it.
+  Overlay surfaces (menu, tooltip, calendar, volume slider) composite
+  translucent fills and never take the native effect: an effect on a hidden
+  overlay black-screens it.
