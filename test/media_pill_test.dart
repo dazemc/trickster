@@ -9,9 +9,10 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
-import 'support/fake_pipewire.dart';
+import 'support/fake_bands.dart';
 import 'support/strip_harness.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
@@ -66,24 +67,23 @@ Future<void> _pump(
   _FakeMediaPlayerService service, {
   bool vertical = false,
   MediaMode mode = MediaMode.semi,
-  FakePipeWireCapture? capture,
+  FakeBandAnalyzer? analyzer,
   SettingsBloc? settings,
 }) async {
-  final bloc = MediaBloc(
-    service: service,
-    initial: state,
-    capture: capture ?? FakePipeWireCapture(),
-  );
+  final bloc = MediaBloc(service: service, initial: state);
   addTearDown(bloc.close);
-  // The pill persists its mode cycle through the settings bloc; _pump owns
-  // whichever instance it uses.
+  // The pill persists its mode cycle through the settings bloc and drives
+  // the visualizer through its own; _pump owns whichever instances it uses.
   final settingsBloc = settings ?? SettingsBloc();
   addTearDown(settingsBloc.close);
+  final visualizer = VisualizerBloc(analyzer: analyzer ?? FakeBandAnalyzer());
+  addTearDown(visualizer.close);
   await tester.pumpWidget(
     MultiBlocProvider(
       providers: [
         BlocProvider<MediaBloc>.value(value: bloc),
         BlocProvider<SettingsBloc>.value(value: settingsBloc),
+        BlocProvider<VisualizerBloc>.value(value: visualizer),
       ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
@@ -222,17 +222,17 @@ void main() {
     tester,
   ) async {
     final service = _FakeMediaPlayerService();
-    final capture = FakePipeWireCapture();
-    await _pump(tester, _state(), service, capture: capture);
-    await _until(tester, () => capture.starts.length == 1);
+    final analyzer = FakeBandAnalyzer();
+    await _pump(tester, _state(), service, analyzer: analyzer);
+    await _until(tester, () => analyzer.starts.length == 1);
 
     // semi -> compact: the equalizer hides, so the monitor closes.
     await _cycle(tester);
-    await _until(tester, () => capture.stops.isNotEmpty);
+    await _until(tester, () => analyzer.stops.isNotEmpty);
 
     // compact -> full: it shows again and the monitor reopens.
     await _cycle(tester);
-    await _until(tester, () => capture.starts.length == 2);
+    await _until(tester, () => analyzer.starts.length == 2);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (

@@ -8,6 +8,7 @@ import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// Builds one [BlocProvider] per enabled module — and nothing for disabled
@@ -33,6 +34,7 @@ class ModuleScope extends StatelessWidget {
     this.batteryBuilder,
     this.workspacesBuilder,
     this.mediaBuilder,
+    this.visualizerBuilder,
     super.key,
   });
 
@@ -44,6 +46,7 @@ class ModuleScope extends StatelessWidget {
   final BatteryBloc Function()? batteryBuilder;
   final WorkspacesBloc Function()? workspacesBuilder;
   final MediaBloc Function()? mediaBuilder;
+  final VisualizerBloc Function()? visualizerBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -81,12 +84,16 @@ class ModuleScope extends StatelessWidget {
                 workspacesBuilder?.call() ??
                 (WorkspacesBloc()..add(const WorkspacesStarted())),
           ),
-        if (settings.includes('media'))
+        if (settings.includes('media')) ...[
           BlocProvider<MediaBloc>(
             create: (_) =>
                 mediaBuilder?.call() ??
                 (MediaBloc()..add(const MediaStarted())),
           ),
+          BlocProvider<VisualizerBloc>(
+            create: (_) => visualizerBuilder?.call() ?? VisualizerBloc(),
+          ),
+        ],
       ],
       child: child,
     );

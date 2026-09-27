@@ -19,8 +19,6 @@ import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
-import 'support/fake_pipewire.dart';
-
 final _epoch = DateTime.fromMillisecondsSinceEpoch(0);
 
 class FakeCpuSampler extends CpuSampler {
@@ -174,9 +172,6 @@ class FakeMediaPlayerService extends MediaPlayerService {
 }
 
 void main() {
-  // The PipeWire capture registers a method-call handler on construction.
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   group('CpuBloc', () {
     late FakeCpuSampler fake;
 
@@ -561,7 +556,7 @@ cpu MHz\t\t: 3400.000
 
     test('started then sampled emits playback state', () async {
       final service = FakeMediaPlayerService();
-      final bloc = MediaBloc(service: service, capture: FakePipeWireCapture());
+      final bloc = MediaBloc(service: service);
       try {
         bloc.add(const MediaStarted());
         await pumpEventQueue();
@@ -575,7 +570,7 @@ cpu MHz\t\t: 3400.000
 
     test('controls forward to the player service', () async {
       final service = FakeMediaPlayerService();
-      final bloc = MediaBloc(service: service, capture: FakePipeWireCapture());
+      final bloc = MediaBloc(service: service);
       try {
         await bloc.playPause();
         await bloc.next();

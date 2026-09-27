@@ -8,8 +8,10 @@ import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart' show MediaMode;
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
@@ -74,19 +76,31 @@ class _MediaPillState extends State<MediaPill> {
     super.dispose();
   }
 
-  /// Tells the bloc whether the pill paints the visualizer, so the capture
-  /// stream runs only while its levels are seen.
+  /// Tells the visualizer bloc whether the pill paints the equalizer and
+  /// mirrors the current playback flag, so the capture/analysis pair runs
+  /// only while its levels are seen.
   void _syncVisualizer() {
     final visible = !widget.vertical && _mode != MediaMode.compact;
+    _dispatchPlayback();
     if (_visualizerVisible == visible) {
       return;
     }
     _visualizerVisible = visible;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<MediaBloc>().add(MediaVisualizerChanged(visible: visible));
+        context.read<VisualizerBloc>().add(
+          VisualizerVisibilityChanged(visible: visible),
+        );
       }
     });
+  }
+
+  void _dispatchPlayback() {
+    context.read<VisualizerBloc>().add(
+      VisualizerPlaybackChanged(
+        playing: context.read<MediaBloc>().state.playing,
+      ),
+    );
   }
 
   /// Right-click cycle: the text card, then just the transport keys, then the
@@ -106,6 +120,16 @@ class _MediaPillState extends State<MediaPill> {
 
   @override
   Widget build(BuildContext context) {
+    // Playback changes feed the visualizer bloc; the initial flag arrives
+    // through _syncVisualizer on mount.
+    return BlocListener<MediaBloc, MprisPlaybackState>(
+      listenWhen: (previous, next) => previous.playing != next.playing,
+      listener: (context, state) => _dispatchPlayback(),
+      child: _buildPill(context),
+    );
+  }
+
+  Widget _buildPill(BuildContext context) {
     final media = context.select((MediaBloc bloc) {
       final state = bloc.state;
       return (
