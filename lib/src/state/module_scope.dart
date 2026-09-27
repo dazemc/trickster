@@ -7,6 +7,7 @@ import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
@@ -35,6 +36,7 @@ class ModuleScope extends StatelessWidget {
     this.workspacesBuilder,
     this.mediaBuilder,
     this.visualizerBuilder,
+    this.volumeBuilder,
     super.key,
   });
 
@@ -47,6 +49,7 @@ class ModuleScope extends StatelessWidget {
   final WorkspacesBloc Function()? workspacesBuilder;
   final MediaBloc Function()? mediaBuilder;
   final VisualizerBloc Function()? visualizerBuilder;
+  final SinkVolumeBloc Function()? volumeBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +95,14 @@ class ModuleScope extends StatelessWidget {
           ),
           BlocProvider<VisualizerBloc>(
             create: (_) => visualizerBuilder?.call() ?? VisualizerBloc(),
+          ),
+          BlocProvider<SinkVolumeBloc>(
+            // The watcher starts with the module, not with a reader: the
+            // pill only shows its percentage later (24.2).
+            lazy: false,
+            create: (_) =>
+                volumeBuilder?.call() ??
+                (SinkVolumeBloc()..add(const SinkVolumeStarted())),
           ),
         ],
       ],
