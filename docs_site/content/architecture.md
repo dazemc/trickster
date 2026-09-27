@@ -41,7 +41,7 @@ Honestly replaced: `denial_bridge` workspaces → per-compositor JSON-over-unix-
 
 ## Performance rules
 
-- AOT release only. One engine, one UI isolate, one process; blocking OS work (compositor IPC, NVML) runs on widget-free worker isolates.
+- AOT release only. One engine, one UI isolate, one process; blocking OS work (compositor IPC, NVML, the visualizer's PipeWire capture and FFT) runs on widget-free worker isolates that die with their work.
 - Disabled modules start nothing. Event-driven D-Bus and IPC; bounded `/proc` sampling with reused buffers.
 - Exclusive zone equals the laid-out strip. Dead-output surfaces die immediately.
 - Backdrop blur only with `ext-background-effect`, and only over the pill bounds (a scanline region per card) — never the whole strip; without the protocol the cards fall back to translucent fills. The blurred fill is Denial's dark backing plus a painted rim; no fake backdrop copies. Overlay surfaces (menu, tooltip, calendar) composite translucent fills and never take the native effect.
