@@ -57,3 +57,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 21 — service diagnostics | `working` | done | An unavailable NVIDIA stack (driver/library mismatch) logs one line instead of failing silently |
 | 22 — settings fixes and bar interactions | `working` | done | Displays reports the driven output mode; the clock opens a clamped month calendar that follows the hosted-blur choice |
 | 23 — media visualizer | `working` | done | PipeWire monitor capture on demand; band analysis on a worker isolate; the equalizer paints live levels with a configurable bar count |
+| 24 — sink volume | `working` | done | Default sink volume watched and written over PipeWire (the route wpctl uses); readout with a level glyph, configurable wheel stepping, and a click-open slider |
