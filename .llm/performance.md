@@ -27,7 +27,9 @@ as first-class bugs.
   read buffers; do not allocate a new string per sample if a reused buffer
   will do. The media visualizer's PipeWire capture runs only while a player
   is playing and the pill paints the equalizer; every stop destroys the
-  stream, and the 30 Hz pump exists only while capturing.
+  stream, and the 30 Hz pump exists only while capturing. The FFT that
+  turns frames into band levels runs on a widget-free worker isolate that
+  dies with the capture.
 - Workspace backends are event-driven sockets (Sway/i3 IPC, Hyprland,
   niri). No interval polls when the compositor can push.
 - Exclusive zone equals the laid-out strip. Do not reserve more than the
