@@ -510,6 +510,10 @@
   "@settingsMediaMode": {
     "description": "Label above the media display mode choices."
   },
+  "settingsMediaBars": "Equalizer bars",
+  "@settingsMediaBars": {
+    "description": "Label for the media equalizer bar-count slider."
+  },
   "settingsMeterPrefixHint": "e.g. CPU",
   "@settingsMeterPrefixHint": {
     "description": "Placeholder for the custom meter caption input."

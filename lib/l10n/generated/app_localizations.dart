@@ -824,6 +824,12 @@ abstract class AppLocalizations {
   /// **'Display mode'**
   String get settingsMediaMode;
 
+  /// Label for the media equalizer bar-count slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Equalizer bars'**
+  String get settingsMediaBars;
+
   /// Placeholder for the custom meter caption input.
   ///
   /// In en, this message translates to:

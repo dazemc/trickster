@@ -1,12 +1,10 @@
-import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
-import 'package:trickster/src/config/settings.dart' show MediaMode;
+import 'package:trickster/src/config/settings.dart'
+    show MediaMode, MediaOptions;
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
@@ -23,6 +21,7 @@ class MediaPill extends StatefulWidget {
   const MediaPill({
     required this.accent,
     this.mode = MediaMode.semi,
+    this.bars = MediaOptions.defaultBars,
     this.vertical = false,
     super.key,
   });
@@ -38,6 +37,9 @@ class MediaPill extends StatefulWidget {
   /// The configured display mode; tapping cycles transiently from it and a
   /// relaunch returns to it.
   final MediaMode mode;
+
+  /// Bars the equalizer mark paints; the analyzer's bands fold into them.
+  final int bars;
 
   /// Vertical strips show only the transport controls, stacked and always
   /// visible.
@@ -259,7 +261,7 @@ class _MediaPillState extends State<MediaPill> {
                     ExcludeSemantics(
                       child: _MediaEqualizer(
                         key: MediaPill.equalizerKey,
-                        playing: media.playing,
+                        bars: widget.bars,
                         color: widget.accent.color,
                       ),
                     ),
@@ -395,119 +397,93 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
   }
 }
 
-/// The pill's playing mark: synthetic equalizer bars that dance while the
-/// player is playing and settle when it pauses. MPRIS carries no spectrum
-/// data, so the motion is decorative, and the controller only runs while
-/// playback does.
-class _MediaEqualizer extends StatefulWidget {
-  const _MediaEqualizer({
-    required this.playing,
-    required this.color,
-    super.key,
-  });
+/// The pill's playing mark: bars painted from the visualizer bloc's band
+/// levels. The analyzer runs only while the pill shows them, so the mark
+/// steps at the analyzer's ~30 Hz instead of holding the engine at the
+/// display rate; with no capture, or under reduced motion, the bars keep
+/// their static rest.
+class _MediaEqualizer extends StatelessWidget {
+  const _MediaEqualizer({required this.bars, required this.color, super.key});
 
-  final bool playing;
+  final int bars;
   final Color color;
-
-  @override
-  State<_MediaEqualizer> createState() => _MediaEqualizerState();
-}
-
-class _MediaEqualizerState extends State<_MediaEqualizer> {
-  static const List<double> _phase = <double>[0.0, 0.37, 0.71, 0.19];
-  static const List<double> _speed = <double>[1.0, 1.6, 1.25, 0.8];
-
-  /// The bars step at ~16 fps instead of the display rate: the mark reads as
-  /// motion, and a playing track never holds the engine at 60 fps for a
-  /// decorative widget.
-  static const Duration _step = Duration(milliseconds: 62);
-
-  Timer? _timer;
-  var _phaseValue = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncTimer();
-  }
-
-  @override
-  void didUpdateWidget(covariant _MediaEqualizer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.playing != oldWidget.playing) {
-      _syncTimer();
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _timer = null;
-    super.dispose();
-  }
-
-  void _syncTimer() {
-    _timer?.cancel();
-    _timer = null;
-    if (!widget.playing) {
-      _phaseValue = 0;
-      return;
-    }
-    _timer = Timer.periodic(_step, (_) {
-      if (mounted) {
-        setState(
-          () => _phaseValue = (_phaseValue + _step.inMilliseconds / 900) % 1.0,
-        );
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    return RepaintBoundary(
-      child: CustomPaint(
-        size: const Size(16, 14),
-        painter: _EqualizerPainter(
-          phase: reduceMotion ? 0 : _phaseValue,
-          playing: !reduceMotion && widget.playing,
-          color: widget.color,
-          phases: _phase,
-          speeds: _speed,
-        ),
-      ),
+    return BlocBuilder<VisualizerBloc, VisualizerState>(
+      builder: (context, state) {
+        final levels = reduceMotion || !state.active
+            ? const <double>[]
+            : state.levels;
+        return RepaintBoundary(
+          child: CustomPaint(
+            size: Size(equalizerMarkWidth(bars), 14),
+            painter: EqualizerPainter(
+              levels: equalizerLevels(levels, bars: bars),
+              color: color,
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _EqualizerPainter extends CustomPainter {
-  const _EqualizerPainter({
-    required this.phase,
-    required this.playing,
-    required this.color,
-    required this.phases,
-    required this.speeds,
-  });
+/// The mark's width for [bars] bars: a fixed bar/gap rhythm so the mark looks
+/// the same at every count, only longer.
+double equalizerMarkWidth(int bars) {
+  const barWidth = 2.8;
+  const gap = 1.6;
+  return bars * barWidth + (bars - 1) * gap;
+}
+
+/// Folds the analyzer's bands into the mark's bar count by averaging each
+/// bar's slice; an empty band list yields the resting zeroes.
+List<double> equalizerLevels(List<double> bands, {int bars = 4}) {
+  if (bands.isEmpty) {
+    return List<double>.filled(bars, 0);
+  }
+  return <double>[
+    for (var bar = 0; bar < bars; bar++)
+      _sliceMean(
+        bands,
+        bar * bands.length ~/ bars,
+        (bar + 1) * bands.length ~/ bars,
+      ),
+  ];
+}
+
+double _sliceMean(List<double> values, int start, int end) {
+  if (end <= start) {
+    return 0;
+  }
+  var sum = 0.0;
+  for (var index = start; index < end; index++) {
+    sum += values[index];
+  }
+  return sum / (end - start);
+}
+
+/// Paints the mark's bars from normalized levels, resting at [_rest] when a
+/// bar is quiet.
+class EqualizerPainter extends CustomPainter {
+  const EqualizerPainter({required this.levels, required this.color});
 
   static const double _rest = 0.22;
 
-  final double phase;
-  final bool playing;
+  /// One 0..1 level per bar.
+  final List<double> levels;
   final Color color;
-  final List<double> phases;
-  final List<double> speeds;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color;
-    final bars = phases.length;
+    final bars = levels.length;
     const gap = 1.6;
     final width = (size.width - gap * (bars - 1)) / bars;
     for (var i = 0; i < bars; i++) {
-      final t = (phase * speeds[i] + phases[i]) % 1.0;
-      final level = playing
-          ? 0.3 + 0.7 * (0.5 + 0.5 * math.sin(2 * math.pi * t))
-          : _rest;
+      final level = _rest + (1 - _rest) * levels[i].clamp(0.0, 1.0);
       final height = (size.height * level).clamp(2.0, size.height);
       final left = i * (width + gap);
       canvas.drawRRect(
@@ -521,8 +497,20 @@ class _EqualizerPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _EqualizerPainter oldDelegate) =>
-      oldDelegate.phase != phase ||
-      oldDelegate.playing != playing ||
-      oldDelegate.color != color;
+  bool shouldRepaint(covariant EqualizerPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        !_sameLevels(oldDelegate.levels, levels);
+  }
+
+  static bool _sameLevels(List<double> a, List<double> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
 }

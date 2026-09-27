@@ -1048,6 +1048,22 @@ void main() {
     await tester.pump();
     expect(bloc.settings.media.mode, const MediaOptions().mode);
 
+    final barsSlider = find.byKey(const ValueKey<String>('media-bars'));
+    await tester.ensureVisible(barsSlider);
+    await tester.pumpAndSettle();
+    final sliderRect = tester.getRect(barsSlider);
+    await tester.tapAt(Offset(sliderRect.right - 2, sliderRect.center.dy));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.bars, MediaOptions.maxBars);
+    final resetBars = find.byKey(const ValueKey<String>('reset-media-bars'));
+    await tester.ensureVisible(resetBars);
+    await tester.pumpAndSettle();
+    await tester.tap(resetBars);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.bars, MediaOptions.defaultBars);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),
