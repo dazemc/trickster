@@ -13,6 +13,7 @@ import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
+import 'package:trickster/src/state/volume_slider_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/icons.dart';
 
@@ -76,6 +77,7 @@ Future<void> _pump(
   double volumeStep = MediaOptions.defaultVolumeStep / 100,
   FakeBandAnalyzer? analyzer,
   FakePipeWireVolume? volume,
+  VolumeSliderBloc? slider,
   SettingsBloc? settings,
   bool disableAnimations = false,
 }) async {
@@ -91,6 +93,8 @@ Future<void> _pump(
   final volumeBloc = SinkVolumeBloc(volume: volume ?? FakePipeWireVolume())
     ..add(const SinkVolumeStarted());
   addTearDown(volumeBloc.close);
+  final sliderBloc = slider ?? VolumeSliderBloc(layerShell: SilentLayerShell());
+  addTearDown(sliderBloc.close);
   await tester.pumpWidget(
     MultiBlocProvider(
       providers: [
@@ -98,6 +102,7 @@ Future<void> _pump(
         BlocProvider<SettingsBloc>.value(value: settingsBloc),
         BlocProvider<VisualizerBloc>.value(value: visualizer),
         BlocProvider<SinkVolumeBloc>.value(value: volumeBloc),
+        BlocProvider<VolumeSliderBloc>.value(value: sliderBloc),
       ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
@@ -504,6 +509,19 @@ void main() {
     await tester.pump();
 
     expect(volume.sets.single, closeTo(0.6, 0.0001));
+  });
+
+  testWidgets('tapping the readout opens the volume slider', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    final slider = VolumeSliderBloc(layerShell: SilentLayerShell());
+    await _pump(tester, _state(), service, volume: volume, slider: slider);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    await tester.tap(find.byKey(MediaPill.volumeKey));
+    await _until(tester, () => slider.state.isOpen);
   });
 
   testWidgets('scrolling elsewhere on the pill leaves the sink alone', (

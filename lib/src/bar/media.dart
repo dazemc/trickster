@@ -6,12 +6,14 @@ import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart'
     show MediaMode, MediaOptions;
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
+import 'package:trickster/src/state/volume_slider_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/icons.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -120,6 +122,20 @@ class _MediaPillState extends State<MediaPill> {
     final volume = context.read<SinkVolumeBloc>();
     volume.add(
       SinkVolumeSetRequested(volumeAfterScroll(volume.state.volume, delta)),
+    );
+  }
+
+  /// Opens the slider overlay anchored at the readout.
+  void _openVolumeSlider(Offset position) {
+    final geometry = StripGeometry.maybeOf(context);
+    context.read<VolumeSliderBloc>().add(
+      VolumeSliderRequested(
+        barViewId: View.of(context).viewId,
+        accent: widget.accent,
+        click: position,
+        side: geometry?.side ?? SystemBarSide.top,
+        thickness: geometry?.thickness ?? 32,
+      ),
     );
   }
 
@@ -363,36 +379,45 @@ class _MediaPillState extends State<MediaPill> {
                       onIncrease: () => _stepVolume(widget.volumeStep),
                       onDecrease: () => _stepVolume(-widget.volumeStep),
                       child: ExcludeSemantics(
-                        child: Listener(
-                          key: MediaPill.volumeKey,
+                        child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          // Wheel up is louder, wheel down quieter.
-                          onPointerSignal: (event) {
-                            if (event is PointerScrollEvent &&
-                                event.scrollDelta.dy != 0) {
-                              _stepVolume(
-                                event.scrollDelta.dy < 0
-                                    ? widget.volumeStep
-                                    : -widget.volumeStep,
-                              );
-                            }
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (volumeGlyph != null) ...[
-                                Icon(volumeGlyph, size: 12, color: volumeColor),
-                                const SizedBox(width: 3),
-                              ],
-                              Text(
-                                volumeLabel,
-                                maxLines: 1,
-                                softWrap: false,
-                                style: ShellText.systemBarCaption.copyWith(
-                                  color: volumeColor,
+                          onTapDown: (details) =>
+                              _openVolumeSlider(details.globalPosition),
+                          child: Listener(
+                            key: MediaPill.volumeKey,
+                            behavior: HitTestBehavior.opaque,
+                            // Wheel up is louder, wheel down quieter.
+                            onPointerSignal: (event) {
+                              if (event is PointerScrollEvent &&
+                                  event.scrollDelta.dy != 0) {
+                                _stepVolume(
+                                  event.scrollDelta.dy < 0
+                                      ? widget.volumeStep
+                                      : -widget.volumeStep,
+                                );
+                              }
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (volumeGlyph != null) ...[
+                                  Icon(
+                                    volumeGlyph,
+                                    size: 12,
+                                    color: volumeColor,
+                                  ),
+                                  const SizedBox(width: 3),
+                                ],
+                                Text(
+                                  volumeLabel,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: ShellText.systemBarCaption.copyWith(
+                                    color: volumeColor,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
