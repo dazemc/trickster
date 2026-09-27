@@ -112,22 +112,32 @@ class SinkVolumeBloc extends Bloc<SinkVolumeEvent, SinkVolumeState> {
     SinkVolumeStarted event,
     Emitter<SinkVolumeState> emit,
   ) async {
+    // Subscribe before starting: the runner's first reading can arrive
+    // before start() completes.
+    _subscription ??= _volume.levels.listen(
+      (level) => add(SinkVolumeSampled(level)),
+    );
     final bool started;
     try {
       started = await _volume.start();
     } on Object catch (error) {
       stderr.writeln('trickster: sink volume unavailable: $error');
+      await _dropSubscription();
       emit(state.copyWith(active: false));
       return;
     }
     if (!started) {
+      await _dropSubscription();
       emit(state.copyWith(active: false));
       return;
     }
-    _subscription ??= _volume.levels.listen(
-      (level) => add(SinkVolumeSampled(level)),
-    );
     emit(state.copyWith(active: true));
+  }
+
+  Future<void> _dropSubscription() async {
+    final subscription = _subscription;
+    _subscription = null;
+    unawaited(subscription?.cancel());
   }
 
   void _onSampled(SinkVolumeSampled event, Emitter<SinkVolumeState> emit) {

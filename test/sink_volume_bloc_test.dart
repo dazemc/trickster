@@ -41,6 +41,18 @@ void main() {
     expect(volume.sets, <double>[0.75]);
   });
 
+  test('a reading arriving during start still lands', () async {
+    final volume = FakePipeWireVolume(emitOnStart: 0.5);
+    final bloc = SinkVolumeBloc(volume: volume);
+    addTearDown(bloc.close);
+
+    bloc.add(const SinkVolumeStarted());
+    final state = await bloc.stream.firstWhere((state) => state.hasReading);
+
+    expect(state.volume, closeTo(0.5, 0.0001));
+    expect(state.active, isTrue);
+  });
+
   test('a refused watcher stays inactive', () async {
     final volume = FakePipeWireVolume(startResult: false);
     final bloc = SinkVolumeBloc(volume: volume);

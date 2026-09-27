@@ -79,19 +79,37 @@ void main() {
     expect(reading.muted, isFalse);
   });
 
+  test('the first reading is replayed to a late listener', () async {
+    final volume = PipeWireVolume(channel: _channel);
+    addTearDown(volume.dispose);
+    await volume.start();
+    // The runner pushes before anything listens.
+    await deliver(<String, Object>{'volume': 0.4, 'muted': false});
+
+    final reading = await volume.levels.first;
+    expect(reading.volume, closeTo(0.4, 0.0001));
+  });
+
   test('readings are ignored while stopped and when malformed', () async {
     final volume = PipeWireVolume(channel: _channel);
     addTearDown(volume.dispose);
     final seen = <SinkVolume>[];
     volume.levels.listen(seen.add);
 
+    // Stopped: buffered for the start handshake, not emitted yet.
     await deliver(<String, Object>{'volume': 0.4, 'muted': false});
+    await Future<void>.delayed(Duration.zero);
+    expect(seen, isEmpty);
+
+    // Starting delivers the buffered reading.
     await volume.start();
+    await Future<void>.delayed(Duration.zero);
+    expect(seen, hasLength(1));
+
     await deliver(<String, Object>{'volume': 'loud', 'muted': false});
     await deliver('not a map');
     await Future<void>.delayed(Duration.zero);
-
-    expect(seen, isEmpty);
+    expect(seen, hasLength(1));
   });
 
   test('set clamps and forwards to the native side', () async {

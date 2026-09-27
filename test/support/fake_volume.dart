@@ -6,10 +6,14 @@ import 'package:trickster/src/services/volume.dart';
 /// A volume watcher that never reaches the runner: records start/stop/set
 /// and lets a test push synthetic readings.
 class FakePipeWireVolume extends PipeWireVolume {
-  FakePipeWireVolume({this.startResult = true})
+  FakePipeWireVolume({this.startResult = true, this.emitOnStart})
     : super(channel: const MethodChannel('test/trickster/volume'));
 
   final bool startResult;
+
+  /// Emitted from inside [start], before it returns: the runner's first
+  /// reading can beat the start handshake.
+  final double? emitOnStart;
   final List<int> starts = <int>[];
   final List<int> stops = <int>[];
   final List<double> sets = <double>[];
@@ -27,6 +31,10 @@ class FakePipeWireVolume extends PipeWireVolume {
   Future<bool> start() async {
     starts.add(1);
     _running = startResult;
+    final value = emitOnStart;
+    if (value != null) {
+      emit(value);
+    }
     return startResult;
   }
 

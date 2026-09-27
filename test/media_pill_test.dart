@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/bar/media.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -12,6 +13,7 @@ import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/icons.dart';
 
 import 'support/fake_bands.dart';
 import 'support/fake_volume.dart';
@@ -366,6 +368,44 @@ void main() {
     expect(formatVolumeLabel(1), '100%');
   });
 
+  test('volume glyphs follow the level', () {
+    expect(volumeGlyphFor(0.1), LucideIcons.volume);
+    expect(volumeGlyphFor(0.5), LucideIcons.volume1);
+    expect(volumeGlyphFor(0.9), LucideIcons.volume2);
+    expect(volumeGlyphFor(0.9, muted: true), LucideIcons.volumeX);
+  });
+
+  testWidgets('the pill paints the glyph that matches the level', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+
+    volume.emit(0.1);
+    await _until(
+      tester,
+      () => find
+          .byWidgetPredicate(
+            (widget) => widget is Icon && widget.icon == LucideIcons.volume,
+          )
+          .evaluate()
+          .isNotEmpty,
+    );
+
+    volume.emit(0.9);
+    await _until(
+      tester,
+      () => find
+          .byWidgetPredicate(
+            (widget) => widget is Icon && widget.icon == LucideIcons.volume2,
+          )
+          .evaluate()
+          .isNotEmpty,
+    );
+  });
+
   testWidgets('the pill paints the sink volume readout', (tester) async {
     final service = _FakeMediaPlayerService();
     final volume = FakePipeWireVolume();
@@ -394,6 +434,27 @@ void main() {
     await tester.pump();
 
     expect(find.text('58%'), findsNothing);
+  });
+
+  testWidgets('a muted sink paints the readout in the accent color', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+
+    volume.emit(0.58, muted: true);
+    await _until(tester, () => find.text('58%').evaluate().isNotEmpty);
+
+    final text = tester.widget<Text>(find.text('58%'));
+    expect(text.style?.color, _accent.color);
+    final glyph = tester.widget<Icon>(
+      find.byWidgetPredicate(
+        (widget) => widget is Icon && widget.icon == LucideIcons.volumeX,
+      ),
+    );
+    expect(glyph.color, _accent.color);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (

@@ -12,6 +12,7 @@ import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/icons.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
@@ -162,6 +163,13 @@ class _MediaPillState extends State<MediaPill> {
     final volumeLabel = !widget.vertical && volume.hasReading
         ? formatVolumeLabel(volume.volume)
         : null;
+    final volumeGlyph = volumeLabel != null
+        ? volumeGlyphFor(volume.volume, muted: volume.muted)
+        : null;
+    // Muted reads in the accent itself; otherwise the calmer caption tone.
+    final volumeColor = volume.muted
+        ? widget.accent.color
+        : widget.accent.captionColor();
     // The equalizer is the horizontal strip's playing mark; compact keeps
     // the keys alone and vertical strips are keys-only too.
     final showEqualizer = !widget.vertical && _mode != MediaMode.compact;
@@ -331,15 +339,22 @@ class _MediaPillState extends State<MediaPill> {
                       label: l10n.mediaVolume,
                       value: volumeLabel,
                       child: ExcludeSemantics(
-                        child: Text(
-                          volumeLabel,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: ShellText.systemBarCaption.copyWith(
-                            color: volume.muted
-                                ? ShellMediaColors.lightForegroundSecondary
-                                : widget.accent.captionColor(),
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (volumeGlyph != null) ...[
+                              Icon(volumeGlyph, size: 12, color: volumeColor),
+                              const SizedBox(width: 3),
+                            ],
+                            Text(
+                              volumeLabel,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: ShellText.systemBarCaption.copyWith(
+                                color: volumeColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

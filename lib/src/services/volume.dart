@@ -21,8 +21,19 @@ class PipeWireVolume {
   }
 
   final MethodChannel _channel;
-  final StreamController<SinkVolume> _levels =
-      StreamController<SinkVolume>.broadcast();
+  late final StreamController<SinkVolume> _levels =
+      StreamController<SinkVolume>.broadcast(
+        // The runner pushes the first reading as soon as it connects, often
+        // before the bloc attaches; replay it to the first listener so a
+        // quiet sink still reports its level.
+        onListen: () {
+          final last = _last;
+          if (last != null) {
+            _levels.add(last);
+          }
+        },
+      );
+  SinkVolume? _last;
   var _running = false;
 
   Stream<SinkVolume> get levels => _levels.stream;
@@ -35,6 +46,12 @@ class PipeWireVolume {
     }
     final started = await _channel.invokeMethod<bool>('volumeStart') ?? false;
     _running = started;
+    // The runner's first reading can arrive while the start handshake is
+    // still in flight; it was buffered, so deliver it now.
+    final last = _last;
+    if (started && last != null) {
+      _levels.add(last);
+    }
     return started;
   }
 
@@ -57,7 +74,7 @@ class PipeWireVolume {
   }
 
   Future<void> _onCall(MethodCall call) async {
-    if (call.method != 'volume' || !_running) {
+    if (call.method != 'volume') {
       return;
     }
     final args = call.arguments;
@@ -69,8 +86,14 @@ class PipeWireVolume {
     if (volume is! num || muted is! bool) {
       return;
     }
-    _levels.add(
-      SinkVolume(volume: volume.toDouble().clamp(0.0, 1.0), muted: muted),
+    final reading = SinkVolume(
+      volume: volume.toDouble().clamp(0.0, 1.0),
+      muted: muted,
     );
+    _last = reading;
+    // A reading that beats the start handshake is buffered, not emitted.
+    if (_running) {
+      _levels.add(reading);
+    }
   }
 }
