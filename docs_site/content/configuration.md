@@ -115,7 +115,8 @@ rejected at decode, so a live reload keeps the last-good settings.
 - `media.mode` (`full`, `semi`, or `compact`, default `semi`) — full shows
   the equalizer, now-playing text, and transport keys; semi the equalizer
   and keys; compact only the keys. Right-clicking the pill cycles the modes
-  transiently; the configured mode returns on relaunch.
+  and saves the choice, so the document and an open settings window follow
+  it.
 - The retired `meter` object (shared caption source and sparkline) is read
   once as a fallback for `cpu` and `gpu` and never written again.
 

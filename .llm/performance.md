@@ -25,7 +25,9 @@ as first-class bugs.
 - Prefer D-Bus signals and compositor IPC events over polling. `/proc` and
   sysfs samples are bounded (CPU/GPU at 1 Hz, shared across cards). Reuse
   read buffers; do not allocate a new string per sample if a reused buffer
-  will do.
+  will do. The media visualizer's PipeWire capture runs only while a player
+  is playing and the pill paints the equalizer; every stop destroys the
+  stream, and the 30 Hz pump exists only while capturing.
 - Workspace backends are event-driven sockets (Sway/i3 IPC, Hyprland,
   niri). No interval polls when the compositor can push.
 - Exclusive zone equals the laid-out strip. Do not reserve more than the
