@@ -24,11 +24,6 @@ from the levels. No subprocesses (no `parec`/`pw-cat`); the runner links
 libpipewire and streams PCM. When capture is unavailable, quiet, or the
 sink is idle, the bars rest.
 
-- **23.2 (M) Band analysis off the frame loop.** A worker isolate turns the
-  PCM frames into a small band set at ~30 Hz and a bloc exposes the levels;
-  the module holds zero timers and zero subscriptions while no media plays.
-  Done when levels move with music, fall to rest on silence, and a unit test
-  pins the mapping from synthetic frames to levels.
 - **23.3 (S) Bars from levels.** The pill's equalizer paints the bloc's
   band levels instead of the synthetic loop, keeping the static rest when
   capture is unavailable; reduced motion still freezes the bars. Done when
