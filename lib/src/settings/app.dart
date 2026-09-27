@@ -107,12 +107,19 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
                                 );
                                 // With the compositor blurring behind the
                                 // toplevel, the shell veils it with
-                                // translucent fills; without the protocol the
+                                // translucent fills; without the protocol, or
+                                // with the document's blur key off, the
                                 // window stays opaque.
-                                final glass = context
-                                    .watch<CapabilitiesBloc>()
-                                    .state
-                                    .blur;
+                                final glass = settingsGlassEnabled(
+                                  hostBlur: context
+                                      .watch<CapabilitiesBloc>()
+                                      .state
+                                      .blur,
+                                  documentBlur: context.select(
+                                    (SettingsAppBloc bloc) =>
+                                        bloc.state.settings.appearance.blur,
+                                  ),
+                                );
                                 return TricksterLocalizationScope(
                                   locale: localeFromTag(locale),
                                   child: SettingsGlass(

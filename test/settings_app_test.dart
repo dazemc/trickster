@@ -1480,6 +1480,13 @@ void main() {
     expect(find.text('#E01020'), findsOneWidget);
   });
 
+  test('the blur key gates the settings window glass', () {
+    expect(settingsGlassEnabled(hostBlur: true, documentBlur: true), isTrue);
+    expect(settingsGlassEnabled(hostBlur: true, documentBlur: false), isFalse);
+    expect(settingsGlassEnabled(hostBlur: false, documentBlur: true), isFalse);
+    expect(settingsGlassEnabled(hostBlur: false, documentBlur: false), isFalse);
+  });
+
   test('an external document change reloads the settings', () async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);
