@@ -21,7 +21,9 @@ File style is Denial-style `KEY=VALUE` with `#` comments.
   `expectedRevision` check-and-retry, full-document push into the settings
   bloc. The settings application reads and writes through the bar's control
   socket, falling back to the file transport when no bar answers; both paths
-  ride the same `SettingsDocumentTransport` interface. Retain only the
+  ride the same `SettingsDocumentTransport` interface, and the bar writes
+  its own edits (the media pill's mode cycle) through that same instance so
+  one revision line serves both processes. Retain only the
   current revision and one last-good snapshot. Never keep a document history.
 - CLI mirrors `denial-session`/`denialctl`: `trickster --check` (layer-shell
   advertised? gtk-layer-shell loadable? outputs visible? config parseable?),
