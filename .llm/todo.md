@@ -14,14 +14,3 @@ at a time: implement it, prove it with `flutter analyze` + `flutter test`
 an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Phase 24 — sink volume
-
-The media pill shows no volume today: the host's own keys and mixers are the
-only way to change the default sink. Show the level and let the pill set it.
-
-- **24.5 (M) Volume slider on click.** Clicking the readout opens a slider
-  on a transient overlay surface (the calendar/tray-menu lifecycle: anchored
-  and clamped, outside-click and Escape dismissal, hosted-blur choice
-  honored), and dragging sets the sink volume live. Done when the live
-  slider moves the sink and widget tests pin the drag mapping and dismissal.
