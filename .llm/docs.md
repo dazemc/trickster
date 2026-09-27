@@ -56,3 +56,4 @@ Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
 | 20 — bloc-only state | `working` | done | Settings document, wallpaper accent, modules page, tray and tooltip hosts on blocs; `ChangeNotifier`/`Cubit` guard test |
 | 21 — service diagnostics | `working` | done | An unavailable NVIDIA stack (driver/library mismatch) logs one line instead of failing silently |
 | 22 — settings fixes and bar interactions | `working` | done | Displays reports the driven output mode; the clock opens a clamped month calendar that follows the hosted-blur choice |
+| 23 — media visualizer | `working` | done | PipeWire monitor capture on demand; band analysis on a worker isolate; the equalizer paints live levels with a configurable bar count |
