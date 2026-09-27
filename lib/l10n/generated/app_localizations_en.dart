@@ -385,6 +385,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsMediaMode => 'Display mode';
 
   @override
+  String get settingsMediaBars => 'Equalizer bars';
+
+  @override
   String get settingsMeterPrefixHint => 'e.g. CPU';
 
   @override

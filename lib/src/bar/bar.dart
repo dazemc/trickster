@@ -179,6 +179,7 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                 child: MediaPill(
                   accent: accent,
                   mode: settings.media.mode,
+                  bars: settings.media.bars,
                   vertical: vertical,
                 ),
               ),

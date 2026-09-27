@@ -38,10 +38,19 @@ import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/backdrop_blur.dart';
 
 class TricksterApp extends StatefulWidget {
-  const TricksterApp({required this.initial, this.layerShell, super.key});
+  const TricksterApp({
+    required this.initial,
+    this.layerShell,
+    this.settingsTransport,
+    super.key,
+  });
 
   final RuntimeConfig initial;
   final LayerShell? layerShell;
+
+  /// The settings transport the control socket serves; main shares the same
+  /// instance with the settings store so writes keep one revision line.
+  final FileSettingsTransport? settingsTransport;
 
   @override
   State<TricksterApp> createState() => _TricksterAppState();
@@ -94,9 +103,9 @@ class _TricksterAppState extends State<TricksterApp>
       outputs: () => _outputs ?? const <LayerOutput>[],
       strip: () => (side: _lastOutputs.side, thickness: _lastOutputs.thickness),
     );
-    _settingsTransport = FileSettingsTransport(
-      File(widget.initial.paths.settings),
-    );
+    _settingsTransport =
+        widget.settingsTransport ??
+        FileSettingsTransport(File(widget.initial.paths.settings));
     _outputsTransport = FileOutputsTransport(
       File(widget.initial.paths.outputs),
     );

@@ -89,7 +89,9 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetEnabled: settings.media.mode != MediaMode.semi,
             onReset: () => _apply(
               controller,
-              (settings) => settings.copyWith(media: const MediaOptions()),
+              (settings) => settings.copyWith(
+                media: settings.media.copyWith(mode: MediaMode.semi),
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -104,11 +106,36 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   selected: settings.media.mode == mode,
                   onPressed: () => _apply(
                     controller,
-                    (settings) =>
-                        settings.copyWith(media: MediaOptions(mode: mode)),
+                    (settings) => settings.copyWith(
+                      media: settings.media.copyWith(mode: mode),
+                    ),
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 14),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('media-bars'),
+            label: l10n.settingsMediaBars,
+            value: settings.media.bars.toDouble(),
+            min: MediaOptions.minBars.toDouble(),
+            max: MediaOptions.maxBars.toDouble(),
+            display: '${settings.media.bars}',
+            resetKey: const ValueKey<String>('reset-media-bars'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsMediaBars),
+            resetEnabled: settings.media.bars != MediaOptions.defaultBars,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                media: settings.media.copyWith(bars: value.round()),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                media: settings.media.copyWith(bars: MediaOptions.defaultBars),
+              ),
+            ),
           ),
         ],
       ),

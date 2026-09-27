@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io' show stderr;
 import 'dart:ui';
 
 import 'package:bloc/bloc.dart';
@@ -39,8 +41,22 @@ class SettingsAccentChanged extends SettingsEvent {
   List<Object?> get props => [accent];
 }
 
+/// A bar-side edit (the media pill's mode cycle); unlike [SettingsLoaded] it
+/// is persisted, so the document and the settings application follow it.
+class SettingsMediaModeChanged extends SettingsEvent {
+  const SettingsMediaModeChanged(this.mode);
+
+  final MediaMode mode;
+
+  @override
+  List<Object?> get props => [mode];
+}
+
 class SettingsBloc extends Bloc<SettingsEvent, BarSettings> {
-  SettingsBloc([super.initialState = const BarSettings()]) {
+  SettingsBloc([
+    super.initialState = const BarSettings(),
+    Future<void> Function(BarSettings settings)? onPersist,
+  ]) : _onPersist = onPersist {
     on<SettingsLoaded>((event, emit) => emit(event.settings));
     on<SettingsModulesChanged>(
       (event, emit) => emit(state.copyWith(modules: event.modules)),
@@ -48,5 +64,28 @@ class SettingsBloc extends Bloc<SettingsEvent, BarSettings> {
     on<SettingsAccentChanged>(
       (event, emit) => emit(state.copyWith(accent: event.accent)),
     );
+    on<SettingsMediaModeChanged>((event, emit) {
+      final next = state.copyWith(
+        media: state.media.copyWith(mode: event.mode),
+      );
+      emit(next);
+      unawaited(_persist(next));
+    });
+  }
+
+  /// Writes the document after a bar-side edit; null in tests and in
+  /// processes that only read settings.
+  final Future<void> Function(BarSettings settings)? _onPersist;
+
+  Future<void> _persist(BarSettings settings) async {
+    final persist = _onPersist;
+    if (persist == null) {
+      return;
+    }
+    try {
+      await persist(settings);
+    } on Object catch (error) {
+      stderr.writeln('trickster: could not save the media mode: $error');
+    }
   }
 }

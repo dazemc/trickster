@@ -9,6 +9,7 @@
 #include <flutter_linux/flutter_linux.h>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "pipewire_capture.h"
 
 typedef struct {
   GtkWindow* window;
@@ -44,6 +45,7 @@ struct _MyApplication {
   gchar* layer;
   gchar* layer_namespace;
   gchar* keyboard;
+  TricksterCapture* capture;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -1102,6 +1104,8 @@ static void trickster_install_method_channel(MyApplication* self) {
       "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
                                             nullptr);
+  self->capture = trickster_capture_new(
+      fl_engine_get_binary_messenger(self->engine));
 }
 
 static void my_application_activate(GApplication* application) {
@@ -1287,6 +1291,7 @@ static void my_application_dispose(GObject* object) {
     wl_compositor_destroy(self->compositor);
     self->compositor = nullptr;
   }
+  g_clear_pointer(&self->capture, trickster_capture_free);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);

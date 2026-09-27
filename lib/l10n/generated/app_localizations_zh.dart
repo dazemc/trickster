@@ -380,6 +380,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsMediaMode => '显示模式';
 
   @override
+  String get settingsMediaBars => '均衡器柱数';
+
+  @override
   String get settingsMeterPrefixHint => '例如 CPU';
 
   @override

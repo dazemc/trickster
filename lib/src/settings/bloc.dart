@@ -59,6 +59,12 @@ class SettingsAppOutputsSaveRequested extends SettingsAppEvent {
   List<Object?> get props => [outputs];
 }
 
+/// The settings document changed underneath the application (the bar wrote
+/// it); re-read it so an open window reflects bar-side edits.
+class SettingsAppDocumentChanged extends SettingsAppEvent {
+  const SettingsAppDocumentChanged();
+}
+
 const _unset = Object();
 
 /// The settings document, outputs document, and host output list the settings
@@ -209,6 +215,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       (event, emit) => emit(state.copyWith(outputs: event.outputs)),
     );
     on<SettingsAppOutputsSaveRequested>(_onSaveOutputs);
+    on<SettingsAppDocumentChanged>(_onDocumentChanged);
   }
 
   final SettingsDocumentTransport _socket;
@@ -325,6 +332,23 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       emit(state.copyWith(outputs: outputs, busy: false, outputsError: null));
     } on Object catch (writeError) {
       emit(state.copyWith(busy: false, outputsError: '$writeError'));
+    }
+  }
+
+  /// A bar-side write arrives as a file event; reading through the same store
+  /// keeps the revision line and never touches outputs or the busy flag.
+  Future<void> _onDocumentChanged(
+    SettingsAppDocumentChanged event,
+    Emitter<SettingsAppState> emit,
+  ) async {
+    final store = _store;
+    if (store == null) {
+      return;
+    }
+    try {
+      emit(state.copyWith(settings: await store.read()));
+    } on Object {
+      // Transient read failure: keep the editor on the current document.
     }
   }
 }

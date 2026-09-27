@@ -218,7 +218,7 @@ void main() {
           sparkline: false,
         ),
         appearance: AppearanceOptions(blur: false),
-        media: MediaOptions(mode: MediaMode.compact),
+        media: MediaOptions(mode: MediaMode.compact, bars: 7),
       );
       final decoded = BarSettings.decode(settings.encode());
       expect(decoded.cpu.warn, 0.7);
@@ -243,6 +243,15 @@ void main() {
       expect(decoded.gpu.sparkline, isFalse);
       expect(decoded.appearance.blur, isFalse);
       expect(decoded.media.mode, MediaMode.compact);
+      expect(decoded.media.bars, 7);
+      expect(
+        MediaOptions.fromJson(<String, dynamic>{'bars': 99}).bars,
+        MediaOptions.maxBars,
+      );
+      expect(
+        MediaOptions.fromJson(<String, dynamic>{'bars': 1}).bars,
+        MediaOptions.minBars,
+      );
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);
       expect(bare.clock.format, ClockFormat.locale);

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -14,6 +15,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
@@ -623,6 +625,40 @@ cpu MHz\t\t: 3400.000
         Capabilities.fromJson(Map<String, dynamic>.from(state.toJson())),
         state,
       );
+    });
+  });
+
+  group('SettingsBloc', () {
+    test('the media mode cycle emits and persists the new document', () async {
+      final saved = <BarSettings>[];
+      final bloc = SettingsBloc(
+        const BarSettings(),
+        (next) async => saved.add(next),
+      );
+      addTearDown(bloc.close);
+
+      bloc.add(const SettingsMediaModeChanged(MediaMode.full));
+
+      final state = await bloc.stream.firstWhere(
+        (state) => state.media.mode == MediaMode.full,
+      );
+      expect(state.media.mode, MediaMode.full);
+      expect(saved.single.media.mode, MediaMode.full);
+    });
+
+    test('a failed save keeps the in-memory mode', () async {
+      final bloc = SettingsBloc(
+        const BarSettings(),
+        (next) async => throw StateError('document is read-only'),
+      );
+      addTearDown(bloc.close);
+
+      bloc.add(const SettingsMediaModeChanged(MediaMode.compact));
+
+      final state = await bloc.stream.firstWhere(
+        (state) => state.media.mode == MediaMode.compact,
+      );
+      expect(state.media.mode, MediaMode.compact);
     });
   });
 }

@@ -1048,6 +1048,22 @@ void main() {
     await tester.pump();
     expect(bloc.settings.media.mode, const MediaOptions().mode);
 
+    final barsSlider = find.byKey(const ValueKey<String>('media-bars'));
+    await tester.ensureVisible(barsSlider);
+    await tester.pumpAndSettle();
+    final sliderRect = tester.getRect(barsSlider);
+    await tester.tapAt(Offset(sliderRect.right - 2, sliderRect.center.dy));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.bars, MediaOptions.maxBars);
+    final resetBars = find.byKey(const ValueKey<String>('reset-media-bars'));
+    await tester.ensureVisible(resetBars);
+    await tester.pumpAndSettle();
+    await tester.tap(resetBars);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.bars, MediaOptions.defaultBars);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),
@@ -1444,6 +1460,29 @@ void main() {
     expect(find.text('Copied'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('#E01020'), findsOneWidget);
+  });
+
+  test('an external document change reloads the settings', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    expect(bloc.settings.media.mode, MediaMode.semi);
+
+    // The bar writes a new revision underneath the open window.
+    final next = bloc.settings
+        .copyWith(media: bloc.settings.media.copyWith(mode: MediaMode.compact))
+        .copyWith(revision: bloc.settings.revision + 1);
+    final writer = FileSettingsTransport(file);
+    await writer.read();
+    await writer.write(
+      expectedRevision: bloc.settings.revision,
+      document: next.encode(),
+    );
+
+    bloc.add(const SettingsAppDocumentChanged());
+    final reloaded = await bloc.stream.firstWhere(
+      (state) => state.settings.media.mode == MediaMode.compact,
+    );
+    expect(reloaded.settings.revision, next.revision);
   });
 
   testWidgets('language page writes the locale', (tester) async {

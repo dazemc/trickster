@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trickster/src/config/paths.dart';
+import 'package:trickster/src/config/watcher.dart';
 import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
@@ -34,11 +36,18 @@ class TricksterSettingsApp extends StatefulWidget {
 class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
   late final SettingsAppBloc _bloc;
   late final WallpaperAccentBloc _wallpaperAccent;
+  ConfigWatcher? _watcher;
 
   @override
   void initState() {
     super.initState();
     _bloc = SettingsAppBloc()..add(const SettingsAppLoadRequested());
+    // The bar may write the document while this window is open (the media
+    // pill's mode cycle); reload so the pages show what the bar shows.
+    _watcher = ConfigWatcher(
+      directory: ConfigPaths().directory,
+      onChanged: () => _bloc.add(const SettingsAppDocumentChanged()),
+    )..start();
     _wallpaperAccent = WallpaperAccentBloc(
       outputs: () => _bloc.availableOutputs,
       strip: () =>
@@ -48,6 +57,7 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
 
   @override
   void dispose() {
+    unawaited(_watcher?.dispose());
     unawaited(_bloc.close());
     unawaited(_wallpaperAccent.close());
     super.dispose();

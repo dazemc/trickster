@@ -26,8 +26,11 @@ import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/tray_menu.dart';
+import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
+
+import 'fake_bands.dart';
 
 /// A layer shell whose surfaces live only inside the test binding.
 class SilentLayerShell extends LayerShell {
@@ -121,6 +124,7 @@ Future<void> pumpBarHarness(
   BatteryBloc Function()? batteryBuilder,
   WorkspacesBloc Function()? workspacesBuilder,
   MediaBloc Function()? mediaBuilder,
+  VisualizerBloc Function()? visualizerBuilder,
   Duration settle = Duration.zero,
 }) async {
   await tester.pumpWidget(
@@ -153,6 +157,9 @@ Future<void> pumpBarHarness(
             mediaBuilder:
                 mediaBuilder ??
                 () => MediaBloc(initial: MprisPlaybackState.unavailable()),
+            visualizerBuilder:
+                visualizerBuilder ??
+                () => VisualizerBloc(analyzer: FakeBandAnalyzer()),
             child: wallpaperAccent == null
                 ? BlocProvider<WallpaperAccentBloc>(
                     create: (_) => WallpaperAccentBloc(watch: false),
