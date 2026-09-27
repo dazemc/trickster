@@ -116,7 +116,8 @@ rejected at decode, so a live reload keeps the last-good settings.
   the equalizer, now-playing text, and transport keys; semi the equalizer
   and keys; compact only the keys. Right-clicking the pill cycles the modes
   and saves the choice, so the document and an open settings window follow
-  it.
+  it. `media.bars` (3–12, default 4) sets how many bars the equalizer mark
+  paints from the default sink's band levels.
 - The retired `meter` object (shared caption source and sparkline) is read
   once as a fallback for `cpu` and `gpu` and never written again.
 
