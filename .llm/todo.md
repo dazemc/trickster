@@ -20,10 +20,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 The media pill shows no volume today: the host's own keys and mixers are the
 only way to change the default sink. Show the level and let the pill set it.
 
-- **24.3 (S) Volume icon option.** `media.volume_icon` (none or a small set
-  of Lucide volume glyphs) painted before the percentage, chosen from the
-  media options page. Done when the live pill shows the chosen glyph and a
-  test pins the mapping.
 - **24.4 (S) Scroll to change volume.** Hovering the volume readout and
   scrolling adjusts the sink in 5% steps, clamped 0-100, through the bloc's
   setter. Done when the live scroll moves `wpctl get-volume` and a test pins
