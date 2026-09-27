@@ -494,7 +494,11 @@ enum MediaMode {
 
 /// Typed options for the media pill.
 class MediaOptions extends Equatable {
-  const MediaOptions({this.mode = MediaMode.semi, this.bars = defaultBars});
+  const MediaOptions({
+    this.mode = MediaMode.semi,
+    this.bars = defaultBars,
+    this.volumeStep = defaultVolumeStep,
+  });
 
   /// The display mode the pill shows; right-clicking cycles it and saves the
   /// new mode to the document.
@@ -503,17 +507,31 @@ class MediaOptions extends Equatable {
   /// Bars the equalizer mark paints; the analyzer's bands fold into them.
   final int bars;
 
+  /// Percent the sink moves per wheel notch over the volume readout.
+  final int volumeStep;
+
   static const int defaultBars = 4;
   static const int minBars = 3;
   static const int maxBars = 12;
+  static const int defaultVolumeStep = 5;
+  static const int minVolumeStep = 1;
+  static const int maxVolumeStep = 25;
 
   @override
-  List<Object?> get props => [mode, bars];
+  List<Object?> get props => [mode, bars, volumeStep];
 
-  MediaOptions copyWith({MediaMode? mode, int? bars}) =>
-      MediaOptions(mode: mode ?? this.mode, bars: bars ?? this.bars);
+  MediaOptions copyWith({MediaMode? mode, int? bars, int? volumeStep}) =>
+      MediaOptions(
+        mode: mode ?? this.mode,
+        bars: bars ?? this.bars,
+        volumeStep: volumeStep ?? this.volumeStep,
+      );
 
-  Map<String, Object?> toJson() => {'mode': mode.wire, 'bars': bars};
+  Map<String, Object?> toJson() => {
+    'mode': mode.wire,
+    'bars': bars,
+    'volume_step': volumeStep,
+  };
 
   static MediaOptions fromJson(Object? json) {
     if (json == null) {
@@ -523,11 +541,18 @@ class MediaOptions extends Equatable {
       throw const FormatException('settings.media must be an object');
     }
     final bars = json['bars'];
+    final volumeStep = json['volume_step'];
     return MediaOptions(
       mode: MediaMode.parse(json['mode']),
       bars: bars is num
           ? bars.toInt().clamp(MediaOptions.minBars, MediaOptions.maxBars)
           : MediaOptions.defaultBars,
+      volumeStep: volumeStep is num
+          ? volumeStep.toInt().clamp(
+              MediaOptions.minVolumeStep,
+              MediaOptions.maxVolumeStep,
+            )
+          : MediaOptions.defaultVolumeStep,
     );
   }
 }

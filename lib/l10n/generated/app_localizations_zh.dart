@@ -386,6 +386,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsMediaBars => '均衡器柱数';
 
   @override
+  String get settingsVolumeStep => '音量步进';
+
+  @override
   String get settingsMeterPrefixHint => '例如 CPU';
 
   @override

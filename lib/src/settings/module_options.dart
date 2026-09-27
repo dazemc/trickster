@@ -137,6 +137,33 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               ),
             ),
           ),
+          const SizedBox(height: 14),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('media-volume-step'),
+            label: l10n.settingsVolumeStep,
+            value: settings.media.volumeStep.toDouble(),
+            min: MediaOptions.minVolumeStep.toDouble(),
+            max: MediaOptions.maxVolumeStep.toDouble(),
+            display: '${settings.media.volumeStep}%',
+            resetKey: const ValueKey<String>('reset-media-volume-step'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsVolumeStep),
+            resetEnabled:
+                settings.media.volumeStep != MediaOptions.defaultVolumeStep,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                media: settings.media.copyWith(volumeStep: value.round()),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                media: settings.media.copyWith(
+                  volumeStep: MediaOptions.defaultVolumeStep,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       'workspaces' => Column(

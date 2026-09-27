@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -24,6 +25,7 @@ class MediaPill extends StatefulWidget {
     required this.accent,
     this.mode = MediaMode.semi,
     this.bars = MediaOptions.defaultBars,
+    this.volumeStep = MediaOptions.defaultVolumeStep / 100,
     this.vertical = false,
     super.key,
   });
@@ -34,6 +36,9 @@ class MediaPill extends StatefulWidget {
   /// The equalizer mark painted in full and semi modes.
   static const Key equalizerKey = ValueKey<String>('media-equalizer');
 
+  /// The sink volume readout; scrolling over it steps the sink.
+  static const Key volumeKey = ValueKey<String>('media-volume');
+
   final WallpaperAccent accent;
 
   /// The configured display mode; tapping cycles transiently from it and a
@@ -42,6 +47,9 @@ class MediaPill extends StatefulWidget {
 
   /// Bars the equalizer mark paints; the analyzer's bands fold into them.
   final int bars;
+
+  /// How much one wheel notch over the readout moves the sink (0..1).
+  final double volumeStep;
 
   /// Vertical strips show only the transport controls, stacked and always
   /// visible.
@@ -104,6 +112,14 @@ class _MediaPillState extends State<MediaPill> {
       VisualizerPlaybackChanged(
         playing: context.read<MediaBloc>().state.playing,
       ),
+    );
+  }
+
+  /// Steps the sink through the bloc's setter, which the watcher echoes back.
+  void _stepVolume(double delta) {
+    final volume = context.read<SinkVolumeBloc>();
+    volume.add(
+      SinkVolumeSetRequested(volumeAfterScroll(volume.state.volume, delta)),
     );
   }
 
@@ -338,23 +354,46 @@ class _MediaPillState extends State<MediaPill> {
                     Semantics(
                       label: l10n.mediaVolume,
                       value: volumeLabel,
+                      increasedValue: formatVolumeLabel(
+                        volumeAfterScroll(volume.volume, widget.volumeStep),
+                      ),
+                      decreasedValue: formatVolumeLabel(
+                        volumeAfterScroll(volume.volume, -widget.volumeStep),
+                      ),
+                      onIncrease: () => _stepVolume(widget.volumeStep),
+                      onDecrease: () => _stepVolume(-widget.volumeStep),
                       child: ExcludeSemantics(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (volumeGlyph != null) ...[
-                              Icon(volumeGlyph, size: 12, color: volumeColor),
-                              const SizedBox(width: 3),
-                            ],
-                            Text(
-                              volumeLabel,
-                              maxLines: 1,
-                              softWrap: false,
-                              style: ShellText.systemBarCaption.copyWith(
-                                color: volumeColor,
+                        child: Listener(
+                          key: MediaPill.volumeKey,
+                          behavior: HitTestBehavior.opaque,
+                          // Wheel up is louder, wheel down quieter.
+                          onPointerSignal: (event) {
+                            if (event is PointerScrollEvent &&
+                                event.scrollDelta.dy != 0) {
+                              _stepVolume(
+                                event.scrollDelta.dy < 0
+                                    ? widget.volumeStep
+                                    : -widget.volumeStep,
+                              );
+                            }
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (volumeGlyph != null) ...[
+                                Icon(volumeGlyph, size: 12, color: volumeColor),
+                                const SizedBox(width: 3),
+                              ],
+                              Text(
+                                volumeLabel,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: ShellText.systemBarCaption.copyWith(
+                                  color: volumeColor,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -449,6 +488,10 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
 
 /// The pill's volume readout: the cubic level as a whole percent.
 String formatVolumeLabel(double volume) => '${(volume * 100).round()}%';
+
+/// One wheel notch over the readout: [delta] is ±5%, clamped to 0..1.
+double volumeAfterScroll(double volume, double delta) =>
+    (volume + delta).clamp(0.0, 1.0);
 
 /// The pill's playing mark: bars painted from the visualizer bloc's band
 /// levels. The analyzer runs only while the pill shows them, so the mark

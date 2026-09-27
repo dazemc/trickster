@@ -1,4 +1,5 @@
-import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kSecondaryMouseButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,6 +73,7 @@ Future<void> _pump(
   bool vertical = false,
   MediaMode mode = MediaMode.semi,
   int bars = MediaOptions.defaultBars,
+  double volumeStep = MediaOptions.defaultVolumeStep / 100,
   FakeBandAnalyzer? analyzer,
   FakePipeWireVolume? volume,
   SettingsBloc? settings,
@@ -106,6 +108,7 @@ Future<void> _pump(
                 accent: _accent,
                 mode: mode,
                 bars: bars,
+                volumeStep: volumeStep,
                 vertical: vertical,
               ),
             ),
@@ -455,6 +458,71 @@ void main() {
       ),
     );
     expect(glyph.color, _accent.color);
+  });
+
+  test('scrolling steps the level and clamps', () {
+    expect(volumeAfterScroll(0.5, 0.05), closeTo(0.55, 0.0001));
+    expect(volumeAfterScroll(0.5, -0.05), closeTo(0.45, 0.0001));
+    expect(volumeAfterScroll(0.98, 0.05), 1.0);
+    expect(volumeAfterScroll(0.02, -0.05), 0.0);
+  });
+
+  testWidgets('scrolling the readout steps the sink', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    final pointer = TestPointer(1, PointerDeviceKind.mouse);
+    final center = tester.getCenter(find.byKey(MediaPill.volumeKey));
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -40)));
+    await tester.pump();
+    expect(volume.sets, hasLength(1));
+    expect(volume.sets.single, closeTo(0.55, 0.0001));
+
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 40)));
+    await tester.pump();
+    expect(volume.sets, hasLength(2));
+    expect(volume.sets.last, closeTo(0.5, 0.0001));
+  });
+
+  testWidgets('the scroll step follows the configured size', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume, volumeStep: 0.1);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    final pointer = TestPointer(3, PointerDeviceKind.mouse);
+    final center = tester.getCenter(find.byKey(MediaPill.volumeKey));
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -40)));
+    await tester.pump();
+
+    expect(volume.sets.single, closeTo(0.6, 0.0001));
+  });
+
+  testWidgets('scrolling elsewhere on the pill leaves the sink alone', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    final pointer = TestPointer(2, PointerDeviceKind.mouse);
+    final center = tester.getCenter(find.byKey(MediaPill.equalizerKey));
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -40)));
+    await tester.pump();
+
+    expect(volume.sets, isEmpty);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (

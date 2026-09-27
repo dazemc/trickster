@@ -391,6 +391,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsMediaBars => 'Equalizer bars';
 
   @override
+  String get settingsVolumeStep => 'Volume step';
+
+  @override
   String get settingsMeterPrefixHint => 'e.g. CPU';
 
   @override

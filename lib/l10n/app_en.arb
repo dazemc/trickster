@@ -518,6 +518,10 @@
   "@settingsMediaBars": {
     "description": "Label for the media equalizer bar-count slider."
   },
+  "settingsVolumeStep": "Volume step",
+  "@settingsVolumeStep": {
+    "description": "Label for the per-notch sink volume step slider."
+  },
   "settingsMeterPrefixHint": "e.g. CPU",
   "@settingsMeterPrefixHint": {
     "description": "Placeholder for the custom meter caption input."

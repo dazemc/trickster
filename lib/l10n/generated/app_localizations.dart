@@ -836,6 +836,12 @@ abstract class AppLocalizations {
   /// **'Equalizer bars'**
   String get settingsMediaBars;
 
+  /// Label for the per-notch sink volume step slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume step'**
+  String get settingsVolumeStep;
+
   /// Placeholder for the custom meter caption input.
   ///
   /// In en, this message translates to:
