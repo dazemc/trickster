@@ -30,7 +30,10 @@ as first-class bugs.
   stream, and the 30 Hz pump exists only while capturing. The FFT that
   turns frames into band levels runs on a widget-free worker isolate that
   dies with the capture, and the pill's mark repaints at that cadence
-  inside its own `RepaintBoundary` — never the strip.
+  inside its own `RepaintBoundary` — never the strip. The default sink's
+  volume is watched the same way: one PipeWire connection while the media
+  module is configured, event-driven (never `wpctl` or a poll), and it
+  follows WirePlumber's own route/scale so the system keys agree.
 - Workspace backends are event-driven sockets (Sway/i3 IPC, Hyprland,
   niri). No interval polls when the compositor can push.
 - Exclusive zone equals the laid-out strip. Do not reserve more than the
