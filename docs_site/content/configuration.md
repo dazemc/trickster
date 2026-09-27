@@ -117,7 +117,9 @@ rejected at decode, so a live reload keeps the last-good settings.
   and keys; compact only the keys. Right-clicking the pill cycles the modes
   and saves the choice, so the document and an open settings window follow
   it. `media.bars` (3–12, default 4) sets how many bars the equalizer mark
-  paints from the default sink's band levels.
+  paints from the default sink's band levels, and `media.volume_step`
+  (1–25, default 5) sets the percent each wheel notch over the volume
+  readout moves the sink.
 - The retired `meter` object (shared caption source and sparkline) is read
   once as a fallback for `cpu` and `gpu` and never written again.
 
