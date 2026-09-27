@@ -91,7 +91,8 @@ rejected at decode, so a live reload keeps the last-good settings.
   decode; the section now holds only the pip look:
   `workspaces.pip_style` (`number`, `dot`, `roman`, `image`, default
   `number`), `workspaces.image_source` (one browsed file for every pip),
-  `workspaces.image_by_workspace` (workspace name to file), and
+  `workspaces.image_by_workspace` (workspace name to file; an entry whose
+  workspace no longer exists is ignored), and
   `workspaces.tint_svg` (bool; recolor SVG artwork with the accent).
 - `clock.format` (`locale`, `24h`, or `12h`, default `locale`) — force the
   clock's hour cycle instead of following the locale's preference;

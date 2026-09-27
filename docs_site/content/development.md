@@ -98,6 +98,9 @@ Strip and module widget tests follow one contract, implemented by
 - **Start no samplers.** Seeded builders stand in for the production
   `Started` path; anything that opens sockets, timers, or D-Bus names stays
   in unit tests.
+- **One harness pump per test.** `pumpBarHarness` reuses the providers it
+  already built, so pumping it twice silently ignores the second call's
+  `settings:`; split the test instead.
 
 ## Project rules
 
