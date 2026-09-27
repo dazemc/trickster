@@ -54,7 +54,12 @@ void main() {
   });
 
   test('state round-trips through JSON', () {
-    const state = SinkVolumeState(volume: 0.35, muted: true, active: true);
+    const state = SinkVolumeState(
+      volume: 0.35,
+      muted: true,
+      active: true,
+      hasReading: true,
+    );
 
     final decoded = SinkVolumeState.fromJson(
       Map<String, dynamic>.from(state.toJson()),
@@ -63,5 +68,6 @@ void main() {
     expect(decoded.volume, closeTo(0.35, 0.0001));
     expect(decoded.muted, isTrue);
     expect(decoded.active, isTrue);
+    expect(decoded.hasReading, isTrue);
   });
 }

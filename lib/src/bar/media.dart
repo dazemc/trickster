@@ -9,6 +9,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -148,6 +149,19 @@ class _MediaPillState extends State<MediaPill> {
     });
     final showText = _mode == MediaMode.full;
     final showSecondary = showText;
+    // The sink volume readout: only once a reading arrived, and only on
+    // horizontal strips.
+    final volume = context.select((SinkVolumeBloc bloc) {
+      final state = bloc.state;
+      return (
+        hasReading: state.hasReading,
+        volume: state.volume,
+        muted: state.muted,
+      );
+    });
+    final volumeLabel = !widget.vertical && volume.hasReading
+        ? formatVolumeLabel(volume.volume)
+        : null;
     // The equalizer is the horizontal strip's playing mark; compact keeps
     // the keys alone and vertical strips are keys-only too.
     final showEqualizer = !widget.vertical && _mode != MediaMode.compact;
@@ -309,6 +323,27 @@ class _MediaPillState extends State<MediaPill> {
                     if (showText || showEqualizer) const SizedBox(width: 9),
                     ...controls,
                   ],
+                  // The sink readout trails the keys; vertical strips stay
+                  // keys-only like the rest of the pill.
+                  if (volumeLabel != null) ...[
+                    const SizedBox(width: 9),
+                    Semantics(
+                      label: l10n.mediaVolume,
+                      value: volumeLabel,
+                      child: ExcludeSemantics(
+                        child: Text(
+                          volumeLabel,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: ShellText.systemBarCaption.copyWith(
+                            color: volume.muted
+                                ? ShellMediaColors.lightForegroundSecondary
+                                : widget.accent.captionColor(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -396,6 +431,9 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
     );
   }
 }
+
+/// The pill's volume readout: the cubic level as a whole percent.
+String formatVolumeLabel(double volume) => '${(volume * 100).round()}%';
 
 /// The pill's playing mark: bars painted from the visualizer bloc's band
 /// levels. The analyzer runs only while the pill shows them, so the mark

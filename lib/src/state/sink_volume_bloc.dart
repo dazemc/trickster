@@ -13,6 +13,7 @@ class SinkVolumeState extends Equatable {
     this.volume = 0,
     this.muted = false,
     this.active = false,
+    this.hasReading = false,
   });
 
   /// Average channel volume, 0..1.
@@ -20,21 +21,31 @@ class SinkVolumeState extends Equatable {
   final bool muted;
   final bool active;
 
-  SinkVolumeState copyWith({double? volume, bool? muted, bool? active}) {
+  /// Whether a reading arrived; before the first one the level is unknown.
+  final bool hasReading;
+
+  SinkVolumeState copyWith({
+    double? volume,
+    bool? muted,
+    bool? active,
+    bool? hasReading,
+  }) {
     return SinkVolumeState(
       volume: volume ?? this.volume,
       muted: muted ?? this.muted,
       active: active ?? this.active,
+      hasReading: hasReading ?? this.hasReading,
     );
   }
 
   @override
-  List<Object?> get props => [volume, muted, active];
+  List<Object?> get props => [volume, muted, active, hasReading];
 
   Map<String, Object?> toJson() => {
     'volume': double.parse(volume.toStringAsFixed(3)),
     'muted': muted,
     'active': active,
+    'has_reading': hasReading,
   };
 
   static SinkVolumeState fromJson(Object? json) {
@@ -46,6 +57,7 @@ class SinkVolumeState extends Equatable {
       volume: volume is num ? volume.toDouble().clamp(0.0, 1.0) : 0,
       muted: json['muted'] == true,
       active: json['active'] == true,
+      hasReading: json['has_reading'] == true,
     );
   }
 }
@@ -120,7 +132,13 @@ class SinkVolumeBloc extends Bloc<SinkVolumeEvent, SinkVolumeState> {
 
   void _onSampled(SinkVolumeSampled event, Emitter<SinkVolumeState> emit) {
     _trace(event.level.volume);
-    emit(state.copyWith(volume: event.level.volume, muted: event.level.muted));
+    emit(
+      state.copyWith(
+        volume: event.level.volume,
+        muted: event.level.muted,
+        hasReading: true,
+      ),
+    );
   }
 
   void _onSetRequested(

@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'Left click controls playback; right click cycles the display mode'**
   String get mediaHint;
 
+  /// Accessible label for the media pill's sink volume percentage.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume'**
+  String get mediaVolume;
+
   /// Accessible hint for a tray item button.
   ///
   /// In en, this message translates to:

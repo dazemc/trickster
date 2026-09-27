@@ -112,6 +112,10 @@
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
+  "mediaVolume": "Volume",
+  "@mediaVolume": {
+    "description": "Accessible label for the media pill's sink volume percentage."
+  },
   "trayItemHint": "Activates the item",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."

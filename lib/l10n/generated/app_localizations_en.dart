@@ -86,6 +86,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Left click controls playback; right click cycles the display mode';
 
   @override
+  String get mediaVolume => 'Volume';
+
+  @override
   String get trayItemHint => 'Activates the item';
 
   @override

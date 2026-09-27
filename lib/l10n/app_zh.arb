@@ -112,6 +112,10 @@
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
+  "mediaVolume": "音量",
+  "@mediaVolume": {
+    "description": "Accessible label for the media pill's sink volume percentage."
+  },
   "trayItemHint": "激活该项目",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."

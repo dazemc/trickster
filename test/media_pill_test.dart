@@ -9,10 +9,12 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 import 'support/fake_bands.dart';
+import 'support/fake_volume.dart';
 import 'support/strip_harness.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
@@ -69,23 +71,29 @@ Future<void> _pump(
   MediaMode mode = MediaMode.semi,
   int bars = MediaOptions.defaultBars,
   FakeBandAnalyzer? analyzer,
+  FakePipeWireVolume? volume,
   SettingsBloc? settings,
   bool disableAnimations = false,
 }) async {
   final bloc = MediaBloc(service: service, initial: state);
   addTearDown(bloc.close);
-  // The pill persists its mode cycle through the settings bloc and drives
-  // the visualizer through its own; _pump owns whichever instances it uses.
+  // The pill persists its mode cycle through the settings bloc, drives the
+  // visualizer through its own, and paints the sink readout from the volume
+  // bloc; _pump owns whichever instances it uses.
   final settingsBloc = settings ?? SettingsBloc();
   addTearDown(settingsBloc.close);
   final visualizer = VisualizerBloc(analyzer: analyzer ?? FakeBandAnalyzer());
   addTearDown(visualizer.close);
+  final volumeBloc = SinkVolumeBloc(volume: volume ?? FakePipeWireVolume())
+    ..add(const SinkVolumeStarted());
+  addTearDown(volumeBloc.close);
   await tester.pumpWidget(
     MultiBlocProvider(
       providers: [
         BlocProvider<MediaBloc>.value(value: bloc),
         BlocProvider<SettingsBloc>.value(value: settingsBloc),
         BlocProvider<VisualizerBloc>.value(value: visualizer),
+        BlocProvider<SinkVolumeBloc>.value(value: volumeBloc),
       ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
@@ -350,6 +358,42 @@ void main() {
     await _until(tester, () => analyzer.starts.isNotEmpty);
 
     expect(_equalizerPainter(tester).levels, everyElement(0));
+  });
+
+  test('the volume label rounds to whole percent', () {
+    expect(formatVolumeLabel(0.58), '58%');
+    expect(formatVolumeLabel(0), '0%');
+    expect(formatVolumeLabel(1), '100%');
+  });
+
+  testWidgets('the pill paints the sink volume readout', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    expect(find.text('58%'), findsNothing);
+
+    volume.emit(0.58);
+    await _until(tester, () => find.text('58%').evaluate().isNotEmpty);
+    expect(find.text('58%'), findsOneWidget);
+
+    // A later reading repaints the readout.
+    volume.emit(0.31);
+    await _until(tester, () => find.text('31%').evaluate().isNotEmpty);
+    expect(find.text('58%'), findsNothing);
+  });
+
+  testWidgets('vertical strips stay keys-only', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, vertical: true, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+
+    volume.emit(0.58);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('58%'), findsNothing);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (
