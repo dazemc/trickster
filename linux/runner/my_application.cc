@@ -10,6 +10,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "pipewire_capture.h"
+#include "pipewire_volume.h"
 
 typedef struct {
   GtkWindow* window;
@@ -46,6 +47,7 @@ struct _MyApplication {
   gchar* layer_namespace;
   gchar* keyboard;
   TricksterCapture* capture;
+  TricksterVolume* volume;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -1106,6 +1108,8 @@ static void trickster_install_method_channel(MyApplication* self) {
                                             nullptr);
   self->capture = trickster_capture_new(
       fl_engine_get_binary_messenger(self->engine));
+  self->volume = trickster_volume_new(
+      fl_engine_get_binary_messenger(self->engine));
 }
 
 static void my_application_activate(GApplication* application) {
@@ -1292,6 +1296,7 @@ static void my_application_dispose(GObject* object) {
     self->compositor = nullptr;
   }
   g_clear_pointer(&self->capture, trickster_capture_free);
+  g_clear_pointer(&self->volume, trickster_volume_free);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);

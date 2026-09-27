@@ -10,6 +10,7 @@ import 'package:trickster/src/bar/blur_region.dart';
 import 'package:trickster/src/bar/calendar.dart';
 import 'package:trickster/src/bar/overlay_tooltip.dart';
 import 'package:trickster/src/bar/tray_menu.dart';
+import 'package:trickster/src/bar/volume_slider.dart';
 import 'package:trickster/src/bootstrap.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/session.dart';
@@ -34,6 +35,7 @@ import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/tray_menu.dart';
+import 'package:trickster/src/state/volume_slider_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/backdrop_blur.dart';
 
@@ -61,6 +63,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final LayerShell _layerShell;
   late final TrayMenuBloc _menuBloc;
   late final CalendarBloc _calendarBloc;
+  late final VolumeSliderBloc _volumeSliderBloc;
   late final OverlayTooltipBloc _tooltipBloc;
   late final WallpaperAccentBloc _wallpaperAccent;
   late final FileSettingsTransport _settingsTransport;
@@ -99,6 +102,7 @@ class _TricksterAppState extends State<TricksterApp>
     );
     _tooltipBloc = OverlayTooltipBloc(layerShell: _layerShell);
     _calendarBloc = CalendarBloc(layerShell: _layerShell);
+    _volumeSliderBloc = VolumeSliderBloc(layerShell: _layerShell);
     _wallpaperAccent = WallpaperAccentBloc(
       outputs: () => _outputs ?? const <LayerOutput>[],
       strip: () => (side: _lastOutputs.side, thickness: _lastOutputs.thickness),
@@ -140,6 +144,7 @@ class _TricksterAppState extends State<TricksterApp>
     unawaited(_control?.dispose());
     unawaited(_menuBloc.close());
     unawaited(_calendarBloc.close());
+    unawaited(_volumeSliderBloc.close());
     unawaited(_tooltipBloc.close());
     unawaited(_wallpaperAccent.close());
     super.dispose();
@@ -161,12 +166,14 @@ class _TricksterAppState extends State<TricksterApp>
         .toSet();
     _menuBloc.add(TrayMenuViewsRetained(liveViewIds));
     _calendarBloc.add(CalendarViewsRetained(liveViewIds));
+    _volumeSliderBloc.add(VolumeSliderViewsRetained(liveViewIds));
     _tooltipBloc.add(OverlayTooltipViewsRetained(liveViewIds));
     final barViews = liveViewIds
         .where(
           (viewId) =>
               !_menuBloc.state.isMenuView(viewId) &&
               !_calendarBloc.state.isCalendarView(viewId) &&
+              !_volumeSliderBloc.state.isSliderView(viewId) &&
               !_tooltipBloc.state.isTooltipView(viewId),
         )
         .toSet();
@@ -322,6 +329,7 @@ class _TricksterAppState extends State<TricksterApp>
                       for (final view in views)
                         if (_menuBloc.state.isMenuView(view.viewId) ||
                             _calendarBloc.state.isCalendarView(view.viewId) ||
+                            _volumeSliderBloc.state.isSliderView(view.viewId) ||
                             _tooltipBloc.state.isTooltipView(view.viewId))
                           view.viewId,
                     };
@@ -333,31 +341,34 @@ class _TricksterAppState extends State<TricksterApp>
                 value: _menuBloc,
                 child: BlocProvider<CalendarBloc>.value(
                   value: _calendarBloc,
-                  child: BlocProvider<OverlayTooltipBloc>.value(
-                    value: _tooltipBloc,
-                    child: ModuleScope(
-                      // The control status handler needs a context below the
-                      // module providers to read their states.
-                      child: Builder(
-                        builder: (context) {
-                          _moduleContext = context;
-                          return ViewCollection(
-                            views: outputs.active
-                                ? <Widget>[
-                                    for (final view in views)
-                                      if (hostedViewIds == null ||
-                                          hostedViewIds.contains(view.viewId))
-                                        _ViewSurface(
-                                          key: ValueKey<int>(view.viewId),
-                                          view: view,
-                                          layerShell: _layerShell,
-                                          blur: blur,
-                                          output: viewOutputs[view.viewId],
-                                        ),
-                                  ]
-                                : const <Widget>[],
-                          );
-                        },
+                  child: BlocProvider<VolumeSliderBloc>.value(
+                    value: _volumeSliderBloc,
+                    child: BlocProvider<OverlayTooltipBloc>.value(
+                      value: _tooltipBloc,
+                      child: ModuleScope(
+                        // The control status handler needs a context below the
+                        // module providers to read their states.
+                        child: Builder(
+                          builder: (context) {
+                            _moduleContext = context;
+                            return ViewCollection(
+                              views: outputs.active
+                                  ? <Widget>[
+                                      for (final view in views)
+                                        if (hostedViewIds == null ||
+                                            hostedViewIds.contains(view.viewId))
+                                          _ViewSurface(
+                                            key: ValueKey<int>(view.viewId),
+                                            view: view,
+                                            layerShell: _layerShell,
+                                            blur: blur,
+                                            output: viewOutputs[view.viewId],
+                                          ),
+                                    ]
+                                  : const <Widget>[],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -412,6 +423,9 @@ class _ViewSurfaceState extends State<_ViewSurface> {
   bool get _isOverlayView {
     return context.read<TrayMenuBloc>().state.isMenuView(widget.view.viewId) ||
         context.read<CalendarBloc>().state.isCalendarView(widget.view.viewId) ||
+        context.read<VolumeSliderBloc>().state.isSliderView(
+          widget.view.viewId,
+        ) ||
         context.read<OverlayTooltipBloc>().state.isTooltipView(
           widget.view.viewId,
         );
@@ -454,34 +468,48 @@ class _ViewSurfaceState extends State<_ViewSurface> {
     builder: (context) => BlocBuilder<TrayMenuBloc, TrayMenuState>(
       builder: (context, menuState) => BlocBuilder<CalendarBloc, CalendarState>(
         builder: (context, calendarState) =>
-            BlocBuilder<OverlayTooltipBloc, OverlayTooltipState>(
-              builder: (context, tooltipState) {
-                if (menuState.isMenuView(widget.view.viewId)) {
-                  final session = menuState.session;
-                  if (session == null || session.viewId != widget.view.viewId) {
-                    return const SizedBox.shrink();
-                  }
-                  return TrayMenuSurface(session: session);
-                }
-                if (calendarState.isCalendarView(widget.view.viewId)) {
-                  final session = calendarState.session;
-                  if (session == null || session.viewId != widget.view.viewId) {
-                    return const SizedBox.shrink();
-                  }
-                  return CalendarSurface(session: session);
-                }
-                if (tooltipState.isTooltipView(widget.view.viewId)) {
-                  final session = tooltipState.session;
-                  if (session == null || session.viewId != widget.view.viewId) {
-                    return const SizedBox.shrink();
-                  }
-                  return OverlayTooltipSurface(session: session);
-                }
-                return BlurRegionScope(
-                  controller: _blurRegions,
-                  child: _BarSurface(output: widget.output),
-                );
-              },
+            BlocBuilder<VolumeSliderBloc, VolumeSliderState>(
+              builder: (context, sliderState) =>
+                  BlocBuilder<OverlayTooltipBloc, OverlayTooltipState>(
+                    builder: (context, tooltipState) {
+                      if (menuState.isMenuView(widget.view.viewId)) {
+                        final session = menuState.session;
+                        if (session == null ||
+                            session.viewId != widget.view.viewId) {
+                          return const SizedBox.shrink();
+                        }
+                        return TrayMenuSurface(session: session);
+                      }
+                      if (calendarState.isCalendarView(widget.view.viewId)) {
+                        final session = calendarState.session;
+                        if (session == null ||
+                            session.viewId != widget.view.viewId) {
+                          return const SizedBox.shrink();
+                        }
+                        return CalendarSurface(session: session);
+                      }
+                      if (sliderState.isSliderView(widget.view.viewId)) {
+                        final session = sliderState.session;
+                        if (session == null ||
+                            session.viewId != widget.view.viewId) {
+                          return const SizedBox.shrink();
+                        }
+                        return VolumeSliderSurface(session: session);
+                      }
+                      if (tooltipState.isTooltipView(widget.view.viewId)) {
+                        final session = tooltipState.session;
+                        if (session == null ||
+                            session.viewId != widget.view.viewId) {
+                          return const SizedBox.shrink();
+                        }
+                        return OverlayTooltipSurface(session: session);
+                      }
+                      return BlurRegionScope(
+                        controller: _blurRegions,
+                        child: _BarSurface(output: widget.output),
+                      );
+                    },
+                  ),
             ),
       ),
     ),

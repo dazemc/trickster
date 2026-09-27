@@ -112,6 +112,10 @@
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
+  "mediaVolume": "音量",
+  "@mediaVolume": {
+    "description": "Accessible label for the media pill's sink volume percentage."
+  },
   "trayItemHint": "激活该项目",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."
@@ -513,6 +517,10 @@
   "settingsMediaBars": "均衡器柱数",
   "@settingsMediaBars": {
     "description": "Label for the media equalizer bar-count slider."
+  },
+  "settingsVolumeStep": "音量步进",
+  "@settingsVolumeStep": {
+    "description": "Label for the per-notch sink volume step slider."
   },
   "settingsMeterPrefixHint": "例如 CPU",
   "@settingsMeterPrefixHint": {

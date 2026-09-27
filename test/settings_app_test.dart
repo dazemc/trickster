@@ -1064,6 +1064,24 @@ void main() {
     await tester.pump();
     expect(bloc.settings.media.bars, MediaOptions.defaultBars);
 
+    final stepSlider = find.byKey(const ValueKey<String>('media-volume-step'));
+    await tester.ensureVisible(stepSlider);
+    await tester.pumpAndSettle();
+    final stepRect = tester.getRect(stepSlider);
+    await tester.tapAt(Offset(stepRect.right - 2, stepRect.center.dy));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.volumeStep, MediaOptions.maxVolumeStep);
+    final resetStep = find.byKey(
+      const ValueKey<String>('reset-media-volume-step'),
+    );
+    await tester.ensureVisible(resetStep);
+    await tester.pumpAndSettle();
+    await tester.tap(resetStep);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.media.volumeStep, MediaOptions.defaultVolumeStep);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),

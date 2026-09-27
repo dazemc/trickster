@@ -24,6 +24,7 @@ import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/tray_menu.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
@@ -31,6 +32,7 @@ import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 import 'fake_bands.dart';
+import 'fake_volume.dart';
 
 /// A layer shell whose surfaces live only inside the test binding.
 class SilentLayerShell extends LayerShell {
@@ -125,6 +127,7 @@ Future<void> pumpBarHarness(
   WorkspacesBloc Function()? workspacesBuilder,
   MediaBloc Function()? mediaBuilder,
   VisualizerBloc Function()? visualizerBuilder,
+  SinkVolumeBloc Function()? volumeBuilder,
   Duration settle = Duration.zero,
 }) async {
   await tester.pumpWidget(
@@ -160,6 +163,9 @@ Future<void> pumpBarHarness(
             visualizerBuilder:
                 visualizerBuilder ??
                 () => VisualizerBloc(analyzer: FakeBandAnalyzer()),
+            volumeBuilder:
+                volumeBuilder ??
+                () => SinkVolumeBloc(volume: FakePipeWireVolume()),
             child: wallpaperAccent == null
                 ? BlocProvider<WallpaperAccentBloc>(
                     create: (_) => WallpaperAccentBloc(watch: false),

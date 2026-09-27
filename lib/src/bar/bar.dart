@@ -180,6 +180,7 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                   accent: accent,
                   mode: settings.media.mode,
                   bars: settings.media.bars,
+                  volumeStep: settings.media.volumeStep / 100,
                   vertical: vertical,
                 ),
               ),

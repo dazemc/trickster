@@ -86,6 +86,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Left click controls playback; right click cycles the display mode';
 
   @override
+  String get mediaVolume => 'Volume';
+
+  @override
   String get trayItemHint => 'Activates the item';
 
   @override
@@ -386,6 +389,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsMediaBars => 'Equalizer bars';
+
+  @override
+  String get settingsVolumeStep => 'Volume step';
 
   @override
   String get settingsMeterPrefixHint => 'e.g. CPU';

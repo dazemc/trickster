@@ -112,6 +112,10 @@
   "@mediaHint": {
     "description": "Accessible hint for the media pill."
   },
+  "mediaVolume": "Volume",
+  "@mediaVolume": {
+    "description": "Accessible label for the media pill's sink volume percentage."
+  },
   "trayItemHint": "Activates the item",
   "@trayItemHint": {
     "description": "Accessible hint for a tray item button."
@@ -513,6 +517,10 @@
   "settingsMediaBars": "Equalizer bars",
   "@settingsMediaBars": {
     "description": "Label for the media equalizer bar-count slider."
+  },
+  "settingsVolumeStep": "Volume step",
+  "@settingsVolumeStep": {
+    "description": "Label for the per-notch sink volume step slider."
   },
   "settingsMeterPrefixHint": "e.g. CPU",
   "@settingsMeterPrefixHint": {

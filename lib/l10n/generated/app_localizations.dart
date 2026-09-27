@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'Left click controls playback; right click cycles the display mode'**
   String get mediaHint;
 
+  /// Accessible label for the media pill's sink volume percentage.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume'**
+  String get mediaVolume;
+
   /// Accessible hint for a tray item button.
   ///
   /// In en, this message translates to:
@@ -829,6 +835,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Equalizer bars'**
   String get settingsMediaBars;
+
+  /// Label for the per-notch sink volume step slider.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume step'**
+  String get settingsVolumeStep;
 
   /// Placeholder for the custom meter caption input.
   ///

@@ -85,6 +85,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mediaHint => '左键控制播放；右键切换显示模式';
 
   @override
+  String get mediaVolume => '音量';
+
+  @override
   String get trayItemHint => '激活该项目';
 
   @override
@@ -381,6 +384,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsMediaBars => '均衡器柱数';
+
+  @override
+  String get settingsVolumeStep => '音量步进';
 
   @override
   String get settingsMeterPrefixHint => '例如 CPU';

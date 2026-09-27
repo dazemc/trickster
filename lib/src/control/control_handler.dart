@@ -14,7 +14,9 @@ import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
+import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// The bar's control request dispatcher: `version`, `status`, and the
@@ -68,6 +70,10 @@ Future<Map<String, Object?>> handleControlRequest({
             'tray': bloc.state.toJson(),
           if (_read<MediaBloc>(context) case final bloc?)
             'media': bloc.state.toJson(),
+          if (_read<VisualizerBloc>(context) case final bloc?)
+            'visualizer': bloc.state.toJson(),
+          if (_read<SinkVolumeBloc>(context) case final bloc?)
+            'sink_volume': bloc.state.toJson(),
         },
       };
     case 'reload':

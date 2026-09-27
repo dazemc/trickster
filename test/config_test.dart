@@ -218,7 +218,7 @@ void main() {
           sparkline: false,
         ),
         appearance: AppearanceOptions(blur: false),
-        media: MediaOptions(mode: MediaMode.compact, bars: 7),
+        media: MediaOptions(mode: MediaMode.compact, bars: 7, volumeStep: 9),
       );
       final decoded = BarSettings.decode(settings.encode());
       expect(decoded.cpu.warn, 0.7);
@@ -244,6 +244,7 @@ void main() {
       expect(decoded.appearance.blur, isFalse);
       expect(decoded.media.mode, MediaMode.compact);
       expect(decoded.media.bars, 7);
+      expect(decoded.media.volumeStep, 9);
       expect(
         MediaOptions.fromJson(<String, dynamic>{'bars': 99}).bars,
         MediaOptions.maxBars,
@@ -251,6 +252,14 @@ void main() {
       expect(
         MediaOptions.fromJson(<String, dynamic>{'bars': 1}).bars,
         MediaOptions.minBars,
+      );
+      expect(
+        MediaOptions.fromJson(<String, dynamic>{'volume_step': 99}).volumeStep,
+        MediaOptions.maxVolumeStep,
+      );
+      expect(
+        MediaOptions.fromJson(<String, dynamic>{'volume_step': 0}).volumeStep,
+        MediaOptions.minVolumeStep,
       );
       const bare = BarSettings();
       expect(bare.cpu.warn, 0.85);

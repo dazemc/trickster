@@ -1,7 +1,9 @@
-import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
+import 'package:flutter/gestures.dart'
+    show PointerDeviceKind, kSecondaryMouseButton;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/bar/media.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -9,10 +11,14 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
+import 'package:trickster/src/state/volume_slider_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/icons.dart';
 
 import 'support/fake_bands.dart';
+import 'support/fake_volume.dart';
 import 'support/strip_harness.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
@@ -68,24 +74,35 @@ Future<void> _pump(
   bool vertical = false,
   MediaMode mode = MediaMode.semi,
   int bars = MediaOptions.defaultBars,
+  double volumeStep = MediaOptions.defaultVolumeStep / 100,
   FakeBandAnalyzer? analyzer,
+  FakePipeWireVolume? volume,
+  VolumeSliderBloc? slider,
   SettingsBloc? settings,
   bool disableAnimations = false,
 }) async {
   final bloc = MediaBloc(service: service, initial: state);
   addTearDown(bloc.close);
-  // The pill persists its mode cycle through the settings bloc and drives
-  // the visualizer through its own; _pump owns whichever instances it uses.
+  // The pill persists its mode cycle through the settings bloc, drives the
+  // visualizer through its own, and paints the sink readout from the volume
+  // bloc; _pump owns whichever instances it uses.
   final settingsBloc = settings ?? SettingsBloc();
   addTearDown(settingsBloc.close);
   final visualizer = VisualizerBloc(analyzer: analyzer ?? FakeBandAnalyzer());
   addTearDown(visualizer.close);
+  final volumeBloc = SinkVolumeBloc(volume: volume ?? FakePipeWireVolume())
+    ..add(const SinkVolumeStarted());
+  addTearDown(volumeBloc.close);
+  final sliderBloc = slider ?? VolumeSliderBloc(layerShell: SilentLayerShell());
+  addTearDown(sliderBloc.close);
   await tester.pumpWidget(
     MultiBlocProvider(
       providers: [
         BlocProvider<MediaBloc>.value(value: bloc),
         BlocProvider<SettingsBloc>.value(value: settingsBloc),
         BlocProvider<VisualizerBloc>.value(value: visualizer),
+        BlocProvider<SinkVolumeBloc>.value(value: volumeBloc),
+        BlocProvider<VolumeSliderBloc>.value(value: sliderBloc),
       ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
@@ -96,6 +113,7 @@ Future<void> _pump(
                 accent: _accent,
                 mode: mode,
                 bars: bars,
+                volumeStep: volumeStep,
                 vertical: vertical,
               ),
             ),
@@ -350,6 +368,179 @@ void main() {
     await _until(tester, () => analyzer.starts.isNotEmpty);
 
     expect(_equalizerPainter(tester).levels, everyElement(0));
+  });
+
+  test('the volume label rounds to whole percent', () {
+    expect(formatVolumeLabel(0.58), '58%');
+    expect(formatVolumeLabel(0), '0%');
+    expect(formatVolumeLabel(1), '100%');
+  });
+
+  test('volume glyphs follow the level', () {
+    expect(volumeGlyphFor(0.1), LucideIcons.volume);
+    expect(volumeGlyphFor(0.5), LucideIcons.volume1);
+    expect(volumeGlyphFor(0.9), LucideIcons.volume2);
+    expect(volumeGlyphFor(0.9, muted: true), LucideIcons.volumeX);
+  });
+
+  testWidgets('the pill paints the glyph that matches the level', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+
+    volume.emit(0.1);
+    await _until(
+      tester,
+      () => find
+          .byWidgetPredicate(
+            (widget) => widget is Icon && widget.icon == LucideIcons.volume,
+          )
+          .evaluate()
+          .isNotEmpty,
+    );
+
+    volume.emit(0.9);
+    await _until(
+      tester,
+      () => find
+          .byWidgetPredicate(
+            (widget) => widget is Icon && widget.icon == LucideIcons.volume2,
+          )
+          .evaluate()
+          .isNotEmpty,
+    );
+  });
+
+  testWidgets('the pill paints the sink volume readout', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    expect(find.text('58%'), findsNothing);
+
+    volume.emit(0.58);
+    await _until(tester, () => find.text('58%').evaluate().isNotEmpty);
+    expect(find.text('58%'), findsOneWidget);
+
+    // A later reading repaints the readout.
+    volume.emit(0.31);
+    await _until(tester, () => find.text('31%').evaluate().isNotEmpty);
+    expect(find.text('58%'), findsNothing);
+  });
+
+  testWidgets('vertical strips stay keys-only', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, vertical: true, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+
+    volume.emit(0.58);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('58%'), findsNothing);
+  });
+
+  testWidgets('a muted sink paints the readout in the accent color', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+
+    volume.emit(0.58, muted: true);
+    await _until(tester, () => find.text('58%').evaluate().isNotEmpty);
+
+    final text = tester.widget<Text>(find.text('58%'));
+    expect(text.style?.color, _accent.color);
+    final glyph = tester.widget<Icon>(
+      find.byWidgetPredicate(
+        (widget) => widget is Icon && widget.icon == LucideIcons.volumeX,
+      ),
+    );
+    expect(glyph.color, _accent.color);
+  });
+
+  test('scrolling steps the level and clamps', () {
+    expect(volumeAfterScroll(0.5, 0.05), closeTo(0.55, 0.0001));
+    expect(volumeAfterScroll(0.5, -0.05), closeTo(0.45, 0.0001));
+    expect(volumeAfterScroll(0.98, 0.05), 1.0);
+    expect(volumeAfterScroll(0.02, -0.05), 0.0);
+  });
+
+  testWidgets('scrolling the readout steps the sink', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    final pointer = TestPointer(1, PointerDeviceKind.mouse);
+    final center = tester.getCenter(find.byKey(MediaPill.volumeKey));
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -40)));
+    await tester.pump();
+    expect(volume.sets, hasLength(1));
+    expect(volume.sets.single, closeTo(0.55, 0.0001));
+
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 40)));
+    await tester.pump();
+    expect(volume.sets, hasLength(2));
+    expect(volume.sets.last, closeTo(0.5, 0.0001));
+  });
+
+  testWidgets('the scroll step follows the configured size', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume, volumeStep: 0.1);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    final pointer = TestPointer(3, PointerDeviceKind.mouse);
+    final center = tester.getCenter(find.byKey(MediaPill.volumeKey));
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -40)));
+    await tester.pump();
+
+    expect(volume.sets.single, closeTo(0.6, 0.0001));
+  });
+
+  testWidgets('tapping the readout opens the volume slider', (tester) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    final slider = VolumeSliderBloc(layerShell: SilentLayerShell());
+    await _pump(tester, _state(), service, volume: volume, slider: slider);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    await tester.tap(find.byKey(MediaPill.volumeKey));
+    await _until(tester, () => slider.state.isOpen);
+  });
+
+  testWidgets('scrolling elsewhere on the pill leaves the sink alone', (
+    tester,
+  ) async {
+    final service = _FakeMediaPlayerService();
+    final volume = FakePipeWireVolume();
+    await _pump(tester, _state(), service, volume: volume);
+    await _until(tester, () => volume.starts.isNotEmpty);
+    volume.emit(0.5);
+    await _until(tester, () => find.text('50%').evaluate().isNotEmpty);
+
+    final pointer = TestPointer(2, PointerDeviceKind.mouse);
+    final center = tester.getCenter(find.byKey(MediaPill.equalizerKey));
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, -40)));
+    await tester.pump();
+
+    expect(volume.sets, isEmpty);
   });
 
   testWidgets('unavailable capabilities absorb taps without collapsing', (

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,12 +6,16 @@ import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart'
     show MediaMode, MediaOptions;
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
+import 'package:trickster/src/state/volume_slider_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
+import 'package:trickster/src/theme/icons.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
@@ -22,6 +27,7 @@ class MediaPill extends StatefulWidget {
     required this.accent,
     this.mode = MediaMode.semi,
     this.bars = MediaOptions.defaultBars,
+    this.volumeStep = MediaOptions.defaultVolumeStep / 100,
     this.vertical = false,
     super.key,
   });
@@ -32,6 +38,9 @@ class MediaPill extends StatefulWidget {
   /// The equalizer mark painted in full and semi modes.
   static const Key equalizerKey = ValueKey<String>('media-equalizer');
 
+  /// The sink volume readout; scrolling over it steps the sink.
+  static const Key volumeKey = ValueKey<String>('media-volume');
+
   final WallpaperAccent accent;
 
   /// The configured display mode; tapping cycles transiently from it and a
@@ -40,6 +49,9 @@ class MediaPill extends StatefulWidget {
 
   /// Bars the equalizer mark paints; the analyzer's bands fold into them.
   final int bars;
+
+  /// How much one wheel notch over the readout moves the sink (0..1).
+  final double volumeStep;
 
   /// Vertical strips show only the transport controls, stacked and always
   /// visible.
@@ -105,6 +117,28 @@ class _MediaPillState extends State<MediaPill> {
     );
   }
 
+  /// Steps the sink through the bloc's setter, which the watcher echoes back.
+  void _stepVolume(double delta) {
+    final volume = context.read<SinkVolumeBloc>();
+    volume.add(
+      SinkVolumeSetRequested(volumeAfterScroll(volume.state.volume, delta)),
+    );
+  }
+
+  /// Opens the slider overlay anchored at the readout.
+  void _openVolumeSlider(Offset position) {
+    final geometry = StripGeometry.maybeOf(context);
+    context.read<VolumeSliderBloc>().add(
+      VolumeSliderRequested(
+        barViewId: View.of(context).viewId,
+        accent: widget.accent,
+        click: position,
+        side: geometry?.side ?? SystemBarSide.top,
+        thickness: geometry?.thickness ?? 32,
+      ),
+    );
+  }
+
   /// Right-click cycle: the text card, then just the transport keys, then the
   /// full card, back around. The choice is saved, so the document and the
   /// settings application follow it.
@@ -148,6 +182,26 @@ class _MediaPillState extends State<MediaPill> {
     });
     final showText = _mode == MediaMode.full;
     final showSecondary = showText;
+    // The sink volume readout: only once a reading arrived, and only on
+    // horizontal strips.
+    final volume = context.select((SinkVolumeBloc bloc) {
+      final state = bloc.state;
+      return (
+        hasReading: state.hasReading,
+        volume: state.volume,
+        muted: state.muted,
+      );
+    });
+    final volumeLabel = !widget.vertical && volume.hasReading
+        ? formatVolumeLabel(volume.volume)
+        : null;
+    final volumeGlyph = volumeLabel != null
+        ? volumeGlyphFor(volume.volume, muted: volume.muted)
+        : null;
+    // Muted reads in the accent itself; otherwise the calmer caption tone.
+    final volumeColor = volume.muted
+        ? widget.accent.color
+        : widget.accent.captionColor();
     // The equalizer is the horizontal strip's playing mark; compact keeps
     // the keys alone and vertical strips are keys-only too.
     final showEqualizer = !widget.vertical && _mode != MediaMode.compact;
@@ -309,6 +363,66 @@ class _MediaPillState extends State<MediaPill> {
                     if (showText || showEqualizer) const SizedBox(width: 9),
                     ...controls,
                   ],
+                  // The sink readout trails the keys; vertical strips stay
+                  // keys-only like the rest of the pill.
+                  if (volumeLabel != null) ...[
+                    const SizedBox(width: 9),
+                    Semantics(
+                      label: l10n.mediaVolume,
+                      value: volumeLabel,
+                      increasedValue: formatVolumeLabel(
+                        volumeAfterScroll(volume.volume, widget.volumeStep),
+                      ),
+                      decreasedValue: formatVolumeLabel(
+                        volumeAfterScroll(volume.volume, -widget.volumeStep),
+                      ),
+                      onIncrease: () => _stepVolume(widget.volumeStep),
+                      onDecrease: () => _stepVolume(-widget.volumeStep),
+                      child: ExcludeSemantics(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (details) =>
+                              _openVolumeSlider(details.globalPosition),
+                          child: Listener(
+                            key: MediaPill.volumeKey,
+                            behavior: HitTestBehavior.opaque,
+                            // Wheel up is louder, wheel down quieter.
+                            onPointerSignal: (event) {
+                              if (event is PointerScrollEvent &&
+                                  event.scrollDelta.dy != 0) {
+                                _stepVolume(
+                                  event.scrollDelta.dy < 0
+                                      ? widget.volumeStep
+                                      : -widget.volumeStep,
+                                );
+                              }
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (volumeGlyph != null) ...[
+                                  Icon(
+                                    volumeGlyph,
+                                    size: 12,
+                                    color: volumeColor,
+                                  ),
+                                  const SizedBox(width: 3),
+                                ],
+                                Text(
+                                  volumeLabel,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: ShellText.systemBarCaption.copyWith(
+                                    color: volumeColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -396,6 +510,13 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
     );
   }
 }
+
+/// The pill's volume readout: the cubic level as a whole percent.
+String formatVolumeLabel(double volume) => '${(volume * 100).round()}%';
+
+/// One wheel notch over the readout: [delta] is ±5%, clamped to 0..1.
+double volumeAfterScroll(double volume, double delta) =>
+    (volume + delta).clamp(0.0, 1.0);
 
 /// The pill's playing mark: bars painted from the visualizer bloc's band
 /// levels. The analyzer runs only while the pill shows them, so the mark
