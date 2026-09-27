@@ -15,20 +15,6 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase 23 — media visualizer
-
-The media pill's equalizer is decorative today: MPRIS carries no audio data,
-so the bars only key off play/pause. Make them real: capture the default
-sink's monitor stream, analyze bands off the frame loop, and paint the bars
-from the levels. No subprocesses (no `parec`/`pw-cat`); the runner links
-libpipewire and streams PCM. When capture is unavailable, quiet, or the
-sink is idle, the bars rest.
-
-- **23.3 (S) Bars from levels.** The pill's equalizer paints the bloc's
-  band levels instead of the synthetic loop, keeping the static rest when
-  capture is unavailable; reduced motion still freezes the bars. Done when
-  the live bars track the music and widget tests pin the level mapping.
-
 ## Phase 24 — sink volume
 
 The media pill shows no volume today: the host's own keys and mixers are the
