@@ -20,12 +20,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 The media pill shows no volume today: the host's own keys and mixers are the
 only way to change the default sink. Show the level and let the pill set it.
 
-- **24.1 (M) Sink volume over PipeWire.** The runner watches the default
-  sink (WirePlumber's `default.audio.sink` metadata), reads its channel
-  volumes, and pushes changes over the capture channel; a bloc exposes the
-  level and a setter, so external changes (host keys, wpctl) follow live.
-  Done when the live bar logs sink volume changes and a probe set updates
-  `wpctl get-volume`.
 - **24.2 (S) Volume percentage in the media pill.** The pill paints the
   sink's level beside the transport keys; the label disappears with the
   pill and starts no work of its own. Done when the live percentage matches
