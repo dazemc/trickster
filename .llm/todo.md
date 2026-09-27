@@ -24,11 +24,6 @@ from the levels. No subprocesses (no `parec`/`pw-cat`); the runner links
 libpipewire and streams PCM. When capture is unavailable, quiet, or the
 sink is idle, the bars rest.
 
-- **23.1 (M) PipeWire monitor capture.** The Linux runner opens the default
-  sink's monitor via libpipewire (0.3) and streams raw PCM to Dart over a
-  method/event channel, started and stopped on demand. Done when the live
-  bar receives frames while audio plays and the stream tears down with the
-  process and on stop.
 - **23.2 (M) Band analysis off the frame loop.** A worker isolate turns the
   PCM frames into a small band set at ~30 Hz and a bloc exposes the levels;
   the module holds zero timers and zero subscriptions while no media plays.
@@ -38,3 +33,25 @@ sink is idle, the bars rest.
   band levels instead of the synthetic loop, keeping the static rest when
   capture is unavailable; reduced motion still freezes the bars. Done when
   the live bars track the music and widget tests pin the level mapping.
+
+## Phase 24 — sink volume
+
+The media pill shows no volume today: the host's own keys and mixers are the
+only way to change the default sink. Show the level and let the pill set it.
+
+- **24.1 (M) Sink volume over PipeWire.** The runner watches the default
+  sink (WirePlumber's `default.audio.sink` metadata), reads its channel
+  volumes, and pushes changes over the capture channel; a bloc exposes the
+  level and a setter, so external changes (host keys, wpctl) follow live.
+  Done when the live bar logs sink volume changes and a probe set updates
+  `wpctl get-volume`.
+- **24.2 (S) Volume percentage in the media pill.** The pill paints the
+  sink's level beside the transport keys; the label disappears with the
+  pill and starts no work of its own. Done when the live percentage matches
+  `wpctl get-volume` and a test pins the label mapping.
+- **24.3 (M) Volume slider on click.** Clicking the percentage opens a
+  slider on a transient overlay surface (the calendar/tray-menu lifecycle:
+  anchored and clamped, outside-click and Escape dismissal, hosted-blur
+  choice honored), and dragging sets the sink volume live. Done when the
+  live slider moves the sink and widget tests pin the drag mapping and
+  dismissal.
