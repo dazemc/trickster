@@ -21,7 +21,9 @@ and this file is corrected.
 - Denial's desktop system bar: floating pill cards, wallpaper-derived or
   configured accent, spring entrance, trailing-edge module cluster.
 - Modules in Denial parity: clock, battery (UPower), media (MPRIS), system
-  tray (StatusNotifier), CPU/GPU, workspaces.
+  tray (StatusNotifier), CPU/GPU, workspaces. A non-Denial addition reads
+  OpenCode's local server for its Go allowance windows and the newest
+  session's tokens and cost.
 - Configured like Denial: files on disk. The `TricksterBar(...)` Dart API is
   the typed in-memory model those files decode into, not the user interface.
 
