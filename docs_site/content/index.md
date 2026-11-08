@@ -24,7 +24,7 @@ Displays <────────────── host composition <───
 ```
 
 <Info>
-Trickster is in early development (v0.2.1). Modules, config schema, and the control protocol can still change before 1.0.
+Trickster is in early development (v0.2.2). Modules, config schema, and the control protocol can still change before 1.0.
 </Info>
 
 ## Where to go next
