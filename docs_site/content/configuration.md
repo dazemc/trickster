@@ -121,6 +121,13 @@ rejected at decode, so a live reload keeps the last-good settings.
   paints from the default sink's band levels, and `media.volume_step`
   (1–25, default 5) sets the percent each wheel notch over the volume
   readout moves the sink.
+- `opencode.meter` (`rolling`, `weekly`, or `monthly`, default `rolling`) —
+  which OpenCode Go allowance window the pill headlines; the hover label
+  always carries all three. `opencode.show_cost` (bool, default `true`) —
+  append the newest session's cost to the headline. The module reads the
+  running server's state document (`$XDG_STATE_HOME/opencode/service.json`)
+  and polls the usage limits and newest session once a minute while it is
+  configured; a stopped server hides the pill.
 - The retired `meter` object (shared caption source and sparkline) is read
   once as a fallback for `cpu` and `gpu` and never written again.
 
