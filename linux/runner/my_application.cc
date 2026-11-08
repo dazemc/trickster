@@ -1226,7 +1226,7 @@ static gboolean my_application_local_command_line(GApplication* application,
     }
   }
   if (want_version) {
-    g_print("trickster 0.2.0\n");
+    g_print("trickster 0.2.1\n");
     *exit_status = 0;
     return TRUE;
   }
