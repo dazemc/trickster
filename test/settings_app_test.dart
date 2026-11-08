@@ -756,11 +756,12 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
-    // Trailing holds media, cpu, gpu, battery, clock; media goes last.
+    // Trailing holds media, cpu, gpu, battery, clock, opencode; media goes
+    // last.
     await _dragModuleBelow(
       tester,
       'media',
-      find.byKey(const ValueKey<String>('module-clock')),
+      find.byKey(const ValueKey<String>('module-opencode')),
     );
     expect(bloc.settings.zoneFor('media'), ModuleZone.trailing);
     expect(bloc.settings.modules.last, 'media');

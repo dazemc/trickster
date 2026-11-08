@@ -557,6 +557,76 @@ class MediaOptions extends Equatable {
   }
 }
 
+/// Which OpenCode Go allowance window the pill headlines.
+enum OpencodeMeter {
+  rolling('rolling'),
+  weekly('weekly'),
+  monthly('monthly');
+
+  const OpencodeMeter(this.wire);
+
+  final String wire;
+
+  static OpencodeMeter parse(Object? value) {
+    if (value == null) {
+      return OpencodeMeter.rolling;
+    }
+    for (final meter in OpencodeMeter.values) {
+      if (meter.wire == value) {
+        return meter;
+      }
+    }
+    throw FormatException(
+      'settings.opencode.meter must be one of '
+      '${OpencodeMeter.values.map((meter) => meter.wire).join(', ')}',
+    );
+  }
+}
+
+/// Typed options for the OpenCode usage pill.
+class OpencodeOptions extends Equatable {
+  const OpencodeOptions({
+    this.meter = OpencodeMeter.rolling,
+    this.showCost = true,
+  });
+
+  /// The Go allowance window the pill headlines; the tooltip always carries
+  /// all three.
+  final OpencodeMeter meter;
+
+  /// Whether the newest session's cost joins the headline.
+  final bool showCost;
+
+  @override
+  List<Object?> get props => [meter, showCost];
+
+  Map<String, Object?> toJson() => {
+    'meter': meter.wire,
+    'show_cost': showCost,
+  };
+
+  OpencodeOptions copyWith({OpencodeMeter? meter, bool? showCost}) {
+    return OpencodeOptions(
+      meter: meter ?? this.meter,
+      showCost: showCost ?? this.showCost,
+    );
+  }
+
+  static OpencodeOptions fromJson(Object? json) {
+    if (json == null) {
+      return const OpencodeOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.opencode must be an object');
+    }
+    final showCost = json['show_cost'];
+    return OpencodeOptions(
+      meter: OpencodeMeter.parse(json['meter']),
+      showCost: showCost is bool ? showCost : true,
+    );
+  }
+}
+
 /// Typed options for the battery pill.
 class BatteryOptions extends Equatable {
   const BatteryOptions({this.warn = 20, this.critical = 10});
@@ -816,6 +886,7 @@ class BarSettings extends Equatable {
     'gpu',
     'battery',
     'clock',
+    'opencode',
   ];
 
   const BarSettings({
@@ -834,6 +905,7 @@ class BarSettings extends Equatable {
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
     this.media = const MediaOptions(),
+    this.opencode = const OpencodeOptions(),
   });
 
   /// Supported UI language tag (`en`, `zh`); null follows the system.
@@ -866,6 +938,7 @@ class BarSettings extends Equatable {
   final BatteryOptions battery;
   final GpuOptions gpu;
   final MediaOptions media;
+  final OpencodeOptions opencode;
 
   // Spread: Equatable compares props element-wise, so spreading gives deep
   // equality over the module list.
@@ -887,6 +960,7 @@ class BarSettings extends Equatable {
     battery,
     gpu,
     media,
+    opencode,
   ];
 
   bool includes(String module) => modules.contains(module);
@@ -939,6 +1013,7 @@ class BarSettings extends Equatable {
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
     'media': media.toJson(),
+    'opencode': opencode.toJson(),
     'appearance': appearance.toJson(),
     'workspaces': workspaces.toJson(),
   };
@@ -965,6 +1040,7 @@ class BarSettings extends Equatable {
       battery: battery,
       gpu: gpu,
       media: media,
+      opencode: opencode,
     );
   }
 
@@ -987,6 +1063,7 @@ class BarSettings extends Equatable {
       battery: battery,
       gpu: gpu,
       media: media,
+      opencode: opencode,
     );
   }
 
@@ -1009,6 +1086,7 @@ class BarSettings extends Equatable {
       battery: battery,
       gpu: gpu,
       media: media,
+      opencode: opencode,
     );
   }
 
@@ -1022,6 +1100,7 @@ class BarSettings extends Equatable {
     BatteryOptions? battery,
     GpuOptions? gpu,
     MediaOptions? media,
+    OpencodeOptions? opencode,
     String? locale,
     AccentSource? accentSource,
     String? accentWallpaperPick,
@@ -1046,6 +1125,7 @@ class BarSettings extends Equatable {
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
       media: media ?? this.media,
+      opencode: opencode ?? this.opencode,
     );
   }
 
@@ -1088,6 +1168,7 @@ class BarSettings extends Equatable {
               'gpu',
               'battery',
               'clock',
+              'opencode',
             ],
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
@@ -1098,6 +1179,7 @@ class BarSettings extends Equatable {
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),
       media: MediaOptions.fromJson(decoded['media']),
+      opencode: OpencodeOptions.fromJson(decoded['opencode']),
     );
   }
 

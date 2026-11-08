@@ -219,6 +219,10 @@ void main() {
         ),
         appearance: AppearanceOptions(blur: false),
         media: MediaOptions(mode: MediaMode.compact, bars: 7, volumeStep: 9),
+        opencode: OpencodeOptions(
+          meter: OpencodeMeter.monthly,
+          showCost: false,
+        ),
       );
       final decoded = BarSettings.decode(settings.encode());
       expect(decoded.cpu.warn, 0.7);
@@ -245,6 +249,8 @@ void main() {
       expect(decoded.media.mode, MediaMode.compact);
       expect(decoded.media.bars, 7);
       expect(decoded.media.volumeStep, 9);
+      expect(decoded.opencode.meter, OpencodeMeter.monthly);
+      expect(decoded.opencode.showCost, isFalse);
       expect(
         MediaOptions.fromJson(<String, dynamic>{'bars': 99}).bars,
         MediaOptions.maxBars,
@@ -281,8 +287,16 @@ void main() {
       expect(bare.gpu.sparkline, isTrue);
       expect(bare.appearance.blur, isTrue);
       expect(bare.media.mode, MediaMode.semi);
+      expect(bare.opencode.meter, OpencodeMeter.rolling);
+      expect(bare.opencode.showCost, isTrue);
       expect(
         () => BarSettings.decode('{"revision": 1, "media": {"mode": "tiny"}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "opencode": {"meter": "hourly"}}',
+        ),
         throwsFormatException,
       );
     });
