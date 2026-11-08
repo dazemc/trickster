@@ -231,9 +231,7 @@ class OpencodeUsage extends Equatable {
       if (value is! List) {
         return const <OpencodeBudget>[];
       }
-      return [
-        for (final entry in value) ?OpencodeBudget.fromJson(entry),
-      ];
+      return [for (final entry in value) ?OpencodeBudget.fromJson(entry)];
     }
 
     final updatedAt = json['updated_at'];
@@ -242,7 +240,9 @@ class OpencodeUsage extends Equatable {
       workspaceName: json['workspace'] is String
           ? json['workspace'] as String
           : null,
-      usageUrl: json['usage_url'] is String ? json['usage_url'] as String : null,
+      usageUrl: json['usage_url'] is String
+          ? json['usage_url'] as String
+          : null,
       rolling: OpencodeMeterUsage.fromJson(json['rolling']),
       weekly: OpencodeMeterUsage.fromJson(json['weekly']),
       monthly: OpencodeMeterUsage.fromJson(json['monthly']),
@@ -524,19 +524,11 @@ class OpencodeSampler {
     }
   }
 
-  Uri _endpoint(
-    Uri base,
-    String path, {
-    Map<String, String>? queryParameters,
-  }) {
+  Uri _endpoint(Uri base, String path, {Map<String, String>? queryParameters}) {
     return base.replace(path: path, queryParameters: queryParameters);
   }
 
-  Future<Object?> _getJson(
-    HttpClient client,
-    Uri uri,
-    String password,
-  ) async {
+  Future<Object?> _getJson(HttpClient client, Uri uri, String password) async {
     final request = await client.getUrl(uri).timeout(timeout);
     request.headers.set(
       HttpHeaders.authorizationHeader,

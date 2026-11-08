@@ -600,10 +600,7 @@ class OpencodeOptions extends Equatable {
   @override
   List<Object?> get props => [meter, showCost];
 
-  Map<String, Object?> toJson() => {
-    'meter': meter.wire,
-    'show_cost': showCost,
-  };
+  Map<String, Object?> toJson() => {'meter': meter.wire, 'show_cost': showCost};
 
   OpencodeOptions copyWith({OpencodeMeter? meter, bool? showCost}) {
     return OpencodeOptions(
