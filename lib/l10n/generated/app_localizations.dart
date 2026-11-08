@@ -1025,7 +1025,7 @@ abstract class AppLocalizations {
   /// Accessible hint for the OpenCode usage pill.
   ///
   /// In en, this message translates to:
-  /// **'Refreshes the usage reading'**
+  /// **'Opens the usage window'**
   String get opencodeHint;
 
   /// OpenCode Go allowance window name: the short rolling window.

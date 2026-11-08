@@ -652,7 +652,7 @@
       }
     }
   },
-  "opencodeHint": "Refreshes the usage reading",
+  "opencodeHint": "Opens the usage window",
   "@opencodeHint": {
     "description": "Accessible hint for the OpenCode usage pill."
   },

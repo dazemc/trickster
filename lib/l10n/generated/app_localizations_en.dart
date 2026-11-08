@@ -490,7 +490,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get opencodeHint => 'Refreshes the usage reading';
+  String get opencodeHint => 'Opens the usage window';
 
   @override
   String get opencodeWindowRolling => 'Rolling';
