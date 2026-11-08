@@ -40,4 +40,7 @@ noextract=("trickster-${pkgver}-1-x86_64.pkg.tar.zst")
 package() {
   bsdtar -xpf "$srcdir/trickster-${pkgver}-1-x86_64.pkg.tar.zst" \
     -C "$pkgdir" --exclude .PKGINFO --exclude .BUILDINFO --exclude .MTREE
+  # The release asset may lose the execute bit in transit; both binaries run.
+  chmod 755 "$pkgdir/usr/lib/trickster/trickster" \
+    "$pkgdir/usr/lib/trickster/tricksterctl"
 }
