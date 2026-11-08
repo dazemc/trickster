@@ -84,6 +84,13 @@ jobs:
           name: bundle
           path: bundle
 
+      - name: Restore the bundle's executable bits
+        # Artifact upload/download does not carry the execute bit, so the
+        # packaged binary would install 644 and refuse to start.
+        run: |
+          chmod +x "$GITHUB_WORKSPACE/bundle/trickster" \
+            "$GITHUB_WORKSPACE/bundle/tricksterctl"
+
       - name: Build the Arch package
         env:
           TRICKSTER_PREBUILT_BUNDLE: ${{ github.workspace }}/bundle

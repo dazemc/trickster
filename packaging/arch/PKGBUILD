@@ -78,6 +78,9 @@ package() {
   install -dm755 "$pkgdir/usr/lib/trickster" "$pkgdir/usr/bin"
   cp -a -- "$_bundle/." "$pkgdir/usr/lib/trickster/"
   chmod -R u=rwX,go=rX "$pkgdir/usr/lib/trickster"
+  # Artifact round-trips can drop the execute bit; both binaries run.
+  chmod 755 "$pkgdir/usr/lib/trickster/trickster" \
+    "$pkgdir/usr/lib/trickster/tricksterctl"
   # Only the C++ runner is safe to strip; libapp.so and tricksterctl carry
   # Dart snapshots.
   strip --strip-unneeded "$pkgdir/usr/lib/trickster/trickster"
