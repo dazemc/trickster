@@ -24,16 +24,8 @@ Map<String, Object?> _limitsPayload({
           'limited': limited,
           'resetsAt': 1794121576000,
         },
-        'weekly': {
-          'percent': 40,
-          'limited': false,
-          'resetsAt': 1794182400000,
-        },
-        'monthly': {
-          'percent': 20,
-          'limited': false,
-          'resetsAt': 1794529208000,
-        },
+        'weekly': {'percent': 40, 'limited': false, 'resetsAt': 1794182400000},
+        'monthly': {'percent': 20, 'limited': false, 'resetsAt': 1794529208000},
       },
       'budgets': budgets,
     },
@@ -70,10 +62,7 @@ void main() {
     expect(usage.weekly!.percent, 40);
     expect(usage.monthly!.percent, 20);
     expect(usage.budgets, isEmpty);
-    expect(
-      usage.rolling!.resetsAt!.millisecondsSinceEpoch,
-      1794121576000,
-    );
+    expect(usage.rolling!.resetsAt!.millisecondsSinceEpoch, 1794121576000);
   });
 
   test('usage limits decode budgets and a limited window', () {
@@ -121,7 +110,10 @@ void main() {
     expect(session.cacheRead, 900);
     expect(session.cacheWrite, 10);
     expect(session.totalTokens, 1035);
-    expect(parseOpencodeSessionList(<String, Object?>{'data': <Object?>[]}), isNull);
+    expect(
+      parseOpencodeSessionList(<String, Object?>{'data': <Object?>[]}),
+      isNull,
+    );
   });
 
   test('usage state round-trips through JSON', () {

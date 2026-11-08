@@ -89,12 +89,17 @@ void main() {
 
     await _pump(
       tester,
-      const OpencodeUsage(available: true, weekly: OpencodeMeterUsage(percent: 1)),
+      const OpencodeUsage(
+        available: true,
+        weekly: OpencodeMeterUsage(percent: 1),
+      ),
     );
     expect(find.byKey(OpencodePill.terminalIconKey), findsNothing);
   });
 
-  testWidgets('vertical strips stack the mark over the percent', (tester) async {
+  testWidgets('vertical strips stack the mark over the percent', (
+    tester,
+  ) async {
     await _pump(tester, _usage(), vertical: true);
     expect(find.byKey(OpencodePill.terminalIconKey), findsOneWidget);
     expect(find.text('74%'), findsOneWidget);

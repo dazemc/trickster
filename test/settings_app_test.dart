@@ -1084,9 +1084,7 @@ void main() {
     expect(bloc.settings.media.volumeStep, MediaOptions.defaultVolumeStep);
 
     await openOptions('opencode');
-    final weekly = find.byKey(
-      const ValueKey<String>('opencode-meter-weekly'),
-    );
+    final weekly = find.byKey(const ValueKey<String>('opencode-meter-weekly'));
     await tester.ensureVisible(weekly);
     await tester.pumpAndSettle();
     await tester.tap(weekly);

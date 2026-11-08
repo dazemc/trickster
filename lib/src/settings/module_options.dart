@@ -818,9 +818,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             label: l10n.settingsOpencodeShowCost,
             value: settings.opencode.showCost,
             resetKey: const ValueKey<String>('reset-opencode-show-cost'),
-            resetLabel: l10n.settingsResetOption(
-              l10n.settingsOpencodeShowCost,
-            ),
+            resetLabel: l10n.settingsResetOption(l10n.settingsOpencodeShowCost),
             resetEnabled: !settings.opencode.showCost,
             onChanged: (value) => _apply(
               controller,
