@@ -14,7 +14,3 @@ at a time: implement it, prove it with `flutter analyze` + `flutter test`
 an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## OpenCode usage
-
-- **OpenCode settings, strings, and docs (S).** Add the module to the settings catalog and options panel (headline meter, session cost), English and Chinese strings, and the Modules/Configuration doc rows; verify the settings gear round-trips `opencode` options. Done when `flutter analyze` + `flutter test` are green and the docs describe the data source and options.
