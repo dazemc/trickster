@@ -109,6 +109,8 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=$version/" PKGBUILD
           sed -i "s/^sha256sums=('.*')/sha256sums=('$hash')/" PKGBUILD
           su builder -c "makepkg --printsrcinfo" > .SRCINFO
+          test -s .SRCINFO
+          grep -q "pkgver = $version" .SRCINFO
 
       - uses: actions/upload-artifact@v4
         with:
@@ -122,6 +124,9 @@ jobs:
           path: |
             packaging/aur/trickster-bin/PKGBUILD
             packaging/aur/trickster-bin/.SRCINFO
+          # .SRCINFO is hidden; the default upload skips it, which left the
+          # pin job committing an unchanged recipe.
+          include-hidden-files: true
           if-no-files-found: error
 
   release:
