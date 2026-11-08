@@ -11,6 +11,7 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
+import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/state/session_bloc.dart';
@@ -103,6 +105,24 @@ const harnessWorkspaces = [
   Workspace(id: '2', name: '2', output: 'HDMI-A-1', urgent: true),
 ];
 
+/// OpenCode Go state every harnessed strip renders without a live server.
+const harnessOpencodeUsage = OpencodeUsage(
+  available: true,
+  workspaceName: 'Default',
+  rolling: OpencodeMeterUsage(percent: 26),
+  weekly: OpencodeMeterUsage(percent: 40),
+  monthly: OpencodeMeterUsage(percent: 20),
+  session: OpencodeSessionUsage(
+    id: 'ses_1',
+    cost: 0.25,
+    input: 100,
+    output: 20,
+    reasoning: 5,
+    cacheRead: 900,
+    cacheWrite: 10,
+  ),
+);
+
 /// Pumps the production nesting — config providers above a [ModuleScope]
 /// above the real strip — with seeded module states, so no sampler starts.
 ///
@@ -128,6 +148,7 @@ Future<void> pumpBarHarness(
   MediaBloc Function()? mediaBuilder,
   VisualizerBloc Function()? visualizerBuilder,
   SinkVolumeBloc Function()? volumeBuilder,
+  OpencodeBloc Function()? opencodeBuilder,
   Duration settle = Duration.zero,
 }) async {
   await tester.pumpWidget(
@@ -166,6 +187,9 @@ Future<void> pumpBarHarness(
             volumeBuilder:
                 volumeBuilder ??
                 () => SinkVolumeBloc(volume: FakePipeWireVolume()),
+            opencodeBuilder:
+                opencodeBuilder ??
+                () => OpencodeBloc(initial: harnessOpencodeUsage),
             child: wallpaperAccent == null
                 ? BlocProvider<WallpaperAccentBloc>(
                     create: (_) => WallpaperAccentBloc(watch: false),

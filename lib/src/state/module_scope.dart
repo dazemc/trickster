@@ -6,6 +6,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -37,6 +38,7 @@ class ModuleScope extends StatelessWidget {
     this.mediaBuilder,
     this.visualizerBuilder,
     this.volumeBuilder,
+    this.opencodeBuilder,
     super.key,
   });
 
@@ -50,6 +52,7 @@ class ModuleScope extends StatelessWidget {
   final MediaBloc Function()? mediaBuilder;
   final VisualizerBloc Function()? visualizerBuilder;
   final SinkVolumeBloc Function()? volumeBuilder;
+  final OpencodeBloc Function()? opencodeBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +108,12 @@ class ModuleScope extends StatelessWidget {
                 (SinkVolumeBloc()..add(const SinkVolumeStarted())),
           ),
         ],
+        if (settings.includes('opencode'))
+          BlocProvider<OpencodeBloc>(
+            create: (_) =>
+                opencodeBuilder?.call() ??
+                (OpencodeBloc()..add(const OpencodeStarted())),
+          ),
       ],
       child: child,
     );

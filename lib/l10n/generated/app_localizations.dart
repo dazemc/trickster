@@ -1009,6 +1009,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copied'**
   String get settingsCopied;
+
+  /// Display name of the OpenCode usage module.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenCode'**
+  String get moduleOpencode;
+
+  /// Accessible label for the OpenCode usage pill.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenCode, {window} {remaining}% left'**
+  String opencodePill(String window, int remaining);
+
+  /// Accessible hint for the OpenCode usage pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshes the usage reading'**
+  String get opencodeHint;
+
+  /// OpenCode Go allowance window name: the short rolling window.
+  ///
+  /// In en, this message translates to:
+  /// **'Rolling'**
+  String get opencodeWindowRolling;
+
+  /// OpenCode Go allowance window name: the weekly window.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get opencodeWindowWeekly;
+
+  /// OpenCode Go allowance window name: the monthly window.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get opencodeWindowMonthly;
+
+  /// One allowance window's used and remaining percentages.
+  ///
+  /// In en, this message translates to:
+  /// **'{window} {used}% used, {remaining}% left'**
+  String opencodeMeter(String window, int used, int remaining);
+
+  /// Compact used percentage for a secondary allowance window.
+  ///
+  /// In en, this message translates to:
+  /// **'{window} {used}%'**
+  String opencodeShortMeter(String window, int used);
+
+  /// When an allowance window refills.
+  ///
+  /// In en, this message translates to:
+  /// **'resets {time}'**
+  String opencodeResets(String time);
+
+  /// Shown when an allowance window refuses requests until it resets.
+  ///
+  /// In en, this message translates to:
+  /// **'limit reached'**
+  String get opencodeLimited;
+
+  /// Newest OpenCode session totals in the pill's hover label.
+  ///
+  /// In en, this message translates to:
+  /// **'{tokens} tokens, {cost}'**
+  String opencodeSession(String tokens, String cost);
+
+  /// A US-dollar session cost; the amount is preformatted.
+  ///
+  /// In en, this message translates to:
+  /// **'{cost} USD'**
+  String opencodeCost(String cost);
 }
 
 class _AppLocalizationsDelegate

@@ -63,6 +63,7 @@ void main() {
     expect(_created(lines, 'BatteryBloc'), isFalse);
     expect(_created(lines, 'WorkspacesBloc'), isFalse);
     expect(_created(lines, 'MediaBloc'), isFalse);
+    expect(_created(lines, 'OpencodeBloc'), isFalse);
     expect(
       lines.any(
         (line) =>
@@ -71,7 +72,8 @@ void main() {
             line.contains('TrayBloc') ||
             line.contains('BatteryBloc') ||
             line.contains('WorkspacesBloc') ||
-            line.contains('MediaBloc'),
+            line.contains('MediaBloc') ||
+            line.contains('OpencodeBloc'),
       ),
       isFalse,
     );

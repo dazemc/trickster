@@ -633,5 +633,109 @@
   "settingsCopied": "Copied",
   "@settingsCopied": {
     "description": "Shown briefly after copying a hex value."
+  },
+  "moduleOpencode": "OpenCode",
+  "@moduleOpencode": {
+    "description": "Display name of the OpenCode usage module."
+  },
+  "opencodePill": "OpenCode, {window} {remaining}% left",
+  "@opencodePill": {
+    "description": "Accessible label for the OpenCode usage pill.",
+    "placeholders": {
+      "window": {
+        "type": "String",
+        "example": "Rolling"
+      },
+      "remaining": {
+        "type": "int",
+        "example": "74"
+      }
+    }
+  },
+  "opencodeHint": "Refreshes the usage reading",
+  "@opencodeHint": {
+    "description": "Accessible hint for the OpenCode usage pill."
+  },
+  "opencodeWindowRolling": "Rolling",
+  "@opencodeWindowRolling": {
+    "description": "OpenCode Go allowance window name: the short rolling window."
+  },
+  "opencodeWindowWeekly": "Weekly",
+  "@opencodeWindowWeekly": {
+    "description": "OpenCode Go allowance window name: the weekly window."
+  },
+  "opencodeWindowMonthly": "Monthly",
+  "@opencodeWindowMonthly": {
+    "description": "OpenCode Go allowance window name: the monthly window."
+  },
+  "opencodeMeter": "{window} {used}% used, {remaining}% left",
+  "@opencodeMeter": {
+    "description": "One allowance window's used and remaining percentages.",
+    "placeholders": {
+      "window": {
+        "type": "String",
+        "example": "Rolling"
+      },
+      "used": {
+        "type": "int",
+        "example": "26"
+      },
+      "remaining": {
+        "type": "int",
+        "example": "74"
+      }
+    }
+  },
+  "opencodeShortMeter": "{window} {used}%",
+  "@opencodeShortMeter": {
+    "description": "Compact used percentage for a secondary allowance window.",
+    "placeholders": {
+      "window": {
+        "type": "String",
+        "example": "Weekly"
+      },
+      "used": {
+        "type": "int",
+        "example": "40"
+      }
+    }
+  },
+  "opencodeResets": "resets {time}",
+  "@opencodeResets": {
+    "description": "When an allowance window refills.",
+    "placeholders": {
+      "time": {
+        "type": "String",
+        "example": "21:46"
+      }
+    }
+  },
+  "opencodeLimited": "limit reached",
+  "@opencodeLimited": {
+    "description": "Shown when an allowance window refuses requests until it resets."
+  },
+  "opencodeSession": "{tokens} tokens, {cost}",
+  "@opencodeSession": {
+    "description": "Newest OpenCode session totals in the pill's hover label.",
+    "placeholders": {
+      "tokens": {
+        "type": "String",
+        "example": "1.2M"
+      },
+      "cost": {
+        "type": "String",
+        "example": "0.25 USD"
+      }
+    }
+  },
+  "opencodeCost": "{cost} USD",
+  "@opencodeCost": {
+    "description": "A US-dollar session cost; the amount is preformatted.",
+    "placeholders": {
+      "cost": {
+        "type": "String",
+        "example": "0.0027"
+      }
+    }
   }
 }

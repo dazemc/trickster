@@ -138,7 +138,10 @@ void main() {
 
   testWidgets('strip tints captions with the settings accent', (tester) async {
     const accent = Color(0xffff0000);
-    await pumpBarHarness(tester, settings: const BarSettings(accent: accent));
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(accent: accent, modules: ['clock', 'cpu']),
+    );
     await tester.pump(const Duration(milliseconds: 500));
     final expected = const WallpaperAccent(accent).captionColor();
     final caption = tester.widget<Text>(

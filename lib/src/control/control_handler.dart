@@ -11,6 +11,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -70,6 +71,8 @@ Future<Map<String, Object?>> handleControlRequest({
             'tray': bloc.state.toJson(),
           if (_read<MediaBloc>(context) case final bloc?)
             'media': bloc.state.toJson(),
+          if (_read<OpencodeBloc>(context) case final bloc?)
+            'opencode': bloc.state.toJson(),
           if (_read<VisualizerBloc>(context) case final bloc?)
             'visualizer': bloc.state.toJson(),
           if (_read<SinkVolumeBloc>(context) case final bloc?)

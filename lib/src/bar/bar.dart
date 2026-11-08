@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/flow.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/media.dart';
+import 'package:trickster/src/bar/opencode.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/bar/tray.dart';
@@ -19,12 +20,14 @@ import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -316,6 +319,34 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
             ),
           ),
         ),
+      ),
+      'opencode': (position) => BlocBuilder<OpencodeBloc, OpencodeUsage>(
+        builder: (context, usage) {
+          if (!usage.available) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
+              child: RepaintBoundary(
+                child: OpencodePill(
+                  accent: accent,
+                  usage: usage,
+                  meter: settings.opencode.meter,
+                  showCost: settings.opencode.showCost,
+                  vertical: vertical,
+                  onPressed: () => context.read<OpencodeBloc>().add(
+                    const OpencodeRefreshed(),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     };
 
