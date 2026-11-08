@@ -15,6 +15,14 @@ abstract final class SettingsColors {
   static const Color outline = Color(0x22ffffff);
 }
 
+/// Whether the settings window paints its glass: the host must advertise the
+/// effect and the document's `appearance.blur` must allow it, so one key
+/// controls every glass surface.
+bool settingsGlassEnabled({
+  required bool hostBlur,
+  required bool documentBlur,
+}) => hostBlur && documentBlur;
+
 /// Whether the settings window sits on a compositor-blurred backdrop. Absent
 /// means false, so tests and hosts without the protocol keep opaque fills.
 class SettingsGlass extends InheritedWidget {

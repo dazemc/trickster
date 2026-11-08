@@ -360,6 +360,28 @@ void main() {
     expect(pixmap.rgba[3], 255);
   });
 
+  test('SVG icon files scale whole instead of cropping a corner', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-svg');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/corner.svg')
+      ..writeAsStringSync(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 40">'
+        '<rect x="16" y="36" width="4" height="4" fill="#ffffff"/></svg>',
+      );
+
+    final pixmap = await decodeStatusNotifierIconForTesting(file.path);
+
+    expect(pixmap, isNotNull);
+    // 20x40 scales so the longest side is the 24px display size.
+    expect(pixmap!.width, 12);
+    expect(pixmap.height, 24);
+    int alphaAt(int x, int y) => pixmap.rgba[(y * 12 + x) * 4 + 3];
+    // The mark sits at the viewBox's bottom-right; a cropped raster would
+    // have lost it and kept the empty top-left instead.
+    expect(alphaAt(0, 0), 0);
+    expect(alphaAt(11, 23), greaterThan(0));
+  });
+
   test('decodes an icon-name item into a display-size pixmap', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);

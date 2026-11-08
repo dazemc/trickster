@@ -474,4 +474,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsCopied => '已复制';
+
+  @override
+  String get moduleOpencode => 'OpenCode';
+
+  @override
+  String opencodePill(String window, int remaining) {
+    return 'OpenCode，$window剩余 $remaining%';
+  }
+
+  @override
+  String get opencodeHint => '刷新用量读数';
+
+  @override
+  String get opencodeWindowRolling => '滚动窗口';
+
+  @override
+  String get opencodeWindowWeekly => '每周窗口';
+
+  @override
+  String get opencodeWindowMonthly => '每月窗口';
+
+  @override
+  String opencodeMeter(String window, int used, int remaining) {
+    return '$window已用 $used%，剩余 $remaining%';
+  }
+
+  @override
+  String opencodeShortMeter(String window, int used) {
+    return '$window $used%';
+  }
+
+  @override
+  String opencodeResets(String time) {
+    return '$time 重置';
+  }
+
+  @override
+  String get opencodeLimited => '已达上限';
+
+  @override
+  String opencodeSession(String tokens, String cost) {
+    return '$tokens tokens，$cost';
+  }
+
+  @override
+  String opencodeCost(String cost) {
+    return '$cost 美元';
+  }
+
+  @override
+  String get settingsOpencodeMeter => '主要窗口';
+
+  @override
+  String get settingsOpencodeShowCost => '会话费用';
 }

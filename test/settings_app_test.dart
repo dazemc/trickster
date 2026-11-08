@@ -756,11 +756,12 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
-    // Trailing holds media, cpu, gpu, battery, clock; media goes last.
+    // Trailing holds media, cpu, gpu, battery, clock, opencode; media goes
+    // last.
     await _dragModuleBelow(
       tester,
       'media',
-      find.byKey(const ValueKey<String>('module-clock')),
+      find.byKey(const ValueKey<String>('module-opencode')),
     );
     expect(bloc.settings.zoneFor('media'), ModuleZone.trailing);
     expect(bloc.settings.modules.last, 'media');
@@ -1081,6 +1082,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(bloc.settings.media.volumeStep, MediaOptions.defaultVolumeStep);
+
+    await openOptions('opencode');
+    final weekly = find.byKey(const ValueKey<String>('opencode-meter-weekly'));
+    await tester.ensureVisible(weekly);
+    await tester.pumpAndSettle();
+    await tester.tap(weekly);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.meter, OpencodeMeter.weekly);
+    final resetMeter = find.byKey(
+      const ValueKey<String>('reset-opencode-meter'),
+    );
+    await tester.ensureVisible(resetMeter);
+    await tester.pumpAndSettle();
+    await tester.tap(resetMeter);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.meter, const OpencodeOptions().meter);
+
+    final showCost = find.byKey(const ValueKey<String>('opencode-show-cost'));
+    await tester.ensureVisible(showCost);
+    await tester.pumpAndSettle();
+    await tester.tap(showCost);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.showCost, isFalse);
+    final resetCost = find.byKey(
+      const ValueKey<String>('reset-opencode-show-cost'),
+    );
+    await tester.ensureVisible(resetCost);
+    await tester.pumpAndSettle();
+    await tester.tap(resetCost);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.showCost, isTrue);
 
     await openOptions('workspaces');
     await tester.ensureVisible(
@@ -1478,6 +1514,13 @@ void main() {
     expect(find.text('Copied'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('#E01020'), findsOneWidget);
+  });
+
+  test('the blur key gates the settings window glass', () {
+    expect(settingsGlassEnabled(hostBlur: true, documentBlur: true), isTrue);
+    expect(settingsGlassEnabled(hostBlur: true, documentBlur: false), isFalse);
+    expect(settingsGlassEnabled(hostBlur: false, documentBlur: true), isFalse);
+    expect(settingsGlassEnabled(hostBlur: false, documentBlur: false), isFalse);
   });
 
   test('an external document change reloads the settings', () async {

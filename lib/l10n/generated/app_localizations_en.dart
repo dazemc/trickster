@@ -480,4 +480,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCopied => 'Copied';
+
+  @override
+  String get moduleOpencode => 'OpenCode';
+
+  @override
+  String opencodePill(String window, int remaining) {
+    return 'OpenCode, $window $remaining% left';
+  }
+
+  @override
+  String get opencodeHint => 'Refreshes the usage reading';
+
+  @override
+  String get opencodeWindowRolling => 'Rolling';
+
+  @override
+  String get opencodeWindowWeekly => 'Weekly';
+
+  @override
+  String get opencodeWindowMonthly => 'Monthly';
+
+  @override
+  String opencodeMeter(String window, int used, int remaining) {
+    return '$window $used% used, $remaining% left';
+  }
+
+  @override
+  String opencodeShortMeter(String window, int used) {
+    return '$window $used%';
+  }
+
+  @override
+  String opencodeResets(String time) {
+    return 'resets $time';
+  }
+
+  @override
+  String get opencodeLimited => 'limit reached';
+
+  @override
+  String opencodeSession(String tokens, String cost) {
+    return '$tokens tokens, $cost';
+  }
+
+  @override
+  String opencodeCost(String cost) {
+    return '$cost USD';
+  }
+
+  @override
+  String get settingsOpencodeMeter => 'Headline window';
+
+  @override
+  String get settingsOpencodeShowCost => 'Session cost';
 }

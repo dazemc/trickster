@@ -7,7 +7,7 @@
 pkgbase=trickster-bin
 pkgname=trickster-bin
 # Keep in sync with pubspec.yaml, Cli.appVersion, and packaging/arch.
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc='Flutter-native Wayland status bar (prebuilt binary)'
 arch=('x86_64')
