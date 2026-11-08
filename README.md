@@ -50,7 +50,8 @@ The Denial set, in Denial's visual language:
   CPU/GPU, workspaces (Sway, Hyprland, and niri backends).
 - OpenCode usage: the signed-in workspace's Go allowance windows (rolling,
   weekly, monthly), reset times, and the newest session's tokens and cost,
-  read from OpenCode's local server.
+  read from OpenCode's local server. Clicking the pill opens the companion
+  usage window; without it installed, the workspace console opens instead.
 - Backdrop blur where the host offers `ext-background-effect`; a clean
   translucent fill everywhere else. Trickster never fakes blur.
 - Tray is StatusNotifier only — Denial's XEmbed support came from owning

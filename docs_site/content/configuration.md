@@ -127,7 +127,10 @@ rejected at decode, so a live reload keeps the last-good settings.
   append the newest session's cost to the headline. The module reads the
   running server's state document (`$XDG_STATE_HOME/opencode/service.json`)
   and polls the usage limits and newest session once a minute while it is
-  configured; a stopped server hides the pill.
+  configured; a stopped server hides the pill. Clicking the pill launches
+  the `opencode-usage` companion window (found in the XDG bin directory,
+  `~/.local/bin`, `/usr/local/bin`, `/usr/bin`, or `PATH`), falling back to
+  the workspace console URL when it is not installed.
 - The retired `meter` object (shared caption source and sparkline) is read
   once as a fallback for `cpu` and `gpu` and never written again.
 
