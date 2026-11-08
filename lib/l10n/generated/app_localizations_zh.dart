@@ -484,7 +484,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get opencodeHint => '刷新用量读数';
+  String get opencodeHint => '打开用量窗口';
 
   @override
   String get opencodeWindowRolling => '滚动窗口';

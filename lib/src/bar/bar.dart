@@ -17,6 +17,7 @@ import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/platform/opencode_app.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -339,9 +340,8 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                   meter: settings.opencode.meter,
                   showCost: settings.opencode.showCost,
                   vertical: vertical,
-                  onPressed: () => context.read<OpencodeBloc>().add(
-                    const OpencodeRefreshed(),
-                  ),
+                  onPressed: () =>
+                      unawaited(launchOpencodeUsage(usageUrl: usage.usageUrl)),
                 ),
               ),
             ),
