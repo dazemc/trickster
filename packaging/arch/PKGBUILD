@@ -19,6 +19,7 @@ depends=(
   'gtk-layer-shell'
   'gtk3'
   'libglvnd'
+  'libpipewire'
   'libxkbcommon'
   'mesa'
   'systemd-libs'

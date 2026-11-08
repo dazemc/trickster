@@ -44,7 +44,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config \
-            libgtk-3-dev libgtk-layer-shell-dev libwayland-dev
+            libgtk-3-dev libgtk-layer-shell-dev libwayland-dev \
+            libpipewire-0.3-dev
 
       - name: Analyze and test
         run: |
