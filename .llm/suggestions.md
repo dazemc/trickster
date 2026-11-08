@@ -53,3 +53,9 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   resolvable under `pubspec.yaml`, while 0.8.0, 3.0.0, and 4.0.2 exist. A
   future step should migrate and prove each, or record why the constraint
   stays.
+
+- **A bar started at login can stick on its first frame.** Observed at a
+  22:49 session start that modeset HDMI-A-2 from 60 Hz to 165 Hz HDR: the
+  strip held its launch frame for 35 minutes while Dart timers stayed live;
+  eight settled-compositor restarts did not reproduce it. Kill only the
+  process and relaunch to recover; capture frame timings if it recurs.
