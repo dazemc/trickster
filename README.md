@@ -48,6 +48,9 @@ The Denial set, in Denial's visual language:
 
 - Clock, battery (UPower), media (MPRIS), system tray (StatusNotifier),
   CPU/GPU, workspaces (Sway, Hyprland, and niri backends).
+- OpenCode usage: the signed-in workspace's Go allowance windows (rolling,
+  weekly, monthly), reset times, and the newest session's tokens and cost,
+  read from OpenCode's local server.
 - Backdrop blur where the host offers `ext-background-effect`; a clean
   translucent fill everywhere else. Trickster never fakes blur.
 - Tray is StatusNotifier only — Denial's XEmbed support came from owning

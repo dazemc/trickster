@@ -16,6 +16,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
 | `media` | Live equalizer mark (band levels from the sink monitor; bar count configurable), now-playing text, transport keys, and the sink volume readout (level glyph, accent while muted, wheel to step, click for a slider) in full/semi/compact modes; left-click controls, right-click cycles and saves | MPRIS (`org.mpris.MediaPlayer2.*`) and the default sink (monitor and volume), event-driven | Hidden with no playing or paused player |
 | `tray` | Icon per StatusNotifier item; right-click opens the D-Bus menu | StatusNotifier watcher (SNI) and `com.canonical.dbusmenu` | Hidden with no items |
+| `opencode` | Terminal mark + remaining percent for the selected OpenCode Go allowance window (rolling, weekly, or monthly); the newest session's cost joins the headline, and hovering lists all three windows, reset times, and session tokens | OpenCode's local server (`$XDG_STATE_HOME/opencode/service.json` for URL and password), `/api/experimental/usage/limits` plus the newest session, 60 s poll only while configured | Hidden with no running server or no signed-in workspace |
 
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 

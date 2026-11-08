@@ -11,6 +11,8 @@ Trickster takes Denial's system bar — the floating pills, the accent, the moti
 
 - One Flutter Linux process, one `wlr-layer-shell` surface per output (plus one transient overlay surface per open tray menu, tooltip, or clock calendar).
 - Denial-parity modules: clock, battery, media, tray, CPU/GPU, workspaces.
+- OpenCode usage: the local server's Go allowance windows and the newest
+  session's tokens and cost.
 - Denial-style files-on-disk config with live reload and a `--check` preflight.
 - Sway, Hyprland, niri, river, and COSMIC targets.
 
