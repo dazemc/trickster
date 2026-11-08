@@ -1081,6 +1081,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{cost} USD'**
   String opencodeCost(String cost);
+
+  /// Label above the OpenCode Go allowance window choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Headline window'**
+  String get settingsOpencodeMeter;
+
+  /// Toggle that appends the newest OpenCode session's cost to the pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Session cost'**
+  String get settingsOpencodeShowCost;
 }
 
 class _AppLocalizationsDelegate

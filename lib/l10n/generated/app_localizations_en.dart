@@ -528,4 +528,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String opencodeCost(String cost) {
     return '$cost USD';
   }
+
+  @override
+  String get settingsOpencodeMeter => 'Headline window';
+
+  @override
+  String get settingsOpencodeShowCost => 'Session cost';
 }

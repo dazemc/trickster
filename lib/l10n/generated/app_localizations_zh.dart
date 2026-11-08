@@ -522,4 +522,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String opencodeCost(String cost) {
     return '$cost 美元';
   }
+
+  @override
+  String get settingsOpencodeMeter => '主要窗口';
+
+  @override
+  String get settingsOpencodeShowCost => '会话费用';
 }

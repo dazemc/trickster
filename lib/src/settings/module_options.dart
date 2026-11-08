@@ -32,7 +32,13 @@ import 'package:trickster/src/theme/tokens.dart';
 /// Whether [module] owns any of the typed options the bar decodes.
 bool moduleHasOptions(String module) {
   return switch (module) {
-    'workspaces' || 'clock' || 'cpu' || 'gpu' || 'battery' || 'media' => true,
+    'workspaces' ||
+    'clock' ||
+    'cpu' ||
+    'gpu' ||
+    'battery' ||
+    'media' ||
+    'opencode' => true,
     _ => false,
   };
 }
@@ -770,6 +776,67 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
           ),
         ],
       ),
+      'opencode' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ChoiceHeader(
+            label: l10n.settingsOpencodeMeter,
+            resetKey: const ValueKey<String>('reset-opencode-meter'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsOpencodeMeter),
+            resetEnabled: settings.opencode.meter != OpencodeMeter.rolling,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                opencode: settings.opencode.copyWith(
+                  meter: OpencodeMeter.rolling,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final meter in OpencodeMeter.values)
+                SettingsChoiceChip(
+                  key: ValueKey<String>('opencode-meter-${meter.wire}'),
+                  label: _opencodeMeterLabel(l10n, meter),
+                  selected: settings.opencode.meter == meter,
+                  onPressed: () => _apply(
+                    controller,
+                    (settings) => settings.copyWith(
+                      opencode: settings.opencode.copyWith(meter: meter),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('opencode-show-cost'),
+            label: l10n.settingsOpencodeShowCost,
+            value: settings.opencode.showCost,
+            resetKey: const ValueKey<String>('reset-opencode-show-cost'),
+            resetLabel: l10n.settingsResetOption(
+              l10n.settingsOpencodeShowCost,
+            ),
+            resetEnabled: !settings.opencode.showCost,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                opencode: settings.opencode.copyWith(showCost: value),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                opencode: settings.opencode.copyWith(showCost: true),
+              ),
+            ),
+          ),
+        ],
+      ),
       _ => const SizedBox.shrink(),
     };
   }
@@ -889,6 +956,14 @@ String _clockFormatLabel(AppLocalizations l10n, ClockFormat format) {
     ClockFormat.locale => l10n.settingsClockFormatLocale,
     ClockFormat.hour24 => l10n.settingsClockFormat24,
     ClockFormat.hour12 => l10n.settingsClockFormat12,
+  };
+}
+
+String _opencodeMeterLabel(AppLocalizations l10n, OpencodeMeter meter) {
+  return switch (meter) {
+    OpencodeMeter.rolling => l10n.opencodeWindowRolling,
+    OpencodeMeter.weekly => l10n.opencodeWindowWeekly,
+    OpencodeMeter.monthly => l10n.opencodeWindowMonthly,
   };
 }
 

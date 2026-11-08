@@ -1083,6 +1083,43 @@ void main() {
     await tester.pump();
     expect(bloc.settings.media.volumeStep, MediaOptions.defaultVolumeStep);
 
+    await openOptions('opencode');
+    final weekly = find.byKey(
+      const ValueKey<String>('opencode-meter-weekly'),
+    );
+    await tester.ensureVisible(weekly);
+    await tester.pumpAndSettle();
+    await tester.tap(weekly);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.meter, OpencodeMeter.weekly);
+    final resetMeter = find.byKey(
+      const ValueKey<String>('reset-opencode-meter'),
+    );
+    await tester.ensureVisible(resetMeter);
+    await tester.pumpAndSettle();
+    await tester.tap(resetMeter);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.meter, const OpencodeOptions().meter);
+
+    final showCost = find.byKey(const ValueKey<String>('opencode-show-cost'));
+    await tester.ensureVisible(showCost);
+    await tester.pumpAndSettle();
+    await tester.tap(showCost);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.showCost, isFalse);
+    final resetCost = find.byKey(
+      const ValueKey<String>('reset-opencode-show-cost'),
+    );
+    await tester.ensureVisible(resetCost);
+    await tester.pumpAndSettle();
+    await tester.tap(resetCost);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.opencode.showCost, isTrue);
+
     await openOptions('workspaces');
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('workspaces-pip-dot')),

@@ -737,5 +737,13 @@
         "example": "0.0027"
       }
     }
+  },
+  "settingsOpencodeMeter": "主要窗口",
+  "@settingsOpencodeMeter": {
+    "description": "Label above the OpenCode Go allowance window choices."
+  },
+  "settingsOpencodeShowCost": "会话费用",
+  "@settingsOpencodeShowCost": {
+    "description": "Toggle that appends the newest OpenCode session's cost to the pill."
   }
 }

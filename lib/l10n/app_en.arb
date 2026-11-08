@@ -737,5 +737,13 @@
         "example": "0.0027"
       }
     }
+  },
+  "settingsOpencodeMeter": "Headline window",
+  "@settingsOpencodeMeter": {
+    "description": "Label above the OpenCode Go allowance window choices."
+  },
+  "settingsOpencodeShowCost": "Session cost",
+  "@settingsOpencodeShowCost": {
+    "description": "Toggle that appends the newest OpenCode session's cost to the pill."
   }
 }
