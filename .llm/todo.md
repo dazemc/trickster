@@ -17,14 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: currency, dependency majors, and shell capabilities
 
-- S: Install native method channels before the Flutter engine starts. Done
-  when `--check` reports layer-shell and blur, a live release launch has no
-  `MissingPluginException`, and the release build is clean.
-
-- S: Migrate `dbus` to 0.8.0. Done when the constraint is `^0.8.0`, the
-  in-process MPRIS/SNI tests pass, `flutter analyze` + `flutter test` are green,
-  and a release bar starts in the live session with no stderr exceptions.
-
 - S: Migrate `equatable` to 3.0.0. Done when the constraint is `^3.0.0`, the
   56 Equatable value classes keep typed props and value equality, a debug
   transcript still identifies bloc states, and `flutter analyze` + `flutter
