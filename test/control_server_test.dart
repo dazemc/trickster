@@ -42,6 +42,35 @@ void main() {
     expect(File(path).existsSync(), isFalse);
   });
 
+  test('a second server neither steals nor removes a live control socket', ()
+      async {
+    final directory = await Directory.systemTemp.createTemp(
+      'trickster-control-owner',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/control.sock';
+    final first = ControlServer(
+      socketPath: path,
+      handler: (request) async => <String, Object?>{'ok': true, 'owner': 'first'},
+    );
+    expect(await first.start(), isTrue);
+    addTearDown(first.dispose);
+
+    final second = ControlServer(
+      socketPath: path,
+      handler: (request) async => <String, Object?>{'ok': true, 'owner': 'second'},
+    );
+    expect(await second.start(), isFalse);
+    await second.dispose();
+
+    // The first server still owns the path and answers after the second exits.
+    expect(File(path).existsSync(), isTrue);
+    final reply = await controlRequest(<String, Object?>{
+      'command': 'version',
+    }, socketPath: path);
+    expect(reply['owner'], 'first');
+  });
+
   test('a handler error becomes a clean error reply', () async {
     final directory = await Directory.systemTemp.createTemp(
       'trickster-control-error',

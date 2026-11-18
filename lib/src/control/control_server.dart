@@ -20,15 +20,30 @@ class ControlServer {
 
   ServerSocket? _server;
   final _clients = <Socket>{};
+  var _ownsSocket = false;
 
-  Future<void> start() async {
+  /// Binds the control socket. Returns false when an existing socket already
+  /// has a live owner; a second bar must not steal or later unlink the first
+  /// bar's control channel. A stale file from a crashed owner is replaced.
+  Future<bool> start() async {
     if (_server != null) {
-      return;
+      return true;
     }
     final file = File(socketPath);
     if (file.existsSync()) {
-      // A stale socket from a crashed bar would refuse the bind.
-      file.deleteSync();
+      try {
+        final probe = await Socket.connect(
+          InternetAddress(socketPath, type: InternetAddressType.unix),
+          0,
+        ).timeout(const Duration(milliseconds: 200));
+        probe.destroy();
+        return false;
+      } on Object {
+        // No live owner answered: this is a stale socket file, safe to remove.
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      }
     }
     Directory(file.parent.path).createSync(recursive: true);
     final server = await ServerSocket.bind(
@@ -36,7 +51,9 @@ class ControlServer {
       0,
     );
     _server = server;
+    _ownsSocket = true;
     server.listen(_onConnection, onError: (_) {});
+    return true;
   }
 
   void _onConnection(Socket socket) {
@@ -74,6 +91,10 @@ class ControlServer {
     final server = _server;
     _server = null;
     await server?.close();
+    if (!_ownsSocket) {
+      return;
+    }
+    _ownsSocket = false;
     final file = File(socketPath);
     if (file.existsSync()) {
       try {
