@@ -50,12 +50,10 @@ Future<Map<String, Object?>> handleControlRequest({
         'pid': pid,
         'modules': context.read<SettingsBloc>().state.modules,
         'outputs': context.read<OutputsBloc>().state.toJson(),
-        'session': <String, Object?>{
-          'layer': session.layer.name,
-          'namespace': session.namespace,
-          'keyboard': session.keyboard.name,
-          'accent': session.accent,
-        },
+        // SessionConfig.toJson serializes the accent as a hex string; putting
+        // the raw Color in the reply makes jsonEncode throw and leaves the
+        // control client without a response.
+        'session': session.toJson(),
         'state': <String, Object?>{
           if (_read<ClockBloc>(context) case final bloc?)
             'clock': bloc.state.toJson(),

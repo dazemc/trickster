@@ -1,9 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trickster/src/config/outputs_store.dart';
+import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/session_bloc.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
 
 void main() {
   test('control server round-trips a request and cleans up', () async {
@@ -51,6 +60,47 @@ void main() {
     }, socketPath: path);
     expect(reply['ok'], isFalse);
     expect('${reply['error']}', contains('boom'));
+  });
+
+  testWidgets('status reply json-encodes the configured session accent', (
+    tester,
+  ) async {
+    // The status command never reads the transports; these paths are never
+    // touched. Keeping I/O out of the fake-async test zone avoids a hang.
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(
+            create: (_) => SessionBloc(
+              const SessionConfig(accent: Color(0xffd0bcff)),
+            ),
+          ),
+          BlocProvider<SettingsBloc>(create: (_) => SettingsBloc()),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    expect(reply['ok'], isTrue);
+    expect(jsonEncode(reply), isA<String>());
+    expect((reply['session'] as Map)['accent'], '#d0bcff');
   });
 
   test('a non-object request becomes a clean error reply', () async {
