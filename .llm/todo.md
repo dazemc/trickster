@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Let NativeSettingsStore adopt a lower valid revision from an external
-  rollback. Done when a document rollback is read and the next write commits
-  at rolledBackRevision + 1. Land before the atomic-write fallback below.
-
 - S: Make settings.json writes atomic and restore the retained .prev snapshot
   on a corrupt read. Done when a crash-style corrupt document recovers from
   .prev and no .tmp file is left dangling after normal writes.
