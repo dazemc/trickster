@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: currency, dependency majors, and shell capabilities
 
-- S: Coalesce Hyprland workspace refresh events. Done when incoming events are
-  debounced, in-flight refreshes are coalesced, emissions are deduped, and a
-  live workspace switch updates the pill once.
-
 - S: Key overlay entries by view. Done when overlay builders select only the
   calling view's session, so a hovered tooltip on one output does not rebuild
   strips on other outputs.
