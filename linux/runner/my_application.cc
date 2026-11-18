@@ -1180,6 +1180,9 @@ static void my_application_activate(GApplication* application) {
   FlView* bootstrap_view = fl_view_new(project);
   self->bootstrap_view = bootstrap_view;
   self->engine = fl_view_get_engine(bootstrap_view);
+  // The engine can start running Dart as soon as the view is shown, so the
+  // native channels must exist before any surface is configured or revealed.
+  trickster_install_method_channel(self);
   GdkRGBA bootstrap_background;
   gdk_rgba_parse(&bootstrap_background, "#00000000");
   fl_view_set_background_color(bootstrap_view, &bootstrap_background);
@@ -1199,8 +1202,6 @@ static void my_application_activate(GApplication* application) {
         (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
     trickster_surface_configure(surface, fl_view_new_for_engine(self->engine));
   }
-
-  trickster_install_method_channel(self);
 
   if (self->surfaces->len > 0) {
     TricksterSurface* first =
