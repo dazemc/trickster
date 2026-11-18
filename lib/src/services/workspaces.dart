@@ -904,21 +904,21 @@ class NiriWorkspaces extends WorkspaceBackend {
     }
     _socket = socket;
     _reconnectDelay = _reconnectDelayBase;
-    final buffer = StringBuffer();
+    // Niri can split a UTF-8 rune across socket chunks. Reassemble lines at
+    // the byte level and decode only complete ones, so a multibyte workspace
+    // name arrives as one value instead of a FormatException in the listener.
+    final pending = BytesBuilder(copy: false);
     socket.listen(
       (data) {
-        buffer.write(utf8.decode(data));
-        var text = buffer.toString();
-        var newline = text.indexOf('\n');
+        pending.add(data);
+        var bytes = pending.takeBytes();
+        var newline = bytes.indexOf(0x0A);
         while (newline != -1) {
-          final line = text.substring(0, newline);
-          text = text.substring(newline + 1);
-          _handle(line);
-          newline = text.indexOf('\n');
+          _handle(utf8.decode(bytes.sublist(0, newline), allowMalformed: true));
+          bytes = bytes.sublist(newline + 1);
+          newline = bytes.indexOf(0x0A);
         }
-        buffer
-          ..clear()
-          ..write(text);
+        pending.add(bytes);
       },
       onError: (_) {},
       onDone: () => _scheduleReconnect(generation),

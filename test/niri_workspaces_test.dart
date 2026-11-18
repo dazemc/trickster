@@ -91,6 +91,28 @@ class _FakeNiriServer {
     );
   }
 
+  /// Sends the snapshot as two socket writes, with the split inside a UTF-8
+  /// rune. A client decoding each chunk independently loses the rune.
+  Future<void> sendSplitSnapshot() async {
+    final line =
+        '${jsonEncode({
+          'WorkspacesChanged': {'workspaces': workspaces},
+        })}\n';
+    final bytes = utf8.encode(line);
+    var split = bytes.indexWhere((byte) => byte >= 0x80);
+    if (split == -1) {
+      fail('test snapshot must contain a multibyte rune');
+    }
+    split += 1; // after the lead byte, still inside the rune
+    for (final socket in _streams) {
+      socket.add(bytes.sublist(0, split));
+      await socket.flush();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      socket.add(bytes.sublist(split));
+      await socket.flush();
+    }
+  }
+
   Future<void> dropStreams() async {
     for (final socket in _streams.toList()) {
       await socket.close();
@@ -176,6 +198,37 @@ void main() {
       await backend.focusWorkspace(const Workspace(id: '5', name: 'web')),
       isFalse,
     );
+  });
+
+  test('a multibyte workspace name split across chunks decodes once', ()
+      async {
+    final dir = await _temporaryDir();
+    final server = await _FakeNiriServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+
+    final backend = NiriWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await _waitFor(() => snapshots.isNotEmpty);
+
+    server.workspaces = const [
+      {
+        'id': 1,
+        'idx': 1,
+        'name': '日本語',
+        'output': 'eDP-1',
+        'is_active': true,
+        'active_window_id': 10,
+      },
+    ];
+    await server.sendSplitSnapshot();
+    await _waitFor(() => snapshots.length == 2);
+    expect(snapshots[1].single.name, '日本語');
+    expect(snapshots[1].single.name, isNot(contains('\uFFFD')));
+
+    await sub.cancel();
+    await backend.dispose();
   });
 
   test('reconnects the event stream and replays workspace state', () async {
