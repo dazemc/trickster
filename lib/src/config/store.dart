@@ -175,8 +175,9 @@ class NativeSettingsStore {
     if (document.revision <= 0) {
       throw StateError('Trickster returned an invalid settings revision');
     }
-    if (document.revision > _revision) {
-      _revision = document.revision;
-    }
+    // Adopt the document's revision exactly, including a lower one after an
+    // external rollback. Keeping a stale higher revision makes every later
+    // write fail its expectedRevision check against the rolled-back file.
+    _revision = document.revision;
   }
 }

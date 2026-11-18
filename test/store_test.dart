@@ -36,8 +36,54 @@ class _RacingTransport implements SettingsDocumentTransport {
   }
 }
 
+class _MutableTransport implements SettingsDocumentTransport {
+  _MutableTransport(this.document);
+
+  SettingsDocument document;
+
+  @override
+  Future<SettingsDocument> read() async => document;
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    if (expectedRevision != this.document.revision) {
+      throw StateError('revision ${this.document.revision} != $expectedRevision');
+    }
+    final settings = BarSettings.decode(document);
+    this.document = SettingsDocument(
+      revision: settings.revision,
+      json: document,
+    );
+    return this.document;
+  }
+}
+
 void main() {
   group('NativeSettingsStore', () {
+    test('adopts a lower revision from an external rollback', () async {
+      final transport = _MutableTransport(
+        const SettingsDocument(revision: 5, json: '{"revision": 5}'),
+      );
+      final store = NativeSettingsStore(transport);
+      await store.read();
+      expect(store.revision, 5);
+
+      // A restored older document is the new source of truth.
+      transport.document = const SettingsDocument(
+        revision: 3,
+        json: '{"revision": 3}',
+      );
+      await store.read();
+      expect(store.revision, 3);
+
+      await store.write(const BarSettings(modules: ['clock']));
+      expect(store.revision, 4);
+      expect(transport.document.revision, 4);
+    });
+
     test('retries once after a concurrent revision advance', () async {
       final transport = _RacingTransport(
         const SettingsDocument(revision: 1, json: '{"revision": 1}'),
