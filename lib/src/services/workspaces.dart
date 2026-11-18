@@ -176,11 +176,20 @@ class HyprlandWorkspaces extends WorkspaceBackend {
 
   static const _reconnectDelayMax = Duration(seconds: 5);
 
+  /// Hyprland emits several matching lines for one workspace switch. Coalesce
+  /// the burst into one refresh so the compositor is not queried once per
+  /// line.
+  static const _eventDebounce = Duration(milliseconds: 32);
+
   final String? _socketDir;
   Socket? _events;
   Timer? _reconnect;
+  Timer? _refreshDebounce;
   Duration _reconnectDelay = _reconnectDelayBase;
   var _generation = 0;
+  var _refreshing = false;
+  var _refreshAgain = false;
+  List<Workspace>? _lastEmission;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -264,11 +273,33 @@ class HyprlandWorkspaces extends WorkspaceBackend {
     if (line.contains('workspace') ||
         line.contains('focusedmon') ||
         line.startsWith('urgent')) {
-      unawaited(_refresh());
+      _refreshDebounce?.cancel();
+      _refreshDebounce = Timer(_eventDebounce, () {
+        _refreshDebounce = null;
+        unawaited(_refresh());
+      });
     }
   }
 
+  /// One refresh at a time; events arriving during a query request exactly
+  /// one follow-up, not a queue of isolates and compositor round trips.
   Future<void> _refresh() async {
+    if (_refreshing) {
+      _refreshAgain = true;
+      return;
+    }
+    _refreshing = true;
+    try {
+      do {
+        _refreshAgain = false;
+        await _refreshOnce();
+      } while (_refreshAgain);
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _refreshOnce() async {
     final dir = _socketDir;
     if (dir == null) {
       return;
@@ -334,6 +365,11 @@ class HyprlandWorkspaces extends WorkspaceBackend {
           ),
         );
       }
+      final previous = _lastEmission;
+      if (previous != null && listEquals(previous, workspaces)) {
+        return;
+      }
+      _lastEmission = workspaces;
       _controller.add(workspaces);
     } on Object {
       return;
@@ -487,6 +523,8 @@ class HyprlandWorkspaces extends WorkspaceBackend {
     _generation += 1;
     _reconnect?.cancel();
     _reconnect = null;
+    _refreshDebounce?.cancel();
+    _refreshDebounce = null;
     await _events?.close();
     _events = null;
     await _controller.close();
