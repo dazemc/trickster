@@ -15,7 +15,7 @@ dependencies:
   intl: any
   flutter_bloc: ^9.1.1
   bloc: ^9.2.1
-  equatable: ^2.1.0
+  equatable: ^3.0.0
   ffi: ^2.2.0
   flutter_svg: ^2.3.0
   material_ui: ^1.11.0
