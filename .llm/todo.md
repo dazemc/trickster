@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Include modulePlacement in BarSettings equality. Done when two settings
-  differing only in zone placement are unequal and a placement-only preview
-  emits a new settings state.
-
 - S: Make BackgroundWorker.close generation-safe and terminal. Done when a
   close during isolate startup invalidates the pending start and no invoke
   can revive the worker.
