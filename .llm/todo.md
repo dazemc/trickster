@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Probe an existing control socket for a live owner before binding and only
-  unlink sockets this server owns. Done when a second server refuses a live
-  path and its dispose leaves the first server reachable.
-
 - S: Let NativeSettingsStore adopt a lower valid revision from an external
   rollback. Done when a document rollback is read and the next write commits
   at rolledBackRevision + 1. Land before the atomic-write fallback below.
