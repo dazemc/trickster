@@ -949,6 +949,9 @@ class BarSettings extends Equatable {
     ...displayAppearance.entries.map(
       (entry) => Object.hash(entry.key, entry.value),
     ),
+    ...modulePlacement.entries.map(
+      (entry) => Object.hash(entry.key, entry.value),
+    ),
     appearance,
     workspaces,
     ...modules,

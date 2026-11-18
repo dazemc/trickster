@@ -91,6 +91,19 @@ void main() {
       expect(decoded.modules, ['clock', 'cpu']);
     });
 
+    test('placement-only changes compare unequal', () {
+      const base = BarSettings();
+      final moved = BarSettings(modulePlacement: {
+        'clock': ModuleZone.leading,
+      });
+      expect(moved, isNot(equals(base)));
+      expect(base, isNot(equals(moved)));
+      expect(
+        BarSettings(modulePlacement: const {'clock': ModuleZone.leading}),
+        equals(moved),
+      );
+    });
+
     test('rejects non-positive revisions', () {
       expect(
         () => BarSettings.decode('{"revision": 0, "modules": []}'),
