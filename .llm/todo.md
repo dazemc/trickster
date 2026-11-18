@@ -8,15 +8,62 @@ Authorized work only: the queue grants exactly the steps it lists, top-down,
 and never overrides the constitution, `.llm/workflow.md`, or the domain notes
 (see `AGENTS.md` → Instruction precedence).
 
-Every step is one action with its own done-criteria. Work top-down, one step
+Every step is one action with its own done-criterion. Work top-down, one step
 at a time: implement it, prove it with `flutter analyze` + `flutter test`
 (plus a release build when native code changes), then remove it. Never remove
 an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase: currency, dependency majors, and shell capabilities
+## Phase: correctness and lifecycle hardening
 
-- S: Key overlay entries by view. Done when overlay builders select only the
-  calling view's session, so a hovered tooltip on one output does not rebuild
-  strips on other outputs.
+- S: Serialize the status reply's session accent through SessionConfig.toJson.
+  Done when a status reply with a configured accent passes jsonEncode and
+  tricksterctl status returns it as a hex string.
+
+- S: Probe an existing control socket for a live owner before binding and only
+  unlink sockets this server owns. Done when a second server refuses a live
+  path and its dispose leaves the first server reachable.
+
+- S: Let NativeSettingsStore adopt a lower valid revision from an external
+  rollback. Done when a document rollback is read and the next write commits
+  at rolledBackRevision + 1. Land before the atomic-write fallback below.
+
+- S: Make settings.json writes atomic and restore the retained .prev snapshot
+  on a corrupt read. Done when a crash-style corrupt document recovers from
+  .prev and no .tmp file is left dangling after normal writes.
+
+- S: Treat malformed settings scalar types as an invalid document at bootstrap.
+  Done when a TypeError from a decoder falls back to defaults in normal
+  startup and still fails strict --check.
+
+- S: Reassemble Niri event-stream lines at the byte level before UTF-8 decoding.
+  Done when a workspace name whose bytes straddle socket chunks emits one
+  correct snapshot.
+
+- S: Include modulePlacement in BarSettings equality. Done when two settings
+  differing only in zone placement are unequal and a placement-only preview
+  emits a new settings state.
+
+- S: Make BackgroundWorker.close generation-safe and terminal. Done when a
+  close during isolate startup invalidates the pending start and no invoke
+  can revive the worker.
+
+- S: Keep live config reload alive across watch-stream errors and closes. Done
+  when an errored/closed directory watch resubscribes with backoff and dispose
+  cancels all restarts.
+
+- S: Close all band-analyzer ports when worker startup fails. Done when a
+  forced startup failure returns false with zero open ReceivePorts and a
+  following start still works.
+
+- S: Destroy the cairo input regions used by the tooltip and bootstrap windows.
+  Done when a release build passes and both surfaces remain click-through with
+  no unmatched cairo_region_create in the runner.
+
+## Phase: shell capabilities
+
+- M: Pause nonessential 1 Hz work while the seat is idle via ext-idle-notify-v1.
+  Done when native emits idle/resume, the CPU/GPU samplers stop while idle and
+  take one fresh sample on resume, the clock keeps ticking, --check reports
+  the protocol, and a release build plus live run are clean.
