@@ -83,6 +83,11 @@ initial layer-shell configure and tear the first surface down. Therefore:
   capped backoff.
 - Socket work runs on worker isolates (`Isolate.run`), so neither a blocking
   dialect nor a reconnecting event socket can stall the frame loop.
+- One workspace switch emits several matching event lines. Debounce the burst
+  (32 ms), coalesce any event arriving during a refresh into exactly one
+  follow-up query, and dedup identical snapshots before emitting. Without all
+  three, the compositor is queried once per line and the pill repaints on
+  duplicate state; with them, a switch updates the rail once.
 - The engine starts only after the first strip surface has completed its
   layer-shell initial configure (`trickster_surface_new` in
   `linux/runner/my_application.cc`), so the first Dart IPC request cannot
