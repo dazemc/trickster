@@ -89,8 +89,9 @@ Resemble Denial at every seam that does not require compositor ownership:
   where Denial already spoke D-Bus.
 - Workspaces via compositor JSON-over-unix-socket backends (Sway, Hyprland,
   niri), auto-detected — the honest replacement for Denial's native state.
-- Backdrop blur only when the host advertises `ext-background-effect`;
-  otherwise translucent fill. Never fake blur with a full-screen copy.
+- Backdrop blur only when the host's `ext-background-effect` manager
+  advertises the blur capability; otherwise translucent fill. A manager
+  global alone is not enough. Never fake blur with a full-screen copy.
   Overlay surfaces (menu, tooltip, calendar, volume slider) composite
   translucent fills and never take the native effect: an effect on a hidden
   overlay black-screens it.
