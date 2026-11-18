@@ -48,14 +48,60 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   upgrade, re-check that document and route first; the parser lives in
   `lib/src/services/opencode.dart`.
 
-- **Three dependency majors lag their constraints.** `dbus` 0.7.15,
-  `equatable` 2.1.0, and `lucide_icons_flutter` 3.1.25 are the newest
-  resolvable under `pubspec.yaml`, while 0.8.0, 3.0.0, and 4.0.2 exist. A
-  future step should migrate and prove each, or record why the constraint
-  stays.
+- **The `l10n.yaml` header is load-bearing.** Flutter 3.50's `gen-l10n` still
+  emits deprecated `GlobalMaterialLocalizations` from `flutter_localizations`.
+  The quoted `header: "// ignore_for_file: deprecated_member_use"` suppresses
+  those infos in generated files; removing it (or regenerating without it)
+  breaks `flutter analyze`. Keep the quote: an unquoted value is invalid YAML.
 
 - **A bar started at login can stick on its first frame.** Observed at a
   22:49 session start that modeset HDMI-A-2 from 60 Hz to 165 Hz HDR: the
   strip held its launch frame for 35 minutes while Dart timers stayed live;
   eight settled-compositor restarts did not reproduce it. Kill only the
   process and relaunch to recover; capture frame timings if it recurs.
+
+- **`ext-workspace-v1` is a pending backend decision.** The staging protocol
+  gives event-driven workspaces to niri 26.04, Hyprland 0.52.1 and COSMIC, but
+  a native event→Dart bridge would be a new seam. Decide before queueing
+  whether broader compositor coverage is worth it over the existing JSON
+  socket backends.
+
+- **gtk-layer-shell 0.10 `respect_close` needs a reproduction.** Since 0.10.0
+  compositor `closed` events are ignored unless `gtk_layer_set_respect_close`
+  is set. Do not patch speculatively: reproduce a stale strip on output
+  removal first, then guard the fix for older installed libraries.
+
+- **Battery sampling still uses synchronous sysfs I/O.** `lib/src/services/
+  battery.dart:32-74` runs `listSync`/`readAsStringSync` on the UI isolate
+  every 5 s and emits unconditionally. Make UPower `PropertiesChanged` the
+  primary source and move the sysfs fallback off the frame isolate.
+
+- **D-Bus parsing runs on the UI isolate.** `status_notifier.dart:207,263` and
+  `mpris.dart:185` create session clients on the UI isolate; signal coalescing
+  bounds frequency but not parse cost. Tray icon bursts can drop frames; move
+  proxies to the existing `background_worker.dart` pattern.
+
+- **Native connector lookup repeats Wayland roundtrips.**
+  `linux/runner/my_application.cc:199-234` creates a fresh `wl_registry` and
+  performs two `wl_display_roundtrip` calls per lookup (outputs, surface
+  create, surface setup). Cache the connector per `GdkMonitor` and invalidate
+  in `monitor_removed_cb`.
+
+- **Blur rect generation is per-frame work.** `lib/src/bar/blur_region.dart:
+  175-189` builds roughly one `Rect` per pixel row per pill, then compares
+  them all. Cache by `(bounds, radius)` and flush only when dirty.
+
+- **Tray pixmap equality scans full RGBA buffers.**
+  `lib/src/services/status_notifier.dart:90-99` and `lib/src/bar/tray.dart:
+  350-355` compare whole buffers on every update. Add a monotonic revision or
+  identity check first and compare bytes only as a fallback.
+
+- **Niri emits duplicate workspace states.** `lib/src/services/workspaces.dart:
+  957-993` adds state on every matching line without a `listEquals` dedup,
+  unlike Sway. Add the same last-snapshot guard.
+
+- **Stopped modules cancel subscriptions but keep services alive.**
+  `cpu_bloc.dart:51-54`, `gpu_bloc.dart:51-54`, `battery_bloc.dart:53-59`,
+  `media_bloc.dart:60-66`, `tray_bloc.dart:84-87` and `workspaces_bloc.dart:
+  73-79` never dispose the underlying sampler. No production path dispatches
+  those events yet; add disposal before enabling runtime module toggles.
