@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart'
-    show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart'
+    show InkWell, Material, MaterialType, NoSplash, SystemMouseCursors;
 
 import 'package:trickster/src/bar/blur_region.dart';
 import 'package:trickster/src/theme/accent.dart';

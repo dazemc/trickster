@@ -1,4 +1,5 @@
 arb-dir: lib/l10n
+header: "// ignore_for_file: deprecated_member_use"
 template-arb-file: app_en.arb
 output-dir: lib/l10n/generated
 output-localization-file: app_localizations.dart
