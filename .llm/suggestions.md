@@ -60,11 +60,13 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   eight settled-compositor restarts did not reproduce it. Kill only the
   process and relaunch to recover; capture frame timings if it recurs.
 
-- **`ext-workspace-v1` is a pending backend decision.** The staging protocol
-  gives event-driven workspaces to niri 26.04, Hyprland 0.52.1 and COSMIC, but
-  a native event→Dart bridge would be a new seam. Decide before queueing
-  whether broader compositor coverage is worth it over the existing JSON
-  socket backends.
+- **`ext-workspace-v1` deferred: no occupied bit.** The staging protocol
+  (`ext_workspace_manager_v1` v1, live on this host) gives event-driven
+  workspaces to niri, Hyprland and COSMIC, but it has no `occupied` state while
+  `lib/src/bar/workspaces.dart` renders occupied/empty pips from it. Switching
+  Hyprland off the JSON IPC backend would regress the rail. Keep the IPC
+  backends; revisit only if the protocol gains occupancy or the pip model
+  changes.
 
 - **gtk-layer-shell 0.10 `respect_close` needs a reproduction.** Since 0.10.0
   compositor `closed` events are ignored unless `gtk_layer_set_respect_close`
