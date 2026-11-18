@@ -17,11 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: currency, dependency majors, and shell capabilities
 
-- S: Honor `ext-background-effect` capabilities. Done when the native manager
-  listener folds the blur capability bit into the probe, the check UI, settings
-  toggle, and blur regions fall back when blur is unavailable, and a release
-  build is exercised on a host that advertises the manager.
-
 - S: Coalesce Hyprland workspace refresh events. Done when incoming events are
   debounced, in-flight refreshes are coalesced, emissions are deduped, and a
   live workspace switch updates the pill once.
