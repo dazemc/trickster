@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Make settings.json writes atomic and restore the retained .prev snapshot
-  on a corrupt read. Done when a crash-style corrupt document recovers from
-  .prev and no .tmp file is left dangling after normal writes.
-
 - S: Treat malformed settings scalar types as an invalid document at bootstrap.
   Done when a TypeError from a decoder falls back to defaults in normal
   startup and still fails strict --check.
