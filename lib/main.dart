@@ -112,7 +112,7 @@ Future<void> _check(Cli cli) async {
       bad('layer-shell', 'compositor does not advertise zwlr_layer_shell_v1');
     }
     if (await layer.blurSupported()) {
-      ok('blur', 'ext-background-effect advertised');
+      ok('blur', 'ext-background-effect blur capability advertised');
     } else {
       ok('blur', 'not advertised (translucent fill)');
     }

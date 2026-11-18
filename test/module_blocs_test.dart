@@ -626,6 +626,25 @@ cpu MHz\t\t: 3400.000
         state,
       );
     });
+
+    test('native capability changes update blur state', () async {
+      final changes = StreamController<bool>.broadcast();
+      final bloc = CapabilitiesBloc(
+        probe: () async => true,
+        changes: () => changes.stream,
+      );
+      try {
+        bloc.add(const CapabilitiesProbeRequested());
+        await expectLater(bloc.stream, emits(const Capabilities(blur: true)));
+        changes.add(false);
+        await expectLater(bloc.stream, emits(const Capabilities(blur: false)));
+        changes.add(true);
+        await expectLater(bloc.stream, emits(const Capabilities(blur: true)));
+      } finally {
+        await bloc.close();
+        await changes.close();
+      }
+    });
   });
 
   group('SettingsBloc', () {

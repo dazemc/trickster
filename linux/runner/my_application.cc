@@ -28,6 +28,7 @@ struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
   FlEngine* engine;
+  FlMethodChannel* method_channel;
   GPtrArray* surfaces;
   GPtrArray* menus;
   GPtrArray* tooltips;
@@ -236,6 +237,9 @@ static gchar* trickster_connector_for_monitor(GdkMonitor* monitor) {
 static void blur_registry_global(void* data, struct wl_registry* registry,
                                  uint32_t name, const char* interface,
                                  uint32_t version);
+static void blur_capabilities(void* data,
+                              struct ext_background_effect_manager_v1* manager,
+                              uint32_t flags);
 static void blur_registry_global_remove(void* data, struct wl_registry* registry,
                                         uint32_t name);
 static gboolean trickster_probe_blur(MyApplication* self);
@@ -257,12 +261,42 @@ static void blur_registry_global(void* data, struct wl_registry* registry,
     }
   } else if (g_strcmp0(interface,
                        ext_background_effect_manager_v1_interface.name) == 0) {
-    self->blur_supported = TRUE;
     if (self->blur_manager == nullptr) {
       self->blur_manager =
           (struct ext_background_effect_manager_v1*)wl_registry_bind(
               registry, name, &ext_background_effect_manager_v1_interface, 1);
+      static const struct ext_background_effect_manager_v1_listener listener = {
+          blur_capabilities};
+      ext_background_effect_manager_v1_add_listener(self->blur_manager,
+                                                    &listener, self);
     }
+  }
+}
+
+// The manager can advertise effects without blur (and can change that later).
+// Keep the probe honest, clear applied regions when blur goes away, and tell
+// Dart so pill and settings fills fall back to the translucent path.
+static void blur_capabilities(void* data,
+                              struct ext_background_effect_manager_v1* manager,
+                              uint32_t flags) {
+  MyApplication* self = MY_APPLICATION(data);
+  const gboolean supported =
+      (flags & EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR) != 0;
+  self->blur_supported = supported;
+  if (!supported) {
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->blur != nullptr) {
+        ext_background_effect_surface_v1_set_blur_region(surface->blur,
+                                                         nullptr);
+      }
+    }
+  }
+  if (self->method_channel != nullptr) {
+    g_autoptr(FlValue) args = fl_value_new_bool(supported ? TRUE : FALSE);
+    fl_method_channel_invoke_method(self->method_channel, "blurChanged", args,
+                                    nullptr, nullptr, nullptr);
   }
 }
 
@@ -334,11 +368,11 @@ static gboolean region_rect(FlValue* item, int32_t* x, int32_t* y,
 // list is cached so a remap (which destroys the wl_surface) can re-apply it.
 static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
                                  FlValue* regions) {
-  if (surface->blur_regions != nullptr) {
-    fl_value_unref(surface->blur_regions);
+  FlValue* previous = surface->blur_regions;
+  surface->blur_regions = regions != nullptr ? fl_value_ref(regions) : nullptr;
+  if (previous != nullptr) {
+    fl_value_unref(previous);
   }
-  surface->blur_regions =
-      regions != nullptr ? fl_value_ref(regions) : nullptr;
   const gboolean enabled =
       regions != nullptr && fl_value_get_type(regions) == FL_VALUE_TYPE_LIST &&
       fl_value_get_length(regions) > 0;
@@ -1106,6 +1140,8 @@ static void trickster_install_method_channel(MyApplication* self) {
       "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
                                             nullptr);
+  g_clear_object(&self->method_channel);
+  self->method_channel = g_object_ref(channel);
   self->capture = trickster_capture_new(
       fl_engine_get_binary_messenger(self->engine));
   self->volume = trickster_volume_new(
@@ -1298,6 +1334,7 @@ static void my_application_dispose(GObject* object) {
   }
   g_clear_pointer(&self->capture, trickster_capture_free);
   g_clear_pointer(&self->volume, trickster_volume_free);
+  g_clear_object(&self->method_channel);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);
