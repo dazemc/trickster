@@ -63,7 +63,9 @@ ok    wayland: wayland-1
 ok    outputs.conf: top,32
 ok    settings.json: revision 1
 ok    layer-shell: zwlr_layer_shell_v1 advertised
-ok    blur: ext-background-effect advertised
+ok    blur: ext-background-effect blur capability advertised
+# or, when the manager is present but blur is not:
+ok    blur: not advertised (translucent fill)
 ok    outputs: eDP-1
 ```
 
