@@ -17,11 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: currency, dependency majors, and shell capabilities
 
-- S: Migrate `equatable` to 3.0.0. Done when the constraint is `^3.0.0`, the
-  56 Equatable value classes keep typed props and value equality, a debug
-  transcript still identifies bloc states, and `flutter analyze` + `flutter
-  test` are green.
-
 - S: Migrate `lucide_icons_flutter` to 4.0.3. Done when the constraint is
   `^4.0.3`, `flutter clean` + release build succeed, all 18 used glyphs render
   on screen, and `flutter analyze` + `flutter test` are green.
