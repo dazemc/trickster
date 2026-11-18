@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: currency, dependency majors, and shell capabilities
 
-- S: Migrate `lucide_icons_flutter` to 4.0.3. Done when the constraint is
-  `^4.0.3`, `flutter clean` + release build succeed, all 18 used glyphs render
-  on screen, and `flutter analyze` + `flutter test` are green.
-
 - S: Honor `ext-background-effect` capabilities. Done when the native manager
   listener folds the blur capability bit into the probe, the check UI, settings
   toggle, and blur regions fall back when blur is unavailable, and a release
