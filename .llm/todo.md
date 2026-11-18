@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Reassemble Niri event-stream lines at the byte level before UTF-8 decoding.
-  Done when a workspace name whose bytes straddle socket chunks emits one
-  correct snapshot.
-
 - S: Include modulePlacement in BarSettings equality. Done when two settings
   differing only in zone placement are unequal and a placement-only preview
   emits a new settings state.
