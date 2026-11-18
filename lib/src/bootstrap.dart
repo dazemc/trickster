@@ -26,9 +26,10 @@ class Bootstrap {
     String? configPath,
     String? edge,
     bool strict = false,
+    @visibleForTesting ConfigPaths? paths,
   }) {
     final sessionFile = _session();
-    final paths = ConfigPaths(
+    paths ??= ConfigPaths(
       outputOverride: configPath ?? sessionFile.outputConfig,
     );
     _seedUserConfig(paths);
@@ -87,7 +88,9 @@ class Bootstrap {
     }
     try {
       return BarSettings.decode(file.readAsStringSync());
-    } on FormatException catch (error) {
+    } on Object catch (error) {
+      // Decoders cast typed fields, so a wrong JSON scalar throws TypeError
+      // rather than FormatException. Both mean "invalid document" here.
       stderr.writeln('trickster: $error');
       if (strict) {
         rethrow;

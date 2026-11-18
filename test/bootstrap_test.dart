@@ -48,6 +48,21 @@ void main() {
     expect(File(paths.settings).readAsStringSync(), '{"revision": 9}');
   });
 
+  test('malformed scalar values fall back to defaults but fail strict load', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.settings).writeAsStringSync(
+      '{"revision":1,"clock":{"show_date":"yes"}}',
+    );
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.settings, const BarSettings());
+    expect(
+      () => Bootstrap.load(paths: paths, strict: true),
+      throwsA(isA<TypeError>()),
+    );
+  });
+
   test('a missing template falls back to the built-in header', () {
     final paths = ConfigPaths(configHome: '${home.path}/config');
 
