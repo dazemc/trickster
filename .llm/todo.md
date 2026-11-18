@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Serialize the status reply's session accent through SessionConfig.toJson.
-  Done when a status reply with a configured accent passes jsonEncode and
-  tricksterctl status returns it as a hex string.
-
 - S: Probe an existing control socket for a live owner before binding and only
   unlink sockets this server owns. Done when a second server refuses a live
   path and its dispose leaves the first server reachable.
