@@ -120,5 +120,40 @@ void main() {
         await directory.delete(recursive: true);
       }
     });
+    test('file transport writes atomically and recovers from .prev', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-atomic',
+      );
+      try {
+        final file = File('${directory.path}/settings.json');
+        final first = await FileSettingsTransport(file).read();
+        expect(first.revision, 1);
+
+        final transport = FileSettingsTransport(file);
+        await transport.write(
+          expectedRevision: 1,
+          document: const BarSettings(revision: 2).encode(),
+        );
+        expect(File('${file.path}.tmp').existsSync(), isFalse);
+        final previous = File('${file.path}.prev');
+        expect(previous.existsSync(), isTrue);
+        expect(BarSettings.decode(previous.readAsStringSync()).revision, 1);
+
+        // Simulate a crash that leaves a torn live document.
+        file.writeAsStringSync('{"revision":2,"modules":');
+        final recovered = await FileSettingsTransport(file).read();
+        expect(recovered.revision, 1);
+        expect(BarSettings.decode(recovered.json).revision, 1);
+
+        // The recovered revision is usable for the next write.
+        await FileSettingsTransport(file).write(
+          expectedRevision: 1,
+          document: const BarSettings(revision: 2).encode(),
+        );
+        expect(BarSettings.decode(file.readAsStringSync()).revision, 2);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
   });
 }
