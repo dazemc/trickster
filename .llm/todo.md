@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Treat malformed settings scalar types as an invalid document at bootstrap.
-  Done when a TypeError from a decoder falls back to defaults in normal
-  startup and still fails strict --check.
-
 - S: Reassemble Niri event-stream lines at the byte level before UTF-8 decoding.
   Done when a workspace name whose bytes straddle socket chunks emits one
   correct snapshot.
