@@ -18,14 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Stop the native PipeWire capture on dispose. Make
-  `PipeWireCapture.dispose()` async and idempotent: mark disposed, invoke
-  `pipewireStop` unconditionally with errors tolerated, clear the method
-  handler, close the levels controller, and never deliver late frames.
-  `BandAnalyzer.dispose()` waits for it, and the fake capture returns
-  `Future<void>`. Done when channel tests prove the stop call, double-dispose
-  and dispose-before-start safety, late-frame rejection, and no pending
-  controllers; analyze/full tests/release build are green.
