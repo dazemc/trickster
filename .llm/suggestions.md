@@ -63,10 +63,6 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **niri emits duplicate workspace states.** Its handler adds a snapshot for
-  every matching line without the `listEquals` guard Sway and Hyprland use.
-  Add the last-snapshot guard before emitting.
-
 - **D-Bus parsing runs on the UI isolate.** StatusNotifier and MPRIS create
   session clients on the UI isolate; signal coalescing bounds frequency, not
   parse cost. Move proxy work to the existing `background_worker.dart` pattern.
