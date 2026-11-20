@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:dbus/dbus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -283,6 +285,26 @@ List<int> _argbBytes(int width, int height, int alpha) {
 const String _pngFixture =
     'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4nGP4z8DwHxkzkC4AADxAH+HggXe0AAAAAElFTkSuQmCC';
 
+Future<Uint8List> _png(int width, int height) async {
+  final recorder = ui.PictureRecorder();
+  ui.Canvas(recorder).drawRect(
+    ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+    ui.Paint()..color = const ui.Color(0xffff0000),
+  );
+  final picture = recorder.endRecording();
+  try {
+    final image = await picture.toImage(width, height);
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    picture.dispose();
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -380,6 +402,39 @@ void main() {
     // have lost it and kept the empty top-left instead.
     expect(alphaAt(0, 0), 0);
     expect(alphaAt(11, 23), greaterThan(0));
+  });
+
+  test('clamps a tall raster icon to the display size', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-tall');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/tall.png')
+      ..writeAsBytesSync(await _png(1, 2000));
+
+    final pixmap = await decodeStatusNotifierIconForTesting(file.path);
+
+    expect(pixmap, isNotNull);
+    expect(pixmap!.width, 1);
+    expect(pixmap.height, 24);
+    expect(pixmap.rgba.length, 1 * 24 * 4);
+  });
+
+  test('rejects a raster icon over the input dimension cap', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wide');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/wide.png')
+      ..writeAsBytesSync(await _png(5000, 1));
+
+    expect(await decodeStatusNotifierIconForTesting(file.path), isNull);
+  });
+
+  test('retains only known item properties', () {
+    final retained = retainStatusNotifierItemProperties(<String, DBusValue>{
+      'Title': const DBusString('Test Item'),
+      'UnknownHuge': DBusArray.byte(List<int>.filled(1024, 0)),
+    });
+
+    expect(retained.keys, <String>['Title']);
+    expect(retained['Title'], const DBusString('Test Item'));
   });
 
   test('decodes an icon-name item into a display-size pixmap', () async {

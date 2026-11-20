@@ -2,8 +2,18 @@ import 'dart:async';
 import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:ui' as ui show Canvas, Image, Picture, PictureRecorder;
-import 'dart:ui' show ImageByteFormat, Offset, instantiateImageCodec;
+import 'dart:math' as math;
+import 'dart:ui'
+    as ui
+    show
+        Canvas,
+        Codec,
+        Image,
+        ImageDescriptor,
+        ImmutableBuffer,
+        Picture,
+        PictureRecorder;
+import 'dart:ui' show ImageByteFormat, Offset;
 
 import 'package:dbus/dbus.dart';
 import 'package:equatable/equatable.dart';
@@ -606,7 +616,7 @@ class StatusNotifierService {
             .getAllProperties(interface)
             .timeout(_readTimeout);
         _itemInterfaces[registration.id] = interface;
-        _itemProperties[registration.id] = Map<String, DBusValue>.of(
+        _itemProperties[registration.id] = retainStatusNotifierItemProperties(
           properties,
         );
         _updateItem(registration);
@@ -1473,6 +1483,8 @@ abstract final class _StatusNotifierLimits {
   static const int maxIconPaths = 256;
   static const int maxDecodedIcons = 64;
   static const int maxIconFileBytes = 8 * 1024 * 1024;
+  static const int maxIconFileDimension = 4096;
+  static const int maxIconFilePixels = 4 * 1024 * 1024;
 }
 
 /// Resolves `IconName`/`IconThemePath` the way a freedesktop host does.
@@ -1837,32 +1849,47 @@ Future<SystemTrayIconPixmap?> _decodeIconFile(String path) async {
     if (_looksLikeSvg(path, bytes)) {
       return await _decodeSvgIcon(bytes);
     }
-    final codec = await instantiateImageCodec(
-      bytes,
-      targetWidth: _StatusNotifierLimits.preferredIconDimension,
-    );
+    ui.ImmutableBuffer? buffer;
+    ui.ImageDescriptor? descriptor;
+    ui.Codec? codec;
+    ui.Image? image;
     try {
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-      try {
-        final longest = image.width > image.height ? image.width : image.height;
-        if (longest > _StatusNotifierLimits.maxOutputDimension) {
-          return null;
-        }
-        final data = await image.toByteData(format: ImageByteFormat.rawRgba);
-        if (data == null) {
-          return null;
-        }
-        return SystemTrayIconPixmap(
-          width: image.width,
-          height: image.height,
-          rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-        );
-      } finally {
-        image.dispose();
+      buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      descriptor = await ui.ImageDescriptor.encoded(buffer);
+      final width = descriptor.width;
+      final height = descriptor.height;
+      if (width <= 0 ||
+          height <= 0 ||
+          width > _StatusNotifierLimits.maxIconFileDimension ||
+          height > _StatusNotifierLimits.maxIconFileDimension ||
+          width * height > _StatusNotifierLimits.maxIconFilePixels) {
+        return null;
       }
+      final longest = math.max(width, height);
+      final scale = _StatusNotifierLimits.preferredIconDimension / longest;
+      codec = await descriptor.instantiateCodec(
+        targetWidth: math.max(1, (width * scale).round()),
+        targetHeight: math.max(1, (height * scale).round()),
+      );
+      image = (await codec.getNextFrame()).image;
+      final longestOutput = math.max(image.width, image.height);
+      if (longestOutput > _StatusNotifierLimits.maxOutputDimension) {
+        return null;
+      }
+      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+      if (data == null) {
+        return null;
+      }
+      return SystemTrayIconPixmap(
+        width: image.width,
+        height: image.height,
+        rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      );
     } finally {
-      codec.dispose();
+      image?.dispose();
+      codec?.dispose();
+      descriptor?.dispose();
+      buffer?.dispose();
     }
   } on Object {
     return null;
@@ -1885,6 +1912,19 @@ const Set<String> _knownItemProperties = <String>{
   'Menu',
   'ItemIsMenu',
 };
+
+/// Keeps only the StatusNotifier properties the bar reads. `GetAllProperties`
+/// can carry arbitrary values; retaining them would let one item pin memory
+/// the UI never uses.
+@visibleForTesting
+Map<String, DBusValue> retainStatusNotifierItemProperties(
+  Map<String, DBusValue> properties,
+) {
+  return <String, DBusValue>{
+    for (final entry in properties.entries)
+      if (_knownItemProperties.contains(entry.key)) entry.key: entry.value,
+  };
+}
 
 const Map<String, Set<String>> _itemSignalProperties = <String, Set<String>>{
   'NewTitle': <String>{'Title'},
