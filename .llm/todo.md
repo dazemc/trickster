@@ -18,14 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Tear down overlay surfaces from their owning blocs. Add `close()`
-  overrides to the tray menu, calendar, volume slider, and tooltip blocs that
-  bump their generation, close the current native overlay surface, absorb a
-  dead-channel error, and then close the bloc. Harden each `*ViewsRetained`
-  handler so a session whose view is no longer retained is cleared while its
-  view-id set is trimmed. Done when each bloc close closes its native overlay,
-  a retained event without the session view clears it, an already-destroyed
-  surface does not throw, and `flutter analyze` plus `flutter test` are green.
