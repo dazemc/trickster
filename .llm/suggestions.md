@@ -73,11 +73,10 @@ Nothing in this file authorizes performance work.
   is set. Do not patch speculatively: reproduce a stale strip on output
   removal first, then guard the fix for older installed libraries.
 
-- **Settings recovery can lose its older good snapshot.** The first write after
-  reading `.prev` copies the recovered file over `.prev`, destroying the older
-  one. The settings application also chooses its transport at startup; if the
-  bar exits while the window is open, later saves do not fall back to the file
-  transport. Keep a separate last-good source and retry the file path.
+- **Settings saves do not fall back to the file after the bar exits.** The
+  settings application chooses its transport at startup; if the bar exits
+  while the window is open, later saves fail. Retry the file path and keep the
+  same revision line.
 
 ## Performance and refresh
 
