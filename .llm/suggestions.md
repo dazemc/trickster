@@ -71,11 +71,6 @@ Nothing in this file authorizes performance work.
   session clients on the UI isolate; signal coalescing bounds frequency, not
   parse cost. Move proxy work to the existing `background_worker.dart` pattern.
 
-- **A settings-only reload enumerates outputs.** `_apply` calls
-  `_reconcileOutputs` for every settings change, which calls native `outputs()`
-  even when only a visual option changed. Skip the enumeration unless the
-  output set or strip geometry changed.
-
 - **Control listener errors are swallowed.** `ControlServer` has no retry or
   rebind when the listener fails. Surface the error, retry with a bounded
   backoff, and do not leave a dead socket path behind.
