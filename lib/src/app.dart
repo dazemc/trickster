@@ -37,6 +37,16 @@ import 'package:trickster/src/state/volume_slider_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/backdrop_blur.dart';
 
+/// Whether a reload needs the native output enumeration. The first apply
+/// establishes surfaces; later applies only need it when the output document
+/// changed. Disruptive changes take the recreate path instead.
+@visibleForTesting
+bool shouldReconcileOutputs({
+  required bool firstApply,
+  required OutputsConfig previous,
+  required OutputsConfig next,
+}) => firstApply || previous != next;
+
 class TricksterApp extends StatefulWidget {
   const TricksterApp({
     required this.initial,
@@ -140,6 +150,7 @@ class _TricksterAppState extends State<TricksterApp>
   var _reconcileAgain = false;
   OutputsConfig _lastOutputs = const OutputsConfig();
   SessionConfig _lastSession = const SessionConfig();
+  var _applied = false;
 
   @override
   void initState() {
@@ -288,6 +299,12 @@ class _TricksterAppState extends State<TricksterApp>
   void _apply(RuntimeConfig loaded) {
     context.read<SessionBloc>().add(SessionLoaded(loaded.session));
     context.read<SettingsBloc>().add(SettingsLoaded(loaded.settings));
+    final firstApply = !_applied;
+    final outputsChanged = shouldReconcileOutputs(
+      firstApply: firstApply,
+      previous: _lastOutputs,
+      next: loaded.outputs,
+    );
     final sessionChanged =
         loaded.session.layer != _lastSession.layer ||
         loaded.session.namespace != _lastSession.namespace ||
@@ -299,9 +316,10 @@ class _TricksterAppState extends State<TricksterApp>
     context.read<OutputsBloc>().add(OutputsLoaded(loaded.outputs));
     _lastOutputs = loaded.outputs;
     _lastSession = loaded.session;
+    _applied = true;
     if (disruptive) {
       unawaited(_recreateSurfaces(loaded));
-    } else {
+    } else if (outputsChanged) {
       unawaited(_reconcileOutputs(loaded.outputs));
     }
   }
