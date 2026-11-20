@@ -433,6 +433,15 @@ static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
   return fl_value_get_int(value);
 }
 
+// An empty input region makes the widget click-through entirely. GTK copies
+// the region into the widget's input-shape state, so the caller owns its
+// reference and releases it as soon as the call returns.
+static void trickster_make_click_through(GtkWidget* widget) {
+  cairo_region_t* region = cairo_region_create();
+  gtk_widget_input_shape_combine_region(widget, region);
+  cairo_region_destroy(region);
+}
+
 // Creates the fullscreen overlay surface hosting one transient shelf panel:
 // a tray menu or a tray tooltip. It starts hidden: Dart maps it after the
 // session is ready, so the overlay never shows a default frame. The window's
@@ -511,9 +520,7 @@ static TricksterSurface* trickster_overlay_surface_new(MyApplication* self,
   gtk_widget_realize(GTK_WIDGET(view));
 
   if (tooltip) {
-    // An empty input region makes the tooltip click-through entirely.
-    gtk_widget_input_shape_combine_region(GTK_WIDGET(window),
-                                          cairo_region_create());
+    trickster_make_click_through(GTK_WIDGET(window));
   }
 
   return surface;
@@ -1228,8 +1235,7 @@ static void my_application_activate(GApplication* application) {
   // Fully transparent and click-through: the bootstrap exists only to host
   // the engine's implicit view, never to be seen or hit.
   gtk_widget_set_opacity(GTK_WIDGET(bootstrap_window), 0.0);
-  gtk_widget_input_shape_combine_region(GTK_WIDGET(bootstrap_window),
-                                        cairo_region_create());
+  trickster_make_click_through(GTK_WIDGET(bootstrap_window));
   gtk_widget_show(GTK_WIDGET(bootstrap_window));
   fl_register_plugins(FL_PLUGIN_REGISTRY(bootstrap_view));
 
