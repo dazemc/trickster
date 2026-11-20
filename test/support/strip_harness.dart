@@ -24,6 +24,7 @@ import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
@@ -142,6 +143,8 @@ Future<void> pumpBarHarness(
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
   GpuBloc Function()? gpuBuilder,
+  CpuSampler Function()? cpuSamplerBuilder,
+  GpuSampler Function()? gpuSamplerBuilder,
   TrayBloc Function()? trayBuilder,
   BatteryBloc Function()? batteryBuilder,
   WorkspacesBloc Function()? workspacesBuilder,
@@ -149,6 +152,8 @@ Future<void> pumpBarHarness(
   VisualizerBloc Function()? visualizerBuilder,
   SinkVolumeBloc Function()? volumeBuilder,
   OpencodeBloc Function()? opencodeBuilder,
+  Stream<bool>? seatIdleChanges,
+  SeatIdleState? initialSeatIdle,
   Duration settle = Duration.zero,
 }) async {
   await tester.pumpWidget(
@@ -157,6 +162,12 @@ Future<void> pumpBarHarness(
         BlocProvider(create: (_) => SettingsBloc(settings)),
         BlocProvider(create: (_) => SessionBloc()),
         BlocProvider(create: (_) => OutputsBloc()),
+        BlocProvider(
+          create: (_) => SeatIdleBloc(
+            initial: initialSeatIdle,
+            changes: () => seatIdleChanges ?? const Stream<bool>.empty(),
+          ),
+        ),
       ],
       child: withOverlayBlocs(
         TricksterLocalizationScope(
@@ -164,8 +175,17 @@ Future<void> pumpBarHarness(
           child: ModuleScope(
             clockBuilder: clockBuilder ?? ClockBloc.new,
             cpuBuilder:
-                cpuBuilder ?? () => CpuBloc(initial: const CpuSample(0.42)),
-            gpuBuilder: gpuBuilder ?? () => GpuBloc(initial: const GpuState()),
+                cpuBuilder ??
+                (cpuSamplerBuilder == null
+                    ? () => CpuBloc(initial: const CpuSample(0.42))
+                    : null),
+            gpuBuilder:
+                gpuBuilder ??
+                (gpuSamplerBuilder == null
+                    ? () => GpuBloc(initial: const GpuState())
+                    : null),
+            cpuSamplerBuilder: cpuSamplerBuilder,
+            gpuSamplerBuilder: gpuSamplerBuilder,
             trayBuilder:
                 trayBuilder ?? () => TrayBloc(initial: const TrayState()),
             batteryBuilder:

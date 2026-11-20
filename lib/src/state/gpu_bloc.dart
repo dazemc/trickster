@@ -13,7 +13,21 @@ sealed class GpuEvent extends Equatable {
 }
 
 class GpuStarted extends GpuEvent {
-  const GpuStarted();
+  const GpuStarted({this.paused = false});
+
+  /// True when the module is created while the seat is already idle.
+  final bool paused;
+
+  @override
+  List<Object?> get props => [paused];
+}
+
+class GpuPaused extends GpuEvent {
+  const GpuPaused();
+}
+
+class GpuResumed extends GpuEvent {
+  const GpuResumed();
 }
 
 class GpuStopped extends GpuEvent {
@@ -34,6 +48,8 @@ class GpuBloc extends Bloc<GpuEvent, GpuState> {
     : _sampler = sampler ?? GpuSampler(),
       super(initial) {
     on<GpuStarted>(_onStarted);
+    on<GpuPaused>(_onPaused);
+    on<GpuResumed>(_onResumed);
     on<GpuStopped>(_onStopped);
     on<GpuSampled>((event, emit) => emit(GpuState(event.loads)));
   }
@@ -45,7 +61,15 @@ class GpuBloc extends Bloc<GpuEvent, GpuState> {
     _subscription ??= _sampler.snapshots.listen(
       (loads) => add(GpuSampled(loads)),
     );
-    _sampler.start();
+    _sampler.start(paused: event.paused);
+  }
+
+  void _onPaused(GpuPaused event, Emitter<GpuState> emit) {
+    _sampler.pause();
+  }
+
+  void _onResumed(GpuResumed event, Emitter<GpuState> emit) {
+    _sampler.resume();
   }
 
   Future<void> _onStopped(GpuStopped event, Emitter<GpuState> emit) async {

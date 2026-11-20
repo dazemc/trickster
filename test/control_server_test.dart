@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,11 +7,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/session.dart';
+import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 
@@ -42,34 +45,42 @@ void main() {
     expect(File(path).existsSync(), isFalse);
   });
 
-  test('a second server neither steals nor removes a live control socket', ()
-      async {
-    final directory = await Directory.systemTemp.createTemp(
-      'trickster-control-owner',
-    );
-    addTearDown(() => directory.delete(recursive: true));
-    final path = '${directory.path}/control.sock';
-    final first = ControlServer(
-      socketPath: path,
-      handler: (request) async => <String, Object?>{'ok': true, 'owner': 'first'},
-    );
-    expect(await first.start(), isTrue);
-    addTearDown(first.dispose);
+  test(
+    'a second server neither steals nor removes a live control socket',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-control-owner',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final path = '${directory.path}/control.sock';
+      final first = ControlServer(
+        socketPath: path,
+        handler: (request) async => <String, Object?>{
+          'ok': true,
+          'owner': 'first',
+        },
+      );
+      expect(await first.start(), isTrue);
+      addTearDown(first.dispose);
 
-    final second = ControlServer(
-      socketPath: path,
-      handler: (request) async => <String, Object?>{'ok': true, 'owner': 'second'},
-    );
-    expect(await second.start(), isFalse);
-    await second.dispose();
+      final second = ControlServer(
+        socketPath: path,
+        handler: (request) async => <String, Object?>{
+          'ok': true,
+          'owner': 'second',
+        },
+      );
+      expect(await second.start(), isFalse);
+      await second.dispose();
 
-    // The first server still owns the path and answers after the second exits.
-    expect(File(path).existsSync(), isTrue);
-    final reply = await controlRequest(<String, Object?>{
-      'command': 'version',
-    }, socketPath: path);
-    expect(reply['owner'], 'first');
-  });
+      // The first server still owns the path and answers after the second exits.
+      expect(File(path).existsSync(), isTrue);
+      final reply = await controlRequest(<String, Object?>{
+        'command': 'version',
+      }, socketPath: path);
+      expect(reply['owner'], 'first');
+    },
+  );
 
   test('a handler error becomes a clean error reply', () async {
     final directory = await Directory.systemTemp.createTemp(
@@ -103,9 +114,8 @@ void main() {
       MultiBlocProvider(
         providers: [
           BlocProvider<SessionBloc>(
-            create: (_) => SessionBloc(
-              const SessionConfig(accent: Color(0xffd0bcff)),
-            ),
+            create: (_) =>
+                SessionBloc(const SessionConfig(accent: Color(0xffd0bcff))),
           ),
           BlocProvider<SettingsBloc>(create: (_) => SettingsBloc()),
           BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
@@ -130,6 +140,95 @@ void main() {
     expect(reply['ok'], isTrue);
     expect(jsonEncode(reply), isA<String>());
     expect((reply['session'] as Map)['accent'], '#d0bcff');
+  });
+
+  testWidgets('status exposes seat idle only when a sampler is configured', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) => SettingsBloc(const BarSettings(modules: ['cpu'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: true),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['seat_idle'], {'idle': true});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status does not create the idle service when it is unused', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    var created = 0;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) => SettingsBloc(const BarSettings(modules: ['clock'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) {
+              created += 1;
+              return SeatIdleBloc(changes: () => const Stream<bool>.empty());
+            },
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    expect(
+      (reply['state']! as Map<String, Object?>).containsKey('seat_idle'),
+      isFalse,
+    );
+    expect(created, 0);
   });
 
   test('a non-object request becomes a clean error reply', () async {

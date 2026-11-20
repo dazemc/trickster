@@ -12,6 +12,7 @@ import 'package:trickster/src/settings/app.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 
@@ -37,6 +38,9 @@ Future<void> main(List<String> args) async {
     runWidget(const TricksterSettingsApp());
     return;
   }
+  // Native caches the last idle event; seed the bloc from it so CPU/GPU never
+  // take an unpaused sample while the seat is already idle.
+  final initialSeatIdle = await _probeSeatIdle();
   final runtime = Bootstrap.load(configPath: cli.configPath, edge: cli.edge);
   // One settings transport for the whole bar: the control socket serves the
   // settings application from it, and the media pill persists its mode
@@ -61,6 +65,11 @@ Future<void> main(List<String> args) async {
           create: (_) =>
               CapabilitiesBloc()..add(const CapabilitiesProbeRequested()),
         ),
+        BlocProvider(
+          create: (_) =>
+              SeatIdleBloc(initial: SeatIdleState(idle: initialSeatIdle))
+                ..add(const SeatIdleProbeRequested()),
+        ),
       ],
       child: TricksterApp(
         initial: runtime,
@@ -68,6 +77,17 @@ Future<void> main(List<String> args) async {
       ),
     ),
   );
+}
+
+Future<bool> _probeSeatIdle() async {
+  try {
+    return await LayerShell().seatIdle().timeout(
+      const Duration(seconds: 1),
+      onTimeout: () => false,
+    );
+  } on Object {
+    return false;
+  }
 }
 
 Future<void> _check(Cli cli) async {
@@ -115,6 +135,17 @@ Future<void> _check(Cli cli) async {
       ok('blur', 'ext-background-effect blur capability advertised');
     } else {
       ok('blur', 'not advertised (translucent fill)');
+    }
+    var idle = false;
+    try {
+      idle = await layer.idleSupported();
+    } on Object {
+      idle = false;
+    }
+    if (idle) {
+      ok('idle-notify', 'ext-idle-notify-v1 advertised');
+    } else {
+      ok('idle-notify', 'not advertised (samplers keep running)');
     }
     final outputs = await layer.outputs();
     if (outputs.isEmpty) {

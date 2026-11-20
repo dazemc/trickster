@@ -25,12 +25,29 @@ class FakeCpuSampler extends CpuSampler {
   final controller = StreamController<CpuSample>.broadcast();
 
   var disposed = false;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
 
   @override
   Stream<CpuSample> get snapshots => controller.stream;
 
   @override
-  void start() {}
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
 
   @override
   void dispose() {
@@ -61,12 +78,29 @@ class FakeGpuSampler extends GpuSampler {
   final controller = StreamController<List<GpuLoad>>.broadcast();
 
   var disposed = false;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
 
   @override
   Stream<List<GpuLoad>> get snapshots => controller.stream;
 
   @override
-  void start() {}
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
 
   @override
   Future<void> dispose() async {
@@ -207,6 +241,41 @@ void main() {
       verify: (_) => expect(fake.disposed, isTrue),
     );
 
+    blocTest<CpuBloc, CpuSample>(
+      'seat pauses and resumes the sampler without emitting',
+      build: () {
+        fake = FakeCpuSampler();
+        return CpuBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const CpuStarted());
+        await pumpEventQueue();
+        bloc.add(const CpuPaused());
+        await pumpEventQueue();
+        bloc.add(const CpuResumed());
+        await pumpEventQueue();
+      },
+      expect: () => const <CpuSample>[],
+      verify: (_) {
+        expect(fake.pauses, 1);
+        expect(fake.resumes, 1);
+      },
+    );
+
+    blocTest<CpuBloc, CpuSample>(
+      'a module started while idle seeds a paused sampler',
+      build: () {
+        fake = FakeCpuSampler();
+        return CpuBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const CpuStarted(paused: true));
+        await pumpEventQueue();
+      },
+      expect: () => const <CpuSample>[],
+      verify: (_) => expect(fake.startedPaused, isTrue),
+    );
+
     test('cpu json round-trips', () {
       const sample = CpuSample(0.25, name: 'AMD Ryzen 9 5950X');
       final decoded = CpuSample.fromJson(
@@ -304,6 +373,23 @@ cpu MHz\t\t: 3400.000
         await bloc.close();
       }
       expect(sampler.disposed, isTrue);
+    });
+
+    test('seat pauses and resumes the gpu sampler without emitting', () async {
+      final sampler = FakeGpuSampler();
+      final bloc = GpuBloc(sampler: sampler);
+      try {
+        bloc.add(const GpuStarted());
+        await pumpEventQueue();
+        bloc.add(const GpuPaused());
+        await pumpEventQueue();
+        bloc.add(const GpuResumed());
+        await pumpEventQueue();
+        expect(sampler.pauses, 1);
+        expect(sampler.resumes, 1);
+      } finally {
+        await bloc.close();
+      }
     });
 
     test('gpu state json round-trips', () {

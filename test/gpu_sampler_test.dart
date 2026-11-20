@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -52,6 +53,72 @@ class FakeNvmlReader extends NvmlReader {
   @override
   Future<void> dispose() async {}
 }
+
+/// One NVML read at a time, held open until the test completes it. This is
+/// how the pause/resume generation is exercised without timing luck.
+class BlockingNvmlReader extends NvmlReader {
+  Completer<NvmlRead>? _pending;
+  var reads = 0;
+  var disposed = 0;
+  var active = 0;
+  var maxActive = 0;
+
+  bool get hasPending => _pending != null;
+
+  @override
+  Future<NvmlRead> read() {
+    reads += 1;
+    active += 1;
+    if (active > maxActive) {
+      maxActive = active;
+    }
+    final pending = Completer<NvmlRead>();
+    _pending = pending;
+    return pending.future.whenComplete(() => active -= 1);
+  }
+
+  void complete(List<NvidiaGpuSample> samples, {String? error}) {
+    final pending = _pending;
+    _pending = null;
+    pending?.complete((samples: samples, error: error));
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed += 1;
+  }
+}
+
+typedef _GpuFixture = ({
+  GpuSampler sampler,
+  BlockingNvmlReader nvml,
+  List<List<GpuLoad>> samples,
+  Future<void> Function() dispose,
+});
+
+_GpuFixture _blockingFixture({Duration interval = const Duration(hours: 1)}) {
+  final root = _createRoot(const {});
+  final nvml = BlockingNvmlReader();
+  final sampler = GpuSampler(
+    interval: interval,
+    drmRoot: root.path,
+    nvml: nvml,
+    nvidiaDriverPath: _driverPath(root),
+  );
+  final samples = <List<GpuLoad>>[];
+  final subscription = sampler.snapshots.listen(samples.add);
+  return (
+    sampler: sampler,
+    nvml: nvml,
+    samples: samples,
+    dispose: () async {
+      await subscription.cancel();
+      await sampler.dispose();
+    },
+  );
+}
+
+const _blockingSample = [NvidiaGpuSample(index: 0, usage: 0.4, name: 'RTX')];
 
 void main() {
   test('maps readable cards to stable ids, labels, and usages', () async {
@@ -256,6 +323,175 @@ void main() {
     expect(loads.single.label, 'GPU');
     expect(loads.single.name, 'RTX 4070 Ti');
     expect(loads.single.usage, 0.9);
+  });
+
+  testWidgets(
+    'pause drops the in-flight read and resume takes one fresh sample',
+    (tester) async {
+      final f = _blockingFixture();
+      addTearDown(f.dispose);
+
+      f.sampler.start();
+      expect(f.sampler.isRunning, isTrue);
+      await tester.pump();
+      expect(f.nvml.reads, 1);
+
+      f.sampler.pause();
+      expect(f.sampler.isRunning, isFalse);
+      f.sampler.pause();
+      f.nvml.complete(_blockingSample);
+      await tester.pump();
+      expect(f.samples, isEmpty);
+
+      f.sampler.resume();
+      expect(f.sampler.isRunning, isTrue);
+      await tester.pump();
+      expect(f.nvml.reads, 2);
+      f.nvml.complete(const [
+        NvidiaGpuSample(index: 0, usage: 0.9, name: 'RTX'),
+      ]);
+      await tester.pump();
+      expect(f.samples, hasLength(1));
+      expect(f.samples.single.single.usage, closeTo(0.9, 1e-9));
+      expect(f.samples.single.single.name, 'RTX');
+      // The same NVML facade survives pause/resume; disposal happens once,
+      // at sampler teardown.
+      expect(f.nvml.reads, 2);
+      expect(f.nvml.disposed, 0);
+    },
+  );
+
+  testWidgets('a fast resume drops the stale read and starts a new one', (
+    tester,
+  ) async {
+    final f = _blockingFixture();
+    addTearDown(f.dispose);
+
+    f.sampler.start();
+    await tester.pump();
+    expect(f.nvml.reads, 1);
+
+    f.sampler.pause();
+    f.sampler.resume();
+    await tester.pump();
+    // The stale read is still in flight; resume queued a resample instead of
+    // starting an overlapping read.
+    expect(f.nvml.reads, 1);
+    f.nvml.complete(_blockingSample);
+    await tester.pump();
+    expect(f.samples, isEmpty);
+    expect(f.nvml.reads, 2);
+
+    f.nvml.complete(const [NvidiaGpuSample(index: 0, usage: 0.7, name: 'RTX')]);
+    await tester.pump();
+    expect(f.samples, hasLength(1));
+    expect(f.samples.single.single.usage, closeTo(0.7, 1e-9));
+    expect(f.nvml.maxActive, 1);
+  });
+
+  testWidgets('a paused start does no work until resumed', (tester) async {
+    final f = _blockingFixture();
+    addTearDown(f.dispose);
+
+    f.sampler.start(paused: true);
+    expect(f.sampler.isRunning, isFalse);
+    f.sampler.pause();
+    await tester.pump();
+    expect(f.samples, isEmpty);
+    expect(f.nvml.reads, 0);
+
+    f.sampler.resume();
+    await tester.pump();
+    expect(f.nvml.reads, 1);
+    f.nvml.complete(_blockingSample);
+    await tester.pump();
+    expect(f.samples, hasLength(1));
+  });
+
+  testWidgets('resume before start is a no-op', (tester) async {
+    final f = _blockingFixture();
+    addTearDown(f.dispose);
+
+    f.sampler.resume();
+    await tester.pump();
+    expect(f.sampler.isRunning, isFalse);
+    expect(f.nvml.reads, 0);
+
+    f.sampler.start();
+    await tester.pump();
+    expect(f.nvml.reads, 1);
+  });
+
+  testWidgets('a second start does not add a second timer', (tester) async {
+    final f = _blockingFixture(interval: const Duration(milliseconds: 20));
+    addTearDown(f.dispose);
+
+    f.sampler.start();
+    await tester.pump();
+    f.nvml.complete(_blockingSample);
+    await tester.pump();
+    expect(f.samples, hasLength(1));
+
+    f.sampler.start();
+    await tester.pump(const Duration(milliseconds: 21));
+    expect(f.nvml.reads, 2);
+    f.nvml.complete(_blockingSample);
+    await tester.pump();
+    expect(f.samples, hasLength(2));
+    expect(f.nvml.maxActive, 1);
+  });
+
+  testWidgets('dispose with a read in flight never adds after close', (
+    tester,
+  ) async {
+    final f = _blockingFixture();
+    addTearDown(f.dispose);
+
+    f.sampler.start();
+    await tester.pump();
+    expect(f.nvml.reads, 1);
+
+    await f.sampler.dispose();
+    f.nvml.complete(_blockingSample);
+    await tester.pump();
+    expect(f.samples, isEmpty);
+    expect(f.nvml.disposed, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dispose while paused never revives the sampler', (tester) async {
+    final f = _blockingFixture();
+    addTearDown(f.dispose);
+
+    f.sampler.start();
+    await tester.pump();
+    f.sampler.pause();
+    await f.sampler.dispose();
+    f.sampler.resume();
+    await tester.pump();
+    expect(f.sampler.isRunning, isFalse);
+    expect(f.nvml.disposed, 1);
+  });
+
+  testWidgets('history and names survive a pause and resume', (tester) async {
+    final f = _blockingFixture();
+    addTearDown(f.dispose);
+
+    f.sampler.start();
+    await tester.pump();
+    f.nvml.complete(_blockingSample);
+    await tester.pump();
+
+    f.sampler.pause();
+    f.sampler.resume();
+    await tester.pump();
+    f.nvml.complete(const [NvidiaGpuSample(index: 0, usage: 0.6, name: 'RTX')]);
+    await tester.pump();
+
+    final load = f.samples.last.single;
+    expect(load.name, 'RTX');
+    expect(load.history, [0.4, 0.6]);
+    expect(load.usage, closeTo(0.6, 1e-9));
   });
 
   test('gpu load json round-trips', () {

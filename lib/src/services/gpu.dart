@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'package:trickster/src/services/nvidia.dart';
 
@@ -132,20 +133,74 @@ class GpuSampler {
   List<GpuLoad> _loads = const <GpuLoad>[];
   Timer? _timer;
   var _sampling = false;
+  var _resample = false;
+  var _running = false;
+  var _paused = false;
+  var _generation = 0;
+  var _disposed = false;
   final _controller = StreamController<List<GpuLoad>>.broadcast();
 
   Stream<List<GpuLoad>> get snapshots => _controller.stream;
+
+  @visibleForTesting
+  bool get isRunning => _timer?.isActive ?? false;
 
   bool get _hasNvidia =>
       (_nvidiaDriverPresent ??= File(_nvidiaDriverPath).existsSync()) ||
       _discoveredNvidia;
 
-  void start() {
+  /// Starts sampling. A paused start leaves the timer stopped so a module
+  /// created while the seat is already idle does no periodic work.
+  void start({bool paused = false}) {
+    if (_running) {
+      if (paused) {
+        pause();
+      } else {
+        resume();
+      }
+      return;
+    }
+    _running = true;
+    _paused = paused;
+    if (!_paused) {
+      _begin();
+    }
+  }
+
+  void pause() {
+    if (_paused) {
+      return;
+    }
+    _paused = true;
+    _generation += 1;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void resume() {
+    if (!_paused) {
+      return;
+    }
+    _paused = false;
+    if (!_running) {
+      return;
+    }
+    _begin();
+  }
+
+  void _begin() {
     unawaited(_tick());
-    _timer = Timer.periodic(interval, (_) => unawaited(_tick()));
+    _timer ??= Timer.periodic(interval, (_) => unawaited(_tick()));
   }
 
   Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    _running = false;
+    _paused = true;
+    _generation += 1;
     _timer?.cancel();
     _timer = null;
     await _nvml.dispose();
@@ -154,13 +209,27 @@ class GpuSampler {
 
   Future<void> _tick() async {
     if (_sampling) {
+      _resample = true;
       return;
     }
     _sampling = true;
+    final generation = _generation;
     try {
-      _controller.add(await sample());
+      final loads = await sample();
+      // Drop work that belongs to the paused generation, including a tick
+      // that started before pause and completed after a quick resume.
+      if (generation != _generation || _paused || _controller.isClosed) {
+        return;
+      }
+      _controller.add(loads);
     } finally {
       _sampling = false;
+      if (_resample) {
+        _resample = false;
+        if (!_paused && !_controller.isClosed) {
+          unawaited(_tick());
+        }
+      }
     }
   }
 

@@ -12,6 +12,7 @@ add_executable(${BINARY_NAME}
   "pipewire_capture.cc"
   "pipewire_volume.cc"
   "ext-background-effect-v1-client-protocol.c"
+  "ext-idle-notify-v1-client-protocol.c"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 

@@ -13,6 +13,7 @@ import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
@@ -44,11 +45,17 @@ Future<Map<String, Object?>> handleControlRequest({
         };
       }
       final session = context.read<SessionBloc>().state;
+      final settings = context.read<SettingsBloc>().state;
+      // Do not force-create the idle service on a bar with neither sampler
+      // configured; it is a shared observer, not a queued module.
+      final seatIdle = settings.includes('cpu') || settings.includes('gpu')
+          ? _read<SeatIdleBloc>(context)
+          : null;
       return <String, Object?>{
         'ok': true,
         'version': Cli.appVersion,
         'pid': pid,
-        'modules': context.read<SettingsBloc>().state.modules,
+        'modules': settings.modules,
         'outputs': context.read<OutputsBloc>().state.toJson(),
         // SessionConfig.toJson serializes the accent as a hex string; putting
         // the raw Color in the reply makes jsonEncode throw and leaves the
@@ -75,6 +82,7 @@ Future<Map<String, Object?>> handleControlRequest({
             'visualizer': bloc.state.toJson(),
           if (_read<SinkVolumeBloc>(context) case final bloc?)
             'sink_volume': bloc.state.toJson(),
+          if (seatIdle != null) 'seat_idle': seatIdle.state.toJson(),
         },
       };
     case 'reload':
