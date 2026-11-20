@@ -145,7 +145,7 @@ void main() {
       (state) => !state.isSliderView(100),
     );
 
-    expect(retained.session, isNotNull);
+    expect(retained.session, isNull);
   });
 
   test('the track position maps to a clamped level', () {

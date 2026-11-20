@@ -172,8 +172,12 @@ class OverlayTooltipBloc
     on<OverlayTooltipRequested>(_onRequested);
     on<OverlayTooltipDismissed>(_onDismissed);
     on<OverlayTooltipViewsRetained>((event, emit) {
+      final session = state.session;
       emit(
         state.copyWith(
+          session: session != null && !event.viewIds.contains(session.viewId)
+              ? null
+              : session,
           tooltipViewIds: state.tooltipViewIds
               .where((viewId) => event.viewIds.contains(viewId))
               .toSet(),
@@ -257,5 +261,20 @@ class OverlayTooltipBloc
     emit(state.copyWith(session: null));
     _generation += 1;
     await _layerShell.closeTooltipSurface(viewId: session.viewId);
+  }
+
+  @override
+  Future<void> close() async {
+    _generation += 1;
+    final viewId = state.session?.viewId;
+    if (viewId != null) {
+      try {
+        await _layerShell.closeTooltipSurface(viewId: viewId);
+      } on Object {
+        // The native surface can already be gone after output removal or
+        // engine shutdown; teardown must still finish.
+      }
+    }
+    return super.close();
   }
 }

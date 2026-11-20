@@ -143,8 +143,12 @@ class VolumeSliderBloc extends Bloc<VolumeSliderEvent, VolumeSliderState> {
     on<VolumeSliderRequested>(_onRequested);
     on<VolumeSliderDismissed>(_onDismissed);
     on<VolumeSliderViewsRetained>((event, emit) {
+      final session = state.session;
       emit(
         state.copyWith(
+          session: session != null && !event.viewIds.contains(session.viewId)
+              ? null
+              : session,
           sliderViewIds: state.sliderViewIds
               .where((viewId) => event.viewIds.contains(viewId))
               .toSet(),
@@ -201,5 +205,20 @@ class VolumeSliderBloc extends Bloc<VolumeSliderEvent, VolumeSliderState> {
     if (session != null) {
       await _layerShell.closeMenuSurface(viewId: session.viewId);
     }
+  }
+
+  @override
+  Future<void> close() async {
+    _generation += 1;
+    final viewId = state.session?.viewId;
+    if (viewId != null) {
+      try {
+        await _layerShell.closeMenuSurface(viewId: viewId);
+      } on Object {
+        // The native surface can already be gone after output removal or
+        // engine shutdown; teardown must still finish.
+      }
+    }
+    return super.close();
   }
 }

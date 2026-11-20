@@ -184,7 +184,7 @@ void main() {
       (state) => !state.isCalendarView(100),
     );
 
-    expect(retained.session, isNotNull);
+    expect(retained.session, isNull);
   });
 
   testWidgets('the surface renders the month grid and marks today', (
