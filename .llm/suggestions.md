@@ -82,10 +82,6 @@ Nothing in this file authorizes performance work.
   Add a monotonic revision or identity check first and compare bytes only as a
   fallback.
 
-- **Native connector lookup repeats Wayland roundtrips.** Every lookup creates
-  a fresh `wl_registry` and performs two `wl_display_roundtrip` calls. Cache the
-  connector per `GdkMonitor` and invalidate in `monitor_removed_cb`.
-
 - **niri emits duplicate workspace states.** Its handler adds a snapshot for
   every matching line without the `listEquals` guard Sway and Hyprland use.
   Add the last-snapshot guard before emitting.
