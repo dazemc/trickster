@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 /// Entry point for one persistent background worker isolate.
 ///
 /// The bootstrap list contains, in order, the port used to publish the
@@ -20,14 +22,17 @@ final class BackgroundWorker {
   BackgroundWorker({
     required BackgroundWorkerEntrypoint entrypoint,
     required String debugName,
-  }) : this._(entrypoint, debugName);
+    @visibleForTesting Duration? startupTimeout,
+  }) : this._(entrypoint, debugName, startupTimeout ?? _defaultStartupTimeout);
 
-  BackgroundWorker._(this._entrypoint, this._debugName);
+  BackgroundWorker._(this._entrypoint, this._debugName, this._startupTimeout);
 
-  static const Duration _startupTimeout = Duration(seconds: 10);
+  static const Duration _defaultStartupTimeout = Duration(seconds: 10);
 
   final BackgroundWorkerEntrypoint _entrypoint;
   final String _debugName;
+  final Duration _startupTimeout;
+  var _closed = false;
   final Map<int, Completer<Object?>> _pending = <int, Completer<Object?>>{};
 
   SendPort? _commands;
@@ -58,6 +63,10 @@ final class BackgroundWorker {
   }
 
   Future<void> close() async {
+    // Terminal and generation-safe: a start already in flight must not publish
+    // its command port after close, and no later invoke may revive the worker.
+    _closed = true;
+    _generation += 1;
     _failPending(StateError('Background worker $_debugName was closed'));
     _commands = null;
     _starting = null;
@@ -67,6 +76,9 @@ final class BackgroundWorker {
   }
 
   Future<SendPort> _ensureStarted() {
+    if (_closed) {
+      throw StateError('Background worker $_debugName was closed');
+    }
     final commands = _commands;
     if (commands != null) {
       return Future<SendPort>.value(commands);
@@ -120,6 +132,11 @@ final class BackgroundWorker {
       }
       _isolate = isolate;
       final message = await ready.first.timeout(_startupTimeout);
+      if (_closed || generation != _generation) {
+        throw StateError(
+          'Background worker $_debugName startup was superseded',
+        );
+      }
       if (message is! SendPort) {
         throw StateError(
           'Background worker $_debugName returned an invalid command port',
