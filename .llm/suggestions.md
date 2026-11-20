@@ -114,10 +114,9 @@ Nothing in this file authorizes performance work.
   rebind when the listener fails. Surface the error, retry with a bounded
   backoff, and do not leave a dead socket path behind.
 
-- **Blur and volume globals are not rebound on removal.** The blur manager
-  global removal leaves the native effect object in place; volume global
-  removal leaves bound proxies. Rebind both on a new global and release the
-  stale objects.
+- **Blur manager globals are not rebound on removal.** The blur manager
+  global removal leaves the native effect object in place. Rebind on a new
+  global and release the stale effects.
 
 - **D-Bus transport recovery is all-or-nothing.** When the session bus drops,
   the services rebuild the whole client; a re-listen after a match-rule
