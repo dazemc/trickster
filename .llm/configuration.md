@@ -75,8 +75,10 @@ The document carries:
 - `locale`: `en` or `zh`; null follows the system.
 
 Every write is revision-checked. A mismatch is a `StateError`; the store
-retries once and never keeps a document history. Writes go through the control
-socket when the bar answers, otherwise through the file transport.
+retries once and never keeps a document history. The settings application
+selects a transport at startup: the control socket when the bar answers,
+otherwise the file transport. It does not switch transports mid-session if the
+bar exits.
 
 **Persistence.** The file transport keeps the current document plus one
 last-good copy, writes `.tmp`, copies the live file to `.prev`, then renames
