@@ -253,7 +253,6 @@ created it. Known gaps:
 - the app's post-frame startup callback has no mounted guard, so a dispose
   before the first frame can leave an orphan watcher and control server;
 - overlay surfaces have no output-removal teardown (see architecture);
-- `PipeWireCapture.dispose()` does not stop the native stream;
 - background worker shutdown is generation-safe, but `invoke` has no
   per-request timeout;
 - control listener errors are swallowed without a retry.
