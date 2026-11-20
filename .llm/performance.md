@@ -205,9 +205,11 @@ still required because a silent command connection can block the compositor.
 
 **StatusNotifier and MPRIS.** D-Bus signals are primary; coalescing bounds
 signal bursts, not parse cost. SNI caps 64 items, 256 icon paths, 64 decoded
-icons, 512 px input, 64 px output, and 8 MiB per icon file. MPRIS caps 16
-players and keeps a 60 s recovery refresh. Both services currently open their
-D-Bus clients on the UI isolate; moving proxy work to the existing
+icons, 512 px D-Bus pixmap input, 64 px output, 8 MiB per icon file, 4096 px
+raster file dimension, and 4,194,304 raster file pixels. Raster decode targets
+clamp both axes to a 24 px longest side; the SVG path stays vector-based. MPRIS
+caps 16 players and keeps a 60 s recovery refresh. Both services currently
+open their D-Bus clients on the UI isolate; moving proxy work to the existing
 `background_worker.dart` pattern is a performance gap.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
@@ -264,8 +266,9 @@ Bundle observations (current release):
 
 Caps:
 
-- tray: 64 items, 64 decoded icons, 256 paths, 8 MiB source file, 512 px input
-  dimension, 64 px output dimension;
+- tray: 64 items, 64 decoded icons, 256 paths, 8 MiB source file, 512 px D-Bus
+  pixmap input dimension, 4096 px raster file dimension, 4,194,304 raster file
+  pixels, 24 px preferred output dimension, 64 px hard output cap;
 - pip artwork: 16 entries, 8 MiB, 14 px;
 - CPU/GPU: 45 history samples each;
 - settings: current + last-good + `.prev`, no history;
@@ -286,10 +289,14 @@ candidates, so the output falls through to grim capture and then the
 configured accent. The 269 MB GIF and ~1.64 GiB VmHWM observations predate
 these caps; correlation was never proof. Re-measure with the caps in place.
 
-**Gap — tray decode.** The icon-file path constrains only
-`targetWidth: 24`. A 1×N image can decode very tall before the >64 output
-check rejects it; clamp `targetHeight` from the descriptor. Arbitrary
-non-pixmap values returned by `GetAllProperties` are still retained.
+**Current — tray decode and property caps.** `_decodeIconFile` reads intrinsic
+dimensions through `ImageDescriptor.encoded`, rejects non-positive, over
+4096 px, or over 4,194,304-pixel sources before creating a codec, scales both
+target dimensions from one 24 px longest side, decodes one frame, and disposes
+the buffer, descriptor, codec, and image. `retainStatusNotifierItemProperties`
+keeps only `_knownItemProperties`, so arbitrary `GetAllProperties` values are
+not retained; pixmaps are still removed from the map after decode. The SVG
+path is unchanged.
 
 **Observation, not a budget.** One runtime snapshot measured ~162 MB RSS,
 ~93 MB PSS, and 313 MB swap. VmHWM reached ~1.64 GiB, which is not a baseline
@@ -355,7 +362,7 @@ same scenario and keep the numbers with their provenance.
 | Battery/OpenCode idle gating | Gap | No idle gate |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Gap | Rebuilds scanline rows per flush |
-| Tray 64/256/8 MiB caps | Current | `_StatusNotifierLimits` |
+| Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster and known-property retention | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties` |
 | Wallpaper source byte/dimension/frame caps | Current | `readWallpaperSource`, `WallpaperSourceLimits` |
 | Bundle ~28.4 MiB, fonts as measured | Current | Current release bundle |
 | Unused Lucide weight fonts | Gap | Six variable fonts, 3,160,400 B |
