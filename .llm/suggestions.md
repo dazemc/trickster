@@ -108,6 +108,12 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   73-79` never dispose the underlying sampler. No production path dispatches
   those events yet; add disposal before enabling runtime module toggles.
 
+- **Idle pause covers CPU/GPU only.** Battery's 5 s sysfs sampler and
+  OpenCode's 60 s poll still run while the seat idles. Extend the
+  `SeatIdleBloc` gate to them if their idle cost matters; the observer
+  currently binds only the first seat, so multi-seat compositors would need
+  one notification per seat.
+
 - **Band worker exit leaves the monitor capture running.** `bands.dart`'s
   exit listener calls `_teardown()` and rests the bars but never cancels
   `_frames` or stops `_capture`, so PipeWire keeps delivering frames until the

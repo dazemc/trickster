@@ -66,6 +66,9 @@ ok    layer-shell: zwlr_layer_shell_v1 advertised
 ok    blur: ext-background-effect blur capability advertised
 # or, when the manager is present but blur is not:
 ok    blur: not advertised (translucent fill)
+ok    idle-notify: ext-idle-notify-v1 advertised
+# or, when the compositor has no idle protocol:
+ok    idle-notify: not advertised (samplers keep running)
 ok    outputs: eDP-1
 ```
 

@@ -16,8 +16,3 @@ an untested step; never batch multiple steps into one change.
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: shell capabilities
-
-- M: Pause nonessential 1 Hz work while the seat is idle via ext-idle-notify-v1.
-  Done when native emits idle/resume, the CPU/GPU samplers stop while idle and
-  take one fresh sample on resume, the clock keeps ticking, --check reports
-  the protocol, and a release build plus live run are clean.

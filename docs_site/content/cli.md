@@ -7,7 +7,7 @@ description: trickster flags and the tricksterctl client.
 
 | Flag | Effect |
 | --- | --- |
-| `--check` | Preflight (wayland, configs, layer-shell, blur, outputs) and exit; non-zero on any failure |
+| `--check` | Preflight (wayland, configs, layer-shell, blur, idle-notify, outputs) and exit; non-zero on any failure |
 | `--version` | Print `trickster <version>` and exit |
 | `-h`, `--help` | Print usage and exit |
 | `--config PATH` | Use PATH as the `outputs.conf` override for this run |
