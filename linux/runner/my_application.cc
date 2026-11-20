@@ -33,6 +33,7 @@ struct _MyApplication {
   GPtrArray* surfaces;
   GPtrArray* menus;
   GPtrArray* tooltips;
+  GHashTable* connector_cache;
   gboolean settings_mode;
   GtkWindow* settings_window;
   FlView* settings_view;
@@ -203,12 +204,22 @@ static void output_registry_global_remove(void* data,
                                           uint32_t name) {}
 
 // The connector name (HDMI-A-1) of [monitor], or null. GDK only exposes the
-// EDID model, so the name comes from a fresh wl_output enumeration matched
-// by compositor-space position.
-static gchar* trickster_connector_for_monitor(GdkMonitor* monitor) {
-  if (monitor == nullptr) {
+// EDID model, so the name comes from a wl_output enumeration matched by
+// compositor-space position. The lookup is cached per monitor: a registry
+// attach plus two roundtrips is far too expensive to repeat for every
+// outputs()/surfaceCreate call. An empty cached string is the sentinel for
+// "looked up, no connector"; monitor add/remove invalidates the entry.
+static gchar* trickster_connector_for_monitor(MyApplication* self,
+                                              GdkMonitor* monitor) {
+  if (monitor == nullptr || self->connector_cache == nullptr) {
     return nullptr;
   }
+  const gchar* cached =
+      (const gchar*)g_hash_table_lookup(self->connector_cache, monitor);
+  if (cached != nullptr) {
+    return cached[0] == '\0' ? nullptr : g_strdup(cached);
+  }
+
   GdkDisplay* display = gdk_display_get_default();
   if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
     return nullptr;
@@ -232,14 +243,18 @@ static gchar* trickster_connector_for_monitor(GdkMonitor* monitor) {
 
   GdkRectangle geometry;
   gdk_monitor_get_geometry(monitor, &geometry);
+  gchar* found = nullptr;
   for (guint i = 0; i < outputs->len; i++) {
     TricksterOutputInfo* info =
         (TricksterOutputInfo*)g_ptr_array_index(outputs, i);
     if (info->name != nullptr && info->x == geometry.x && info->y == geometry.y) {
-      return g_strdup(info->name);
+      found = g_strdup(info->name);
+      break;
     }
   }
-  return nullptr;
+  g_hash_table_insert(self->connector_cache, monitor,
+                      found != nullptr ? g_strdup(found) : g_strdup(""));
+  return found;
 }
 
 static void blur_registry_global(void* data, struct wl_registry* registry,
@@ -861,8 +876,9 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
           break;
         }
         g_autofree gchar* resolved =
-            connector != nullptr ? nullptr
-                                 : trickster_connector_for_monitor(monitor);
+            connector != nullptr
+                ? nullptr
+                : trickster_connector_for_monitor(self, monitor);
         const gchar* model = gdk_monitor_get_model(monitor);
         g_autoptr(FlValue) entry = fl_value_new_map();
         fl_value_set_string_take(
@@ -956,7 +972,8 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       const int count = gdk_display_get_n_monitors(display);
       for (int i = 0; i < count; i++) {
         GdkMonitor* monitor = gdk_display_get_monitor(display, i);
-        g_autofree gchar* name = trickster_connector_for_monitor(monitor);
+        g_autofree gchar* name =
+            trickster_connector_for_monitor(self, monitor);
         const gchar* model = gdk_monitor_get_model(monitor);
         const gchar* resolved =
             name != nullptr ? name : model != nullptr ? model : "output";
@@ -1146,7 +1163,7 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   surface->window = window;
   surface->monitor = monitor;
-  surface->connector = trickster_connector_for_monitor(monitor);
+  surface->connector = trickster_connector_for_monitor(self, monitor);
 
   gtk_window_set_decorated(window, FALSE);
   gtk_window_set_title(window, "trickster");
@@ -1193,6 +1210,7 @@ static void trickster_surface_configure(TricksterSurface* surface,
 static void monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor,
                              gpointer data) {
   MyApplication* self = MY_APPLICATION(data);
+  g_hash_table_remove(self->connector_cache, monitor);
   for (guint i = 0; i < self->surfaces->len; i++) {
     TricksterSurface* surface =
         (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
@@ -1211,6 +1229,7 @@ static void monitor_added_cb(GdkDisplay* display, GdkMonitor* monitor,
 static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor,
                                gpointer data) {
   MyApplication* self = MY_APPLICATION(data);
+  g_hash_table_remove(self->connector_cache, monitor);
   for (guint i = 0; i < self->surfaces->len; i++) {
     TricksterSurface* surface =
         (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
@@ -1568,6 +1587,7 @@ static void my_application_dispose(GObject* object) {
   g_clear_pointer(&self->volume, trickster_volume_free);
   g_clear_object(&self->method_channel);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_pointer(&self->connector_cache, g_hash_table_unref);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);
   g_clear_pointer(&self->tooltips, g_ptr_array_unref);
@@ -1592,6 +1612,8 @@ static void my_application_init(MyApplication* self) {
   self->surfaces = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->menus = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->tooltips = g_ptr_array_new_with_free_func(trickster_surface_free);
+  self->connector_cache = g_hash_table_new_full(
+      g_direct_hash, g_direct_equal, nullptr, g_free);
   self->settings_mode = FALSE;
   self->side = g_strdup("top");
   self->thickness = 32;

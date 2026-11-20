@@ -28,6 +28,41 @@ void main() {
     expect(source, contains('fl_value_new_int(geometry.height)'));
   });
 
+  test('connector lookups are cached per monitor and freed', () {
+    expect(source, contains('self->connector_cache = g_hash_table_new_full('));
+    expect(source, contains('g_direct_hash, g_direct_equal, nullptr, g_free'));
+    final lookup = _functionBody(
+      source,
+      'static gchar* trickster_connector_for_monitor',
+    );
+    expect(
+      lookup,
+      contains('g_hash_table_lookup(self->connector_cache, monitor)'),
+    );
+    expect(lookup, contains('g_hash_table_insert(self->connector_cache'));
+    expect(lookup, contains('g_strdup("")'));
+    expect(lookup, contains('g_strdup(found)'));
+
+    final added = _functionBody(source, 'static void monitor_added_cb');
+    expect(
+      added,
+      contains('g_hash_table_remove(self->connector_cache, monitor)'),
+    );
+    final removed = _functionBody(source, 'static void monitor_removed_cb');
+    expect(
+      removed,
+      contains('g_hash_table_remove(self->connector_cache, monitor)'),
+    );
+    expect(
+      source,
+      contains('g_clear_pointer(&self->connector_cache, g_hash_table_unref)'),
+    );
+    expect(
+      _count(source, 'trickster_connector_for_monitor(self, monitor)'),
+      greaterThanOrEqualTo(3),
+    );
+  });
+
   test('overlay surfaces track their monitor or refuse a null monitor', () {
     final body = _functionBody(
       source,
