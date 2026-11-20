@@ -74,10 +74,42 @@ void main() {
       thickness: 32,
     );
     expect(candidates, const <Color>[Color(0xffe03050)]);
-    expect(
-      commands.single,
-      containsAllInOrder(<String>['-o', 'HDMI-A-2', '-g', '0,32 2560x32']),
+    expect(commands.single, <String>['-g', '0,32 2560x32', '-t', 'png', '-']);
+    expect(commands.single, isNot(contains('-o')));
+  });
+
+  test('captures at the output global offset without -o', () async {
+    final commands = <List<String>>[];
+    const offset = LayerOutput(
+      name: 'HDMI-A-2',
+      x: 2560,
+      y: 0,
+      width: 2560,
+      height: 1440,
     );
+    final sampler = GrimSampler(
+      available: true,
+      run: (args) async {
+        commands.add(args);
+        return base64Decode(_redPng);
+      },
+      extract: (_) async => const <Color>[Color(0xffe03050)],
+    );
+
+    await sampler.sample(
+      output: offset,
+      side: SystemBarSide.top,
+      thickness: 32,
+    );
+
+    expect(commands.single, <String>[
+      '-g',
+      '2560,32 2560x32',
+      '-t',
+      'png',
+      '-',
+    ]);
+    expect(commands.single, isNot(contains('-o')));
   });
 
   test('a failed capture or decode resolves to no candidates', () async {

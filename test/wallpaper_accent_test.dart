@@ -9,6 +9,7 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/grim_sampler.dart';
 import 'package:trickster/src/services/wallpaper.dart';
+import 'package:trickster/src/services/wallpaper_thumbnailer.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/wallpaper_accent.dart';
 
@@ -54,6 +55,19 @@ ByteData _solid(int r, int g, int b, {int pixels = 100}) {
     bytes[i * 4 + 3] = 255;
   }
   return ByteData.sublistView(bytes);
+}
+
+class _FakeThumbnailer implements WallpaperThumbnailer {
+  _FakeThumbnailer(this.bytes);
+
+  final Uint8List? bytes;
+  var calls = 0;
+
+  @override
+  Future<Uint8List?> thumbnail(String path) async {
+    calls += 1;
+    return bytes;
+  }
 }
 
 Future<Uint8List> _png(int width, int height) async {
@@ -188,7 +202,7 @@ void main() {
       cacheFile.parent.createSync(recursive: true);
       cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
 
-      final captures = <String>[];
+      final captures = <List<String>>[];
       final controller = WallpaperAccentBloc(
         cache: WallpaperCache(root: cacheFile.parent),
         outputs: () => const [
@@ -199,7 +213,7 @@ void main() {
         grim: GrimSampler(
           available: true,
           run: (args) async {
-            captures.add(args[1]);
+            captures.add(args);
             return base64Decode(_redPng);
           },
         ),
@@ -211,7 +225,7 @@ void main() {
         () => controller.state.candidatesFor('HDMI-A-2').isNotEmpty,
       );
       // Only the output without a daemon image was captured.
-      expect(captures, <String>['HDMI-A-2']);
+      expect(captures.single, <String>['-g', '0,32 2560x32', '-t', 'png', '-']);
       expect(controller.state.candidatesFor('HDMI-A-1'), isNotEmpty);
 
       // A later sample reuses the capture; only the display set re-captures.
@@ -219,7 +233,7 @@ void main() {
       await _waitFor(
         () => controller.state.candidatesFor('HDMI-A-2').isNotEmpty,
       );
-      expect(captures, <String>['HDMI-A-2']);
+      expect(captures, hasLength(1));
     },
   );
 
@@ -288,9 +302,10 @@ void main() {
       cacheFile.parent.createSync(recursive: true);
       cacheFile.writeAsStringSync('\u0000crop\u0000${huge.path}');
 
-      final captures = <String>[];
+      final commands = <List<String>>[];
       final controller = WallpaperAccentBloc(
         cache: WallpaperCache(root: cacheFile.parent),
+        thumbnailer: _FakeThumbnailer(null),
         outputs: () => const [
           LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
         ],
@@ -298,7 +313,7 @@ void main() {
         grim: GrimSampler(
           available: true,
           run: (args) async {
-            captures.add(args[1]);
+            commands.add(args);
             return base64Decode(_redPng);
           },
         ),
@@ -310,7 +325,8 @@ void main() {
         () => controller.state.candidatesFor('HDMI-A-1').isNotEmpty,
       );
 
-      expect(captures, <String>['HDMI-A-1']);
+      expect(commands.single, <String>['-g', '0,32 1920x32', '-t', 'png', '-']);
+      expect(commands.single, isNot(contains('-o')));
       expect(await readWallpaperSource(huge.path), isNull);
       expect(
         await huge.length(),
@@ -318,4 +334,107 @@ void main() {
       );
     },
   );
+
+  test('an oversized source samples through the thumbnailer', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final huge = File('${directory.path}/huge.gif');
+    final handle = await huge.open(mode: FileMode.write);
+    await handle.setPosition(const WallpaperSourceLimits().maxBytes + 1);
+    await handle.writeByte(0);
+    await handle.close();
+    final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('\u0000crop\u0000${huge.path}');
+
+    final thumbnailer = _FakeThumbnailer(base64Decode(_redPng));
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: cacheFile.parent),
+      thumbnailer: thumbnailer,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.color != null);
+
+    expect(thumbnailer.calls, 1);
+    expect(controller.state.color, isNotNull);
+    expect(await readWallpaperSource(huge.path), isNull);
+  });
+
+  test('invalid thumbnail bytes fall through to grim', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final huge = File('${directory.path}/huge.gif');
+    final handle = await huge.open(mode: FileMode.write);
+    await handle.setPosition(const WallpaperSourceLimits().maxBytes + 1);
+    await handle.writeByte(0);
+    await handle.close();
+    final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('\u0000crop\u0000${huge.path}');
+
+    final thumbnailer = _FakeThumbnailer(Uint8List.fromList(<int>[1, 2, 3]));
+    var captures = 0;
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: cacheFile.parent),
+      thumbnailer: thumbnailer,
+      outputs: () => const [
+        LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+      ],
+      strip: () => (side: SystemBarSide.top, thickness: 32),
+      grim: GrimSampler(
+        available: true,
+        run: (_) async {
+          captures += 1;
+          return base64Decode(_redPng);
+        },
+      ),
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.candidatesFor('HDMI-A-1').isNotEmpty);
+
+    expect(thumbnailer.calls, 1);
+    expect(captures, 1);
+  });
+
+  test('oversized thumbnail bytes fall through to grim', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final huge = File('${directory.path}/huge.gif');
+    final handle = await huge.open(mode: FileMode.write);
+    await handle.setPosition(const WallpaperSourceLimits().maxBytes + 1);
+    await handle.writeByte(0);
+    await handle.close();
+    final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('\u0000crop\u0000${huge.path}');
+
+    final thumbnailer = _FakeThumbnailer(Uint8List(8 * 1024 * 1024 + 1));
+    var captures = 0;
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: cacheFile.parent),
+      thumbnailer: thumbnailer,
+      outputs: () => const [
+        LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+      ],
+      strip: () => (side: SystemBarSide.top, thickness: 32),
+      grim: GrimSampler(
+        available: true,
+        run: (_) async {
+          captures += 1;
+          return base64Decode(_redPng);
+        },
+      ),
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.candidatesFor('HDMI-A-1').isNotEmpty);
+
+    expect(thumbnailer.calls, 1);
+    expect(captures, 1);
+  });
 }

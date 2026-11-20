@@ -19,6 +19,7 @@ import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
 /// The bar's control request dispatcher: `version`, `status`, and the
@@ -48,7 +49,11 @@ Future<Map<String, Object?>> handleControlRequest({
       final settings = context.read<SettingsBloc>().state;
       // Do not force-create the idle service on a bar with neither sampler
       // configured; it is a shared observer, not a queued module.
-      final seatIdle = settings.includes('cpu') || settings.includes('gpu')
+      final seatIdle =
+          settings.includes('cpu') ||
+              settings.includes('gpu') ||
+              settings.includes('battery') ||
+              settings.includes('opencode')
           ? _read<SeatIdleBloc>(context)
           : null;
       return <String, Object?>{
@@ -62,6 +67,8 @@ Future<Map<String, Object?>> handleControlRequest({
         // control client without a response.
         'session': session.toJson(),
         'state': <String, Object?>{
+          if (_read<WallpaperAccentBloc>(context) case final bloc?)
+            'wallpaper': bloc.state.toJson(),
           if (_read<ClockBloc>(context) case final bloc?)
             'clock': bloc.state.toJson(),
           if (_read<CpuBloc>(context) case final bloc?)

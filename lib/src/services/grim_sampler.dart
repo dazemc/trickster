@@ -31,9 +31,9 @@ class GrimSampler {
       return cached;
     }
     try {
-      // An argument-less run prints usage and exits non-zero; what matters
-      // is that the binary started.
-      await Process.run('grim', const <String>[]);
+      // `-h` prints usage. An argument-less grim captures the whole screen to
+      // a timestamped file in the working directory, so it is not a probe.
+      await Process.run('grim', const <String>['-h']);
       _available = true;
     } on Object {
       _available = false;
@@ -55,10 +55,12 @@ class GrimSampler {
     Uint8List? bytes;
     try {
       bytes = await _run([
-        '-o',
-        output.name,
+        // grim rejects -o together with -g. The band is expressed in the
+        // compositor's global layout instead, which also handles an output
+        // placed at a non-zero x/y.
         '-g',
-        '${region.left.round()},${region.top.round()} '
+        '${output.x + region.left.round()},'
+            '${output.y + region.top.round()} '
             '${region.width.round()}x${region.height.round()}',
         '-t',
         'png',

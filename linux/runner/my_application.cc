@@ -841,6 +841,8 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
                     : resolved != nullptr
                           ? resolved
                           : model != nullptr ? model : "output"));
+        fl_value_set_string_take(entry, "x", fl_value_new_int(geometry.x));
+        fl_value_set_string_take(entry, "y", fl_value_new_int(geometry.y));
         fl_value_set_string_take(entry, "width",
                                  fl_value_new_int(geometry.width));
         fl_value_set_string_take(entry, "height",

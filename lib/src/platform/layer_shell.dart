@@ -153,6 +153,8 @@ class LayerShell {
           (entry) => LayerOutput(
             name: '${entry['name'] ?? ''}',
             viewId: (entry['viewId'] as num?)?.toInt() ?? -1,
+            x: (entry['x'] as num?)?.toInt() ?? 0,
+            y: (entry['y'] as num?)?.toInt() ?? 0,
             width: (entry['width'] as num?)?.toInt() ?? 0,
             height: (entry['height'] as num?)?.toInt() ?? 0,
             scale: (entry['scale'] as num?)?.toInt().clamp(1, 8) ?? 1,
@@ -229,6 +231,8 @@ class LayerOutput {
   const LayerOutput({
     required this.name,
     this.viewId = -1,
+    this.x = 0,
+    this.y = 0,
     required this.width,
     required this.height,
     this.scale = 1,
@@ -239,6 +243,11 @@ class LayerOutput {
 
   /// The Flutter view of the layer surface on this output.
   final int viewId;
+
+  /// Logical position in the compositor's global output layout. Captures
+  /// outside the bar need this offset because grim takes global coordinates.
+  final int x;
+  final int y;
 
   /// Logical size in layer-surface coordinates.
   final int width;

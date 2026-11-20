@@ -10,6 +10,7 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/grim_sampler.dart';
 import 'package:trickster/src/services/wallpaper.dart';
+import 'package:trickster/src/services/wallpaper_thumbnailer.dart';
 import 'package:trickster/src/theme/wallpaper_accent.dart';
 
 /// Events the wallpaper accent sampler answers.
@@ -183,28 +184,33 @@ class WallpaperAccentBloc
     WallpaperCache? cache,
     Future<List<Color>> Function(Uint8List encoded)? extractCandidates,
     Future<List<Color>> Function(String path)? sampleCandidates,
+    WallpaperThumbnailer? thumbnailer,
     GrimSampler? grim,
     List<LayerOutput> Function()? outputs,
     ({SystemBarSide side, double thickness}) Function()? strip,
     bool watch = true,
+    WallpaperAccentState initial = const WallpaperAccentState(),
   }) : _cache = cache ?? WallpaperCache(),
        _extractCandidates = extractCandidates ?? extractWallpaperAccents,
        _samplePathOverride = sampleCandidates,
+       _thumbnailer = thumbnailer ?? ProcessWallpaperThumbnailer(),
        _grim = grim ?? GrimSampler(),
        _outputs = outputs,
        _strip = strip,
        _watchEnabled = watch,
-       super(const WallpaperAccentState()) {
+       super(initial) {
     on<WallpaperAccentEnabled>(_onEnabled);
     on<WallpaperAccentSampleRequested>(_onSample);
   }
 
   static const int _maxCacheEntries = 8;
+  static const int _maxThumbnailBytes = 8 * 1024 * 1024;
   static const Duration _debounce = Duration(milliseconds: 300);
 
   final WallpaperCache _cache;
   final Future<List<Color>> Function(Uint8List encoded) _extractCandidates;
   final Future<List<Color>> Function(String path)? _samplePathOverride;
+  final WallpaperThumbnailer _thumbnailer;
   final GrimSampler _grim;
   final List<LayerOutput> Function()? _outputs;
   final ({SystemBarSide side, double thickness}) Function()? _strip;
@@ -354,6 +360,16 @@ class WallpaperAccentBloc
       final cached = _samples[path];
       if (cached != null && cached.$1 == modified) {
         return cached.$2;
+      }
+      if (stat.size > const WallpaperSourceLimits().maxBytes) {
+        final thumbnail = await _thumbnailer.thumbnail(path);
+        if (thumbnail == null || thumbnail.lengthInBytes > _maxThumbnailBytes) {
+          _remember(path, modified, null);
+          return null;
+        }
+        final candidates = await _extractCandidates(thumbnail);
+        _remember(path, modified, candidates);
+        return candidates;
       }
       final bytes = await readWallpaperSource(path);
       if (bytes == null) {

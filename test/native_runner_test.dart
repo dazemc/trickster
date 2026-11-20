@@ -21,6 +21,13 @@ void main() {
     );
   });
 
+  test('the outputs method reports each monitor global position', () {
+    expect(source, contains('fl_value_new_int(geometry.x)'));
+    expect(source, contains('fl_value_new_int(geometry.y)'));
+    expect(source, contains('fl_value_new_int(geometry.width)'));
+    expect(source, contains('fl_value_new_int(geometry.height)'));
+  });
+
   test('both click-through windows route through the helper', () {
     final helper = RegExp(
       r'static void trickster_make_click_through\(GtkWidget\* widget\)'

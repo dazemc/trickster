@@ -16,6 +16,7 @@ import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/wallpaper_accent.dart';
 
 void main() {
   test('control server round-trips a request and cleans up', () async {
@@ -140,6 +141,51 @@ void main() {
     expect(reply['ok'], isTrue);
     expect(jsonEncode(reply), isA<String>());
     expect((reply['session'] as Map)['accent'], '#d0bcff');
+  });
+
+  testWidgets('status exposes the sampled wallpaper accent', (tester) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(create: (_) => SettingsBloc()),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<WallpaperAccentBloc>(
+            create: (_) => WallpaperAccentBloc(
+              watch: false,
+              initial: const WallpaperAccentState(
+                enabled: true,
+                color: Color(0xff39445f),
+                accents: <String, Color?>{'HDMI-A-1': Color(0xff4e4c65)},
+              ),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final wallpaper = (reply['state'] as Map)['wallpaper'] as Map;
+    expect(wallpaper['enabled'], isTrue);
+    expect(wallpaper['color'], '#39445f');
+    expect((wallpaper['accents'] as Map)['HDMI-A-1'], '#4e4c65');
+    expect(jsonEncode(reply), isA<String>());
   });
 
   testWidgets('status exposes seat idle only when a sampler is configured', (
