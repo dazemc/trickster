@@ -118,11 +118,10 @@ Nothing in this file authorizes performance work.
   global removal leaves the native effect object in place. Rebind on a new
   global and release the stale effects.
 
-- **D-Bus transport recovery is all-or-nothing.** When the session bus drops,
-  the services rebuild the whole client; a re-listen after a match-rule
-  refcount mismatch can be a silent no-op. Add a reconnect path that
-  re-establishes match rules and verifies the subscription, not just an
-  `onError` refresh.
+- **MPRIS has no D-Bus transport recovery.** StatusNotifier now rebuilds its
+  client and re-establishes match rules after a bus loss; MPRIS still keeps
+  one client and never reconnects. Port the same rebuild path to
+  `MediaPlayerService`.
 
 - **Reduced-motion coverage is partial.** The workspace lens/switch and the
   visualizer honor `MediaQuery.maybeDisableAnimationsOf`; the pill entrance and
