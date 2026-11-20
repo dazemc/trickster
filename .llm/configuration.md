@@ -81,15 +81,15 @@ otherwise the file transport. It does not switch transports mid-session if the
 bar exits.
 
 **Persistence.** The file transport keeps the current document plus one
-last-good copy, writes `.tmp`, copies the live file to `.prev`, then renames
-`.tmp` over the live path. A read tries the live document, then `.prev`, then
-the in-memory last-good copy. This is current + last-good + one previous
-snapshot, not a history.
+last-good copy. A write snapshots the last document known to decode
+(`_lastGood`) into `.prev` through `.prev.tmp` and an atomic rename, then
+writes the live document through `.tmp` and renames it into place. It never
+copies the possibly corrupt live file into `.prev`. A read tries the live
+document, then `.prev`, then the in-memory last-good copy. This is current +
+last-good + one previous snapshot, not a history.
 
 **Gaps.**
 
-- The first write after recovering from `.prev` copies that recovered file over
-  `.prev`, destroying the older good snapshot.
 - The settings application chooses its transport at startup. If the bar exits
   while the window is open, later saves do not fall back to the file transport.
 - A settings document with an invalid scalar type is an invalid document and
