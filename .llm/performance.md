@@ -168,7 +168,7 @@ samplers keep their normal cadence. Multi-seat compositors are a gap.
 | --- | --- | --- |
 | CPU | 1 Hz `/proc/stat` | Paused; one 100 ms prime sample on resume; 45-sample history; reused buffer |
 | GPU | 1 Hz sysfs/NVML | Paused; in-flight generation dropped; 45-sample history |
-| Battery | 5 s sysfs | Paused; one fresh sample on resume; synchronous sysfs I/O remains |
+| Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
 | MPRIS | D-Bus signals + 60 s recovery | Recovery poll is deliberate; 16-player cap |
 | StatusNotifier | D-Bus signals; 45 ms coalesce | Event-driven |
@@ -187,8 +187,10 @@ Rules that follow from the table:
 - The visualizer capture and FFT isolate exist only while playing and visible.
 - The sink volume is watched over one PipeWire connection, event-driven, never
   through `wpctl` or a poll.
-- Battery is **not** UPower today. It is a 5 s synchronous sysfs sampler,
-  paused with the seat; the UPower migration is an open port/performance gap.
+- Battery is **not** UPower today. It is a 5 s asynchronous sysfs sampler,
+  paused with the seat, with overlapping/post-pause reads generation-guarded
+  and equal status deduplicated; the UPower migration is an open
+  port/performance gap.
 
 ## Event-driven service contracts
 
@@ -394,7 +396,7 @@ same scenario and keep the numbers with their provenance.
 | Visualizer 30 Hz only playing+visible | Current | 33 ms pump, FFT isolate, visibility gate |
 | Worker-exit capture teardown and visualizer restart | Current | `BandAnalyzer.failures`, generation guard, capped `VisualizerBloc` retry |
 | CPU/GPU pause on seat idle | Current | `SeatIdleBloc` + samplers |
-| Battery 5 s sysfs, not UPower | Current | `battery.dart` |
+| Battery 5 s async sysfs, not UPower | Current | `battery.dart`; async reads, generation guard, dedup |
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
