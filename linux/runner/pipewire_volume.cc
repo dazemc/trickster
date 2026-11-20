@@ -12,6 +12,22 @@
 
 #define TRICKSTER_VOLUME_MAX_CHANNELS 64
 
+typedef enum {
+  TRICKSTER_VOLUME_PROXY_METADATA,
+  TRICKSTER_VOLUME_PROXY_NODE,
+  TRICKSTER_VOLUME_PROXY_DEVICE,
+} TricksterVolumeProxyKind;
+
+// One bound proxy's identity. The watch is static in the volume object; a new
+// bind always destroys the old proxy first, so the same watch cannot observe
+// two live proxies at once.
+typedef struct {
+  TricksterVolume* self;
+  TricksterVolumeProxyKind kind;
+  struct pw_proxy* proxy;
+  struct spa_hook listener;
+} TricksterVolumeProxyWatch;
+
 // The system volume is the default sink device's active route; WirePlumber's
 // mixer API (wpctl) writes the route's linear channel volumes and displays
 // the cubic root of the first channel. A sink without a device route (a
@@ -25,6 +41,13 @@ struct _TricksterVolume {
   pw_metadata* metadata;
   pw_node* node;
   pw_device* device;
+  TricksterVolumeProxyWatch metadata_watch;
+  TricksterVolumeProxyWatch node_watch;
+  TricksterVolumeProxyWatch device_watch;
+  guint32 metadata_id;       // registry global id of the default metadata
+  guint32 node_id;           // registry global id of the current sink node
+  guint32 device_global_id;  // registry global id of the current device
+  gboolean loop_started;
   struct spa_hook core_listener;
   struct spa_hook registry_listener;
   struct spa_hook metadata_listener;
@@ -66,6 +89,11 @@ static gchar* trickster_volume_parse_sink(const gchar* value) {
 static void trickster_volume_bind_sink(TricksterVolume* self,
                                        const gchar* name);
 static void trickster_volume_bind_device(TricksterVolume* self);
+static void trickster_volume_drop_metadata(TricksterVolume* self);
+static void trickster_volume_drop_node(TricksterVolume* self);
+static void trickster_volume_drop_device(TricksterVolume* self);
+static void trickster_volume_clear_node_state(TricksterVolume* self);
+static void trickster_volume_clear_device_state(TricksterVolume* self);
 static void trickster_volume_schedule_push(TricksterVolume* self);
 static void trickster_volume_node_param(void* data, int seq, uint32_t id,
                                         uint32_t index, uint32_t next,
@@ -120,6 +148,51 @@ static void trickster_volume_core_error(void* data, uint32_t id, int seq,
 static const struct pw_core_events trickster_volume_core_events = {
     .version = PW_VERSION_CORE_EVENTS,
     .error = trickster_volume_core_error,
+};
+
+// A server-side removal emits `removed`; the client still owns the proxy and
+// must destroy it. `destroy` then clears the watch before a re-advertised
+// global can bind a fresh proxy.
+static void trickster_volume_proxy_removed(void* data) {
+  TricksterVolumeProxyWatch* watch = (TricksterVolumeProxyWatch*)data;
+  if (watch->proxy != nullptr) {
+    pw_proxy_destroy(watch->proxy);
+  }
+}
+
+static void trickster_volume_proxy_destroyed(void* data) {
+  TricksterVolumeProxyWatch* watch = (TricksterVolumeProxyWatch*)data;
+  TricksterVolume* self = watch->self;
+  struct pw_proxy* proxy = watch->proxy;
+  watch->proxy = nullptr;
+  switch (watch->kind) {
+    case TRICKSTER_VOLUME_PROXY_METADATA:
+      if (self->metadata == (pw_metadata*)proxy) {
+        self->metadata = nullptr;
+        self->metadata_id = 0;
+      }
+      break;
+    case TRICKSTER_VOLUME_PROXY_NODE:
+      if (self->node == (pw_node*)proxy) {
+        self->node = nullptr;
+        self->node_id = 0;
+        trickster_volume_clear_node_state(self);
+      }
+      break;
+    case TRICKSTER_VOLUME_PROXY_DEVICE:
+      if (self->device == (pw_device*)proxy) {
+        self->device = nullptr;
+        self->device_global_id = 0;
+        trickster_volume_clear_device_state(self);
+      }
+      break;
+  }
+}
+
+static const struct pw_proxy_events trickster_volume_proxy_events = {
+    .version = PW_VERSION_PROXY_EVENTS,
+    .destroy = trickster_volume_proxy_destroyed,
+    .removed = trickster_volume_proxy_removed,
 };
 
 static gboolean trickster_volume_push(gpointer data);
@@ -180,23 +253,87 @@ static void trickster_volume_read_props(TricksterVolume* self,
   }
 }
 
+// Volume and route readings belong to the proxy that produced them. Clearing
+// them makes a removal visible as "no reading" instead of a stale last value.
+static void trickster_volume_clear_node_state(TricksterVolume* self) {
+  g_mutex_lock(&self->mutex);
+  self->has_volume = FALSE;
+  self->has_route = FALSE;
+  self->channels = 0;
+  self->muted = FALSE;
+  self->route_index = -1;
+  self->device_id = 0;
+  self->route_device = -1;
+  g_mutex_unlock(&self->mutex);
+}
+
+static void trickster_volume_clear_device_state(TricksterVolume* self) {
+  g_mutex_lock(&self->mutex);
+  self->has_volume = FALSE;
+  self->has_route = FALSE;
+  self->channels = 0;
+  self->muted = FALSE;
+  self->route_index = -1;
+  g_mutex_unlock(&self->mutex);
+}
+
+static void trickster_volume_drop_metadata(TricksterVolume* self) {
+  if (self->metadata_watch.proxy != nullptr) {
+    spa_hook_remove(&self->metadata_listener);
+    pw_proxy_destroy(self->metadata_watch.proxy);
+  }
+  self->metadata = nullptr;
+  self->metadata_id = 0;
+}
+
+static void trickster_volume_drop_node(TricksterVolume* self) {
+  if (self->node_watch.proxy != nullptr) {
+    spa_hook_remove(&self->node_listener);
+    pw_proxy_destroy(self->node_watch.proxy);
+  }
+  self->node = nullptr;
+  self->node_id = 0;
+  trickster_volume_clear_node_state(self);
+}
+
+static void trickster_volume_drop_device(TricksterVolume* self) {
+  if (self->device_watch.proxy != nullptr) {
+    spa_hook_remove(&self->device_listener);
+    pw_proxy_destroy(self->device_watch.proxy);
+  }
+  self->device = nullptr;
+  self->device_global_id = 0;
+  trickster_volume_clear_device_state(self);
+}
+
+static void trickster_volume_watch_proxy(TricksterVolume* self,
+                                         TricksterVolumeProxyWatch* watch,
+                                         TricksterVolumeProxyKind kind,
+                                         struct pw_proxy* proxy) {
+  watch->self = self;
+  watch->kind = kind;
+  watch->proxy = proxy;
+  pw_proxy_add_listener(proxy, &watch->listener,
+                        &trickster_volume_proxy_events, watch);
+}
+
 static void trickster_volume_bind_sink(TricksterVolume* self,
                                        const gchar* name) {
+  trickster_volume_drop_node(self);
   gpointer id = g_hash_table_lookup(self->sinks, name);
   if (id == nullptr) {
     return;
   }
-  if (self->node != nullptr) {
-    spa_hook_remove(&self->node_listener);
-    pw_proxy_destroy((struct pw_proxy*)self->node);
-    self->node = nullptr;
-  }
-  self->node = (pw_node*)pw_registry_bind(self->registry, GPOINTER_TO_UINT(id),
-                                          PW_TYPE_INTERFACE_Node,
-                                          PW_VERSION_NODE, 0);
+  const guint32 node_id = GPOINTER_TO_UINT(id);
+  self->node = (pw_node*)pw_registry_bind(
+      self->registry, node_id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
   if (self->node == nullptr) {
     return;
   }
+  self->node_id = node_id;
+  trickster_volume_watch_proxy(self, &self->node_watch,
+                               TRICKSTER_VOLUME_PROXY_NODE,
+                               (struct pw_proxy*)self->node);
   spa_zero(self->node_listener);
   pw_node_add_listener(self->node, &self->node_listener,
                        &trickster_volume_node_events, self);
@@ -206,30 +343,44 @@ static void trickster_volume_bind_sink(TricksterVolume* self,
 }
 
 static void trickster_volume_bind_device(TricksterVolume* self) {
-  if (self->device != nullptr) {
-    spa_hook_remove(&self->device_listener);
-    pw_proxy_destroy((struct pw_proxy*)self->device);
-    self->device = nullptr;
-  }
-  g_mutex_lock(&self->mutex);
-  self->has_route = FALSE;
-  self->route_index = -1;
-  g_mutex_unlock(&self->mutex);
-  if (self->device_id == 0) {
+  const guint32 device_id = self->device_id;
+  trickster_volume_drop_device(self);
+  if (device_id == 0) {
     return;
   }
   self->device = (pw_device*)pw_registry_bind(
-      self->registry, self->device_id, PW_TYPE_INTERFACE_Device,
+      self->registry, device_id, PW_TYPE_INTERFACE_Device,
       PW_VERSION_DEVICE, 0);
   if (self->device == nullptr) {
     return;
   }
+  self->device_global_id = device_id;
+  trickster_volume_watch_proxy(self, &self->device_watch,
+                               TRICKSTER_VOLUME_PROXY_DEVICE,
+                               (struct pw_proxy*)self->device);
   spa_zero(self->device_listener);
   pw_device_add_listener(self->device, &self->device_listener,
                          &trickster_volume_device_events, self);
   guint32 ids[1] = {SPA_PARAM_Route};
   pw_device_subscribe_params(self->device, ids, 1);
   pw_device_enum_params(self->device, 1, SPA_PARAM_Route, 0, -1, nullptr);
+}
+
+static void trickster_volume_bind_metadata(TricksterVolume* self,
+                                           uint32_t id) {
+  trickster_volume_drop_metadata(self);
+  self->metadata = (pw_metadata*)pw_registry_bind(
+      self->registry, id, PW_TYPE_INTERFACE_Metadata, PW_VERSION_METADATA, 0);
+  if (self->metadata == nullptr) {
+    return;
+  }
+  self->metadata_id = id;
+  trickster_volume_watch_proxy(self, &self->metadata_watch,
+                               TRICKSTER_VOLUME_PROXY_METADATA,
+                               (struct pw_proxy*)self->metadata);
+  spa_zero(self->metadata_listener);
+  pw_metadata_add_listener(self->metadata, &self->metadata_listener,
+                           &trickster_volume_metadata_events, self);
 }
 
 static void trickster_volume_registry_global(void* data, uint32_t id,
@@ -243,13 +394,7 @@ static void trickster_volume_registry_global(void* data, uint32_t id,
         props != nullptr ? spa_dict_lookup(props, PW_KEY_METADATA_NAME)
                          : nullptr;
     if (g_strcmp0(name, "default") == 0 && self->metadata == nullptr) {
-      self->metadata = (pw_metadata*)pw_registry_bind(
-          self->registry, id, type, PW_VERSION_METADATA, 0);
-      if (self->metadata != nullptr) {
-        spa_zero(self->metadata_listener);
-        pw_metadata_add_listener(self->metadata, &self->metadata_listener,
-                                 &trickster_volume_metadata_events, self);
-      }
+      trickster_volume_bind_metadata(self, id);
     }
     return;
   }
@@ -284,6 +429,25 @@ static void trickster_volume_registry_global_remove(void* data, uint32_t id) {
       break;
     }
   }
+  // The server already destroyed the proxy. Clear its identity and reading so
+  // a re-advertised default metadata or node can bind a fresh one; the proxy
+  // watch's destroy callback owns the actual proxy teardown.
+  if (id == self->metadata_id) {
+    self->metadata_id = 0;
+    self->metadata = nullptr;
+  }
+  if (id == self->node_id) {
+    self->node_id = 0;
+    self->node = nullptr;
+    trickster_volume_clear_node_state(self);
+  }
+  if (id == self->device_global_id) {
+    self->device_global_id = 0;
+    self->device = nullptr;
+    self->device_id = 0;
+    self->route_device = -1;
+    trickster_volume_clear_device_state(self);
+  }
 }
 
 static int trickster_volume_metadata_property(void* data, uint32_t subject,
@@ -294,11 +458,16 @@ static int trickster_volume_metadata_property(void* data, uint32_t subject,
     return 0;
   }
   g_autofree gchar* name = trickster_volume_parse_sink(value);
-  if (name == nullptr || g_strcmp0(name, self->default_sink) == 0) {
+  if (name == nullptr) {
     return 0;
   }
-  g_free(self->default_sink);
-  self->default_sink = g_strdup(name);
+  if (g_strcmp0(name, self->default_sink) == 0 && self->node != nullptr) {
+    return 0;
+  }
+  if (g_strcmp0(name, self->default_sink) != 0) {
+    g_free(self->default_sink);
+    self->default_sink = g_strdup(name);
+  }
   trickster_volume_bind_sink(self, name);
   return 0;
 }
@@ -488,6 +657,7 @@ gboolean trickster_volume_start(TricksterVolume* self) {
     self->loop = nullptr;
     return FALSE;
   }
+  self->loop_started = TRUE;
   pw_thread_loop_lock(self->loop);
   self->core = pw_context_connect(self->context, nullptr, 0);
   if (self->core != nullptr) {
@@ -509,9 +679,6 @@ gboolean trickster_volume_start(TricksterVolume* self) {
 }
 
 void trickster_volume_stop(TricksterVolume* self) {
-  if (self->loop != nullptr) {
-    pw_thread_loop_stop(self->loop);
-  }
   self->running = FALSE;
   g_mutex_lock(&self->mutex);
   const guint source = self->push_source;
@@ -519,18 +686,34 @@ void trickster_volume_stop(TricksterVolume* self) {
   self->has_volume = FALSE;
   self->has_route = FALSE;
   self->channels = 0;
+  self->muted = FALSE;
   g_mutex_unlock(&self->mutex);
   if (source != 0) {
     g_source_remove(source);
   }
-  if (self->core != nullptr) {
-    pw_core_disconnect(self->core);
-    self->core = nullptr;
-    self->registry = nullptr;
-    self->metadata = nullptr;
-    self->node = nullptr;
-    self->device = nullptr;
+
+  if (self->loop != nullptr && self->loop_started) {
+    pw_thread_loop_lock(self->loop);
+    // Watch proxies first: a core disconnect would invalidate their hooks
+    // before the object listeners can be removed in the right order.
+    trickster_volume_drop_metadata(self);
+    trickster_volume_drop_node(self);
+    trickster_volume_drop_device(self);
+    if (self->registry != nullptr) {
+      spa_hook_remove(&self->registry_listener);
+      pw_proxy_destroy((struct pw_proxy*)self->registry);
+      self->registry = nullptr;
+    }
+    if (self->core != nullptr) {
+      spa_hook_remove(&self->core_listener);
+      pw_core_disconnect(self->core);
+      self->core = nullptr;
+    }
+    pw_thread_loop_unlock(self->loop);
+    pw_thread_loop_stop(self->loop);
+    self->loop_started = FALSE;
   }
+
   if (self->context != nullptr) {
     pw_context_destroy(self->context);
     self->context = nullptr;
@@ -539,8 +722,18 @@ void trickster_volume_stop(TricksterVolume* self) {
     pw_thread_loop_destroy(self->loop);
     self->loop = nullptr;
   }
+  self->metadata = nullptr;
+  self->node = nullptr;
+  self->device = nullptr;
+  self->metadata_watch.proxy = nullptr;
+  self->node_watch.proxy = nullptr;
+  self->device_watch.proxy = nullptr;
+  self->metadata_id = 0;
+  self->node_id = 0;
+  self->device_global_id = 0;
   self->device_id = 0;
   self->route_device = -1;
+  self->route_index = -1;
   g_hash_table_remove_all(self->sinks);
   g_clear_pointer(&self->default_sink, g_free);
 }
