@@ -39,7 +39,7 @@ Nothing in this file authorizes performance work.
 - **Unused Lucide weight fonts ship.** The used subset is 5,828 B, but six
   unused variable-weight fonts total 3,160,400 B. JetBrains Mono adds 551,688 B
   for both weights. Audit the package asset set; remove weights the bar never
-  selects without breaking dynamic glyph coverage.
+  selects without breaking dynamic glyph coverage; 4.0.3 is not smaller.
 
 - **`PipeWireCapture.dispose()` does not stop the native stream.** It frees the
   Dart wrapper while the native capture keeps running. Call the native stop
@@ -52,6 +52,12 @@ Nothing in this file authorizes performance work.
   `monitor_removed_cb` cannot destroy it. The tray/calendar/volume/tooltip
   blocs have no `close()` surface teardown, and several full-monitor overlays
   can stack. Track overlays per output and close them from the owning bloc.
+
+- **3.50 hide/show can leave a black strip.** `#196862`: after
+  `gtk_widget_hide`/`show`, GTK replaces the toplevel `wl_surface` and the
+  subsurface is not recreated. Trickster hides/shows strips for
+  `outputs.conf=hidden` and overlays on map/unmap. Exercise both on 3.50.1;
+  fix by destroy/recreate if it reproduces, never speculatively.
 
 - **The bar's post-frame startup can outlive dispose.** `app.dart` registers
   the config watcher and control server in a post-frame callback with no
@@ -153,6 +159,10 @@ Nothing in this file authorizes performance work.
   seat.
 
 ## Correctness and verification
+
+- **Equatable 3.0 no longer compares `runtimeType`.** Distinct state classes
+  that declare the same props now compare equal, so bloc dedup can swallow a
+  transition. Audit every bloc state `==` once; do not downgrade for this.
 
 - **`TRICKSTER_LOG` is parsed but unused.** `SessionConfig.log` never reaches a
   logger. Either wire it to the observer/log filter or remove it from the
