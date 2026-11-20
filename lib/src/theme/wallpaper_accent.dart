@@ -4,34 +4,88 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+/// Bounds for one wallpaper accent source. The byte cap runs before the file
+/// is read; the dimension and pixel caps run before a codec is instantiated.
+/// The decode cap keeps the pixel scan at thumbnail size.
+class WallpaperSourceLimits {
+  const WallpaperSourceLimits({
+    this.maxBytes = 64 * 1024 * 1024,
+    this.maxDimension = 16384,
+    this.maxPixels = 40000000,
+    this.maxDecodedDimension = 64,
+  });
+
+  /// Largest encoded source accepted, in bytes.
+  final int maxBytes;
+
+  /// Largest width or height accepted.
+  final int maxDimension;
+
+  /// Largest width * height accepted (40 MP covers 8K UHD at 33.2 MP).
+  final int maxPixels;
+
+  /// Longest side of the decoded thumbnail.
+  final int maxDecodedDimension;
+
+  bool allowsEncoded(int length) => length > 0 && length <= maxBytes;
+
+  bool allowsSource(int width, int height) =>
+      width > 0 &&
+      height > 0 &&
+      width <= maxDimension &&
+      height <= maxDimension &&
+      width * height <= maxPixels;
+}
+
 /// Ported from Denial's `wallpaper_accent.dart` (GPL-3.0-or-later).
 ///
 /// Decodes [encoded] at thumbnail size and returns its dominant vibrant
 /// seed, or null for effectively monochrome images.
-Future<Color?> extractWallpaperAccent(Uint8List encoded) async =>
-    (await extractWallpaperAccents(encoded)).firstOrNull;
+Future<Color?> extractWallpaperAccent(
+  Uint8List encoded, {
+  WallpaperSourceLimits limits = const WallpaperSourceLimits(),
+}) async =>
+    (await extractWallpaperAccents(encoded, limits: limits)).firstOrNull;
 
 /// The wallpaper's potential accents, strongest first.
-Future<List<Color>> extractWallpaperAccents(Uint8List encoded) async {
-  final codec = await ui.instantiateImageCodec(
-    encoded,
-    targetWidth: 64,
-    allowUpscaling: false,
-  );
-  final ui.Image image;
-  try {
-    image = (await codec.getNextFrame()).image;
-  } finally {
-    codec.dispose();
+///
+/// The source is rejected by byte size, intrinsic dimensions, and pixel count
+/// before a codec is created. Only the first frame of an animated source is
+/// decoded, and both target dimensions are bounded.
+Future<List<Color>> extractWallpaperAccents(
+  Uint8List encoded, {
+  WallpaperSourceLimits limits = const WallpaperSourceLimits(),
+}) async {
+  if (!limits.allowsEncoded(encoded.lengthInBytes)) {
+    return const <Color>[];
   }
+  ui.ImmutableBuffer? buffer;
+  ui.ImageDescriptor? descriptor;
+  ui.Codec? codec;
+  ui.Image? image;
   try {
+    buffer = await ui.ImmutableBuffer.fromUint8List(encoded);
+    descriptor = await ui.ImageDescriptor.encoded(buffer);
+    if (!limits.allowsSource(descriptor.width, descriptor.height)) {
+      return const <Color>[];
+    }
+    final longest = math.max(descriptor.width, descriptor.height);
+    final scale = math.min(1.0, limits.maxDecodedDimension / longest);
+    codec = await descriptor.instantiateCodec(
+      targetWidth: math.max(1, (descriptor.width * scale).round()),
+      targetHeight: math.max(1, (descriptor.height * scale).round()),
+    );
+    image = (await codec.getNextFrame()).image;
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (data == null) {
       return const <Color>[];
     }
     return vibrantCandidates(data);
   } finally {
-    image.dispose();
+    image?.dispose();
+    codec?.dispose();
+    descriptor?.dispose();
+    buffer?.dispose();
   }
 }
 
