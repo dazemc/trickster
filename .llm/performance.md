@@ -219,9 +219,10 @@ open their D-Bus clients on the UI isolate; moving proxy work to the existing
 `background_worker.dart` pattern is a performance gap.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
-event-driven. niri lacks the Sway/Hyprland snapshot dedup; a duplicated
-`WorkspacesChanged` line can repaint the rail. 1 MiB reply caps and 32 ms
-Hyprland debounce bound the rest.
+event-driven. All three dedup snapshots against the last emission; niri's
+repeated `WorkspacesChanged` lines no longer repaint the rail, while a changed
+snapshot or a reconnect replay with different state still emits. 1 MiB reply
+caps and 32 ms Hyprland debounce bound the rest.
 
 ## Startup and shutdown cost
 
