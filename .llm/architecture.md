@@ -71,13 +71,12 @@ keyboard and the full input region; tooltips take no keyboard and an empty
 input region, so hovering one cannot steal the pointer. Overlays never take
 the native blur effect: an effect on a hidden overlay black-screens it.
 
-**Gap — overlay lifecycle.** The overlay constructor takes a monitor but never
-assigns `surface->monitor`, so `monitor_removed_cb` cannot find or destroy an
-overlay when its output disappears. The overlay blocs (tray, calendar, volume,
-tooltip) also have no `close()` path that destroys their native surfaces; they
-tear down only through explicit dismiss events. Because every overlay is a
-full-monitor surface, several can stack if their owners are not dismissed.
-Track them per output and close them from the owning bloc's `close()`.
+**Gap — overlay output removal and stacking.** The overlay constructor takes a
+monitor but never assigns `surface->monitor`, so `monitor_removed_cb` cannot
+find or destroy an overlay when its output disappears. The overlay blocs now
+close their native surfaces from `close()` and clear a session whose view is no
+longer retained, but every overlay is a full-monitor surface and independent
+owners can still stack. Track overlays per output and arbitrate one owner next.
 
 **Settings.** The settings process creates its window with
 `fl_view_new(project)`, registers plugins on that view, and builds one `View`
