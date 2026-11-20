@@ -18,14 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- M: Fall back to the settings and outputs files when the bar exits while the
-  settings application is open. Add sticky `FallbackSettingsTransport` and
-  `FallbackOutputsTransport` wrappers that try the socket first and flip once
-  on `ControlSocketException`; keep `NativeSettingsStore`'s revision retry.
-  Route load, save, document-changed reads, and outputs saves through them;
-  update `usingSocket` after operations. Done when closing the fake bar after
-  load still saves settings and outputs to file, later saves stay on file,
-  writes are atomic, and analyze/full tests/release build are green.
