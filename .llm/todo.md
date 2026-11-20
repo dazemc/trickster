@@ -18,10 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Recover the visualizer after a band-worker exit. Done when a terminal
-  worker failure stops capture/frames, emits rest levels once, the visualizer
-  restarts only while playing and visible with capped backoff, and
-  intentional stop/dispose stay silent.
