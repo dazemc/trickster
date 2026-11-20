@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show FlutterView, Rect;
 
-import 'package:flutter/foundation.dart' show setEquals;
+import 'package:flutter/foundation.dart' show setEquals, visibleForTesting;
+import 'package:flutter/scheduler.dart' show FrameCallback;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/bar/bar.dart';
@@ -41,6 +42,10 @@ class TricksterApp extends StatefulWidget {
     required this.initial,
     this.layerShell,
     this.settingsTransport,
+    @visibleForTesting this.postFrameScheduler,
+    @visibleForTesting this.watcherBuilder,
+    @visibleForTesting this.controlServerBuilder,
+    @visibleForTesting this.contentBuilder,
     super.key,
   });
 
@@ -51,8 +56,68 @@ class TricksterApp extends StatefulWidget {
   /// instance with the settings store so writes keep one revision line.
   final FileSettingsTransport? settingsTransport;
 
+  @visibleForTesting
+  final void Function(FrameCallback callback)? postFrameScheduler;
+  @visibleForTesting
+  final ConfigWatcher Function({
+    required Directory directory,
+    required void Function() onChanged,
+  })?
+  watcherBuilder;
+  @visibleForTesting
+  final ControlServer Function({required ControlHandler handler})?
+  controlServerBuilder;
+
+  /// Test-only body override, so lifecycle tests do not build the strip's
+  /// multi-view tree.
+  @visibleForTesting
+  final WidgetBuilder? contentBuilder;
+
   @override
   State<TricksterApp> createState() => _TricksterAppState();
+}
+
+/// Runs the post-frame startup seams only while the state is mounted.
+///
+/// The callback can reach this after `dispose()` cleared the element; the
+/// second check catches a dispose that happens during [prepare].
+@visibleForTesting
+class AppStartupGate {
+  const AppStartupGate({
+    required this.isMounted,
+    required this.prepare,
+    required this.startWatcher,
+    required this.startControl,
+  });
+
+  final bool Function() isMounted;
+  final VoidCallback prepare;
+  final VoidCallback startWatcher;
+  final VoidCallback startControl;
+
+  bool run() {
+    if (!isMounted()) {
+      return false;
+    }
+    prepare();
+    if (!isMounted()) {
+      return false;
+    }
+    startWatcher();
+    startControl();
+    return true;
+  }
+}
+
+ConfigWatcher _buildConfigWatcher({
+  required Directory directory,
+  required void Function() onChanged,
+}) {
+  return ConfigWatcher(directory: directory, onChanged: onChanged);
+}
+
+ControlServer _buildControlServer({required ControlHandler handler}) {
+  return ControlServer(handler: handler);
 }
 
 class _TricksterAppState extends State<TricksterApp>
@@ -110,28 +175,52 @@ class _TricksterAppState extends State<TricksterApp>
     _outputsTransport = FileOutputsTransport(
       File(widget.initial.paths.outputs),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _apply(widget.initial);
-      _wallpaperAccent.add(
-        WallpaperAccentEnabled(
-          enabled: widget.initial.settings.usesWallpaperAccent,
-        ),
-      );
-      _watcher = ConfigWatcher(
-        directory: widget.initial.paths.directory,
-        onChanged: _reload,
-      )..start();
-      _control = ControlServer(
-        handler: (request) => handleControlRequest(
-          context: _moduleContext ?? context,
-          settings: _settingsTransport,
-          outputs: _outputsTransport,
-          reload: _reload,
-          request: request,
-        ),
-      );
-      unawaited(_control!.start());
+    final schedule =
+        widget.postFrameScheduler ??
+        (FrameCallback callback) {
+          WidgetsBinding.instance.addPostFrameCallback(callback);
+        };
+    schedule((_) {
+      if (!mounted) {
+        return;
+      }
+      _startBackgroundServices();
     });
+  }
+
+  /// Runs once after the first frame. The callback can fire after `dispose()`
+  /// when the widget is removed before a frame; every seam is guarded so no
+  /// watcher or control server is created for a dead state.
+  void _startBackgroundServices() {
+    AppStartupGate(
+      isMounted: () => mounted,
+      prepare: () {
+        _apply(widget.initial);
+        _wallpaperAccent.add(
+          WallpaperAccentEnabled(
+            enabled: widget.initial.settings.usesWallpaperAccent,
+          ),
+        );
+      },
+      startWatcher: () {
+        _watcher = (widget.watcherBuilder ?? _buildConfigWatcher)(
+          directory: widget.initial.paths.directory,
+          onChanged: _reload,
+        )..start();
+      },
+      startControl: () {
+        _control = (widget.controlServerBuilder ?? _buildControlServer)(
+          handler: (request) => handleControlRequest(
+            context: _moduleContext ?? context,
+            settings: _settingsTransport,
+            outputs: _outputsTransport,
+            reload: _reload,
+            request: request,
+          ),
+        );
+        unawaited(_control!.start());
+      },
+    ).run();
   }
 
   @override
@@ -291,6 +380,10 @@ class _TricksterAppState extends State<TricksterApp>
 
   @override
   Widget build(BuildContext context) {
+    final content = widget.contentBuilder;
+    if (content != null) {
+      return content(context);
+    }
     final locale = context.select((SettingsBloc bloc) => bloc.state.locale);
     return BlocListener<SettingsBloc, BarSettings>(
       listenWhen: (previous, next) =>
