@@ -91,6 +91,70 @@ void main() {
     expect(received.samples, samples);
   });
 
+  test('dispose stops a running native capture', () async {
+    final capture = PipeWireCapture(channel: _channel);
+    expect(await capture.start(), isTrue);
+    calls.clear();
+
+    await capture.dispose();
+
+    expect(calls.map((call) => call.method), ['pipewireStop']);
+    expect(capture.isRunning, isFalse);
+    expect(await capture.frames.isEmpty, isTrue);
+  });
+
+  test('dispose is idempotent and tolerates a stop error', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          calls.add(call);
+          if (call.method == 'pipewireStop') {
+            throw StateError('runner is gone');
+          }
+          return true;
+        });
+    final capture = PipeWireCapture(channel: _channel);
+    await capture.start();
+    calls.clear();
+
+    await capture.dispose();
+    final afterFirst = calls.length;
+    await capture.dispose();
+
+    expect(calls.length, afterFirst);
+    expect(calls.single.method, 'pipewireStop');
+    expect(capture.isRunning, isFalse);
+  });
+
+  test(
+    'dispose before start is safe and still stops the native side',
+    () async {
+      final capture = PipeWireCapture(channel: _channel);
+
+      await capture.dispose();
+
+      expect(calls.map((call) => call.method), ['pipewireStop']);
+      expect(await capture.start(), isFalse);
+      expect(await capture.frames.isEmpty, isTrue);
+    },
+  );
+
+  test('late frames after dispose are ignored', () async {
+    final capture = PipeWireCapture(channel: _channel);
+    await capture.start();
+    final seen = <PipeWireFrame>[];
+    capture.frames.listen(seen.add);
+    await capture.dispose();
+
+    await deliver(<String, Object>{
+      'data': Float32List.fromList(<double>[0.5, 0.5]).buffer.asUint8List(),
+      'rate': 48000,
+      'channels': 2,
+    });
+    await Future<void>.delayed(Duration.zero);
+
+    expect(seen, isEmpty);
+  });
+
   test('frames are ignored while stopped and when malformed', () async {
     final capture = PipeWireCapture(channel: _channel);
     addTearDown(capture.dispose);
