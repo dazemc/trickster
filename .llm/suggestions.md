@@ -24,12 +24,6 @@ Nothing in this file authorizes performance work.
 
 ## Memory and release risk
 
-- **Tray icon decode constrains one dimension.** The icon-file path passes
-  `targetWidth: 24` but no `targetHeight`; a 1×N image can decode very tall
-  before the >64 output check rejects it. Clamp both from the descriptor.
-  Arbitrary non-pixmap `GetAllProperties` values are also retained as raw
-  `DBusValue`; keep only the known keys.
-
 - **Unused Lucide weight fonts ship.** The used subset is 5,828 B, but six
   unused variable-weight fonts total 3,160,400 B. JetBrains Mono adds 551,688 B
   for both weights. Audit the package asset set; remove weights the bar never
