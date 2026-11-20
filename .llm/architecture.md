@@ -151,8 +151,9 @@ missing protocol means samplers keep their normal cadence. The settings
 process does not install the observer.
 
 **Sink volume.** The default sink is watched over PipeWire while the media
-module is configured. **Gap:** removal of the PipeWire/volume global leaves
-bound proxies in place instead of rebinding.
+module is configured. The watcher tracks the bound metadata, node, and device
+global ids; every proxy carries removed/destroy watches, so a global removal
+clears its reading and a re-advertised default binds a fresh proxy.
 
 **Control socket.** One server owns
 `$XDG_RUNTIME_DIR/trickster/control.sock`. A live socket is probed before
