@@ -186,9 +186,10 @@ backends. Do not describe them as supported rails.
 
 **Current.** The bar's control server speaks one JSON request line and one
 JSON reply line. It serves `version`, `status`, `reload`, settings read/write,
-and outputs read/write. The settings application writes settings and outputs
-through the socket and falls back to the file transport when no bar answers.
-Both paths implement the same transport interfaces.
+and outputs read/write. The settings application selects a transport at
+startup: the socket when the bar answers, otherwise the file transport. It
+does not switch transports mid-session if the bar exits. Both paths implement
+the same transport interfaces.
 
 One settings revision line covers both processes and the bar's own writes (the
 media pill's mode cycle). A revision mismatch is a retryable `StateError`;
