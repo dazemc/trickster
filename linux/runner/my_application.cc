@@ -621,7 +621,14 @@ static TricksterSurface* trickster_overlay_surface_new(MyApplication* self,
                                                       GdkMonitor* monitor,
                                                       const gchar* side,
                                                       gboolean tooltip) {
+  // A full-monitor overlay without a tracked monitor cannot be destroyed on
+  // output removal. Refuse it instead of creating an untrackable surface; the
+  // caller falls back or reports an unavailable overlay.
+  if (monitor == nullptr) {
+    return nullptr;
+  }
   TricksterSurface* surface = g_new0(TricksterSurface, 1);
+  surface->monitor = monitor;
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   surface->window = window;
@@ -685,6 +692,31 @@ static TricksterSurface* trickster_overlay_surface_new(MyApplication* self,
   }
 
   return surface;
+}
+
+// Destroys every menu and tooltip surface bound to a removed monitor. The
+// array free func owns the TricksterSurface; the window and blur effect must
+// be torn down before the entry is removed.
+static void trickster_destroy_overlays_for_monitor(MyApplication* self,
+                                                   GdkMonitor* monitor) {
+  GPtrArray* overlays[] = {self->menus, self->tooltips};
+  for (guint list = 0; list < G_N_ELEMENTS(overlays); list++) {
+    for (gint i = (gint)overlays[list]->len - 1; i >= 0; i--) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(overlays[list], i);
+      if (surface->monitor != monitor) {
+        continue;
+      }
+      if (surface->blur != nullptr) {
+        ext_background_effect_surface_v1_destroy(surface->blur);
+        surface->blur = nullptr;
+      }
+      if (surface->window != nullptr) {
+        gtk_widget_destroy(GTK_WIDGET(surface->window));
+      }
+      g_ptr_array_remove_index(overlays[list], i);
+    }
+  }
 }
 
 /// The monitor hosting the bar surface [bar_view_id], for overlay placement.
@@ -1015,8 +1047,11 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     }
     TricksterSurface* menu = trickster_overlay_surface_new(
         self, trickster_monitor_for_bar(self, bar_view_id), side, FALSE);
-    g_ptr_array_add(self->menus, menu);
-    g_autoptr(FlValue) result = fl_value_new_int(fl_view_get_id(menu->view));
+    g_autoptr(FlValue) result = nullptr;
+    if (menu != nullptr) {
+      g_ptr_array_add(self->menus, menu);
+      result = fl_value_new_int(fl_view_get_id(menu->view));
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "menuShow") == 0) {
     const gint64 view_id = method_arg_int(method_call, "viewId");
@@ -1058,9 +1093,11 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     }
     TricksterSurface* tooltip = trickster_overlay_surface_new(
         self, trickster_monitor_for_bar(self, bar_view_id), side, TRUE);
-    g_ptr_array_add(self->tooltips, tooltip);
-    g_autoptr(FlValue) result =
-        fl_value_new_int(fl_view_get_id(tooltip->view));
+    g_autoptr(FlValue) result = nullptr;
+    if (tooltip != nullptr) {
+      g_ptr_array_add(self->tooltips, tooltip);
+      result = fl_value_new_int(fl_view_get_id(tooltip->view));
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "tooltipShow") == 0) {
     const gint64 view_id = method_arg_int(method_call, "viewId");
@@ -1195,6 +1232,7 @@ static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor,
     }
     break;
   }
+  trickster_destroy_overlays_for_monitor(self, monitor);
 }
 
 // The settings window is a plain toplevel, not a layer surface: the
