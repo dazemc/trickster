@@ -145,6 +145,50 @@ class FileSettingsTransport implements SettingsDocumentTransport {
   }
 }
 
+/// Prefers the live bar's control socket and flips permanently to the file
+/// transport after the first transport loss. A revision mismatch is left to
+/// [NativeSettingsStore] and never flips the transport.
+class FallbackSettingsTransport implements SettingsDocumentTransport {
+  FallbackSettingsTransport({required this.socket, required this.file});
+
+  final SettingsDocumentTransport socket;
+  final SettingsDocumentTransport file;
+
+  var _usingSocket = true;
+
+  bool get usingSocket => _usingSocket;
+
+  @override
+  Future<SettingsDocument> read() async {
+    if (_usingSocket) {
+      try {
+        return await socket.read();
+      } on ControlSocketException {
+        _usingSocket = false;
+      }
+    }
+    return file.read();
+  }
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    if (_usingSocket) {
+      try {
+        return await socket.write(
+          expectedRevision: expectedRevision,
+          document: document,
+        );
+      } on ControlSocketException {
+        _usingSocket = false;
+      }
+    }
+    return file.write(expectedRevision: expectedRevision, document: document);
+  }
+}
+
 /// Talks to the bar's control socket instead of the file. The same
 /// `SettingsDocument` protocol rides one JSON request/reply line; revision
 /// mismatches stay [StateError] so the store's retry path is unchanged.

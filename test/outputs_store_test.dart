@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/layout/system_bar.dart';
+import 'package:trickster/src/platform/control_socket.dart';
 
 void main() {
   late Directory directory;
@@ -58,4 +59,49 @@ void main() {
     );
     expect(file.existsSync(), isFalse);
   });
+
+  test('a write falls back to the file and stays there', () async {
+    const initial = OutputsConfig(side: SystemBarSide.top, thickness: 32);
+    const saved = OutputsConfig(
+      side: SystemBarSide.bottom,
+      thickness: 40,
+      connectors: <String>['eDP-1'],
+    );
+    final socket = _LosingOutputsSocket(initial.encode());
+    final transport = FallbackOutputsTransport(
+      socket: socket,
+      file: FileOutputsTransport(file),
+    );
+
+    expect(OutputsConfig.parse(await transport.read()).side, SystemBarSide.top);
+    expect(transport.usingSocket, isTrue);
+
+    final written = OutputsConfig.parse(await transport.write(saved.encode()));
+    expect(written.side, SystemBarSide.bottom);
+    expect(written.thickness, 40);
+    expect(transport.usingSocket, isFalse);
+    expect(file.readAsStringSync(), contains('system_bar=bottom,40,eDP-1'));
+
+    await transport.write(
+      const OutputsConfig(side: SystemBarSide.hidden, thickness: 32).encode(),
+    );
+    expect(socket.writes, 1);
+    expect(file.readAsStringSync(), contains('system_bar=hidden'));
+  });
+}
+
+class _LosingOutputsSocket implements OutputsDocumentTransport {
+  _LosingOutputsSocket(this.document);
+
+  final String document;
+  var writes = 0;
+
+  @override
+  Future<String> read() async => document;
+
+  @override
+  Future<String> write(String document) async {
+    writes += 1;
+    throw const ControlSocketException('bar exited');
+  }
 }

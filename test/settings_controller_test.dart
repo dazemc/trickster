@@ -55,6 +55,7 @@ class _FakeBar {
   final String path;
   String document = const BarSettings(revision: 3).encode();
   int revision = 3;
+  var _closed = false;
 
   /// Fails this many writes with a revision mismatch before succeeding.
   int conflicts = 0;
@@ -114,6 +115,10 @@ class _FakeBar {
   }
 
   Future<void> dispose() async {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
     await _server.close();
     final directory = Directory(path).parent;
     if (directory.existsSync()) {
@@ -205,5 +210,45 @@ void main() {
     await _save(bloc, bloc.settings.copyWith(accent: accent));
     expect(bloc.error, isNull);
     expect(file.readAsStringSync(), contains('d0bcff'));
+  });
+
+  test('a save falls back to the file after the bar exits', () async {
+    final bar = await _FakeBar.start();
+    addTearDown(bar.dispose);
+    final directory = await Directory.systemTemp.createTemp(
+      'trickster-fallback',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/settings.json')
+      ..writeAsStringSync(bar.document);
+    final bloc = _bloc(
+      socket: SocketSettingsTransport(socketPath: bar.path),
+      directory: directory,
+      settingsFile: file,
+    );
+    addTearDown(bloc.close);
+
+    await _load(bloc);
+    expect(bloc.usingSocket, isTrue);
+    expect(bloc.settings.revision, 3);
+
+    await bar.dispose();
+    await _save(bloc, bloc.settings.copyWith(accent: accent));
+
+    expect(bloc.error, isNull);
+    expect(bloc.usingSocket, isFalse);
+    expect(bloc.settings.revision, 4);
+    expect(bloc.settings.accent, accent);
+    final saved = BarSettings.decode(file.readAsStringSync());
+    expect(saved.revision, 4);
+    expect(saved.accent, accent);
+    expect(File('${file.path}.prev').existsSync(), isTrue);
+    expect(File('${file.path}.tmp').existsSync(), isFalse);
+
+    await _save(bloc, bloc.settings.copyWith(accent: const Color(0xff00ff00)));
+    expect(bloc.error, isNull);
+    expect(bloc.usingSocket, isFalse);
+    expect(bloc.settings.revision, 5);
+    expect(BarSettings.decode(file.readAsStringSync()).revision, 5);
   });
 }

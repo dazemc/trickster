@@ -36,6 +36,43 @@ class FileOutputsTransport implements OutputsDocumentTransport {
   }
 }
 
+/// Prefers the live bar's control socket and flips permanently to the file
+/// transport after the first transport loss.
+class FallbackOutputsTransport implements OutputsDocumentTransport {
+  FallbackOutputsTransport({required this.socket, required this.file});
+
+  final OutputsDocumentTransport socket;
+  final OutputsDocumentTransport file;
+
+  var _usingSocket = true;
+
+  bool get usingSocket => _usingSocket;
+
+  @override
+  Future<String> read() async {
+    if (_usingSocket) {
+      try {
+        return await socket.read();
+      } on ControlSocketException {
+        _usingSocket = false;
+      }
+    }
+    return file.read();
+  }
+
+  @override
+  Future<String> write(String document) async {
+    if (_usingSocket) {
+      try {
+        return await socket.write(document);
+      } on ControlSocketException {
+        _usingSocket = false;
+      }
+    }
+    return file.write(document);
+  }
+}
+
 /// Talks to the bar's control socket instead of the file.
 class SocketOutputsTransport implements OutputsDocumentTransport {
   SocketOutputsTransport({String? socketPath}) : _socketPath = socketPath;
