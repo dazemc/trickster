@@ -54,6 +54,16 @@ void _testBandsWorker(List<Object?> bootstrap) {
   });
 }
 
+/// Publishes its command port and exits immediately, reproducing a worker
+/// crash after startup.
+@pragma('vm:entry-point')
+void _readyThenExitWorker(List<Object?> bootstrap) {
+  final ready = bootstrap[0] as SendPort;
+  final commands = ReceivePort();
+  ready.send(commands.sendPort);
+  commands.close();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -225,6 +235,115 @@ void main() {
     expect(analyzer.isRunning, isFalse);
     expect(capture.stops, hasLength(1));
     await exited.first.timeout(const Duration(seconds: 2));
+  });
+
+  test(
+    'a worker exit after ready fails once, stops capture, and can restart',
+    () async {
+      final capture = FakePipeWireCapture();
+      final failures = <void>[];
+      final failed = Completer<void>();
+      var calls = 0;
+
+      Future<Isolate> spawn({
+        required SendPort ready,
+        required SendPort results,
+        required SendPort errors,
+        required SendPort exits,
+        required int bands,
+      }) {
+        calls += 1;
+        if (calls == 1) {
+          return Isolate.spawn<List<Object?>>(
+            _readyThenExitWorker,
+            <Object?>[ready],
+            debugName: 'trickster-test-ready-exit',
+            errorsAreFatal: true,
+            onError: errors,
+            onExit: exits,
+          );
+        }
+        return Isolate.spawn<List<Object?>>(
+          _testBandsWorker,
+          <Object?>[ready, results, bands],
+          debugName: 'trickster-test-bands',
+          errorsAreFatal: true,
+          onError: errors,
+          onExit: exits,
+        );
+      }
+
+      final analyzer = BandAnalyzer(capture: capture, spawnWorker: spawn);
+      final levels = <List<double>>[];
+      final levelSubscription = analyzer.levels.listen(levels.add);
+      final failureSubscription = analyzer.failures.listen((_) {
+        failures.add(null);
+        if (!failed.isCompleted) {
+          failed.complete();
+        }
+      });
+      addTearDown(() async {
+        await failureSubscription.cancel();
+        await levelSubscription.cancel();
+        await analyzer.dispose();
+      });
+
+      expect(await analyzer.start(), isTrue);
+      await failed.future.timeout(const Duration(seconds: 5));
+
+      expect(failures, hasLength(1));
+      expect(analyzer.isRunning, isFalse);
+      expect(capture.stops, isNotEmpty);
+      expect(levels, isNotEmpty);
+      expect(levels.last, everyElement(0.0));
+
+      final afterExit = levels.length;
+      capture.emit(_sine(hz: 1000));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(levels, hasLength(afterExit));
+
+      expect(await analyzer.start(), isTrue);
+      final next = analyzer.levels.firstWhere(
+        (batch) => batch.any((level) => level > 0),
+      );
+      capture.emit(_sine(hz: 1000));
+      expect(
+        await next.timeout(const Duration(seconds: 10)),
+        hasLength(bandCount),
+      );
+    },
+  );
+
+  test('an intentional stop emits no failure', () async {
+    final capture = FakePipeWireCapture();
+    final analyzer = BandAnalyzer(capture: capture);
+    final failures = <void>[];
+    final subscription = analyzer.failures.listen(failures.add);
+    addTearDown(() async {
+      await subscription.cancel();
+      await analyzer.dispose();
+    });
+
+    expect(await analyzer.start(), isTrue);
+    await analyzer.stop();
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    expect(failures, isEmpty);
+    expect(capture.stops, hasLength(1));
+  });
+
+  test('dispose closes both analyzer streams', () async {
+    final capture = FakePipeWireCapture();
+    final analyzer = BandAnalyzer(capture: capture);
+    final levelsDone = analyzer.levels.isEmpty;
+    final failuresDone = analyzer.failures.isEmpty;
+
+    await analyzer.start();
+    await analyzer.dispose();
+
+    expect(await levelsDone, isTrue);
+    expect(await failuresDone, isTrue);
+    expect(capture.stops, hasLength(1));
   });
 
   test('start closes every attempt-local port when it fails', () {

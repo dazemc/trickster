@@ -168,6 +168,7 @@ class BandAnalyzer {
   final Duration _startupTimeout;
   final StreamController<List<double>> _levels =
       StreamController<List<double>>.broadcast();
+  final StreamController<void> _failures = StreamController<void>.broadcast();
 
   StreamSubscription<PipeWireFrame>? _frames;
   Isolate? _isolate;
@@ -177,14 +178,22 @@ class BandAnalyzer {
   ReceivePort? _errors;
   ReceivePort? _exits;
   var _generation = 0;
+  var _disposed = false;
 
   Stream<List<double>> get levels => _levels.stream;
+
+  /// Fires once when a running worker exits unexpectedly. An intentional
+  /// [stop] invalidates the generation first, so it never emits here.
+  Stream<void> get failures => _failures.stream;
 
   bool get isRunning => _isolate != null;
 
   /// Opens the monitor and spawns the worker; false when the capture has no
   /// default sink or the worker fails to start.
   Future<bool> start() async {
+    if (_disposed) {
+      return false;
+    }
     if (_isolate != null) {
       return true;
     }
@@ -216,6 +225,9 @@ class BandAnalyzer {
       _errors = errors;
       _exits = exits;
       results.listen((message) {
+        if (generation != _generation || _levels.isClosed) {
+          return;
+        }
         if (message is List && message.length == bands) {
           _levels.add(<double>[
             for (final level in message)
@@ -225,11 +237,10 @@ class BandAnalyzer {
       });
       errors.listen((_) {});
       exits.listen((_) {
-        if (generation == _generation) {
-          _teardown();
-          // The bars rest when the worker dies.
-          _levels.add(List<double>.filled(bands, 0));
+        if (generation != _generation) {
+          return;
         }
+        unawaited(_handleWorkerExit(generation));
       });
       _listenFrames();
       return true;
@@ -254,15 +265,47 @@ class BandAnalyzer {
     _generation += 1;
     final frames = _frames;
     _frames = null;
-    unawaited(frames?.cancel());
+    await frames?.cancel();
     _teardown();
     await _capture.stop();
   }
 
   Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
     await stop();
+    await _failures.close();
     await _levels.close();
     _capture.dispose();
+  }
+
+  /// A worker exit is terminal for this run: sever the frame subscription,
+  /// tear down the worker ports, close the monitor, rest the bars, then tell
+  /// the owner so it can decide whether to retry.
+  Future<void> _handleWorkerExit(int generation) async {
+    if (generation != _generation || _disposed) {
+      return;
+    }
+    final exitGeneration = ++_generation;
+    final frames = _frames;
+    _frames = null;
+    await frames?.cancel();
+    if (_generation != exitGeneration || _disposed) {
+      return;
+    }
+    _teardown();
+    await _capture.stop();
+    if (_generation != exitGeneration || _disposed) {
+      return;
+    }
+    if (!_levels.isClosed) {
+      _levels.add(List<double>.filled(bands, 0));
+    }
+    if (!_failures.isClosed) {
+      _failures.add(null);
+    }
   }
 
   void _feed(PipeWireFrame frame) {

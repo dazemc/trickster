@@ -12,6 +12,8 @@ class FakeBandAnalyzer extends BandAnalyzer {
   final List<int> stops = <int>[];
   final StreamController<List<double>> controller =
       StreamController<List<double>>.broadcast();
+  final StreamController<void> failureController =
+      StreamController<void>.broadcast();
   var _running = false;
 
   @override
@@ -19,6 +21,12 @@ class FakeBandAnalyzer extends BandAnalyzer {
 
   @override
   Stream<List<double>> get levels => controller.stream;
+
+  @override
+  Stream<void> get failures => failureController.stream;
+
+  /// Signals a terminal worker failure, as the real analyzer does.
+  void fail() => failureController.add(null);
 
   @override
   Future<bool> start() async {
@@ -35,6 +43,7 @@ class FakeBandAnalyzer extends BandAnalyzer {
 
   @override
   Future<void> dispose() async {
+    await failureController.close();
     await controller.close();
     await super.dispose();
   }
