@@ -45,8 +45,9 @@ repackages the latest published release asset:
 yay -S trickster-bin   # or any AUR helper
 ```
 
-The recipe is updated by hand after each release;
-`packaging/aur/trickster-bin/PKGBUILD` holds the same sources.
+The release workflow refreshes the recipe and publishes it after each
+tagged release; `packaging/aur/trickster-bin/PKGBUILD` holds the same
+sources.
 
 ## Preflight
 
