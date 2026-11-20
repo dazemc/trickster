@@ -162,8 +162,8 @@ samplers keep their normal cadence. Multi-seat compositors are a gap.
 | --- | --- | --- |
 | CPU | 1 Hz `/proc/stat` | Paused; one 100 ms prime sample on resume; 45-sample history; reused buffer |
 | GPU | 1 Hz sysfs/NVML | Paused; in-flight generation dropped; 45-sample history |
-| Battery | 5 s sysfs | Still polls; synchronous I/O; **gap** |
-| OpenCode | 60 s HTTP | Still polls; **gap** |
+| Battery | 5 s sysfs | Paused; one fresh sample on resume; synchronous sysfs I/O remains |
+| OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
 | MPRIS | D-Bus signals + 60 s recovery | Recovery poll is deliberate; 16-player cap |
 | StatusNotifier | D-Bus signals; 45 ms coalesce | Event-driven |
 | Workspaces | Sway/Hyprland/niri events | Event-driven; Hyprland 32 ms debounce |
@@ -181,8 +181,8 @@ Rules that follow from the table:
 - The visualizer capture and FFT isolate exist only while playing and visible.
 - The sink volume is watched over one PipeWire connection, event-driven, never
   through `wpctl` or a poll.
-- Battery is **not** UPower today. It is a 5 s synchronous sysfs sampler. The
-  UPower migration is an open port/performance gap.
+- Battery is **not** UPower today. It is a 5 s synchronous sysfs sampler,
+  paused with the seat; the UPower migration is an open port/performance gap.
 
 ## Event-driven service contracts
 
@@ -359,7 +359,7 @@ same scenario and keep the numbers with their provenance.
 | Worker-exit capture teardown | Gap | Analyzer rests bars but leaves capture/frames |
 | CPU/GPU pause on seat idle | Current | `SeatIdleBloc` + samplers |
 | Battery 5 s sysfs, not UPower | Current | `battery.dart` |
-| Battery/OpenCode idle gating | Gap | No idle gate |
+| Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Gap | Rebuilds scanline rows per flush |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster and known-property retention | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties` |
