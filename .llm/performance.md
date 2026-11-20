@@ -106,9 +106,7 @@ strips on another.
   module option changed;
 - the entrance `Opacity`/`Transform` sits outside the pill's
   `RepaintBoundary`; the cached pill is composited rather than repainted, but
-  the animation still schedules frames for its full duration;
-- a non-disruptive reload still calls native `outputs()`, a Wayland
-  enumeration, even when only a visual option changed.
+  the animation still schedules frames for its full duration.
 
 ## Motion inventory
 
@@ -236,6 +234,12 @@ An empty cached string is the no-connector sentinel. Monitor add/remove
 invalidates the entry and dispose frees the table. Dart probes idle once with a
 1 s timeout before `runWidget`. The entrance animation starts with the first
 pills.
+
+**Current reload.** `_apply` reconciles native outputs on the first apply and
+whenever `OutputsConfig` changed; a settings-only reload applies blocs without
+calling `outputs()`. Disruptive edge/thickness/layer/keyboard changes still
+recreate surfaces, and `didChangeMetrics` continues to reconcile when the bar
+view set changes.
 
 `--check` is a cold-process preflight; a warm run measured about 372 ms. It is
 not a startup benchmark for the bar.
