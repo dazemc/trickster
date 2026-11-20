@@ -37,9 +37,9 @@ class FakePipeWireCapture extends PipeWireCapture {
   Stream<PipeWireFrame> get frames => controller.stream;
 
   @override
-  void dispose() {
-    controller.close();
-    super.dispose();
+  Future<void> dispose() async {
+    await controller.close();
+    await super.dispose();
   }
 
   /// Pushes one F32 stereo batch, as the runner's channel would.

@@ -50,6 +50,7 @@ class PipeWireCapture {
   final StreamController<PipeWireFrame> _frames =
       StreamController<PipeWireFrame>.broadcast();
   var _running = false;
+  var _disposed = false;
 
   Stream<PipeWireFrame> get frames => _frames.stream;
 
@@ -58,30 +59,61 @@ class PipeWireCapture {
   /// Opens the monitor; false when PipeWire has no default sink or the
   /// stream fails to connect. Idempotent while running.
   Future<bool> start() async {
+    if (_disposed) {
+      return false;
+    }
     if (_running) {
       return true;
     }
     final started = await _channel.invokeMethod<bool>('pipewireStart') ?? false;
+    if (_disposed) {
+      // dispose() can land while the start handshake is in flight. The native
+      // object may have opened after the stop call, so stop it again.
+      if (started) {
+        try {
+          await _channel.invokeMethod<void>('pipewireStop');
+        } on Object {
+          // Best effort while shutting down.
+        }
+      }
+      _running = false;
+      return false;
+    }
     _running = started;
     return started;
   }
 
   Future<void> stop() async {
-    if (!_running) {
+    if (_disposed || !_running) {
       return;
     }
     _running = false;
     await _channel.invokeMethod<void>('pipewireStop');
   }
 
-  void dispose() {
+  /// Stops the native capture even if the Dart wrapper never started, then
+  /// closes the channel and levels. Idempotent.
+  Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
     _running = false;
+    try {
+      await _channel.invokeMethod<void>('pipewireStop');
+    } on Object {
+      // The runner or channel may already be gone; teardown continues.
+    }
     _channel.setMethodCallHandler(null);
-    _frames.close();
+    try {
+      await _frames.close();
+    } on Object {
+      // A closed stream is already a completed teardown.
+    }
   }
 
   Future<void> _onCall(MethodCall call) async {
-    if (call.method != 'frame' || !_running) {
+    if (_disposed || call.method != 'frame' || !_running) {
       return;
     }
     final args = call.arguments;

@@ -278,7 +278,7 @@ class BandAnalyzer {
     await stop();
     await _failures.close();
     await _levels.close();
-    _capture.dispose();
+    await _capture.dispose();
   }
 
   /// A worker exit is terminal for this run: sever the frame subscription,
