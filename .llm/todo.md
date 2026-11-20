@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Keep live config reload alive across watch-stream errors and closes. Done
-  when an errored/closed directory watch resubscribes with backoff and dispose
-  cancels all restarts.
-
 - S: Close all band-analyzer ports when worker startup fails. Done when a
   forced startup failure returns false with zero open ReceivePorts and a
   following start still works.
