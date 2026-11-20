@@ -105,6 +105,96 @@ void main() {
     expect(source, contains('g_ptr_array_add(self->tooltips, tooltip);'));
   });
 
+  test('the blur registry persists and records the manager global', () {
+    expect(source, contains('struct wl_registry* blur_registry;'));
+    expect(source, contains('uint32_t blur_manager_global;'));
+
+    final probe = _functionBody(source, 'static gboolean trickster_probe_blur');
+    expect(probe, contains('self->blur_registry = registry;'));
+    expect(
+      probe,
+      isNot(contains('wl_registry_destroy(registry)')),
+      reason: 'the registry must stay alive to observe a later manager global',
+    );
+
+    final global = _functionBody(source, 'static void blur_registry_global');
+    expect(global, contains('self->blur_manager_global = name;'));
+    expect(global, contains('ext_background_effect_manager_v1_add_listener'));
+
+    final remove = _functionBody(
+      source,
+      'static void blur_registry_global_remove',
+    );
+    expect(remove, contains('name != self->blur_manager_global'));
+  });
+
+  test('blur manager removal clears every surface array', () {
+    final remove = _functionBody(
+      source,
+      'static void blur_registry_global_remove',
+    );
+    expect(remove, contains('trickster_drop_blur_manager(self);'));
+    expect(remove, contains('self->blur_rebinding = TRUE;'));
+    expect(remove, contains('trickster_emit_blur_changed(self, FALSE);'));
+
+    final drop = _functionBody(
+      source,
+      'static void trickster_drop_blur_manager',
+    );
+    expect(drop, contains('trickster_clear_blur_effects(self, TRUE);'));
+    expect(
+      drop,
+      contains('ext_background_effect_manager_v1_destroy(self->blur_manager)'),
+    );
+    expect(drop, contains('self->blur_manager_global = 0;'));
+    expect(drop, contains('self->blur_supported = FALSE;'));
+
+    final clear = _functionBody(
+      source,
+      'static void trickster_clear_blur_effects',
+    );
+    expect(clear, contains('self->surfaces'));
+    expect(clear, contains('self->menus'));
+    expect(clear, contains('self->tooltips'));
+    expect(clear, contains('self->settings_blur'));
+    expect(
+      clear,
+      contains('ext_background_effect_surface_v1_destroy(surface->blur)'),
+    );
+    expect(
+      clear,
+      contains('ext_background_effect_surface_v1_destroy(self->settings_blur)'),
+    );
+  });
+
+  test('a lost blur capability clears every surface array', () {
+    final capabilities = _functionBody(source, 'static void blur_capabilities');
+    expect(capabilities, contains('if (!supported)'));
+    expect(
+      capabilities,
+      contains('trickster_clear_blur_effects(self, FALSE);'),
+    );
+    expect(
+      capabilities,
+      contains('trickster_emit_blur_changed(self, supported);'),
+    );
+  });
+
+  test('a re-advertised blur manager rebinds and re-announces blur', () {
+    final global = _functionBody(source, 'static void blur_registry_global');
+    expect(global, contains('if (self->blur_rebinding)'));
+    expect(global, contains('self->blur_rebinding = FALSE;'));
+    expect(global, contains('self->blur_supported = TRUE;'));
+    expect(global, contains('trickster_emit_blur_changed(self, TRUE);'));
+  });
+
+  test('dispose destroys the blur registry and every effect', () {
+    final dispose = _functionBody(source, 'static void my_application_dispose');
+    expect(dispose, contains('trickster_drop_blur_manager(self);'));
+    expect(dispose, contains('wl_registry_destroy(self->blur_registry);'));
+    expect(dispose, contains('self->blur_registry = nullptr;'));
+  });
+
   test('both click-through windows route through the helper', () {
     final helper = RegExp(
       r'static void trickster_make_click_through\(GtkWidget\* widget\)'
