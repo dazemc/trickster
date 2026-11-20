@@ -18,3 +18,10 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- S: Cache the native connector lookup per monitor. Done when one
+  registry/roundtrip enumeration is reused, a no-connector sentinel is cached,
+  add/remove invalidates entries, dispose frees the table, and source-contract
+  tests cover the lifecycle.
