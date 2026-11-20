@@ -101,10 +101,6 @@ Nothing in this file authorizes performance work.
   even when only a visual option changed. Skip the enumeration unless the
   output set or strip geometry changed.
 
-- **`BackgroundWorker.invoke` has no per-request timeout.** A wedged NVML call
-  can stall GPU sampling forever. Add a request timeout that tears down and
-  recreates the worker, with a test for the wedged path.
-
 - **Control listener errors are swallowed.** `ControlServer` has no retry or
   rebind when the listener fails. Surface the error, retry with a bounded
   backoff, and do not leave a dead socket path behind.
