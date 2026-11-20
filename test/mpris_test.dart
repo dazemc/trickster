@@ -41,7 +41,7 @@ Future<void> _emitUntil(
 class _FakeBus {
   _FakeBus._(this.server, this.address, this.directory);
 
-  final DBusServer server;
+  DBusServer server;
   final DBusAddress address;
   final Directory directory;
 
@@ -55,6 +55,18 @@ class _FakeBus {
   }
 
   DBusClient client() => DBusClient(address);
+
+  /// Drops every connected client and starts a fresh server on the same path.
+  Future<void> restart() async {
+    await server.close();
+    final socket = File(address.properties['path']!);
+    if (socket.existsSync()) {
+      socket.deleteSync();
+    }
+    final next = DBusServer();
+    await next.listenAddress(address);
+    server = next;
+  }
 
   Future<void> dispose() async {
     await server.close();
@@ -175,13 +187,24 @@ class _FakePlayerObject extends DBusObject {
   }
 }
 
-MediaPlayerService _service(_FakeBus bus, {List<MprisPlaybackState>? log}) {
+MediaPlayerService _service(
+  _FakeBus bus, {
+  List<MprisPlaybackState>? log,
+  Duration recoveryInterval = const Duration(hours: 1),
+  List<Duration> recoveryBackoff = const <Duration>[
+    Duration(milliseconds: 20),
+    Duration(milliseconds: 40),
+    Duration(milliseconds: 80),
+  ],
+}) {
   final service = MediaPlayerService(
     client: bus.client(),
+    clientFactory: bus.client,
     readTimeout: const Duration(seconds: 2),
     signalCoalesce: const Duration(milliseconds: 10),
     unavailableGrace: const Duration(milliseconds: 80),
-    recoveryInterval: const Duration(hours: 1),
+    recoveryInterval: recoveryInterval,
+    recoveryBackoff: recoveryBackoff,
   );
   if (log != null) {
     service.snapshots.listen(log.add);
@@ -412,6 +435,102 @@ void main() {
     }, now)!;
     expect(renamed.title, 'New');
     expect(renamed.length, Duration.zero);
+  });
+
+  test('rebuilds the client and player after the bus restarts', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = _service(
+      bus,
+      recoveryBackoff: const <Duration>[Duration(milliseconds: 200)],
+    );
+    addTearDown(service.dispose);
+    await service.start();
+
+    final before = _FakePlayerObject();
+    final beforeClient = await _servePlayer(bus, before, 'fake');
+    await _waitFor(() => service.current.available);
+
+    await beforeClient.close();
+    await bus.restart();
+    // Trigger detection on the dead client; the 60s refresh timer remains
+    // intentionally irrelevant to this test.
+    await service.refresh();
+    await _waitFor(() => !service.current.available);
+
+    final after = _FakePlayerObject()..title = 'After restart';
+    final afterClient = await _servePlayer(bus, after, 'fake');
+    addTearDown(afterClient.close);
+    await _waitFor(
+      () =>
+          service.current.available && service.current.title == 'After restart',
+    );
+
+    after.title = 'Signal after restart';
+    await _emitUntil(after, <String, DBusValue>{
+      'Metadata': after._metadata(),
+    }, () => service.current.title == 'Signal after restart');
+  });
+
+  test('starts while the bus is down and recovers when it appears', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-mpris');
+    addTearDown(() => directory.delete(recursive: true));
+    final address = DBusAddress.unix(path: '${directory.path}/bus');
+    final service = MediaPlayerService(
+      clientFactory: () => DBusClient(address),
+      readTimeout: const Duration(seconds: 2),
+      signalCoalesce: const Duration(milliseconds: 10),
+      unavailableGrace: const Duration(milliseconds: 80),
+      recoveryInterval: const Duration(milliseconds: 20),
+      recoveryBackoff: const <Duration>[Duration(milliseconds: 10)],
+    );
+    addTearDown(service.dispose);
+    await service.start();
+    expect(service.current.available, isFalse);
+
+    final server = DBusServer();
+    await server.listenAddress(address);
+    addTearDown(server.close);
+    final player = _FakePlayerObject()..title = 'Cold start song';
+    final client = DBusClient(address);
+    addTearDown(client.close);
+    await client.registerObject(player);
+    await client.requestName('${MediaPlayerService.servicePrefix}fake');
+
+    await _waitFor(
+      () =>
+          service.current.available &&
+          service.current.title == 'Cold start song',
+    );
+  });
+
+  test('bounds retries and stops them after dispose', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-mpris');
+    addTearDown(() => directory.delete(recursive: true));
+    final address = DBusAddress.unix(path: '${directory.path}/bus');
+    var creates = 0;
+    final service = MediaPlayerService(
+      clientFactory: () {
+        creates += 1;
+        return DBusClient(address);
+      },
+      readTimeout: const Duration(seconds: 2),
+      recoveryInterval: const Duration(hours: 1),
+      recoveryBackoff: const <Duration>[
+        Duration(milliseconds: 30),
+        Duration(milliseconds: 60),
+        Duration(milliseconds: 120),
+      ],
+    );
+    await service.start();
+    await Future<void>.delayed(const Duration(milliseconds: 130));
+    expect(creates, greaterThanOrEqualTo(3));
+    expect(creates, lessThanOrEqualTo(6));
+
+    await service.dispose();
+    final afterDispose = creates;
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    expect(creates, afterDispose);
   });
 
   test('playback state json round-trips', () {

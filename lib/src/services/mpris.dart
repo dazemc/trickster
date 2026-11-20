@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show SocketException;
+import 'dart:math' as math;
 
 import 'package:dbus/dbus.dart';
 import 'package:equatable/equatable.dart';
@@ -146,12 +148,26 @@ class MprisPlaybackState extends Equatable {
 class MediaPlayerService {
   MediaPlayerService({
     DBusClient? client,
+    DBusClient Function()? clientFactory,
     this.readTimeout = const Duration(seconds: 2),
     this.methodTimeout = const Duration(seconds: 4),
     this.recoveryInterval = const Duration(minutes: 1),
     this.signalCoalesce = const Duration(milliseconds: 45),
     this.unavailableGrace = const Duration(seconds: 2),
-  }) : _client = client;
+    List<Duration> recoveryBackoff = const <Duration>[
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+      Duration(seconds: 10),
+      Duration(seconds: 30),
+    ],
+  }) : assert(
+         client == null || clientFactory != null,
+         'a fixed client needs a clientFactory for transport recovery',
+       ),
+       _client = client,
+       _clientFactory = clientFactory ?? DBusClient.session,
+       _recoveryBackoff = recoveryBackoff;
 
   static const String servicePrefix = 'org.mpris.MediaPlayer2.';
   static const String objectPath = '/org/mpris/MediaPlayer2';
@@ -165,24 +181,41 @@ class MediaPlayerService {
   final Duration signalCoalesce;
   final Duration unavailableGrace;
 
+  final DBusClient Function() _clientFactory;
+  final List<Duration> _recoveryBackoff;
   DBusClient? _client;
   final StreamController<MprisPlaybackState> _snapshots =
       StreamController<MprisPlaybackState>.broadcast(sync: true);
 
+  // Cancelled indirectly by _cancelSubscriptions on recovery and dispose.
+  // ignore: cancel_subscriptions
   StreamSubscription<DBusNameOwnerChangedEvent>? _ownerSubscription;
   StreamSubscription<DBusPropertiesChangedSignal>? _propertiesSubscription;
   Timer? _refreshTimer;
   Timer? _signalTimer;
   Timer? _unavailableTimer;
+  Timer? _recoveryTimer;
+  Future<void>? _recovery;
+  Completer<void>? _refreshIdle;
   DBusRemoteObject? _activeObject;
   MprisPlaybackState _current = MprisPlaybackState.unavailable();
+  int _recoveryAttempt = 0;
+  int _connectionGeneration = 0;
   bool _started = false;
   bool _disposed = false;
   bool _refreshing = false;
   bool _refreshAgain = false;
+  bool _refreshTransportFailure = false;
+  bool _recoveryPending = false;
   bool _unavailableGraceElapsed = false;
 
-  DBusClient get _bus => _client ??= DBusClient.session();
+  DBusClient get _bus {
+    final client = _client;
+    if (client == null) {
+      throw StateError('MediaPlayerService is not connected');
+    }
+    return client;
+  }
 
   Stream<MprisPlaybackState> get snapshots => _snapshots.stream;
 
@@ -193,32 +226,192 @@ class MediaPlayerService {
       return;
     }
     _started = true;
-    _ownerSubscription = _bus.nameOwnerChanged
-        .where((event) => event.name.startsWith(servicePrefix))
-        .listen((_) => _scheduleRefresh(immediate: true));
-    _refreshTimer = Timer.periodic(
-      recoveryInterval,
-      (_) => _scheduleRefresh(immediate: true),
-    );
-    await refresh();
+    try {
+      _client ??= _clientFactory();
+      _refreshTimer = Timer.periodic(
+        recoveryInterval,
+        (_) => _scheduleRefresh(immediate: true),
+      );
+      await refresh();
+      if (!_disposed && !_refreshTransportFailure) {
+        _subscribeOwnerChanges();
+      }
+    } on Object {
+      // The service stays alive and the recovery timer retries.
+      _scheduleRecovery();
+    }
   }
 
-  Future<void> refresh() async {
+  void _subscribeOwnerChanges() {
+    _ownerSubscription = _bus.nameOwnerChanged
+        .where((event) => event.name.startsWith(servicePrefix))
+        .listen(
+          (_) => _scheduleRefresh(immediate: true),
+          onError: _onTransportFailure,
+        );
+  }
+
+  void _onTransportFailure(Object error) {
     if (_disposed) {
       return;
     }
     if (_refreshing) {
+      _refreshTransportFailure = true;
+    }
+    if (_recovery != null) {
+      _recoveryPending = true;
+    }
+    _scheduleRecovery();
+  }
+
+  bool _isTransportFailure(Object error) {
+    return error is DBusClosedException ||
+        error is SocketException ||
+        error is TimeoutException;
+  }
+
+  void _scheduleRecovery({bool afterFailure = false}) {
+    if (_disposed ||
+        _recoveryTimer != null ||
+        (!afterFailure && _recovery != null)) {
+      return;
+    }
+    final index = math.min(_recoveryAttempt, _recoveryBackoff.length - 1);
+    final delay = _recoveryBackoff[index];
+    _recoveryAttempt += 1;
+    _recoveryTimer = Timer(delay, () {
+      _recoveryTimer = null;
+      if (_disposed) {
+        return;
+      }
+      final recovery = _recover();
+      _recovery = recovery;
+      unawaited(
+        recovery
+            .then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stackTrace) {
+                _scheduleRecovery(afterFailure: true);
+              },
+            )
+            .whenComplete(() {
+              if (identical(_recovery, recovery)) {
+                _recovery = null;
+              }
+            }),
+      );
+    });
+  }
+
+  Future<void> _recover() async {
+    if (_disposed) {
+      return;
+    }
+    _connectionGeneration += 1;
+    await _cancelSubscriptions();
+    _signalTimer?.cancel();
+    _signalTimer = null;
+    _cancelUnavailableGrace();
+    await _selectPlayer(null);
+    _emit(MprisPlaybackState.unavailable());
+
+    final idle = _refreshIdle;
+    if (idle != null) {
+      try {
+        await idle.future.timeout(readTimeout + methodTimeout);
+      } on Object {
+        // A refresh stuck on the old transport must not block the rebuild.
+      }
+    }
+    final oldClient = _client;
+    _client = null;
+    if (oldClient != null) {
+      try {
+        await oldClient.close().timeout(readTimeout);
+      } on Object {
+        // The old socket is already gone; the client is discarded.
+      }
+    }
+    if (_disposed) {
+      return;
+    }
+    try {
+      _client = _clientFactory();
+      // Confirm the new transport before subscribing or resetting backoff;
+      // discovery will select and re-subscribe the player on this connection.
+      await _bus.listNames().timeout(readTimeout);
+      if (_disposed) {
+        return;
+      }
+      _subscribeOwnerChanges();
+      _refreshTransportFailure = false;
+      _recoveryPending = false;
+      await refresh();
+      if (_disposed) {
+        return;
+      }
+      if (_refreshTransportFailure || _recoveryPending) {
+        _scheduleRecovery(afterFailure: true);
+        return;
+      }
+      _recoveryAttempt = 0;
+    } on Object {
+      if (!_disposed) {
+        _scheduleRecovery(afterFailure: true);
+      }
+    }
+  }
+
+  Future<void> _cancelSubscriptions() async {
+    final owner = _ownerSubscription;
+    _ownerSubscription = null;
+    try {
+      await owner?.cancel();
+    } on Object {
+      // A dead transport can make match-rule removal fail; discard it.
+    }
+    final properties = _propertiesSubscription;
+    _propertiesSubscription = null;
+    try {
+      await properties?.cancel();
+    } on Object {
+      // Same as above.
+    }
+  }
+
+  Future<void> refresh() async {
+    if (_disposed || _client == null) {
+      return;
+    }
+    if (_refreshing) {
       _refreshAgain = true;
+      final idle = _refreshIdle;
+      if (idle != null) {
+        await idle.future;
+      }
       return;
     }
     _refreshing = true;
+    final completion = Completer<void>();
+    _refreshIdle = completion;
+    final generation = _connectionGeneration;
+    _refreshTransportFailure = false;
     try {
       do {
         _refreshAgain = false;
+        if (_disposed || generation != _connectionGeneration) {
+          return;
+        }
         final names = await _listPlayerNames();
+        if (_disposed || generation != _connectionGeneration) {
+          return;
+        }
         final candidates = await Future.wait(
           names.take(_maxPlayers).map(_readPlayer),
         );
+        if (_disposed || generation != _connectionGeneration) {
+          return;
+        }
         final live = candidates.whereType<_MprisCandidate>().toList()
           ..sort((left, right) {
             final byStatus = _statusPriority(
@@ -234,15 +427,28 @@ class MediaPlayerService {
         } else {
           _cancelUnavailableGrace();
           final resynced = await _selectPlayer(candidate.object);
+          if (_disposed || generation != _connectionGeneration) {
+            return;
+          }
           _emit(resynced ?? candidate.state);
         }
       } while (_refreshAgain && !_disposed);
-    } on Object {
-      if (!_disposed) {
+    } on Object catch (error) {
+      if (!_disposed && generation == _connectionGeneration) {
+        if (_isTransportFailure(error)) {
+          _refreshTransportFailure = true;
+          _onTransportFailure(error);
+        }
         await _handleUnavailable();
       }
     } finally {
       _refreshing = false;
+      if (!completion.isCompleted) {
+        completion.complete();
+      }
+      if (identical(_refreshIdle, completion)) {
+        _refreshIdle = null;
+      }
     }
   }
 
@@ -269,7 +475,10 @@ class MediaPlayerService {
             replySignature: DBusSignature(''),
           )
           .timeout(methodTimeout);
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
       // The player can disappear between hover and click.
     }
   }
@@ -339,7 +548,10 @@ class MediaPlayerService {
           canPause: _boolean(player['CanPause']),
         ),
       );
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
       return null;
     }
   }
@@ -360,7 +572,7 @@ class MediaPlayerService {
     }
     _propertiesSubscription = object.propertiesChanged
         .where((signal) => signal.propertiesInterface == playerInterface)
-        .listen(_handlePropertiesChanged);
+        .listen(_handlePropertiesChanged, onError: _onTransportFailure);
     final fresh = await _readPlayer(object.name);
     if (_disposed || _activeObject?.name != object.name) {
       return null;
@@ -439,12 +651,30 @@ class MediaPlayerService {
     }
     _disposed = true;
     _refreshTimer?.cancel();
+    _refreshTimer = null;
     _signalTimer?.cancel();
+    _signalTimer = null;
     _unavailableTimer?.cancel();
-    await _ownerSubscription?.cancel();
-    await _propertiesSubscription?.cancel();
+    _unavailableTimer = null;
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
+    final recovery = _recovery;
+    if (recovery != null) {
+      try {
+        await recovery.timeout(const Duration(seconds: 3));
+      } on Object {
+        // A recovery that cannot finish must not keep timers or clients alive.
+      }
+    }
+    await _cancelSubscriptions();
     await _snapshots.close();
-    await _client?.close();
+    final client = _client;
+    _client = null;
+    try {
+      await client?.close();
+    } on Object {
+      // Best effort during shutdown.
+    }
   }
 }
 
