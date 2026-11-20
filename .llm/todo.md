@@ -18,3 +18,10 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- S: Move battery sysfs reads off the synchronous UI path. Done when sampling
+  uses async directory/file I/O, keeps the 5 s and idle lifecycle, drops
+  overlapping or post-pause results, deduplicates equal status, and never
+  revives after dispose.
