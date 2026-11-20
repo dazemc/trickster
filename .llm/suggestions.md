@@ -112,3 +112,10 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   exit listener calls `_teardown()` and rests the bars but never cancels
   `_frames` or stops `_capture`, so PipeWire keeps delivering frames until the
   next stop. Cancel the frame subscription and stop the capture in that path.
+
+- **The bar's post-frame startup can outlive dispose.** `lib/src/app.dart:113-134`
+  registers the config watcher and control server in a post-frame callback
+  with no mounted guard; if the app is disposed before the first frame,
+  `dispose()` sees both fields null and the callback later creates orphan
+  instances with live timers. Guard the callback with `if (!mounted) return;`
+  or construct both before it.
