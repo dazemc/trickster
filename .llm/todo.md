@@ -20,11 +20,3 @@ until the user escalates them here.
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Authorized step
-
-- M: Repair the docs dependency stack and harden docs/release GitHub
-  workflows. Done when docs analyze/build pass on Dart 3.14, Pages deploys
-  current content, `dry_run` cannot publish, and `actionlint` is clean.
-
-- S: Cap wallpaper accent source decoding. Done when oversized/extreme-aspect/
-  animated sources cannot exceed the byte/dimension/first-frame limits and
-  fallback to grim/configured accent.
