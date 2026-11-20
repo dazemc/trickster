@@ -18,15 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- M: Retry the control listener after an accept error. Track the accept
-  subscription, handle `onError`/`onDone` with a bounded 500ms→30s backoff,
-  single-flight start/retry, `_stopping`, and no retry after dispose. A retry
-  rebinds safely: preserve `_ownsSocket`, never unlink a live foreign socket,
-  and close a socket bound during dispose instead of leaking it. Add a
-  testable listener-error seam. Done when tests prove an error triggers a
-  retry that serves requests again, dispose cancels retries and removes the
-  owned path, a live second owner is not stolen, and no timers survive
-  dispose; analyze/full tests/release build are green.
