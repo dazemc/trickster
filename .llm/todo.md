@@ -18,10 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Bound tray icon memory. Done when raster icon files decode within
-  4096 px / 4,194,304 pixels / 24 px targets with both dimensions clamped,
-  unknown `GetAllProperties` values are not retained, and tray behavior and
-  tests remain green.
