@@ -42,6 +42,9 @@ struct _MyApplication {
   FlView* bootstrap_view;
   gboolean blur_checked;
   gboolean blur_supported;
+  gboolean blur_rebinding;
+  struct wl_registry* blur_registry;
+  uint32_t blur_manager_global;
   struct wl_compositor* compositor;
   struct ext_background_effect_manager_v1* blur_manager;
   gboolean idle;
@@ -273,6 +276,58 @@ static TricksterSurface* trickster_surface_new(MyApplication* self,
 static void trickster_surface_configure(TricksterSurface* surface,
                                         FlView* view);
 
+static void trickster_emit_blur_changed(MyApplication* self,
+                                        gboolean supported) {
+  if (self->method_channel == nullptr) {
+    return;
+  }
+  g_autoptr(FlValue) args = fl_value_new_bool(supported ? TRUE : FALSE);
+  fl_method_channel_invoke_method(self->method_channel, "blurChanged", args,
+                                  nullptr, nullptr, nullptr);
+}
+
+// Clears every effect, not just the strip surfaces. The settings toplevel and
+// the transient menu/tooltip overlays own their effects too, and leaving one
+// bound can black-screen that overlay.
+static void trickster_clear_blur_effects(MyApplication* self,
+                                         gboolean destroy) {
+  GPtrArray* arrays[] = {self->surfaces, self->menus, self->tooltips};
+  for (guint list = 0; list < G_N_ELEMENTS(arrays); list++) {
+    for (guint i = 0; i < arrays[list]->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(arrays[list], i);
+      if (surface->blur == nullptr) {
+        continue;
+      }
+      ext_background_effect_surface_v1_set_blur_region(surface->blur, nullptr);
+      if (destroy) {
+        ext_background_effect_surface_v1_destroy(surface->blur);
+        surface->blur = nullptr;
+      }
+    }
+  }
+  if (self->settings_blur != nullptr) {
+    ext_background_effect_surface_v1_set_blur_region(self->settings_blur,
+                                                     nullptr);
+    if (destroy) {
+      ext_background_effect_surface_v1_destroy(self->settings_blur);
+      self->settings_blur = nullptr;
+    }
+  }
+}
+
+// Drops the manager proxy and every effect bound through it. The registry is
+// intentionally kept alive: a re-advertised manager rebinds through it.
+static void trickster_drop_blur_manager(MyApplication* self) {
+  trickster_clear_blur_effects(self, TRUE);
+  if (self->blur_manager != nullptr) {
+    ext_background_effect_manager_v1_destroy(self->blur_manager);
+    self->blur_manager = nullptr;
+  }
+  self->blur_manager_global = 0;
+  self->blur_supported = FALSE;
+}
+
 static void blur_registry_global(void* data, struct wl_registry* registry,
                                  uint32_t name, const char* interface,
                                  uint32_t version) {
@@ -288,10 +343,19 @@ static void blur_registry_global(void* data, struct wl_registry* registry,
       self->blur_manager =
           (struct ext_background_effect_manager_v1*)wl_registry_bind(
               registry, name, &ext_background_effect_manager_v1_interface, 1);
+      self->blur_manager_global = name;
       static const struct ext_background_effect_manager_v1_listener listener = {
           blur_capabilities};
       ext_background_effect_manager_v1_add_listener(self->blur_manager,
                                                     &listener, self);
+      if (self->blur_rebinding) {
+        // The capability event arrives on the next dispatch. Announce the
+        // rebind now so Dart re-sends its cached regions immediately; the
+        // capability event then confirms or retracts it.
+        self->blur_rebinding = FALSE;
+        self->blur_supported = TRUE;
+        trickster_emit_blur_changed(self, TRUE);
+      }
     }
   }
 }
@@ -307,27 +371,27 @@ static void blur_capabilities(void* data,
       (flags & EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR) != 0;
   self->blur_supported = supported;
   if (!supported) {
-    for (guint i = 0; i < self->surfaces->len; i++) {
-      TricksterSurface* surface =
-          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
-      if (surface->blur != nullptr) {
-        ext_background_effect_surface_v1_set_blur_region(surface->blur,
-                                                         nullptr);
-      }
-    }
+    trickster_clear_blur_effects(self, FALSE);
   }
-  if (self->method_channel != nullptr) {
-    g_autoptr(FlValue) args = fl_value_new_bool(supported ? TRUE : FALSE);
-    fl_method_channel_invoke_method(self->method_channel, "blurChanged", args,
-                                    nullptr, nullptr, nullptr);
-  }
+  trickster_emit_blur_changed(self, supported);
 }
 
 static void blur_registry_global_remove(void* data, struct wl_registry* registry,
-                                        uint32_t name) {}
+                                        uint32_t name) {
+  MyApplication* self = MY_APPLICATION(data);
+  if (self->blur_manager_global == 0 ||
+      name != self->blur_manager_global) {
+    return;
+  }
+  trickster_drop_blur_manager(self);
+  self->blur_rebinding = TRUE;
+  trickster_emit_blur_changed(self, FALSE);
+}
 
-// One registry roundtrip on GDK's Wayland connection, binding the compositor
-// and the background-effect manager; cached for the process.
+// The registry stays alive so a removed or newly advertised background-effect
+// manager can be rebound without a process restart. The one-shot roundtrip
+// populates the initial globals; later globals arrive through the same
+// listener.
 static gboolean trickster_probe_blur(MyApplication* self) {
   if (self->blur_checked) {
     return self->blur_supported;
@@ -345,11 +409,11 @@ static gboolean trickster_probe_blur(MyApplication* self) {
   if (registry == nullptr) {
     return FALSE;
   }
+  self->blur_registry = registry;
   static const struct wl_registry_listener listener = {
       blur_registry_global, blur_registry_global_remove};
   wl_registry_add_listener(registry, &listener, self);
   wl_display_roundtrip(wl);
-  wl_registry_destroy(registry);
   return self->blur_supported;
 }
 
@@ -1544,24 +1608,10 @@ static void my_application_shutdown(GApplication* application) {
 
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
-  for (guint i = 0; i < self->surfaces->len; i++) {
-    TricksterSurface* surface =
-        (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
-    if (surface->blur != nullptr) {
-      ext_background_effect_surface_v1_destroy(surface->blur);
-      surface->blur = nullptr;
-    }
-  }
-  for (guint i = 0; i < self->menus->len; i++) {
-    TricksterSurface* menu = (TricksterSurface*)g_ptr_array_index(self->menus, i);
-    if (menu->blur != nullptr) {
-      ext_background_effect_surface_v1_destroy(menu->blur);
-      menu->blur = nullptr;
-    }
-  }
-  if (self->blur_manager != nullptr) {
-    ext_background_effect_manager_v1_destroy(self->blur_manager);
-    self->blur_manager = nullptr;
+  trickster_drop_blur_manager(self);
+  if (self->blur_registry != nullptr) {
+    wl_registry_destroy(self->blur_registry);
+    self->blur_registry = nullptr;
   }
   if (self->idle_notification != nullptr) {
     ext_idle_notification_v1_destroy(self->idle_notification);
