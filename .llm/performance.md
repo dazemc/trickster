@@ -142,20 +142,21 @@ translucent gradient at alpha .92/.88 with no resting border — not a
 fill-plus-border card.
 
 The Dart side registers each pill's live bounds with a `BlurRegionController`.
-Flushes run after the frame that moved a card, compare the new list with
-`listEquals`, and resend only on change or when a scroll translates a cached
-layer. Native caches the last region so a remap can re-apply it, creates the
-effect object once, and commits the surface so region-only changes apply
-without a new frame.
+Each provider caches its scanline rows by `(bounds, radius)`. `refresh(id)`
+marks one provider dirty, no-arg `refresh()` marks all, and `resend()` marks all
+for a remap/scroll while reusing every unchanged row set. Structural
+register/unregister schedules a combined rebuild. A flush runs only when
+something is dirty or structural, compares the final list with `listEquals`,
+and sends only on change. Dispose clears providers/cache and ignores any
+callback already in flight. Native caches the last region so a remap can
+re-apply it, creates the effect object once, and commits the surface so
+region-only changes apply without a new frame.
 
 Overlay surfaces never take the native effect; an effect on a hidden overlay
 black-screens it. Confirmed 2026-11-20 on the Hyprland 0.56 session:
 `trickster --check` still reports `blur: not advertised (translucent fill)`,
 so the fallback path is active. A compositor blur setting alone is not proof;
 re-check after a compositor or Flutter update.
-
-**Gap.** Region generation still rebuilds the scanline rows for every pill on
-each flush. Cache by `(bounds, radius)` and flush only when dirty.
 
 ## Idle and sampling cadence
 
@@ -388,7 +389,7 @@ same scenario and keep the numbers with their provenance.
 | Battery 5 s sysfs, not UPower | Current | `battery.dart` |
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
-| Blur region cache | Gap | Rebuilds scanline rows per flush |
+| Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster and known-property retention | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties` |
 | Wallpaper caps plus external 64 px thumbnail for oversized sources | Current | `readWallpaperSource`, `WallpaperSourceLimits`, `ProcessWallpaperThumbnailer`; 269 MB GIF → `#636ea6`, VmHWM 167,452 kB |
 | Connector lookup cached per monitor | Current | `connector_cache`; add/remove invalidation, dispose free |
