@@ -76,6 +76,32 @@ class FileSettingsTransport implements SettingsDocumentTransport {
     return document;
   }
 
+  /// Replaces `.prev` with the last document that decoded successfully. The
+  /// live file may be torn when [read] recovered from `.prev`, so it must
+  /// never be copied over the snapshot. The temp rename keeps `.prev` whole
+  /// even if this process stops mid-snapshot.
+  void _snapshotLastGood() {
+    final good = _lastGood;
+    if (good == null) {
+      return;
+    }
+    final previous = File('${file.path}.prev');
+    final temporary = File('${previous.path}.tmp');
+    try {
+      temporary.writeAsStringSync(good.json, flush: true);
+      temporary.renameSync(previous.path);
+    } on Object {
+      if (temporary.existsSync()) {
+        try {
+          temporary.deleteSync();
+        } on Object {
+          // Best effort: the temp file is never a source of truth.
+        }
+      }
+      rethrow;
+    }
+  }
+
   @override
   Future<SettingsDocument> write({
     required int expectedRevision,
@@ -93,13 +119,13 @@ class FileSettingsTransport implements SettingsDocumentTransport {
       json: document.endsWith('\n') ? document : '$document\n',
     );
     final temporary = File('${file.path}.tmp');
-    final previous = File('${file.path}.prev');
     try {
       file.parent.createSync(recursive: true);
-      if (file.existsSync()) {
-        file.copySync(previous.path);
-      }
-      temporary.writeAsStringSync(next.json);
+      // Snapshot the last document known to decode, never the live file: the
+      // live file is corrupt when read recovered from .prev, and copying it
+      // here would destroy the only good snapshot before the new write.
+      _snapshotLastGood();
+      temporary.writeAsStringSync(next.json, flush: true);
       // Atomic replace: a crash before this point leaves the live document
       // (or its .prev snapshot) intact; no reader ever sees a partial file.
       temporary.renameSync(file.path);

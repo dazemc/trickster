@@ -50,7 +50,9 @@ class _MutableTransport implements SettingsDocumentTransport {
     required String document,
   }) async {
     if (expectedRevision != this.document.revision) {
-      throw StateError('revision ${this.document.revision} != $expectedRevision');
+      throw StateError(
+        'revision ${this.document.revision} != $expectedRevision',
+      );
     }
     final settings = BarSettings.decode(document);
     this.document = SettingsDocument(
@@ -145,12 +147,57 @@ void main() {
         expect(recovered.revision, 1);
         expect(BarSettings.decode(recovered.json).revision, 1);
 
-        // The recovered revision is usable for the next write.
+        // The recovered revision is usable for the next write, and the
+        // corrupt live file must not overwrite the good snapshot.
         await FileSettingsTransport(file).write(
           expectedRevision: 1,
           document: const BarSettings(revision: 2).encode(),
         );
         expect(BarSettings.decode(file.readAsStringSync()).revision, 2);
+        expect(BarSettings.decode(previous.readAsStringSync()).revision, 1);
+        expect(File('${previous.path}.tmp').existsSync(), isFalse);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    test('file transport keeps .prev one revision behind', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-previous',
+      );
+      try {
+        final file = File('${directory.path}/settings.json');
+        final previous = File('${file.path}.prev');
+        final transport = FileSettingsTransport(file);
+
+        final first = await transport.read();
+        expect(first.revision, 1);
+        expect(previous.existsSync(), isFalse);
+
+        await transport.write(
+          expectedRevision: 1,
+          document: const BarSettings(revision: 2).encode(),
+        );
+        expect(BarSettings.decode(file.readAsStringSync()).revision, 2);
+        expect(BarSettings.decode(previous.readAsStringSync()).revision, 1);
+        expect(File('${file.path}.tmp').existsSync(), isFalse);
+        expect(File('${previous.path}.tmp').existsSync(), isFalse);
+
+        await transport.write(
+          expectedRevision: 2,
+          document: const BarSettings(revision: 3).encode(),
+        );
+        expect(BarSettings.decode(file.readAsStringSync()).revision, 3);
+        expect(BarSettings.decode(previous.readAsStringSync()).revision, 2);
+        expect(File('${previous.path}.tmp').existsSync(), isFalse);
+
+        await transport.write(
+          expectedRevision: 3,
+          document: const BarSettings(revision: 4).encode(),
+        );
+        expect(BarSettings.decode(file.readAsStringSync()).revision, 4);
+        expect(BarSettings.decode(previous.readAsStringSync()).revision, 3);
+        expect(File('${previous.path}.tmp').existsSync(), isFalse);
       } finally {
         await directory.delete(recursive: true);
       }
