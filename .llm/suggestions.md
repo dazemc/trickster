@@ -35,11 +35,10 @@ Nothing in this file authorizes performance work.
 
 ## Lifecycle and ownership
 
-- **Overlay surfaces survive output removal and app dispose.** The overlay
+- **Overlay surfaces survive output removal and can stack.** The overlay
   constructor receives a monitor but never assigns `surface->monitor`, so
-  `monitor_removed_cb` cannot destroy it. The tray/calendar/volume/tooltip
-  blocs have no `close()` surface teardown, and several full-monitor overlays
-  can stack. Track overlays per output and close them from the owning bloc.
+  `monitor_removed_cb` cannot destroy it. Several full-monitor overlays can
+  still stack; track overlays per output and arbitrate one owner.
 
 - **3.50 hide/show can leave a black strip.** `#196862`: after
   `gtk_widget_hide`/`show`, GTK replaces the toplevel `wl_surface` and the
