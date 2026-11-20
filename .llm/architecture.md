@@ -43,11 +43,19 @@ holds a Wayland resource, DRM fd, or client buffer.
 ## Surface graph
 
 **Bootstrap.** The runner creates the first view with `fl_view_new(project)`
-and takes its engine. The bootstrap window is a 1×1 background-layer
+and retrieves the implicit engine with `fl_view_get_engine`. There is no
+`fl_engine_new` call. The bootstrap window is a 1×1 background-layer
 layer-shell window: transparent, click-through, never meant to be seen. It
 hosts the engine's implicit view (`viewId` 0), which keeps the engine alive
 when no strip is mapped. View 0 is never destroyed; unhosted outputs hide it
 through `surfaceVisible` instead.
+
+**Startup order.** The engine starts on the bootstrap view as soon as that
+view is shown and plugins are registered. Strips are created and mapped in the
+same GTK activate turn, before Dart IPC begins. The earlier claim that the
+engine waits for the first strip's initial configure was wrong; the one-turn
+Hyprland write rule is still required because a silent command connection can
+block the compositor.
 
 **Strips.** Every hosted output gets one `fl_view_new_for_engine(engine)` view
 inside its own layer-shell window. The exclusive zone equals the laid-out
@@ -55,13 +63,21 @@ strip. Strips are the only surfaces that may receive the native backdrop
 effect.
 
 **Overlays.** Tray menus, tray tooltips, the clock calendar, and the volume
-slider each get a transient `fl_view_new_for_engine(engine)` view on a
-fullscreen layer-shell surface. A surface is anchored to the edge opposite
-the strip so the strip band remains clickable. It stays hidden until its Dart
-session is ready, so no default frame is shown. Menus take exclusive keyboard
-and the full input region; tooltips take no keyboard and an empty input
-region, so hovering one cannot steal the pointer. Overlays never take the
-native blur effect: an effect on a hidden overlay black-screens it.
+slider each get an independent, transient `fl_view_new_for_engine(engine)` view
+on its own fullscreen layer-shell surface. A surface is anchored to the edge
+opposite the strip so the strip band remains clickable. It stays hidden until
+its Dart session is ready, so no default frame is shown. Menus take exclusive
+keyboard and the full input region; tooltips take no keyboard and an empty
+input region, so hovering one cannot steal the pointer. Overlays never take
+the native blur effect: an effect on a hidden overlay black-screens it.
+
+**Gap — overlay lifecycle.** The overlay constructor takes a monitor but never
+assigns `surface->monitor`, so `monitor_removed_cb` cannot find or destroy an
+overlay when its output disappears. The overlay blocs (tray, calendar, volume,
+tooltip) also have no `close()` path that destroys their native surfaces; they
+tear down only through explicit dismiss events. Because every overlay is a
+full-monitor surface, several can stack if their owners are not dismissed.
+Track them per output and close them from the owning bloc's `close()`.
 
 **Settings.** The settings process creates its window with
 `fl_view_new(project)`, registers plugins on that view, and builds one `View`
@@ -125,6 +141,8 @@ back to an X11 or managed toplevel.
 the blur capability bit. A manager global alone is not enough. The effect is
 set per strip as a region of pill rectangles; overlays are excluded. Without
 the capability the pills paint a translucent gradient and no native effect.
+**Gap:** removal of the blur manager global is not handled, so the native
+effect object can outlive the capability.
 
 **Seat idle.** Native binds `ext-idle-notify-v1` on the first seat with a
 60 s timeout. The notification is inhibitor-aware and purely observational: it
@@ -133,9 +151,14 @@ when the compositor removes and later re-advertises the seat or notifier. A
 missing protocol means samplers keep their normal cadence. The settings
 process does not install the observer.
 
+**Sink volume.** The default sink is watched over PipeWire while the media
+module is configured. **Gap:** removal of the PipeWire/volume global leaves
+bound proxies in place instead of rebinding.
+
 **Control socket.** One server owns
 `$XDG_RUNTIME_DIR/trickster/control.sock`. A live socket is probed before
-binding; only a socket this server owns is unlinked on dispose.
+binding; only a socket this server owns is unlinked on dispose. **Gap:**
+listener errors are swallowed without a retry.
 
 ## Workspaces
 
@@ -170,6 +193,25 @@ Both paths implement the same transport interfaces.
 One settings revision line covers both processes and the bar's own writes (the
 media pill's mode cycle). A revision mismatch is a retryable `StateError`;
 the store retries once and never keeps a document history.
+
+## Resource ownership
+
+**Current.** Ownership is split so every long-lived object has one owner:
+
+- Native runner: engine, bootstrap/strip/overlay views, layer-shell windows,
+  blur effect and regions, idle registry/seat/notifier, PipeWire capture and
+  volume streams.
+- Dart bar app: config watcher, control server, overlay blocs (tray menu,
+  calendar, volume slider, tooltip), wallpaper accent bloc, settings and
+  outputs transports.
+- Module blocs: their sampler, D-Bus client, socket, worker isolate, or timer.
+- `PipArtworkCache`: process-wide bounded cache, intentionally alive until
+  process exit.
+
+A service may be shared, but its dispose path must still be owned by the bloc
+or scope that created it. The native runner owns resources Dart cannot see;
+the overlay lifecycle gap above shows what happens when that ownership is not
+paired.
 
 ## Non-goals
 
