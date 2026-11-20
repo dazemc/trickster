@@ -29,10 +29,6 @@ Nothing in this file authorizes performance work.
   for both weights. Audit the package asset set; remove weights the bar never
   selects without breaking dynamic glyph coverage; 4.0.3 is not smaller.
 
-- **`PipeWireCapture.dispose()` does not stop the native stream.** It frees the
-  Dart wrapper while the native capture keeps running. Call the native stop
-  before free, and test a media-module teardown.
-
 ## Lifecycle and ownership
 
 - **Overlays can stack.** Every overlay is a full-monitor surface and
