@@ -77,11 +77,6 @@ Nothing in this file authorizes performance work.
 
 ## Idle and sampling
 
-- **Battery sampling still uses synchronous sysfs I/O.** `battery.dart` runs
-  `listSync`/`readAsStringSync` on the UI isolate every 5 s and emits
-  unconditionally. It is not UPower. Move the read off the frame isolate and
-  make UPower `PropertiesChanged` the primary source when that port lands.
-
 - **Seat idle observes only the first seat.** `SeatIdleBloc` binds one
   `ext-idle-notify-v1` notification, so a multi-seat compositor keeps gated
   samplers running on the other seats. Bind one notification per seat.
