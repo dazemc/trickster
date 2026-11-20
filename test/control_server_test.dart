@@ -83,6 +83,147 @@ void main() {
     },
   );
 
+  test('an accept listener error rebinds and serves requests again', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'trickster-control-retry',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/control.sock';
+    late void Function(Object, StackTrace) failListener;
+    var listens = 0;
+    final server = ControlServer(
+      socketPath: path,
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 40),
+      handler: (request) async => <String, Object?>{
+        'ok': true,
+        'listens': listens,
+        'echo': request['command'],
+      },
+      acceptListener: (server, onSocket, onError, onDone) {
+        listens += 1;
+        failListener = onError;
+        return server.listen(onSocket, onError: onError, onDone: onDone);
+      },
+    );
+    addTearDown(server.dispose);
+    expect(await server.start(), isTrue);
+
+    failListener(StateError('accept failed'), StackTrace.current);
+    await _waitUntil(() => listens == 2);
+
+    expect(server.hasPendingRetry, isFalse);
+    final reply = await controlRequest(<String, Object?>{
+      'command': 'version',
+    }, socketPath: path);
+    expect(reply['ok'], isTrue);
+    expect(reply['listens'], 2);
+    expect(reply['echo'], 'version');
+  });
+
+  test('a closed accept stream rebinds and serves requests again', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'trickster-control-done',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/control.sock';
+    late void Function() closeListener;
+    var listens = 0;
+    final server = ControlServer(
+      socketPath: path,
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 40),
+      handler: (_) async => <String, Object?>{'ok': true, 'listens': listens},
+      acceptListener: (server, onSocket, onError, onDone) {
+        listens += 1;
+        closeListener = onDone;
+        return server.listen(onSocket, onError: onError, onDone: onDone);
+      },
+    );
+    addTearDown(server.dispose);
+    expect(await server.start(), isTrue);
+
+    closeListener();
+    await _waitUntil(() => listens == 2);
+
+    final reply = await controlRequest(<String, Object?>{
+      'command': 'version',
+    }, socketPath: path);
+    expect(reply['listens'], 2);
+  });
+
+  test('dispose cancels a pending retry and removes the owned path', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'trickster-control-retry-dispose',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/control.sock';
+    late void Function(Object, StackTrace) failListener;
+    var listens = 0;
+    final server = ControlServer(
+      socketPath: path,
+      retryDelay: const Duration(milliseconds: 200),
+      retryDelayMax: const Duration(seconds: 1),
+      handler: (_) async => <String, Object?>{'ok': true},
+      acceptListener: (server, onSocket, onError, onDone) {
+        listens += 1;
+        failListener = onError;
+        return server.listen(onSocket, onError: onError, onDone: onDone);
+      },
+    );
+    addTearDown(server.dispose);
+    expect(await server.start(), isTrue);
+
+    failListener(StateError('accept failed'), StackTrace.current);
+    await _waitUntil(() => server.hasPendingRetry);
+
+    await server.dispose();
+    expect(server.hasPendingRetry, isFalse);
+    expect(File(path).existsSync(), isFalse);
+
+    // A cancelled timer must not resurrect the socket after its delay.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(File(path).existsSync(), isFalse);
+    expect(listens, 1);
+    await expectLater(
+      controlRequest(<String, Object?>{'command': 'version'}, socketPath: path),
+      throwsA(isA<ControlSocketException>()),
+    );
+  });
+
+  test('dispose during bind closes the new listener', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'trickster-control-bind-race',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final path = '${directory.path}/control.sock';
+    late final ControlServer server;
+    Future<void>? disposing;
+    server = ControlServer(
+      socketPath: path,
+      handler: (_) async => <String, Object?>{'ok': true},
+      acceptListener: (socket, onSocket, onError, onDone) {
+        final subscription = socket.listen(
+          onSocket,
+          onError: onError,
+          onDone: onDone,
+        );
+        disposing ??= server.dispose();
+        return subscription;
+      },
+    );
+    addTearDown(server.dispose);
+
+    expect(await server.start(), isFalse);
+    await disposing;
+    expect(server.hasPendingRetry, isFalse);
+    expect(File(path).existsSync(), isFalse);
+    await expectLater(
+      controlRequest(<String, Object?>{'command': 'version'}, socketPath: path),
+      throwsA(isA<ControlSocketException>()),
+    );
+  });
+
   test('a handler error becomes a clean error reply', () async {
     final directory = await Directory.systemTemp.createTemp(
       'trickster-control-error',
@@ -302,4 +443,14 @@ void main() {
     await socket.close();
     expect(reply, contains('false'));
   });
+}
+
+Future<void> _waitUntil(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 2));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('condition was not met before the timeout');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
 }
