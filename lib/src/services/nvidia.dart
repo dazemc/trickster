@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:isolate';
 
@@ -31,23 +32,51 @@ class NvidiaGpuSample {
 /// library or worker failure remains a best-effort empty reading, with the
 /// reason carried back so the caller can log it once.
 class NvmlReader {
-  NvmlReader({BackgroundWorker? worker})
-    : _worker =
-          worker ??
-          BackgroundWorker(
-            entrypoint: _nvidiaWorkerMain,
-            debugName: 'trickster-nvml-worker',
-          );
+  NvmlReader({
+    BackgroundWorker? worker,
+    Duration requestTimeout = const Duration(seconds: 2),
+    Duration cooldown = const Duration(seconds: 60),
+  }) : _requestTimeout = requestTimeout,
+       _cooldown = cooldown,
+       _worker =
+           worker ??
+           BackgroundWorker(
+             entrypoint: _nvidiaWorkerMain,
+             debugName: 'trickster-nvml-worker',
+             requestTimeout: requestTimeout,
+           );
 
   final BackgroundWorker _worker;
+  final Duration _requestTimeout;
+  final Duration _cooldown;
+  DateTime? _cooldownUntil;
 
   Future<NvmlRead> read() async {
+    final now = DateTime.now();
+    final cooldownUntil = _cooldownUntil;
+    if (cooldownUntil != null && now.isBefore(cooldownUntil)) {
+      return (
+        samples: const <NvidiaGpuSample>[],
+        error: 'NVML request is cooling down after a timeout',
+      );
+    }
     try {
-      return await _worker.invoke<NvmlRead>(
+      final read = await _worker.invoke<NvmlRead>(
         operation: _readNvidiaGpuSamples,
         decode: _decodeNvmlRead,
+        timeout: _requestTimeout,
+      );
+      _cooldownUntil = null;
+      return read;
+    } on TimeoutException {
+      _cooldownUntil = DateTime.now().add(_cooldown);
+      return (
+        samples: const <NvidiaGpuSample>[],
+        error: 'NVML request timed out',
       );
     } on Object catch (error) {
+      // An ordinary worker error (missing library, operation failure) does
+      // not restart the worker or start a cooldown.
       return (samples: const <NvidiaGpuSample>[], error: '$error');
     }
   }
