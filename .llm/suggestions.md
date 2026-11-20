@@ -56,11 +56,6 @@ Nothing in this file authorizes performance work.
   is set. Do not patch speculatively: reproduce a stale strip on output
   removal first, then guard the fix for older installed libraries.
 
-- **Settings saves do not fall back to the file after the bar exits.** The
-  settings application chooses its transport at startup; if the bar exits
-  while the window is open, later saves fail. Retry the file path and keep the
-  same revision line.
-
 ## Performance and refresh
 
 - **D-Bus parsing runs on the UI isolate.** StatusNotifier and MPRIS create
