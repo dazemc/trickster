@@ -156,8 +156,9 @@ clears its reading and a re-advertised default binds a fresh proxy.
 
 **Control socket.** One server owns
 `$XDG_RUNTIME_DIR/trickster/control.sock`. A live socket is probed before
-binding; only a socket this server owns is unlinked on dispose. **Gap:**
-listener errors are swallowed without a retry.
+binding; only a socket this server owns is unlinked on dispose. An accept
+stream that errors or closes is rebound after a capped 500 ms–30 s backoff;
+dispose cancels the retry, and a live foreign owner is never stolen.
 
 ## Workspaces
 
