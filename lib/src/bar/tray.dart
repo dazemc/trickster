@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -349,9 +348,7 @@ class _RawTrayIconState extends State<_RawTrayIcon> {
   @override
   void didUpdateWidget(covariant _RawTrayIcon oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.pixmap.width != widget.pixmap.width ||
-        oldWidget.pixmap.height != widget.pixmap.height ||
-        !listEquals(oldWidget.pixmap.rgba, widget.pixmap.rgba)) {
+    if (oldWidget.pixmap != widget.pixmap) {
       unawaited(_decode());
     }
   }

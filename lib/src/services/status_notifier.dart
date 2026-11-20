@@ -85,10 +85,21 @@ class SystemTrayMenuEntry {
 /// A decoded, premultiplied RGBA icon at display size.
 @immutable
 class SystemTrayIconPixmap {
-  const SystemTrayIconPixmap({
+  // The digest is derived from the bytes, so this cannot be const.
+  // ignore: prefer_const_constructors_in_immutables
+  SystemTrayIconPixmap({
     required this.width,
     required this.height,
     required this.rgba,
+  }) : digest = _digestBytes(rgba);
+
+  /// Test seam for forcing a digest collision.
+  @visibleForTesting
+  const SystemTrayIconPixmap.withDigest({
+    required this.width,
+    required this.height,
+    required this.rgba,
+    required this.digest,
   });
 
   final int width;
@@ -97,16 +108,39 @@ class SystemTrayIconPixmap {
   /// Premultiplied RGBA8888 pixels in row-major order.
   final Uint8List rgba;
 
+  /// 32-bit FNV-1a digest computed once, so an unchanged icon's equality
+  /// check does not rescan its pixels.
+  final int digest;
+
   @override
   bool operator ==(Object other) {
-    return other is SystemTrayIconPixmap &&
-        other.width == width &&
-        other.height == height &&
-        listEquals(other.rgba, rgba);
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! SystemTrayIconPixmap ||
+        other.width != width ||
+        other.height != height ||
+        other.rgba.lengthInBytes != rgba.lengthInBytes) {
+      return false;
+    }
+    if (other.digest != digest) {
+      return false;
+    }
+    // A digest match is only a candidate; collisions still compare bytes.
+    return listEquals(other.rgba, rgba);
   }
 
   @override
-  int get hashCode => Object.hash(width, height, Object.hashAll(rgba));
+  int get hashCode => Object.hash(width, height, digest);
+
+  static int _digestBytes(Uint8List bytes) {
+    var hash = 0x811c9dc5;
+    for (var index = 0; index < bytes.length; index++) {
+      hash ^= bytes[index];
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash;
+  }
 }
 
 /// One StatusNotifier item tracked by the host.
