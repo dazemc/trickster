@@ -24,12 +24,6 @@ Nothing in this file authorizes performance work.
 
 ## Memory and release risk
 
-- **Wallpaper accent has no source cap.** `_samplePath` reads the whole file;
-  `extractWallpaperAccents` constrains only width. A 269 MB 3840×2160 animated
-  GIF has been observed, and one run reached ~1.64 GiB VmHWM; correlation is
-  not proof, but this is the highest memory risk in the tree. Cap bytes, width
-  and height, decode only the first frame, and test with a large animated file.
-
 - **Tray icon decode constrains one dimension.** The icon-file path passes
   `targetWidth: 24` but no `targetHeight`; a 1×N image can decode very tall
   before the >64 output check rejects it. Clamp both from the descriptor.
