@@ -19,10 +19,18 @@ A first build needs network (pubspec + Flutter SDK); later builds reuse the cach
 `docs_site/` is a separate Jaspr project with its own `pubspec.yaml`, so the root `flutter pub get` does not fetch its dependencies and a fresh clone reports analyzer errors from `docs_site/**` until they are fetched once:
 
 ```sh
-cd docs_site && dart pub get   # fresh clone, before flutter analyze
+dart pub global activate jaspr_cli 0.24.0-beta.2
+cd docs_site
+dart pub get --enforce-lockfile   # fresh clone, before flutter analyze
+dart analyze
+jaspr build                       # output in build/jaspr/
+tool/prepare_pages.sh             # rewrite URLs for the /trickster/ Pages path
 ```
 
-Its own commands run from that directory: `jaspr serve` (port 8080) and `jaspr build` (output in `build/jaspr/`).
+The docs workflow pins Dart 3.14.1 and the same Jaspr CLI. `jaspr build`
+generates `lib/main.client.options.dart` and `lib/main.server.options.dart`;
+commit the changes it makes and never hand-edit those files. `jaspr serve`
+runs the development server on port 8080.
 
 Code lands on the single `working` branch; every markdown file commits directly on `main` in its own commit and is merged back into `working`. Each step is committed separately as it lands proven and is removed from `.llm/todo.md`, and a finished phase merges back into `main` through a pull request. Commits follow `scope: summary` in the imperative.
 
@@ -38,18 +46,21 @@ including accessible labels, values, and hints.
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`:
 
-1. The tag is checked against `pubspec.yaml`, then `flutter analyze` and
-   `flutter test` run.
+1. The tag is checked against `pubspec.yaml`, then `dart analyze lib bin test`
+   and `flutter test` run.
 2. The Linux release bundle is built (including the AOT `tricksterctl`) and
    handed to an Arch container, where the source `PKGBUILD` packages it via
    `TRICKSTER_PREBUILT_BUNDLE` and the AUR recipe's `pkgver` and `sha256sums`
-   are refreshed from the built artifact.
-3. The package is attached to the GitHub release, the refreshed pin is
-   committed to the default branch, and the recipe is pushed to
-   aur.archlinux.org's `master` with the `AUR_SSH_KEY` deploy key.
+   are refreshed from the built artifact. The package's `asset.sha256` is
+   produced in the same job.
+3. The package and `asset.sha256` are attached to the GitHub release, the
+   refreshed pin is committed to the default branch, and only then is the
+   recipe pushed to aur.archlinux.org's `master` with the `AUR_SSH_KEY`
+   deploy key.
 
-A `workflow_dispatch` run builds and uploads both artifacts without
-releasing, pinning, or publishing.
+A `workflow_dispatch` run defaults to `dry_run: true`: it builds and uploads
+the bundle, package, and pin artifacts without releasing, pinning, or
+publishing. Clearing `dry_run` on a tag dispatch runs the full release path.
 
 Locally, the same package can be produced with
 
