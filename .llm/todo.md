@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Make BackgroundWorker.close generation-safe and terminal. Done when a
-  close during isolate startup invalidates the pending start and no invoke
-  can revive the worker.
-
 - S: Keep live config reload alive across watch-stream errors and closes. Done
   when an errored/closed directory watch resubscribes with backoff and dispose
   cancels all restarts.
