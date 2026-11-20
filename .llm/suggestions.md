@@ -62,10 +62,6 @@ Nothing in this file authorizes performance work.
   session clients on the UI isolate; signal coalescing bounds frequency, not
   parse cost. Move proxy work to the existing `background_worker.dart` pattern.
 
-- **Blur manager globals are not rebound on removal.** The blur manager
-  global removal leaves the native effect object in place. Rebind on a new
-  global and release the stale effects.
-
 - **Reduced-motion coverage is partial.** The workspace lens/switch and the
   visualizer honor `MediaQuery.maybeDisableAnimationsOf`; the pill entrance and
   other transitions do not. Audit every timed transition before claiming
