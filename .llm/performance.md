@@ -34,6 +34,12 @@ as first-class bugs.
   volume is watched the same way: one PipeWire connection while the media
   module is configured, event-driven (never `wpctl` or a poll), and it
   follows WirePlumber's own route/scale so the system keys agree.
+- Seat idle is observed through `ext-idle-notify-v1` (inhibitor-aware,
+  60 s, one notification). CPU/GPU samplers stop while idle and resume with
+  one fresh short-window sample; the clock and every event-driven module
+  keep running. Without the protocol, sampling keeps its normal cadence.
+  The observer binds the first seat only; a removed seat or notifier is
+  rebound when the compositor advertises a new global.
 - Workspace backends are event-driven sockets (Sway/i3 IPC, Hyprland,
   niri). No interval polls when the compositor can push.
 - Exclusive zone equals the laid-out strip. Do not reserve more than the
