@@ -228,10 +228,13 @@ Hyprland debounce bound the rest.
 
 **Current startup order.** Native installs the method channel and idle
 observer, then shows the bootstrap view; the engine starts there. Strips and
-overlays use `fl_view_new_for_engine`. Each monitor's connector lookup creates
-a fresh `wl_registry` and performs two `wl_display_roundtrip` calls; there is
-no per-`GdkMonitor` connector cache. Dart probes idle once with a 1 s timeout
-before `runWidget`. The entrance animation starts with the first pills.
+overlays use `fl_view_new_for_engine`. A monitor's connector name is resolved
+once with a `wl_registry` attach and two `wl_display_roundtrip` calls, then
+cached per `GdkMonitor`; repeated `outputs()`/`surfaceCreate` calls reuse it.
+An empty cached string is the no-connector sentinel. Monitor add/remove
+invalidates the entry and dispose frees the table. Dart probes idle once with a
+1 s timeout before `runWidget`. The entrance animation starts with the first
+pills.
 
 `--check` is a cold-process preflight; a warm run measured about 372 ms. It is
 not a startup benchmark for the bar.
@@ -388,6 +391,7 @@ same scenario and keep the numbers with their provenance.
 | Blur region cache | Gap | Rebuilds scanline rows per flush |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster and known-property retention | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties` |
 | Wallpaper caps plus external 64 px thumbnail for oversized sources | Current | `readWallpaperSource`, `WallpaperSourceLimits`, `ProcessWallpaperThumbnailer`; 269 MB GIF → `#636ea6`, VmHWM 167,452 kB |
+| Connector lookup cached per monitor | Current | `connector_cache`; add/remove invalidation, dispose free |
 | Bundle ~28.4 MiB, fonts as measured | Current | Current release bundle |
 | Unused Lucide weight fonts | Gap | Six variable fonts, 3,160,400 B |
 | `!strip` with runner-only strip | Current | Arch PKGBUILDs |
