@@ -195,6 +195,13 @@ One settings revision line covers both processes and the bar's own writes (the
 media pill's mode cycle). A revision mismatch is a retryable `StateError`;
 the store retries once and never keeps a document history.
 
+**D-Bus tray.** The StatusNotifier service owns one session client per
+connection. A transport failure discards that client, recreates the watcher
+endpoint and signal subscriptions, re-registers the preserved item addresses,
+and clears stale items and pending refreshes. A cheap `GetId` heartbeat
+detects a silent bus drop. MPRIS still holds one client and has no rebuild
+path.
+
 ## Resource ownership
 
 **Current.** Ownership is split so every long-lived object has one owner:
