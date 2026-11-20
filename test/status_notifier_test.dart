@@ -16,11 +16,21 @@ Future<void> _waitFor(bool Function() condition) async {
   }
 }
 
+Future<void> _waitForAsync(Future<bool> Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!await condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('timed out waiting for condition');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
 /// An in-process message bus: the real D-Bus codec, a fake session bus.
 class _FakeBus {
   _FakeBus._(this.server, this.address, this.directory);
 
-  final DBusServer server;
+  DBusServer server;
   final DBusAddress address;
   final Directory directory;
 
@@ -34,6 +44,18 @@ class _FakeBus {
   }
 
   DBusClient client() => DBusClient(address);
+
+  /// Drops every connected client and starts a fresh server on the same path.
+  Future<void> restart() async {
+    await server.close();
+    final socket = File(address.properties['path']!);
+    if (socket.existsSync()) {
+      socket.deleteSync();
+    }
+    final next = DBusServer();
+    await next.listenAddress(address);
+    server = next;
+  }
 
   Future<void> dispose() async {
     await server.close();
@@ -448,7 +470,10 @@ void main() {
       '${statusDir.path}/theme-icon.png',
     ).writeAsBytes(base64Decode(_pngFixture));
 
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -480,7 +505,10 @@ void main() {
   test('hosts the watcher and answers host queries', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     await service.start();
 
@@ -508,7 +536,10 @@ void main() {
   test('tracks a registered item by service name', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -544,7 +575,10 @@ void main() {
   test('updates items from PropertiesChanged and item signals', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -581,7 +615,10 @@ void main() {
   test('removes items when their owner disconnects', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -611,7 +648,10 @@ void main() {
   test('ignores malformed registrations', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     await service.start();
 
@@ -639,7 +679,10 @@ void main() {
     await external.registerObject(externalWatcher);
     await external.requestName(StatusNotifierService.watcherName);
 
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -701,7 +744,10 @@ void main() {
   test('exposes decoded icon pixmaps and evicts them with the item', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -732,7 +778,10 @@ void main() {
   test('invokes item activation with the pointer position', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -763,7 +812,10 @@ void main() {
   test('loads and activates dbusmenu entries', () async {
     final bus = await _FakeBus.start();
     addTearDown(bus.dispose);
-    final service = StatusNotifierService(client: bus.client());
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
     final subscription = service.snapshots.listen(snapshots.add);
@@ -797,5 +849,164 @@ void main() {
 
     expect(await service.activateMenuEntry(item, 10), isTrue);
     expect(menuObject.events, [10]);
+  });
+
+  test('rebuilds the client and tray items after the bus restarts', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+      heartbeatInterval: const Duration(milliseconds: 10),
+      recoveryBackoff: const <Duration>[
+        Duration(milliseconds: 10),
+        Duration(milliseconds: 20),
+        Duration(milliseconds: 50),
+      ],
+    );
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+    await service.start();
+
+    var tray = bus.client();
+    final itemObject = _FakeTrayItemObject()..title = 'Before restart';
+    await tray.registerObject(itemObject);
+    await tray.requestName('org.example.Tray');
+    var probe = bus.client();
+    var watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(
+      () => snapshots.any(
+        (items) => items.any((item) => item.title == 'Before restart'),
+      ),
+    );
+
+    await tray.close();
+    await probe.close();
+    await bus.restart();
+
+    probe = bus.client();
+    addTearDown(probe.close);
+    await _waitForAsync(() async {
+      try {
+        return (await probe.listNames()).contains(
+          StatusNotifierService.watcherName,
+        );
+      } on Object {
+        return false;
+      }
+    });
+
+    tray = bus.client();
+    addTearDown(tray.close);
+    final rebuilt = _FakeTrayItemObject()..title = 'After restart';
+    await tray.registerObject(rebuilt);
+    await tray.requestName('org.example.Tray');
+    watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(
+      () => snapshots.any(
+        (items) => items.any((item) => item.title == 'After restart'),
+      ),
+    );
+
+    rebuilt.title = 'Signal after restart';
+    await rebuilt.emitPropertyChanged(
+      'Title',
+      DBusString('Signal after restart'),
+    );
+    await _waitFor(
+      () => snapshots.last.any((item) => item.title == 'Signal after restart'),
+    );
+  });
+
+  test('starts while the bus is down and recovers when it appears', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-sni');
+    addTearDown(() => directory.delete(recursive: true));
+    final address = DBusAddress.unix(path: '${directory.path}/bus');
+    final service = StatusNotifierService(
+      clientFactory: () => DBusClient(address),
+      heartbeatInterval: const Duration(milliseconds: 10),
+      recoveryBackoff: const <Duration>[Duration(milliseconds: 10)],
+    );
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+
+    Object? firstError;
+    try {
+      await service.start();
+    } on Object catch (error) {
+      firstError = error;
+    }
+    expect(firstError, isNotNull);
+
+    final server = DBusServer();
+    await server.listenAddress(address);
+    addTearDown(server.close);
+    final tray = DBusClient(address);
+    addTearDown(tray.close);
+    final probe = DBusClient(address);
+    addTearDown(probe.close);
+
+    await _waitForAsync(() async {
+      try {
+        return (await probe.listNames()).contains(
+          StatusNotifierService.watcherName,
+        );
+      } on Object {
+        return false;
+      }
+    });
+
+    final itemObject = _FakeTrayItemObject()..title = 'Cold start item';
+    await tray.registerObject(itemObject);
+    await tray.requestName('org.example.Tray');
+    final watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(
+      () => snapshots.any(
+        (items) => items.any((item) => item.title == 'Cold start item'),
+      ),
+    );
+  });
+
+  test('coalesces retries, backs off, and stops after dispose', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-sni');
+    addTearDown(() => directory.delete(recursive: true));
+    final address = DBusAddress.unix(path: '${directory.path}/bus');
+    var creates = 0;
+    final service = StatusNotifierService(
+      clientFactory: () {
+        creates += 1;
+        return DBusClient(address);
+      },
+      heartbeatInterval: const Duration(milliseconds: 5),
+      recoveryBackoff: const <Duration>[
+        Duration(milliseconds: 30),
+        Duration(milliseconds: 60),
+        Duration(milliseconds: 120),
+      ],
+    );
+
+    Object? firstError;
+    try {
+      await service.start();
+    } on Object catch (error) {
+      firstError = error;
+    }
+    expect(firstError, isNotNull);
+
+    await Future<void>.delayed(const Duration(milliseconds: 130));
+    expect(creates, greaterThanOrEqualTo(3));
+    expect(creates, lessThanOrEqualTo(6));
+
+    await service.dispose();
+    final afterDispose = creates;
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    expect(creates, afterDispose);
   });
 }

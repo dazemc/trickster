@@ -219,7 +219,25 @@ class TrayState extends Equatable {
 /// XEmbed tray icons stay dropped: embedding them needs an owned Xwayland,
 /// which a guest bar cannot borrow.
 class StatusNotifierService {
-  StatusNotifierService({DBusClient? client}) : _client = client;
+  StatusNotifierService({
+    DBusClient? client,
+    DBusClient Function()? clientFactory,
+    Duration heartbeatInterval = const Duration(seconds: 60),
+    List<Duration> recoveryBackoff = const <Duration>[
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+      Duration(seconds: 10),
+      Duration(seconds: 30),
+    ],
+  }) : assert(
+         client == null || clientFactory != null,
+         'a fixed client needs a clientFactory for transport recovery',
+       ),
+       _client = client,
+       _clientFactory = clientFactory ?? DBusClient.session,
+       _heartbeatInterval = heartbeatInterval,
+       _recoveryBackoff = recoveryBackoff;
 
   static const String watcherName = 'org.kde.StatusNotifierWatcher';
   static const String watcherPath = '/StatusNotifierWatcher';
@@ -244,8 +262,11 @@ class StatusNotifierService {
   static const int _maxMenuItems = 256;
   static const int _maxMenuDepth = 5;
 
+  final DBusClient Function() _clientFactory;
+  final Duration _heartbeatInterval;
+  final List<Duration> _recoveryBackoff;
   DBusClient? _client;
-  final _watcher = StatusNotifierWatcherEndpoint();
+  StatusNotifierWatcherEndpoint _watcher = StatusNotifierWatcherEndpoint();
   final StreamController<List<SystemTrayItem>> _snapshots =
       StreamController<List<SystemTrayItem>>.broadcast(sync: true);
   final Map<String, _StatusNotifierRegistration> _registrations = {};
@@ -261,16 +282,32 @@ class StatusNotifierService {
   List<SystemTrayItem> _lastSnapshot = const <SystemTrayItem>[];
 
   final List<StreamSubscription<DBusSignal>> _itemSignals = [];
+  // Cancelled indirectly by _cancelSubscriptions on recovery and dispose.
+  // ignore: cancel_subscriptions
   StreamSubscription<DBusSignal>? _watcherSignals;
+  // ignore: cancel_subscriptions
   StreamSubscription<DBusNameOwnerChangedEvent>? _ownerChanges;
   Timer? _signalTimer;
   Timer? _externalWatcherTimer;
+  Timer? _heartbeatTimer;
+  Timer? _recoveryTimer;
+  Future<void>? _recovery;
+  int _recoveryAttempt = 0;
+  int _connectionGeneration = 0;
+  bool _connecting = false;
+  bool _probing = false;
   bool _ownsWatcher = false;
   bool _started = false;
   bool _disposed = false;
   bool _drainingRefreshes = false;
 
-  DBusClient get _bus => _client ??= DBusClient.session();
+  DBusClient get _bus {
+    final client = _client;
+    if (client == null) {
+      throw StateError('StatusNotifierService is not connected');
+    }
+    return client;
+  }
 
   Stream<List<SystemTrayItem>> get snapshots => _snapshots.stream;
 
@@ -281,61 +318,254 @@ class StatusNotifierService {
       return;
     }
     _started = true;
-    _watcher.onRegisterItem = _registerFromMethod;
-    _watcher.onRegisterHost = (_) async {
-      _watcher.setHostRegistered(true);
-      await _watcher.emitHostRegistered();
-    };
-    await _bus.registerObject(_watcher);
-    final watcherReply = await _bus.requestName(
-      watcherName,
-      flags: const {DBusRequestNameFlag.doNotQueue},
-    );
-    _ownsWatcher =
-        watcherReply == DBusRequestNameReply.primaryOwner ||
-        watcherReply == DBusRequestNameReply.alreadyOwner;
+    _startHeartbeat();
+    try {
+      await _connect();
+    } on Object {
+      // The tray bloc logs the first failure; recovery keeps retrying.
+      _scheduleRecovery();
+      rethrow;
+    }
+  }
 
-    final hostName = 'org.kde.StatusNotifierHost.Trickster$pid';
-    await _bus.requestName(
-      hostName,
-      flags: const {DBusRequestNameFlag.doNotQueue},
+  void _startHeartbeat() {
+    _heartbeatTimer ??= Timer.periodic(
+      _heartbeatInterval,
+      (_) => unawaited(_probeBus()),
     );
+  }
 
-    // Subscribe before importing registrations from an existing watcher so
-    // item changes cannot race the initial asynchronous property reads.
-    for (final interface in itemInterfaces) {
+  /// A cheap liveness probe. A dropped socket is not reported on the signal
+  /// streams themselves, so without this the tray can sit dead indefinitely.
+  Future<void> _probeBus() async {
+    final client = _client;
+    if (_disposed ||
+        _connecting ||
+        _probing ||
+        _recovery != null ||
+        _recoveryTimer != null ||
+        client == null) {
+      return;
+    }
+    _probing = true;
+    try {
+      await client.getId().timeout(_readTimeout);
+    } on Object catch (error) {
+      _onTransportFailure(error);
+    } finally {
+      _probing = false;
+    }
+  }
+
+  Future<void> _connect() async {
+    _connecting = true;
+    final generation = ++_connectionGeneration;
+    try {
+      _ownsWatcher = false;
+      _watcher = StatusNotifierWatcherEndpoint();
+      _watcher.onRegisterItem = _registerFromMethod;
+      _watcher.onRegisterHost = (_) async {
+        _watcher.setHostRegistered(true);
+        await _watcher.emitHostRegistered();
+      };
+      final bus = _client ??= _clientFactory();
+      await bus.registerObject(_watcher);
+      if (_disposed || generation != _connectionGeneration) {
+        return;
+      }
+      final watcherReply = await bus.requestName(
+        watcherName,
+        flags: const {DBusRequestNameFlag.doNotQueue},
+      );
+      if (_disposed || generation != _connectionGeneration) {
+        return;
+      }
+      _ownsWatcher =
+          watcherReply == DBusRequestNameReply.primaryOwner ||
+          watcherReply == DBusRequestNameReply.alreadyOwner;
+
+      final hostName = 'org.kde.StatusNotifierHost.Trickster$pid';
+      await bus.requestName(
+        hostName,
+        flags: const {DBusRequestNameFlag.doNotQueue},
+      );
+      if (_disposed || generation != _connectionGeneration) {
+        return;
+      }
+
+      // Subscribe before importing registrations from an existing watcher so
+      // item changes cannot race the initial asynchronous property reads.
+      for (final interface in itemInterfaces) {
+        _itemSignals.add(
+          DBusSignalStream(
+            bus,
+            interface: interface,
+          ).listen(_handleItemSignal, onError: _onTransportFailure),
+        );
+      }
       _itemSignals.add(
         DBusSignalStream(
-          _bus,
-          interface: interface,
-        ).listen(_handleItemSignal, onError: (_) => _scheduleAllRefreshes()),
+          bus,
+          interface: 'org.freedesktop.DBus.Properties',
+          name: 'PropertiesChanged',
+        ).listen(_handlePropertiesChanged, onError: _onTransportFailure),
       );
-    }
-    _itemSignals.add(
-      DBusSignalStream(
-        _bus,
-        interface: 'org.freedesktop.DBus.Properties',
-        name: 'PropertiesChanged',
-      ).listen(
-        _handlePropertiesChanged,
-        onError: (_) => _scheduleAllRefreshes(),
-      ),
-    );
-    _ownerChanges = _bus.nameOwnerChanged.listen(_handleOwnerChanged);
+      _ownerChanges = bus.nameOwnerChanged.listen(
+        _handleOwnerChanged,
+        onError: _onTransportFailure,
+      );
 
-    if (_ownsWatcher) {
-      await _bus.requestName(
-        standardWatcherName,
-        flags: const {DBusRequestNameFlag.doNotQueue},
+      if (_ownsWatcher) {
+        await bus.requestName(
+          standardWatcherName,
+          flags: const {DBusRequestNameFlag.doNotQueue},
+        );
+        await bus.requestName(
+          'org.freedesktop.StatusNotifierHost-Trickster$pid',
+          flags: const {DBusRequestNameFlag.doNotQueue},
+        );
+        if (_disposed || generation != _connectionGeneration) {
+          return;
+        }
+        _watcher.setHostRegistered(true);
+        await _watcher.emitHostRegistered();
+      } else {
+        await _registerWithExternalWatcher(hostName);
+      }
+    } finally {
+      _connecting = false;
+    }
+  }
+
+  void _onTransportFailure(Object error) {
+    if (_disposed) {
+      return;
+    }
+    _scheduleRecovery();
+  }
+
+  bool _isTransportFailure(Object error) {
+    return error is DBusClosedException ||
+        error is SocketException ||
+        error is TimeoutException;
+  }
+
+  void _scheduleRecovery({bool afterFailure = false}) {
+    if (_disposed ||
+        _recoveryTimer != null ||
+        (!afterFailure && _recovery != null)) {
+      return;
+    }
+    final index = math.min(_recoveryAttempt, _recoveryBackoff.length - 1);
+    final delay = _recoveryBackoff[index];
+    _recoveryAttempt += 1;
+    _recoveryTimer = Timer(delay, () {
+      _recoveryTimer = null;
+      if (_disposed) {
+        return;
+      }
+      final recovery = _recover();
+      _recovery = recovery;
+      unawaited(
+        recovery
+            .then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stackTrace) {
+                _scheduleRecovery(afterFailure: true);
+              },
+            )
+            .whenComplete(() {
+              if (identical(_recovery, recovery)) {
+                _recovery = null;
+              }
+            }),
       );
-      await _bus.requestName(
-        'org.freedesktop.StatusNotifierHost-Trickster$pid',
-        flags: const {DBusRequestNameFlag.doNotQueue},
-      );
-      _watcher.setHostRegistered(true);
-      await _watcher.emitHostRegistered();
-    } else {
-      await _registerWithExternalWatcher(hostName);
+    });
+  }
+
+  Future<void> _recover() async {
+    if (_disposed) {
+      return;
+    }
+    _connectionGeneration += 1;
+    final preserved = _registrations.values
+        .map((registration) => registration.address)
+        .toList(growable: false);
+    await _cancelSubscriptions();
+    _signalTimer?.cancel();
+    _signalTimer = null;
+    _externalWatcherTimer?.cancel();
+    _externalWatcherTimer = null;
+    _pendingRefreshes.clear();
+    _registrations.clear();
+    _items.clear();
+    _itemInterfaces.clear();
+    _itemProperties.clear();
+    _normalPixmaps.clear();
+    _attentionPixmaps.clear();
+    _lastSnapshot = const <SystemTrayItem>[];
+    _emit();
+
+    final oldClient = _client;
+    _client = null;
+    if (oldClient != null) {
+      try {
+        await oldClient.close().timeout(_readTimeout);
+      } on Object {
+        // The old socket is already gone; the client is discarded.
+      }
+    }
+    if (_disposed) {
+      return;
+    }
+    try {
+      _client = _clientFactory();
+      await _connect();
+      if (_disposed) {
+        return;
+      }
+      if (_ownsWatcher) {
+        // The new watcher has no registered-item history. Re-resolve the
+        // addresses preserved from the old connection; missing owners drop.
+        for (final address in preserved) {
+          if (_disposed) {
+            return;
+          }
+          await _registerAddress(address, sender: null, emitSignal: false);
+        }
+        _emit();
+      }
+      _recoveryAttempt = 0;
+    } on Object {
+      if (!_disposed) {
+        _scheduleRecovery(afterFailure: true);
+      }
+    }
+  }
+
+  Future<void> _cancelSubscriptions() async {
+    final itemSignals = List<StreamSubscription<DBusSignal>>.of(_itemSignals);
+    _itemSignals.clear();
+    for (final subscription in itemSignals) {
+      try {
+        await subscription.cancel();
+      } on Object {
+        // A dead transport can make match-rule removal fail; discard it.
+      }
+    }
+    final watcherSignals = _watcherSignals;
+    _watcherSignals = null;
+    try {
+      await watcherSignals?.cancel();
+    } on Object {
+      // Same as above.
+    }
+    final ownerChanges = _ownerChanges;
+    _ownerChanges = null;
+    try {
+      await ownerChanges?.cancel();
+    } on Object {
+      // Same as above.
     }
   }
 
@@ -350,17 +580,21 @@ class StatusNotifierService {
           DBusString(hostName),
         ], replySignature: DBusSignature(''))
         .timeout(_methodTimeout);
-    _watcherSignals = DBusSignalStream(
-      _bus,
-      sender: watcherName,
-      path: DBusObjectPath(watcherPath),
-      interface: watcherInterface,
-    ).listen((_) => _scheduleExternalWatcherRefresh());
+    _watcherSignals =
+        DBusSignalStream(
+          _bus,
+          sender: watcherName,
+          path: DBusObjectPath(watcherPath),
+          interface: watcherInterface,
+        ).listen(
+          (_) => _scheduleExternalWatcherRefresh(),
+          onError: _onTransportFailure,
+        );
     await _refreshExternalWatcher(object);
   }
 
   void _scheduleExternalWatcherRefresh() {
-    if (_disposed || _ownsWatcher) {
+    if (_disposed || _ownsWatcher || _client == null) {
       return;
     }
     _externalWatcherTimer?.cancel();
@@ -379,6 +613,7 @@ class StatusNotifierService {
   }
 
   Future<void> _refreshExternalWatcher(DBusRemoteObject object) async {
+    final generation = _connectionGeneration;
     try {
       final value = await object
           .getProperty(
@@ -387,8 +622,14 @@ class StatusNotifierService {
             signature: DBusSignature('as'),
           )
           .timeout(_readTimeout);
+      if (_disposed || generation != _connectionGeneration) {
+        return;
+      }
       final addresses = value.asStringArray().take(_maxItems).toSet();
       for (final address in addresses) {
+        if (_disposed || generation != _connectionGeneration) {
+          return;
+        }
         await _registerAddress(address, sender: null, emitSignal: false);
       }
       final removed = _registrations.values
@@ -400,8 +641,12 @@ class StatusNotifierService {
       if (removed.isNotEmpty) {
         _emit();
       }
-    } on Object {
-      // The owner-change stream retries if the external watcher restarts.
+    } on Object catch (error) {
+      // The owner-change stream retries if the external watcher restarts; a
+      // transport loss still needs the full client rebuild.
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
     }
   }
 
@@ -417,6 +662,7 @@ class StatusNotifierService {
     if (_disposed || _registrations.length >= _maxItems) {
       return;
     }
+    final generation = _connectionGeneration;
     final parsed = _parseRegistration(address, sender: sender);
     if (parsed == null || _registrations.containsKey(parsed.id)) {
       return;
@@ -424,10 +670,16 @@ class StatusNotifierService {
     String? owner;
     try {
       owner = await _bus.getNameOwner(parsed.busName).timeout(_readTimeout);
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
       return;
     }
-    if (owner == null || owner.isEmpty || _disposed) {
+    if (owner == null ||
+        owner.isEmpty ||
+        _disposed ||
+        generation != _connectionGeneration) {
       return;
     }
     if (_registrations.values.any(
@@ -522,7 +774,7 @@ class StatusNotifierService {
     for (final registration in removed) {
       _removeRegistration(registration);
       if (_ownsWatcher) {
-        unawaited(_watcher.emitItemUnregistered(registration.address));
+        unawaited(_emitItemUnregistered(registration.address));
       }
     }
     if (removed.isNotEmpty) {
@@ -530,6 +782,14 @@ class StatusNotifierService {
         _registrations.values.map((item) => item.address),
       );
       _emit();
+    }
+  }
+
+  Future<void> _emitItemUnregistered(String address) async {
+    try {
+      await _watcher.emitItemUnregistered(address);
+    } on Object {
+      // A transport loss already schedules the client rebuild.
     }
   }
 
@@ -541,12 +801,6 @@ class StatusNotifierService {
     _normalPixmaps.remove(registration.id);
     _attentionPixmaps.remove(registration.id);
     _pendingRefreshes.remove(registration.id);
-  }
-
-  void _scheduleAllRefreshes() {
-    for (final registration in _registrations.values) {
-      _scheduleItemRefresh(registration.id, full: true);
-    }
   }
 
   void _scheduleItemRefresh(
@@ -585,8 +839,11 @@ class StatusNotifierService {
       return;
     }
     _drainingRefreshes = true;
+    final generation = _connectionGeneration;
     try {
-      while (_pendingRefreshes.isNotEmpty && !_disposed) {
+      while (_pendingRefreshes.isNotEmpty &&
+          !_disposed &&
+          generation == _connectionGeneration) {
         final pending = Map<String, _PendingStatusNotifierRefresh>.of(
           _pendingRefreshes,
         );
@@ -595,8 +852,12 @@ class StatusNotifierService {
           for (final entry in pending.entries)
             if (_registrations[entry.key] case final registration?)
               entry.value.full
-                  ? _refreshAllProperties(registration)
-                  : _refreshProperties(registration, entry.value.properties),
+                  ? _refreshAllProperties(registration, generation)
+                  : _refreshProperties(
+                      registration,
+                      entry.value.properties,
+                      generation,
+                    ),
         ]);
       }
     } finally {
@@ -606,6 +867,7 @@ class StatusNotifierService {
 
   Future<void> _refreshAllProperties(
     _StatusNotifierRegistration registration,
+    int generation,
   ) async {
     final object = _remoteItem(registration);
     final preferred = _itemInterfaces[registration.id];
@@ -615,13 +877,20 @@ class StatusNotifierService {
         final properties = await object
             .getAllProperties(interface)
             .timeout(_readTimeout);
+        if (_disposed || generation != _connectionGeneration) {
+          return;
+        }
         _itemInterfaces[registration.id] = interface;
         _itemProperties[registration.id] = retainStatusNotifierItemProperties(
           properties,
         );
         _updateItem(registration);
         return;
-      } on Object {
+      } on Object catch (error) {
+        if (_isTransportFailure(error)) {
+          _onTransportFailure(error);
+          return;
+        }
         continue;
       }
     }
@@ -630,6 +899,7 @@ class StatusNotifierService {
   Future<void> _refreshProperties(
     _StatusNotifierRegistration registration,
     Set<String> propertyNames,
+    int generation,
   ) async {
     if (propertyNames.isEmpty || _disposed) {
       return;
@@ -642,6 +912,9 @@ class StatusNotifierService {
         for (final property in propertyNames)
           _readProperty(object, interface, property),
       ]);
+      if (_disposed || generation != _connectionGeneration) {
+        return;
+      }
       final resolved = entries.whereType<MapEntry<String, DBusValue>>();
       if (resolved.isEmpty) {
         continue;
@@ -665,7 +938,10 @@ class StatusNotifierService {
           .getProperty(interface, property)
           .timeout(_readTimeout);
       return MapEntry<String, DBusValue>(property, value);
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
       return null;
     }
   }
@@ -812,7 +1088,7 @@ class StatusNotifierService {
     Offset position,
   ) async {
     final registration = _registrations[item.id];
-    if (registration == null || _disposed) {
+    if (registration == null || _disposed || _client == null) {
       return false;
     }
     final method = switch (action) {
@@ -834,7 +1110,11 @@ class StatusNotifierService {
             .timeout(_methodTimeout);
         _itemInterfaces[registration.id] = interface;
         return true;
-      } on Object {
+      } on Object catch (error) {
+        if (_isTransportFailure(error)) {
+          _onTransportFailure(error);
+          return false;
+        }
         continue;
       }
     }
@@ -848,6 +1128,7 @@ class StatusNotifierService {
     final registration = _registrations[item.id];
     if (registration == null ||
         _disposed ||
+        _client == null ||
         !item.menuAvailable ||
         item.menuPath.isEmpty ||
         item.menuPath == '/') {
@@ -870,7 +1151,11 @@ class StatusNotifierService {
             DBusInt32(0),
           ], replySignature: DBusSignature('b'))
           .timeout(_methodTimeout);
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+        return null;
+      }
       // Some exporters omit AboutToShow even though their static layout is
       // otherwise usable.
     }
@@ -906,7 +1191,10 @@ class StatusNotifierService {
       return List<SystemTrayMenuEntry>.unmodifiable(
         root.children.where((entry) => entry.visible),
       );
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
       return null;
     }
   }
@@ -916,6 +1204,7 @@ class StatusNotifierService {
     final registration = _registrations[item.id];
     if (registration == null ||
         _disposed ||
+        _client == null ||
         entryId <= 0 ||
         item.menuPath.isEmpty ||
         item.menuPath == '/') {
@@ -935,7 +1224,10 @@ class StatusNotifierService {
           ], replySignature: DBusSignature(''))
           .timeout(_methodTimeout);
       return true;
-    } on Object {
+    } on Object catch (error) {
+      if (_isTransportFailure(error)) {
+        _onTransportFailure(error);
+      }
       return false;
     }
   }
@@ -974,19 +1266,39 @@ class StatusNotifierService {
       return;
     }
     _disposed = true;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
     _signalTimer?.cancel();
+    _signalTimer = null;
     _externalWatcherTimer?.cancel();
+    _externalWatcherTimer = null;
     _pendingRefreshes.clear();
-    for (final subscription in _itemSignals) {
-      await subscription.cancel();
+    final recovery = _recovery;
+    if (recovery != null) {
+      try {
+        await recovery.timeout(const Duration(seconds: 3));
+      } on Object {
+        // A recovery that cannot finish must not keep timers or clients alive.
+      }
     }
-    await _watcherSignals?.cancel();
-    await _ownerChanges?.cancel();
-    if (_started) {
-      await _bus.unregisterObject(_watcher);
+    await _cancelSubscriptions();
+    if (_started && _client != null) {
+      try {
+        await _client!.unregisterObject(_watcher);
+      } on Object {
+        // The transport may already be gone.
+      }
     }
     await _snapshots.close();
-    await _client?.close();
+    final client = _client;
+    _client = null;
+    try {
+      await client?.close();
+    } on Object {
+      // Best effort during shutdown.
+    }
   }
 }
 
