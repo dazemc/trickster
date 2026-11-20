@@ -91,6 +91,18 @@ class _FakeNiriServer {
     );
   }
 
+  /// Sends the current snapshot [copies] times in one write.
+  Future<void> sendSnapshot({int copies = 1}) async {
+    final line =
+        '${jsonEncode({
+          'WorkspacesChanged': {'workspaces': workspaces},
+        })}\n';
+    for (final socket in _streams) {
+      socket.add(utf8.encode(line * copies));
+      await socket.flush();
+    }
+  }
+
   /// Sends the snapshot as two socket writes, with the split inside a UTF-8
   /// rune. A client decoding each chunk independently loses the rune.
   Future<void> sendSplitSnapshot() async {
@@ -200,8 +212,7 @@ void main() {
     );
   });
 
-  test('a multibyte workspace name split across chunks decodes once', ()
-      async {
+  test('a multibyte workspace name split across chunks decodes once', () async {
     final dir = await _temporaryDir();
     final server = await _FakeNiriServer.bind('${dir.path}/ipc');
     addTearDown(server.dispose);
@@ -226,6 +237,44 @@ void main() {
     await _waitFor(() => snapshots.length == 2);
     expect(snapshots[1].single.name, '日本語');
     expect(snapshots[1].single.name, isNot(contains('\uFFFD')));
+
+    await sub.cancel();
+    await backend.dispose();
+  });
+
+  test('duplicate event lines emit once and a real change emits', () async {
+    final dir = await _temporaryDir();
+    final server = await _FakeNiriServer.bind('${dir.path}/ipc');
+    addTearDown(server.dispose);
+
+    final backend = NiriWorkspaces(socketPath: '${dir.path}/ipc');
+    final snapshots = <List<Workspace>>[];
+    final sub = backend.snapshots.listen(snapshots.add);
+    await backend.start();
+    await _waitFor(() => snapshots.length == 1);
+
+    await server.sendSnapshot(copies: 2);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(snapshots, hasLength(1));
+
+    server.workspaces = const [
+      {
+        'id': 1,
+        'idx': 1,
+        'output': 'eDP-1',
+        'is_active': false,
+        'active_window_id': 10,
+      },
+      {'id': 2, 'idx': 2, 'output': 'HDMI-A-1', 'is_active': true},
+    ];
+    await server.sendSnapshot();
+    await _waitFor(() => snapshots.length == 2);
+
+    expect(snapshots[1][0].focused, isFalse);
+    expect(snapshots[1][0].occupied, isTrue);
+    expect(snapshots[1][1].focused, isTrue);
+    expect(snapshots[1][0].output, 'eDP-1');
+    expect(snapshots[1][1].output, 'HDMI-A-1');
 
     await sub.cancel();
     await backend.dispose();

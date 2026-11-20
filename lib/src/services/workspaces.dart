@@ -871,6 +871,7 @@ class NiriWorkspaces extends WorkspaceBackend {
   Timer? _reconnect;
   Duration _reconnectDelay = _reconnectDelayBase;
   var _generation = 0;
+  List<Workspace>? _lastEmission;
   final _controller = StreamController<List<Workspace>>.broadcast();
 
   @override
@@ -1028,6 +1029,11 @@ class NiriWorkspaces extends WorkspaceBackend {
           ),
         );
       }
+      final previous = _lastEmission;
+      if (previous != null && listEquals(previous, workspaces)) {
+        return;
+      }
+      _lastEmission = workspaces;
       _controller.add(workspaces);
     } on Object {
       return;
