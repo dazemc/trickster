@@ -36,10 +36,17 @@ output's refresh rate. The current host is 3840×2160 at 164.991 Hz, scale 2,
 and the bar still presents at the fallback cadence. There is no per-output
 frame scheduling, no >60 fps claim, no VRR, and no presentation feedback.
 
-Upstream tracking: `flutter/flutter#191245`, `#183703`, and `#196776`. The GTK
-redraw fix `#195287` is not in 3.50.1. Do not fork, patch, or pin a patched
-engine; revisit when the work reaches a stable release. App-side rebuild and
-raster cost is still ours to fix.
+Upstream watch: `flutter/flutter#191245`, `#183703`, and `#196776`. The GTK
+parent-redraw fix `#195287` is merged on `master` and labeled for stable
+cherry-pick, but it is not in 3.50.1; adopt it at the first stable that carries
+it. `#196776` (display-refresh vsync) is an open, unmerged pull request. Do not
+fork, patch, or pin a patched engine. App-side rebuild and raster cost is still
+ours to fix.
+
+The 3.50 subsurface renderer also carries open hide/show and resize risks:
+`#196862` (black window after hide/show), `#196529` (startup freeze), and
+`#196663` (second-resize deadlock). Exercise those paths on 3.50.1 before
+trusting them; do not patch speculatively.
 
 **Aspiration.** A future Flutter stable may expose compositor frame timing.
 Until then, a motion that "looks 165 Hz" is a 60 Hz animation with less work,
@@ -135,8 +142,10 @@ effect object once, and commits the surface so region-only changes apply
 without a new frame.
 
 Overlay surfaces never take the native effect; an effect on a hidden overlay
-black-screens it. The current host does not advertise the blur capability, so
-the fallback path is the active one.
+black-screens it. Confirmed 2026-11-20 on the Hyprland 0.56 session:
+`trickster --check` still reports `blur: not advertised (translucent fill)`,
+so the fallback path is active. A compositor blur setting alone is not proof;
+re-check after a compositor or Flutter update.
 
 **Gap.** Region generation still rebuilds the scanline rows for every pill on
 each flush. Cache by `(bounds, radius)` and flush only when dirty.
@@ -312,6 +321,11 @@ same scenario and keep the numbers with their provenance.
   and whether blur was active.
 - Use `SchedulerBinding.addTimingsCallback` for build/raster/vsync; use
   temporary counters only to prove rebuild scope.
+- Use `flutter run --trace-to-file=<path>` for a Perfetto-format timeline when
+  frame ordering matters; keep the timings callback for summary numbers.
+- Add `TimelineTask` or `Timeline.startSync` events around the scope under
+  test (one pill, one overlay) so the trace names it instead of showing bare
+  frames.
 - Measure idle CPU over at least 60 s with no pointer or keyboard input, and
   confirm no frames are scheduled when nothing is animating.
 - Measure RSS/PSS with `/proc/<pid>/status` or `ps -o rss=`; state the
