@@ -283,7 +283,9 @@ Caps:
 - MPRIS: 16 players;
 - workspaces: 1 MiB reply cap, 32 ms Hyprland debounce;
 - control socket: 2 s client timeout;
-- background worker: 10 s startup timeout.
+- background worker: 10 s startup timeout, per-invoke deadline covering
+  startup plus execution, NVML 2 s request timeout, 60 s NVML cooldown after a
+  timeout.
 
 **Current — wallpaper accent caps and oversized thumbnails.**
 `readWallpaperSource` stats the file before opening, rejects anything over
