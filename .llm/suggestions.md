@@ -72,11 +72,6 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **Blur region generation is per-flush work.** `blur_region.dart` builds one
-  `Rect` per pixel row per pill, then compares the whole list. Cache by
-  `(bounds, radius)` and flush only when dirty; blur is not active on the
-  current host, so this is latent but becomes visible on a blur-capable host.
-
 - **Tray pixmap equality scans full RGBA buffers.** `SystemTrayIconPixmap.==`
   and `_RawTrayIcon.didUpdateWidget` compare whole buffers on every update.
   Add a monotonic revision or identity check first and compare bytes only as a
