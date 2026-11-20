@@ -1,70 +1,167 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+typedef BlurBoundsProvider = Rect? Function();
+
+class _CachedBlurRegion {
+  const _CachedBlurRegion({
+    required this.bounds,
+    required this.radius,
+    required this.regions,
+  });
+
+  final Rect bounds;
+  final double radius;
+  final List<Rect> regions;
+}
+
 /// Collects the pill rectangles one strip surface should blur.
 ///
 /// The compositor's background effect is surface-wide unless a region is
-/// given, so each card registers a live rect provider here and the native
-/// side turns the flush into the blur region. Flushes run after the frame
-/// that moved a card, and [resend] re-queries them for scrolls that only
-/// translate a cached layer.
+/// given, so each card registers a live bounds provider here and the native
+/// side turns the flush into the blur region. Scanline rows are cached by
+/// `(bounds, radius)`: a repaint with unchanged geometry costs one bounds
+/// read, not a row rebuild. Flushes run after the frame that moved a card,
+/// and [resend] re-queries all bounds for scrolls that only translate a cached
+/// layer, reusing every unchanged row set.
 class BlurRegionController {
   BlurRegionController({required this.onRegions});
 
   final ValueChanged<List<Rect>> onRegions;
 
-  final Map<Object, List<Rect> Function()> _providers =
-      <Object, List<Rect> Function()>{};
+  final Map<Object, BlurBoundsProvider> _providers =
+      <Object, BlurBoundsProvider>{};
+  final Map<Object, _CachedBlurRegion> _cache = <Object, _CachedBlurRegion>{};
+  final Set<Object> _dirty = <Object>{};
   List<Rect>? _sent;
+  var _structural = false;
   var _scheduled = false;
+  var _disposed = false;
+  var _debugRegionBuilds = 0;
 
-  void register(Object id, List<Rect> Function() regions) {
-    _providers[id] = regions;
+  @visibleForTesting
+  int get debugRegionBuilds => _debugRegionBuilds;
+
+  void register(Object id, BlurBoundsProvider bounds) {
+    if (_disposed) {
+      return;
+    }
+    _providers[id] = bounds;
+    _dirty.add(id);
+    _structural = true;
     _schedule();
   }
 
   void unregister(Object id) {
-    if (_providers.remove(id) != null) {
-      _schedule();
+    if (_disposed || _providers.remove(id) == null) {
+      return;
     }
+    _cache.remove(id);
+    _dirty.remove(id);
+    _structural = true;
+    _schedule();
   }
 
   /// Schedules a flush; pill paint calls this when its position may have
-  /// changed.
-  void refresh() {
+  /// changed. With an [id], only that provider is re-read; no argument marks
+  /// every provider.
+  void refresh([Object? id]) {
+    if (_disposed) {
+      return;
+    }
+    if (id == null) {
+      _dirty.addAll(_providers.keys);
+    } else if (_providers.containsKey(id)) {
+      _dirty.add(id);
+    } else {
+      return;
+    }
     _schedule();
   }
 
   /// Re-queries every provider; used when the surface was remapped, scrolled,
-  /// or the blur capability flipped on.
+  /// or the blur capability flipped on. Unchanged bounds reuse their cached
+  /// rows.
   void resend() {
+    if (_disposed) {
+      return;
+    }
+    _dirty.addAll(_providers.keys);
     _schedule();
   }
 
   void dispose() {
+    _disposed = true;
     _providers.clear();
+    _cache.clear();
+    _dirty.clear();
+    _sent = null;
   }
 
   void _schedule() {
-    if (_scheduled) {
+    if (_disposed || _scheduled) {
       return;
     }
     _scheduled = true;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
-      final regions = <Rect>[
-        for (final provider in _providers.values) ...provider(),
-      ];
-      if (_sent != null && listEquals(regions, _sent)) {
+      if (_disposed) {
         return;
       }
-      _sent = regions;
-      onRegions(regions);
+      _flush();
     });
+  }
+
+  void _flush() {
+    var changed = _structural;
+    for (final id in _dirty.toList()) {
+      final provider = _providers[id];
+      if (provider == null) {
+        continue;
+      }
+      final bounds = provider();
+      final cached = _cache[id];
+      if (bounds == null) {
+        if (cached != null) {
+          _cache.remove(id);
+          changed = true;
+        }
+        continue;
+      }
+      final radius = bounds.shortestSide / 2;
+      if (cached != null &&
+          cached.bounds == bounds &&
+          cached.radius == radius) {
+        continue;
+      }
+      _cache[id] = _CachedBlurRegion(
+        bounds: bounds,
+        radius: radius,
+        regions: _roundedRegion(bounds),
+      );
+      assert(() {
+        _debugRegionBuilds += 1;
+        return true;
+      }());
+      changed = true;
+    }
+    _dirty.clear();
+    _structural = false;
+    if (!changed) {
+      return;
+    }
+    final regions = <Rect>[
+      for (final id in _providers.keys) ...?_cache[id]?.regions,
+    ];
+    if (_sent != null && listEquals(regions, _sent)) {
+      return;
+    }
+    _sent = regions;
+    onRegions(regions);
   }
 }
 
@@ -109,7 +206,7 @@ class _BlurRegionState extends State<BlurRegion> {
     if (next != _controller) {
       _controller?.unregister(_id);
       _controller = next;
-      _controller?.register(_id, _currentRegions);
+      _controller?.register(_id, _currentBounds);
     }
   }
 
@@ -119,12 +216,12 @@ class _BlurRegionState extends State<BlurRegion> {
     super.dispose();
   }
 
-  List<Rect> _currentRegions() {
+  Rect? _currentBounds() {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) {
-      return const <Rect>[];
+      return null;
     }
-    return _roundedRegion(box.localToGlobal(Offset.zero) & box.size);
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 
   @override
@@ -132,8 +229,9 @@ class _BlurRegionState extends State<BlurRegion> {
     if (_controller == null) {
       return widget.child;
     }
+    final controller = _controller!;
     return _BlurRegionReporter(
-      onPaint: _controller!.refresh,
+      onPaint: () => controller.refresh(_id),
       child: widget.child,
     );
   }
