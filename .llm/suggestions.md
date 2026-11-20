@@ -57,11 +57,6 @@ Nothing in this file authorizes performance work.
   `close()` does. No production path emits `Stopped` yet; make the two paths
   equivalent before enabling runtime module toggles.
 
-- **The band worker exit path leaves capture running.** `bands.dart` rests the
-  bars on worker exit but does not cancel `_frames` or stop `_capture`, and
-  `VisualizerBloc` stays active. Cancel the frame subscription, stop the
-  capture, and emit an inactive visualizer state.
-
 - **`pickImageFile` runs a nested GTK main loop.** `gtk_dialog_run` makes the
   settings process re-entrant while the chooser is open. Keep it modal and
   preview-free; move to `GtkFileChooserNative`/portal with a callback if
