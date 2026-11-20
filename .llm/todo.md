@@ -17,10 +17,6 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Phase: correctness and lifecycle hardening
 
-- S: Close all band-analyzer ports when worker startup fails. Done when a
-  forced startup failure returns false with zero open ReceivePorts and a
-  following start still works.
-
 - S: Destroy the cairo input regions used by the tooltip and bootstrap windows.
   Done when a release build passes and both surfaces remain click-through with
   no unmatched cairo_region_create in the runner.
