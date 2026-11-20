@@ -18,10 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Skip native output enumeration on settings-only reloads. Done when first
-  apply and output changes reconcile as before, disruptive changes still
-  recreate surfaces, and a reload that only changes settings never calls
-  native `outputs()`.
