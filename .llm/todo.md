@@ -18,9 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Deduplicate niri workspace snapshots. Done when repeated event lines do
-  not emit twice, a changed snapshot emits, and reconnect replay still
-  restores the workspace state.
