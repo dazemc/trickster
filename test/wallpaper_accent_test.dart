@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,11 @@ const _redPng =
     'MDBz8z6/AAAAC0lEQVQI12NggAAAAAgAAS8g3TEAAAAASUVORK5CYII=';
 
 const _redGif = 'R0lGODlhBAAEAPAAAOAwQAAAACH5BAAAAAAALAAAAAAEAAQAAAIEhI8JBQA7';
+
+/// Two frames: #e03040 first, #2030e0 second.
+const _redBlueGif =
+    'R0lGODlhBAAEAPAAAOAwQAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAAAAAACwAAAAA'
+    'BAAEAAACBISPCQUAIfkEAAAAAAAsAAAAAAQABACAIDDgAAAAAgSEjwkFADs=';
 
 const _grayPng =
     'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAAAAACMmsGiAAAAIGNIUk0AAHomAACAhAAA'
@@ -48,6 +54,26 @@ ByteData _solid(int r, int g, int b, {int pixels = 100}) {
     bytes[i * 4 + 3] = 255;
   }
   return ByteData.sublistView(bytes);
+}
+
+Future<Uint8List> _png(int width, int height) async {
+  final recorder = ui.PictureRecorder();
+  ui.Canvas(recorder).drawRect(
+    ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+    ui.Paint()..color = const Color(0xffff0000),
+  );
+  final picture = recorder.endRecording();
+  try {
+    final image = await picture.toImage(width, height);
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data!.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } finally {
+      image.dispose();
+    }
+  } finally {
+    picture.dispose();
+  }
 }
 
 void main() {
@@ -222,6 +248,73 @@ void main() {
       expect(
         controller.state.candidatesFor('HDMI-A-2'),
         controller.state.candidatesFor('HDMI-A-1'),
+      );
+    },
+  );
+
+  test('source limits accept 8K and reject extreme sizes', () {
+    const limits = WallpaperSourceLimits();
+    expect(limits.allowsSource(7680, 4320), isTrue);
+    expect(limits.allowsSource(8192, 8192), isFalse);
+    expect(limits.allowsSource(20000, 1), isFalse);
+    expect(limits.allowsSource(16385, 1), isFalse);
+    expect(limits.allowsSource(16384, 1), isTrue);
+  });
+
+  test('rejects an extreme-aspect source before decode', () async {
+    final bytes = await _png(20000, 1);
+    expect(await extractWallpaperAccents(bytes), isEmpty);
+  });
+
+  test('decodes only the first frame of an animated source', () async {
+    final color = await extractWallpaperAccent(base64Decode(_redBlueGif));
+    expect(color, isNotNull);
+    final hsv = HSVColor.fromColor(color!);
+    expect(hsv.hue, anyOf(closeTo(354, 8), closeTo(0, 8)));
+  });
+
+  test(
+    'an oversized source is rejected before read and falls back to grim',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('trickster-wall');
+      addTearDown(() => directory.delete(recursive: true));
+      final huge = File('${directory.path}/huge.gif');
+      final handle = await huge.open(mode: FileMode.write);
+      await handle.setPosition(const WallpaperSourceLimits().maxBytes + 1);
+      await handle.writeByte(0);
+      await handle.close();
+
+      final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+      cacheFile.parent.createSync(recursive: true);
+      cacheFile.writeAsStringSync('\u0000crop\u0000${huge.path}');
+
+      final captures = <String>[];
+      final controller = WallpaperAccentBloc(
+        cache: WallpaperCache(root: cacheFile.parent),
+        outputs: () => const [
+          LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+        ],
+        strip: () => (side: SystemBarSide.top, thickness: 32),
+        grim: GrimSampler(
+          available: true,
+          run: (args) async {
+            captures.add(args[1]);
+            return base64Decode(_redPng);
+          },
+        ),
+      );
+      addTearDown(controller.close);
+
+      controller.add(const WallpaperAccentEnabled(enabled: true));
+      await _waitFor(
+        () => controller.state.candidatesFor('HDMI-A-1').isNotEmpty,
+      );
+
+      expect(captures, <String>['HDMI-A-1']);
+      expect(await readWallpaperSource(huge.path), isNull);
+      expect(
+        await huge.length(),
+        greaterThan(const WallpaperSourceLimits().maxBytes),
       );
     },
   );

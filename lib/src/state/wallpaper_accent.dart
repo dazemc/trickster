@@ -47,6 +47,34 @@ Color? _color(Object? value) {
   return parsed == null ? null : Color(0xff000000 | parsed);
 }
 
+/// Reads a wallpaper source without ever allocating more than the byte cap.
+/// The stat rejects known-oversized files before opening; reading one byte past
+/// the cap catches a file that grew between the stat and the read.
+@visibleForTesting
+Future<Uint8List?> readWallpaperSource(
+  String path, {
+  WallpaperSourceLimits limits = const WallpaperSourceLimits(),
+}) async {
+  try {
+    final file = File(path);
+    final stat = await file.stat();
+    if (stat.type != FileSystemEntityType.file ||
+        stat.size <= 0 ||
+        stat.size > limits.maxBytes) {
+      return null;
+    }
+    final handle = await file.open();
+    try {
+      final bytes = await handle.read(limits.maxBytes + 1);
+      return bytes.lengthInBytes > limits.maxBytes ? null : bytes;
+    } finally {
+      await handle.close();
+    }
+  } on Object {
+    return null;
+  }
+}
+
 /// The sampled wallpaper accent per output, plus each output's candidate
 /// list, strongest first.
 class WallpaperAccentState extends Equatable {
@@ -186,7 +214,7 @@ class WallpaperAccentBloc
   /// on; only start/display changes re-capture.
   final Map<String, (String key, List<Color> candidates)> _grimSamples = {};
 
-  final Map<String, (int modified, List<Color> candidates)> _samples = {};
+  final Map<String, (int modified, List<Color>? candidates)> _samples = {};
   StreamSubscription<FileSystemEvent>? _watch;
   Timer? _timer;
   var _generation = 0;
@@ -223,7 +251,10 @@ class WallpaperAccentBloc
     final entries = _cache.wallpaperEntries();
     final candidates = <String, List<Color>>{};
     for (final entry in entries) {
-      candidates[entry.output] = await _samplePath(entry.path);
+      final sampled = await _samplePath(entry.path);
+      if (sampled != null) {
+        candidates[entry.output] = sampled;
+      }
     }
     for (final output in _outputs?.call() ?? const <LayerOutput>[]) {
       if (candidates.containsKey(output.name)) {
@@ -308,31 +339,43 @@ class WallpaperAccentBloc
     );
   }
 
-  Future<List<Color>> _samplePath(String path) async {
+  Future<List<Color>?> _samplePath(String path) async {
     final override = _samplePathOverride;
     if (override != null) {
       return override(path);
     }
+    int? modified;
     try {
       final stat = await File(path).stat();
       if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
-        return const <Color>[];
+        return null;
       }
-      final modified = stat.modified.millisecondsSinceEpoch;
+      modified = stat.modified.millisecondsSinceEpoch;
       final cached = _samples[path];
       if (cached != null && cached.$1 == modified) {
         return cached.$2;
       }
-      final bytes = await File(path).readAsBytes();
-      final candidates = await _extractCandidates(bytes);
-      if (_samples.length >= _maxCacheEntries) {
-        _samples.remove(_samples.keys.first);
+      final bytes = await readWallpaperSource(path);
+      if (bytes == null) {
+        _remember(path, modified, null);
+        return null;
       }
-      _samples[path] = (modified, candidates);
+      final candidates = await _extractCandidates(bytes);
+      _remember(path, modified, candidates);
       return candidates;
     } on Object {
-      return const <Color>[];
+      if (modified != null) {
+        _remember(path, modified, null);
+      }
+      return null;
     }
+  }
+
+  void _remember(String path, int modified, List<Color>? candidates) {
+    if (_samples.length >= _maxCacheEntries) {
+      _samples.remove(_samples.keys.first);
+    }
+    _samples[path] = (modified, candidates);
   }
 
   @override
