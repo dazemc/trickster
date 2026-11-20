@@ -199,8 +199,10 @@ the store retries once and never keeps a document history.
 connection. A transport failure discards that client, recreates the watcher
 endpoint and signal subscriptions, re-registers the preserved item addresses,
 and clears stale items and pending refreshes. A cheap `GetId` heartbeat
-detects a silent bus drop. MPRIS still holds one client and has no rebuild
-path.
+detects a silent bus drop. MPRIS owns one client per connection too: a
+transport failure cancels its owner/properties subscriptions, clears the
+active player, emits unavailable, then re-subscribes and rediscovers on a
+fresh client. Its 60 s refresh remains the only discovery cadence.
 
 ## Resource ownership
 
