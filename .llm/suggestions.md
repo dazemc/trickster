@@ -134,15 +134,12 @@ Nothing in this file authorizes performance work.
 
 - **Battery sampling still uses synchronous sysfs I/O.** `battery.dart` runs
   `listSync`/`readAsStringSync` on the UI isolate every 5 s and emits
-  unconditionally. It is not UPower. Move the read off the frame isolate, gate
-  it on seat idle, and make UPower `PropertiesChanged` the primary source when
-  that port lands.
+  unconditionally. It is not UPower. Move the read off the frame isolate and
+  make UPower `PropertiesChanged` the primary source when that port lands.
 
-- **Idle pause covers CPU/GPU only.** Battery's 5 s sampler and OpenCode's 60 s
-  poll still run while the seat idles; MPRIS keeps its deliberate 60 s recovery
-  poll. Extend the `SeatIdleBloc` gate where idle cost matters. The observer
-  binds only the first seat; multi-seat compositors need one notification per
-  seat.
+- **Seat idle observes only the first seat.** `SeatIdleBloc` binds one
+  `ext-idle-notify-v1` notification, so a multi-seat compositor keeps gated
+  samplers running on the other seats. Bind one notification per seat.
 
 ## Correctness and verification
 
