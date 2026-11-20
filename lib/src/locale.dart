@@ -1,4 +1,6 @@
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart'
+    show GlobalMaterialLocalizations;
 
 import 'package:trickster/l10n/generated/app_localizations.dart';
 
@@ -81,7 +83,10 @@ class _TricksterLocalizationScopeState extends State<TricksterLocalizationScope>
   Widget build(BuildContext context) {
     return Localizations(
       locale: _effectiveLocale,
-      delegates: AppLocalizations.localizationsDelegates,
+      delegates: const <LocalizationsDelegate<dynamic>>[
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       child: Builder(
         builder: (context) => Directionality(
           textDirection: WidgetsLocalizations.of(context).textDirection,

@@ -4,6 +4,7 @@
 #include <gdk/gdkwayland.h>
 
 #include "ext-background-effect-v1-client-protocol.h"
+#include "ext-idle-notify-v1-client-protocol.h"
 
 #include <gtk-layer-shell.h>
 #include <flutter_linux/flutter_linux.h>
@@ -28,6 +29,7 @@ struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
   FlEngine* engine;
+  FlMethodChannel* method_channel;
   GPtrArray* surfaces;
   GPtrArray* menus;
   GPtrArray* tooltips;
@@ -41,6 +43,13 @@ struct _MyApplication {
   gboolean blur_supported;
   struct wl_compositor* compositor;
   struct ext_background_effect_manager_v1* blur_manager;
+  gboolean idle;
+  struct wl_registry* idle_registry;
+  uint32_t idle_notifier_global;
+  uint32_t idle_seat_global;
+  struct ext_idle_notifier_v1* idle_notifier;
+  struct wl_seat* idle_seat;
+  struct ext_idle_notification_v1* idle_notification;
   gchar* side;
   gint thickness;
   gchar* layer;
@@ -236,6 +245,9 @@ static gchar* trickster_connector_for_monitor(GdkMonitor* monitor) {
 static void blur_registry_global(void* data, struct wl_registry* registry,
                                  uint32_t name, const char* interface,
                                  uint32_t version);
+static void blur_capabilities(void* data,
+                              struct ext_background_effect_manager_v1* manager,
+                              uint32_t flags);
 static void blur_registry_global_remove(void* data, struct wl_registry* registry,
                                         uint32_t name);
 static gboolean trickster_probe_blur(MyApplication* self);
@@ -257,12 +269,42 @@ static void blur_registry_global(void* data, struct wl_registry* registry,
     }
   } else if (g_strcmp0(interface,
                        ext_background_effect_manager_v1_interface.name) == 0) {
-    self->blur_supported = TRUE;
     if (self->blur_manager == nullptr) {
       self->blur_manager =
           (struct ext_background_effect_manager_v1*)wl_registry_bind(
               registry, name, &ext_background_effect_manager_v1_interface, 1);
+      static const struct ext_background_effect_manager_v1_listener listener = {
+          blur_capabilities};
+      ext_background_effect_manager_v1_add_listener(self->blur_manager,
+                                                    &listener, self);
     }
+  }
+}
+
+// The manager can advertise effects without blur (and can change that later).
+// Keep the probe honest, clear applied regions when blur goes away, and tell
+// Dart so pill and settings fills fall back to the translucent path.
+static void blur_capabilities(void* data,
+                              struct ext_background_effect_manager_v1* manager,
+                              uint32_t flags) {
+  MyApplication* self = MY_APPLICATION(data);
+  const gboolean supported =
+      (flags & EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR) != 0;
+  self->blur_supported = supported;
+  if (!supported) {
+    for (guint i = 0; i < self->surfaces->len; i++) {
+      TricksterSurface* surface =
+          (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
+      if (surface->blur != nullptr) {
+        ext_background_effect_surface_v1_set_blur_region(surface->blur,
+                                                         nullptr);
+      }
+    }
+  }
+  if (self->method_channel != nullptr) {
+    g_autoptr(FlValue) args = fl_value_new_bool(supported ? TRUE : FALSE);
+    fl_method_channel_invoke_method(self->method_channel, "blurChanged", args,
+                                    nullptr, nullptr, nullptr);
   }
 }
 
@@ -294,6 +336,159 @@ static gboolean trickster_probe_blur(MyApplication* self) {
   wl_display_roundtrip(wl);
   wl_registry_destroy(registry);
   return self->blur_supported;
+}
+
+// The seat is observed only: the bar binds a wl_seat proxy for the idle
+// notification and never requests its devices or creates an inhibitor.
+// get_idle_notification obeys the compositor's idle-inhibitor policy, which
+// is the honest "seat is idle" signal. Multi-seat compositors are observed
+// through their first seat; a removed seat or notifier is rebound if a new
+// global appears.
+static const uint32_t kIdleTimeoutMs = 60000;
+
+static void idle_seat_capabilities(void* data, struct wl_seat* seat,
+                                   uint32_t capabilities) {}
+static void idle_seat_name(void* data, struct wl_seat* seat, const char* name) {}
+
+static void trickster_emit_idle(MyApplication* self, gboolean idle) {
+  if (self->idle == idle) {
+    return;
+  }
+  self->idle = idle;
+  if (self->method_channel == nullptr) {
+    return;
+  }
+  g_autoptr(FlValue) args = fl_value_new_bool(idle ? TRUE : FALSE);
+  fl_method_channel_invoke_method(self->method_channel, "idleChanged", args,
+                                  nullptr, nullptr, nullptr);
+}
+
+static void trickster_drop_idle_notification(MyApplication* self) {
+  if (self->idle_notification != nullptr) {
+    ext_idle_notification_v1_destroy(self->idle_notification);
+    self->idle_notification = nullptr;
+  }
+  // Losing the seat or notifier must resume the samplers: no resumed event
+  // will arrive for an object that no longer exists.
+  trickster_emit_idle(self, FALSE);
+}
+
+static void idle_notification_idled(
+    void* data, struct ext_idle_notification_v1* notification) {
+  trickster_emit_idle(MY_APPLICATION(data), TRUE);
+}
+
+static void idle_notification_resumed(
+    void* data, struct ext_idle_notification_v1* notification) {
+  trickster_emit_idle(MY_APPLICATION(data), FALSE);
+}
+
+static void trickster_bind_idle_registry(MyApplication* self);
+static gboolean trickster_install_idle(MyApplication* self);
+
+static void idle_registry_global(void* data, struct wl_registry* registry,
+                                 uint32_t name, const char* interface,
+                                 uint32_t version) {
+  MyApplication* self = MY_APPLICATION(data);
+  if (g_strcmp0(interface, ext_idle_notifier_v1_interface.name) == 0) {
+    if (self->idle_notifier == nullptr) {
+      self->idle_notifier = (struct ext_idle_notifier_v1*)wl_registry_bind(
+          registry, name, &ext_idle_notifier_v1_interface, MIN(version, 1));
+      self->idle_notifier_global = name;
+    }
+  } else if (g_strcmp0(interface, wl_seat_interface.name) == 0) {
+    if (self->idle_seat == nullptr) {
+      self->idle_seat = (struct wl_seat*)wl_registry_bind(
+          registry, name, &wl_seat_interface, MIN(version, 1));
+      self->idle_seat_global = name;
+      static const struct wl_seat_listener listener = {
+          idle_seat_capabilities, idle_seat_name};
+      wl_seat_add_listener(self->idle_seat, &listener, self);
+    }
+  }
+  if (self->idle_notifier != nullptr && self->idle_seat != nullptr) {
+    trickster_install_idle(self);
+  }
+}
+
+static void idle_registry_global_remove(void* data, struct wl_registry* registry,
+                                        uint32_t name) {
+  MyApplication* self = MY_APPLICATION(data);
+  if (name == self->idle_seat_global) {
+    self->idle_seat_global = 0;
+    trickster_drop_idle_notification(self);
+    if (self->idle_seat != nullptr) {
+      wl_seat_destroy(self->idle_seat);
+      self->idle_seat = nullptr;
+    }
+    return;
+  }
+  if (name == self->idle_notifier_global) {
+    self->idle_notifier_global = 0;
+    trickster_drop_idle_notification(self);
+    if (self->idle_notifier != nullptr) {
+      ext_idle_notifier_v1_destroy(self->idle_notifier);
+      self->idle_notifier = nullptr;
+    }
+  }
+}
+
+// The registry stays alive so a removed or newly advertised seat/notifier can
+// be rebound without a process restart. The one-shot roundtrip populates the
+// initial globals; later globals arrive through the same listener.
+static void trickster_bind_idle_registry(MyApplication* self) {
+  if (self->idle_registry != nullptr) {
+    return;
+  }
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr || !GDK_IS_WAYLAND_DISPLAY(display)) {
+    return;
+  }
+  struct wl_display* wl = gdk_wayland_display_get_wl_display(display);
+  if (wl == nullptr) {
+    return;
+  }
+  struct wl_registry* registry = wl_display_get_registry(wl);
+  if (registry == nullptr) {
+    return;
+  }
+  self->idle_registry = registry;
+  static const struct wl_registry_listener listener = {
+      idle_registry_global, idle_registry_global_remove};
+  wl_registry_add_listener(registry, &listener, self);
+  wl_display_roundtrip(wl);
+}
+
+// One notification per process while a seat and notifier exist. Returns true
+// only after the notification object was actually created, so --check does
+// not report support that cannot deliver events.
+static gboolean trickster_install_idle(MyApplication* self) {
+  if (self->idle_notification != nullptr) {
+    return TRUE;
+  }
+  trickster_bind_idle_registry(self);
+  // The initial roundtrip may already have delivered both globals and
+  // installed the notification through idle_registry_global.
+  if (self->idle_notification != nullptr) {
+    return TRUE;
+  }
+  if (self->idle_notifier == nullptr || self->idle_seat == nullptr) {
+    return FALSE;
+  }
+  self->idle_notification = ext_idle_notifier_v1_get_idle_notification(
+      self->idle_notifier, kIdleTimeoutMs, self->idle_seat);
+  if (self->idle_notification == nullptr) {
+    return FALSE;
+  }
+  static const struct ext_idle_notification_v1_listener listener = {
+      idle_notification_idled, idle_notification_resumed};
+  ext_idle_notification_v1_add_listener(self->idle_notification, &listener,
+                                        self);
+  return TRUE;
+}
+
+static gboolean trickster_probe_idle(MyApplication* self) {
+  return trickster_install_idle(self);
 }
 
 static gboolean region_rect(FlValue* item, int32_t* x, int32_t* y,
@@ -334,11 +529,11 @@ static gboolean region_rect(FlValue* item, int32_t* x, int32_t* y,
 // list is cached so a remap (which destroys the wl_surface) can re-apply it.
 static void trickster_apply_blur(MyApplication* self, TricksterSurface* surface,
                                  FlValue* regions) {
-  if (surface->blur_regions != nullptr) {
-    fl_value_unref(surface->blur_regions);
+  FlValue* previous = surface->blur_regions;
+  surface->blur_regions = regions != nullptr ? fl_value_ref(regions) : nullptr;
+  if (previous != nullptr) {
+    fl_value_unref(previous);
   }
-  surface->blur_regions =
-      regions != nullptr ? fl_value_ref(regions) : nullptr;
   const gboolean enabled =
       regions != nullptr && fl_value_get_type(regions) == FL_VALUE_TYPE_LIST &&
       fl_value_get_length(regions) > 0;
@@ -397,6 +592,15 @@ static gint64 method_arg_int(FlMethodCall* method_call, const gchar* name) {
     return -1;
   }
   return fl_value_get_int(value);
+}
+
+// An empty input region makes the widget click-through entirely. GTK copies
+// the region into the widget's input-shape state, so the caller owns its
+// reference and releases it as soon as the call returns.
+static void trickster_make_click_through(GtkWidget* widget) {
+  cairo_region_t* region = cairo_region_create();
+  gtk_widget_input_shape_combine_region(widget, region);
+  cairo_region_destroy(region);
 }
 
 // Creates the fullscreen overlay surface hosting one transient shelf panel:
@@ -477,9 +681,7 @@ static TricksterSurface* trickster_overlay_surface_new(MyApplication* self,
   gtk_widget_realize(GTK_WIDGET(view));
 
   if (tooltip) {
-    // An empty input region makes the tooltip click-through entirely.
-    gtk_widget_input_shape_combine_region(GTK_WIDGET(window),
-                                          cairo_region_create());
+    trickster_make_click_through(GTK_WIDGET(window));
   }
 
   return surface;
@@ -537,6 +739,14 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
   } else if (g_strcmp0(method, "blur") == 0) {
     g_autoptr(FlValue) result =
         fl_value_new_bool(trickster_probe_blur(self) ? TRUE : FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "idleSupported") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_bool(trickster_probe_idle(self) ? TRUE : FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else if (g_strcmp0(method, "seatIdle") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_bool(self->idle ? TRUE : FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "surfaceThickness") == 0) {
     // The strip grows and shrinks with its wrapped content: the exclusive
@@ -1106,6 +1316,8 @@ static void trickster_install_method_channel(MyApplication* self) {
       "org.trickster.bar/layer_shell", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, method_call_cb, self,
                                             nullptr);
+  g_clear_object(&self->method_channel);
+  self->method_channel = g_object_ref(channel);
   self->capture = trickster_capture_new(
       fl_engine_get_binary_messenger(self->engine));
   self->volume = trickster_volume_new(
@@ -1180,6 +1392,10 @@ static void my_application_activate(GApplication* application) {
   FlView* bootstrap_view = fl_view_new(project);
   self->bootstrap_view = bootstrap_view;
   self->engine = fl_view_get_engine(bootstrap_view);
+  // The engine can start running Dart as soon as the view is shown, so the
+  // native channels must exist before any surface is configured or revealed.
+  trickster_install_method_channel(self);
+  trickster_install_idle(self);
   GdkRGBA bootstrap_background;
   gdk_rgba_parse(&bootstrap_background, "#00000000");
   fl_view_set_background_color(bootstrap_view, &bootstrap_background);
@@ -1189,8 +1405,7 @@ static void my_application_activate(GApplication* application) {
   // Fully transparent and click-through: the bootstrap exists only to host
   // the engine's implicit view, never to be seen or hit.
   gtk_widget_set_opacity(GTK_WIDGET(bootstrap_window), 0.0);
-  gtk_widget_input_shape_combine_region(GTK_WIDGET(bootstrap_window),
-                                        cairo_region_create());
+  trickster_make_click_through(GTK_WIDGET(bootstrap_window));
   gtk_widget_show(GTK_WIDGET(bootstrap_window));
   fl_register_plugins(FL_PLUGIN_REGISTRY(bootstrap_view));
 
@@ -1199,8 +1414,6 @@ static void my_application_activate(GApplication* application) {
         (TricksterSurface*)g_ptr_array_index(self->surfaces, i);
     trickster_surface_configure(surface, fl_view_new_for_engine(self->engine));
   }
-
-  trickster_install_method_channel(self);
 
   if (self->surfaces->len > 0) {
     TricksterSurface* first =
@@ -1291,12 +1504,29 @@ static void my_application_dispose(GObject* object) {
     ext_background_effect_manager_v1_destroy(self->blur_manager);
     self->blur_manager = nullptr;
   }
+  if (self->idle_notification != nullptr) {
+    ext_idle_notification_v1_destroy(self->idle_notification);
+    self->idle_notification = nullptr;
+  }
+  if (self->idle_seat != nullptr) {
+    wl_seat_destroy(self->idle_seat);
+    self->idle_seat = nullptr;
+  }
+  if (self->idle_notifier != nullptr) {
+    ext_idle_notifier_v1_destroy(self->idle_notifier);
+    self->idle_notifier = nullptr;
+  }
+  if (self->idle_registry != nullptr) {
+    wl_registry_destroy(self->idle_registry);
+    self->idle_registry = nullptr;
+  }
   if (self->compositor != nullptr) {
     wl_compositor_destroy(self->compositor);
     self->compositor = nullptr;
   }
   g_clear_pointer(&self->capture, trickster_capture_free);
   g_clear_pointer(&self->volume, trickster_volume_free);
+  g_clear_object(&self->method_channel);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_pointer(&self->surfaces, g_ptr_array_unref);
   g_clear_pointer(&self->menus, g_ptr_array_unref);

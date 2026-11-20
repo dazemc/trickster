@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 import 'package:trickster/src/config/session.dart';
@@ -6,17 +8,67 @@ import 'package:trickster/src/layout/system_bar.dart';
 class LayerShell {
   LayerShell({MethodChannel? channel})
     : _channel =
-          channel ?? const MethodChannel('org.trickster.bar/layer_shell');
+          channel ?? const MethodChannel('org.trickster.bar/layer_shell'),
+      _native = channel == null {
+    if (_native && !_listening) {
+      _listening = true;
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'blurChanged' && call.arguments is bool) {
+          _blurChanges.add(call.arguments as bool);
+        } else if (call.method == 'idleChanged' && call.arguments is bool) {
+          _seatIdleChanges.add(call.arguments as bool);
+        }
+      });
+    }
+  }
+
+  static final StreamController<bool> _blurChanges =
+      StreamController<bool>.broadcast();
+  static final StreamController<bool> _seatIdleChanges =
+      StreamController<bool>.broadcast();
+  static bool _listening = false;
 
   final MethodChannel _channel;
+  final bool _native;
+
+  /// Native blur capability changes, including the compositor gaining or
+  /// losing the effect after startup.
+  static Stream<bool> get blurChanges => _blurChanges.stream;
+
+  /// Native seat idle changes: true after `ext-idle-notify-v1` reports the
+  /// seat idle, false when activity resumes.
+  static Stream<bool> get seatIdleChanges => _seatIdleChanges.stream;
 
   Future<bool> isSupported() async {
     final supported = await _channel.invokeMethod<bool>('supported');
     return supported ?? false;
   }
 
-  /// Whether the compositor advertises `ext-background-effect-v1`. Probed
-  /// once natively and cached for the process.
+  /// Whether the compositor advertises `ext-idle-notify-v1` and a seat to
+  /// observe. The native probe caches the answer for the process.
+  Future<bool> idleSupported() async {
+    try {
+      final supported = await _channel.invokeMethod<bool>('idleSupported');
+      return supported ?? false;
+    } on Object {
+      return false;
+    }
+  }
+
+  /// The native last-known idle state, used once at startup so a subscriber
+  /// that missed the event still starts in the right state.
+  Future<bool> seatIdle() async {
+    try {
+      final idle = await _channel.invokeMethod<bool>('seatIdle');
+      return idle ?? false;
+    } on Object {
+      return false;
+    }
+  }
+
+  /// Whether the compositor's `ext-background-effect-v1` manager advertises
+  /// the blur capability. The native probe caches the latest capabilities
+  /// event, not just the presence of the global.
   Future<bool> blurSupported() async {
     final supported = await _channel.invokeMethod<bool>('blur');
     return supported ?? false;

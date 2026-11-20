@@ -31,6 +31,31 @@ class FileSettingsTransport implements SettingsDocumentTransport {
 
   @override
   Future<SettingsDocument> read() async {
+    // The live document wins; a torn write or a corrupt edit falls back to
+    // the retained previous snapshot, then to the in-memory last-good copy.
+    for (final candidate in <File>[file, File('${file.path}.prev')]) {
+      if (!candidate.existsSync()) {
+        continue;
+      }
+      final json = candidate.readAsStringSync();
+      try {
+        final settings = BarSettings.decode(json);
+        final document = SettingsDocument(
+          revision: settings.revision,
+          json: json,
+        );
+        _current = document;
+        _lastGood = document;
+        return document;
+      } on Object {
+        // Try the next candidate.
+      }
+    }
+    final remembered = _lastGood;
+    if (remembered != null) {
+      _current = remembered;
+      return remembered;
+    }
     if (!file.existsSync()) {
       final created = SettingsDocument(
         revision: 1,
@@ -42,11 +67,12 @@ class FileSettingsTransport implements SettingsDocumentTransport {
       _lastGood = created;
       return created;
     }
+    // Both files exist but neither decodes and there is nothing remembered:
+    // surface the live document's error rather than silently losing settings.
     final json = file.readAsStringSync();
     final settings = BarSettings.decode(json);
     final document = SettingsDocument(revision: settings.revision, json: json);
     _current = document;
-    _lastGood = document;
     return document;
   }
 
@@ -66,13 +92,26 @@ class FileSettingsTransport implements SettingsDocumentTransport {
       revision: settings.revision,
       json: document.endsWith('\n') ? document : '$document\n',
     );
+    final temporary = File('${file.path}.tmp');
     final previous = File('${file.path}.prev');
-    if (file.existsSync()) {
-      file.copySync(previous.path);
-    }
-    file.writeAsStringSync(next.json);
-    if (previous.existsSync()) {
-      previous.deleteSync();
+    try {
+      file.parent.createSync(recursive: true);
+      if (file.existsSync()) {
+        file.copySync(previous.path);
+      }
+      temporary.writeAsStringSync(next.json);
+      // Atomic replace: a crash before this point leaves the live document
+      // (or its .prev snapshot) intact; no reader ever sees a partial file.
+      temporary.renameSync(file.path);
+    } on Object {
+      if (temporary.existsSync()) {
+        try {
+          temporary.deleteSync();
+        } on Object {
+          // Best effort: the temp file is never a source of truth.
+        }
+      }
+      rethrow;
     }
     _current = next;
     _lastGood = next;
@@ -175,8 +214,9 @@ class NativeSettingsStore {
     if (document.revision <= 0) {
       throw StateError('Trickster returned an invalid settings revision');
     }
-    if (document.revision > _revision) {
-      _revision = document.revision;
-    }
+    // Adopt the document's revision exactly, including a lower one after an
+    // external rollback. Keeping a stale higher revision makes every later
+    // write fail its expectedRevision check against the rolled-back file.
+    _revision = document.revision;
   }
 }

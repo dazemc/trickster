@@ -72,29 +72,107 @@ String? parseCpuModelName(String cpuInfo) {
 class CpuSampler {
   CpuSampler({
     this.interval = const Duration(seconds: 1),
+    this.resumePrime = const Duration(milliseconds: 100),
     String cpuInfoPath = '/proc/cpuinfo',
-  }) : _cpuInfoPath = cpuInfoPath;
+    String statPath = '/proc/stat',
+  }) : _cpuInfoPath = cpuInfoPath,
+       _statPath = statPath;
 
   final Duration interval;
+
+  /// Short window used to take a fresh post-resume reading. The first read
+  /// after idle is only a baseline, so the reported value reflects recent
+  /// load instead of the whole idle interval.
+  final Duration resumePrime;
   final String _cpuInfoPath;
+  final String _statPath;
   final Uint8List _buffer = Uint8List(256);
   int? _idle;
   int? _total;
   CpuSample _latest = const CpuSample(null);
   String? _name;
   var _nameRead = false;
+  var _running = false;
+  var _paused = false;
+  var _disposed = false;
   Timer? _timer;
   final _controller = StreamController<CpuSample>.broadcast();
 
   Stream<CpuSample> get snapshots => _controller.stream;
 
-  void start() {
+  @visibleForTesting
+  bool get isRunning => _timer?.isActive ?? false;
+
+  /// Starts sampling. A paused start takes the baseline but leaves the timer
+  /// stopped so a module created while the seat is already idle does not
+  /// begin periodic work.
+  void start({bool paused = false}) {
+    if (_running) {
+      if (paused) {
+        pause();
+      } else {
+        resume();
+      }
+      return;
+    }
+    _running = true;
     _latest = CpuSample(null, name: _deviceName());
+    _paused = paused;
+    if (!_paused) {
+      _sample();
+      _schedule();
+    }
+  }
+
+  void pause() {
+    if (_paused) {
+      return;
+    }
+    _paused = true;
+    _timer?.cancel();
+    _timer = null;
+    // Discard the pre-idle counters: a delta spanning the idle window is not
+    // a recent-load reading.
+    _idle = null;
+    _total = null;
+  }
+
+  void resume() {
+    if (!_paused) {
+      return;
+    }
+    _paused = false;
+    if (!_running) {
+      return;
+    }
+    _primeAfterIdle();
+  }
+
+  void _primeAfterIdle() {
+    _idle = null;
+    _total = null;
     _sample();
-    _timer = Timer.periodic(interval, (_) => _sample());
+    _timer = Timer(resumePrime, () {
+      _timer = null;
+      if (_paused || !_running) {
+        return;
+      }
+      _sample();
+      _schedule();
+    });
+  }
+
+  void _schedule() {
+    _timer ??= Timer.periodic(interval, (_) => _sample());
   }
 
   void dispose() {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    _running = false;
+    _paused = true;
     _timer?.cancel();
     _timer = null;
     _controller.close();
@@ -114,7 +192,7 @@ class CpuSampler {
   }
 
   void _sample() {
-    final file = File('/proc/stat');
+    final file = File(_statPath);
     if (!file.existsSync()) {
       return;
     }

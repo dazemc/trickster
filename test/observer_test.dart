@@ -13,7 +13,7 @@ class _FakeCpuSampler extends CpuSampler {
   Stream<CpuSample> get snapshots => controller.stream;
 
   @override
-  void start() {}
+  void start({bool paused = false}) {}
 
   @override
   void dispose() {

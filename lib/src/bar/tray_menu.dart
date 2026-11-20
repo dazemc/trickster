@@ -1,6 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart'
+import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
+import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart'
     show
         ButtonStyle,
         Divider,
@@ -11,10 +15,6 @@ import 'package:flutter/material.dart'
         RoundedRectangleBorder,
         SubmenuButton,
         WidgetStatePropertyAll;
-import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
-import 'package:flutter/widgets.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/status_notifier.dart';

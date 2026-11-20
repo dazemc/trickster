@@ -39,6 +39,10 @@ class _FakeHyprlandServer {
   final commands = <String>[];
   var keepOpen = false;
 
+  /// Artificial latency per reply, used to keep a refresh in flight while
+  /// events arrive so coalescing can be observed.
+  Duration replyDelay = Duration.zero;
+
   ServerSocket? _requests;
   ServerSocket? _events;
   final _openClients = <Socket>{};
@@ -82,6 +86,9 @@ class _FakeHyprlandServer {
       commands.add(command);
       final reply = replies[command];
       if (reply != null) {
+        if (replyDelay > Duration.zero) {
+          await Future<void>.delayed(replyDelay);
+        }
         // Split write: the client must accumulate, not assume one chunk.
         final half = reply.length ~/ 2;
         client.add(reply.sublist(0, half));
@@ -142,6 +149,37 @@ class _FakeHyprlandServer {
     await _events?.close();
     if (_ownsDir) {
       await Directory(dir).delete(recursive: true);
+    }
+  }
+}
+
+Future<void> _waitUntil(bool Function() ready) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 12));
+  while (!ready()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('timed out waiting for condition');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
+/// Waits until the fake server stops seeing queries, so a test's baseline is
+/// not taken while a second startup refresh is still in flight. [quiet] must
+/// exceed the time between two queries in a single batch.
+Future<int> _settleCommands(
+  _FakeHyprlandServer server, {
+  Duration quiet = const Duration(milliseconds: 300),
+}) async {
+  var last = server.commands.length;
+  final deadline = DateTime.now().add(const Duration(seconds: 12));
+  while (true) {
+    await Future<void>.delayed(quiet);
+    if (server.commands.length == last) {
+      return last;
+    }
+    last = server.commands.length;
+    if (DateTime.now().isAfter(deadline)) {
+      fail('queries never settled');
     }
   }
 }
@@ -263,6 +301,9 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
 
+      // Change a reply so the reconnect refresh emits a distinct snapshot;
+      // identical emissions are deduped by design.
+      server.replies['j/clients'] = utf8.encode(_clientsUrgentReply);
       await server.dropEvents();
       final recovery = DateTime.now().add(const Duration(seconds: 5));
       while (seen.length < 2) {
@@ -275,6 +316,91 @@ void main() {
       await sub.cancel();
       await backend.dispose();
       expect(seen[1][1].focused, isTrue);
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('a burst of events triggers one debounced refresh', () async {
+    final server = await _FakeHyprlandServer.bind(
+      keepOpen: false,
+      withEvents: true,
+    );
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final seen = <List<Workspace>>[];
+      final sub = backend.snapshots.listen(seen.add);
+      await backend.start().timeout(const Duration(seconds: 5));
+      await _waitUntil(() => seen.isNotEmpty);
+      final baseline = await _settleCommands(server);
+
+      // One socket burst: without debouncing every line would start its own
+      // three-command `j/*` batch.
+      await server.fireEvent(
+        'workspace>>1\nworkspace>>2\nfocusedmon>>HDMI-A-1,2\nurgent>>0x1\n',
+      );
+      await _waitUntil(() => server.commands.length >= baseline + 3);
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(server.commands.length, baseline + 3);
+      await sub.cancel();
+      await backend.dispose();
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('events during an in-flight refresh request one follow-up', () async {
+    final server = await _FakeHyprlandServer.bind(
+      keepOpen: false,
+      withEvents: true,
+    );
+    server.replyDelay = const Duration(milliseconds: 200);
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final seen = <List<Workspace>>[];
+      final sub = backend.snapshots.listen(seen.add);
+      await backend.start().timeout(const Duration(seconds: 5));
+      await _waitUntil(() => seen.isNotEmpty);
+      final baseline = await _settleCommands(server, quiet: const Duration(milliseconds: 600));
+
+      // Each event clears the 32ms debounce and fires a separate timer, all
+      // while the first (slow) refresh is still running. They must coalesce
+      // into exactly one follow-up batch, not one per event.
+      for (var i = 0; i < 5; i++) {
+        await server.fireEvent('workspace>>$i\n');
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+      }
+      await _waitUntil(() => server.commands.length >= baseline + 6);
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(server.commands.length, baseline + 6);
+      await sub.cancel();
+      await backend.dispose();
+    } finally {
+      await server.dispose();
+    }
+  });
+
+  test('an unchanged snapshot is not emitted twice', () async {
+    final server = await _FakeHyprlandServer.bind(
+      keepOpen: false,
+      withEvents: true,
+    );
+    try {
+      final backend = HyprlandWorkspaces(socketDir: server.dir);
+      final seen = <List<Workspace>>[];
+      final sub = backend.snapshots.listen(seen.add);
+      await backend.start().timeout(const Duration(seconds: 5));
+      await _waitUntil(() => seen.isNotEmpty);
+      final baseline = await _settleCommands(server);
+
+      // Same replies produce the same snapshot; the refresh still queries
+      // the compositor but the deduped emission must not reach the pill.
+      await server.fireEvent('workspace>>1\n');
+      await _waitUntil(() => server.commands.length >= baseline + 3);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(seen, hasLength(1));
+      await sub.cancel();
+      await backend.dispose();
     } finally {
       await server.dispose();
     }

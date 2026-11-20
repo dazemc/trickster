@@ -7,10 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/blur_region.dart';
-import 'package:trickster/src/bar/calendar.dart';
-import 'package:trickster/src/bar/overlay_tooltip.dart';
-import 'package:trickster/src/bar/tray_menu.dart';
-import 'package:trickster/src/bar/volume_slider.dart';
+import 'package:trickster/src/bar/overlay_view.dart';
 import 'package:trickster/src/bootstrap.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/session.dart';
@@ -465,52 +462,11 @@ class _ViewSurfaceState extends State<_ViewSurface> {
   }
 
   late final OverlayEntry _entry = OverlayEntry(
-    builder: (context) => BlocBuilder<TrayMenuBloc, TrayMenuState>(
-      builder: (context, menuState) => BlocBuilder<CalendarBloc, CalendarState>(
-        builder: (context, calendarState) =>
-            BlocBuilder<VolumeSliderBloc, VolumeSliderState>(
-              builder: (context, sliderState) =>
-                  BlocBuilder<OverlayTooltipBloc, OverlayTooltipState>(
-                    builder: (context, tooltipState) {
-                      if (menuState.isMenuView(widget.view.viewId)) {
-                        final session = menuState.session;
-                        if (session == null ||
-                            session.viewId != widget.view.viewId) {
-                          return const SizedBox.shrink();
-                        }
-                        return TrayMenuSurface(session: session);
-                      }
-                      if (calendarState.isCalendarView(widget.view.viewId)) {
-                        final session = calendarState.session;
-                        if (session == null ||
-                            session.viewId != widget.view.viewId) {
-                          return const SizedBox.shrink();
-                        }
-                        return CalendarSurface(session: session);
-                      }
-                      if (sliderState.isSliderView(widget.view.viewId)) {
-                        final session = sliderState.session;
-                        if (session == null ||
-                            session.viewId != widget.view.viewId) {
-                          return const SizedBox.shrink();
-                        }
-                        return VolumeSliderSurface(session: session);
-                      }
-                      if (tooltipState.isTooltipView(widget.view.viewId)) {
-                        final session = tooltipState.session;
-                        if (session == null ||
-                            session.viewId != widget.view.viewId) {
-                          return const SizedBox.shrink();
-                        }
-                        return OverlayTooltipSurface(session: session);
-                      }
-                      return BlurRegionScope(
-                        controller: _blurRegions,
-                        child: _BarSurface(output: widget.output),
-                      );
-                    },
-                  ),
-            ),
+    builder: (context) => OverlayViewSlot(
+      viewId: widget.view.viewId,
+      strip: (context) => BlurRegionScope(
+        controller: _blurRegions,
+        child: _BarSurface(output: widget.output),
       ),
     ),
   );

@@ -3,6 +3,8 @@ import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:trickster/src/services/pipewire.dart';
 
 /// Bars the analyzer emits.
@@ -133,17 +135,37 @@ void _fft(Float64List real, Float64List imaginary) {
   }
 }
 
+/// Spawns the band worker isolate and wires its lifecycle ports.
+typedef BandWorkerSpawner =
+    Future<Isolate> Function({
+      required SendPort ready,
+      required SendPort results,
+      required SendPort errors,
+      required SendPort exits,
+      required int bands,
+    });
+
 /// Turns PCM frames into band levels on a worker isolate.
 ///
 /// One isolate per [start]; [stop] kills it, so nothing lingers while no
 /// media plays. The capture is owned here too: no stream, no isolate, no
 /// subscription survives a stop.
 class BandAnalyzer {
-  BandAnalyzer({PipeWireCapture? capture, this.bands = bandCount})
-    : _capture = capture ?? PipeWireCapture();
+  BandAnalyzer({
+    PipeWireCapture? capture,
+    this.bands = bandCount,
+    @visibleForTesting BandWorkerSpawner? spawnWorker,
+    @visibleForTesting Duration? startupTimeout,
+  }) : _capture = capture ?? PipeWireCapture(),
+       _spawnWorker = spawnWorker ?? _spawnBandWorker,
+       _startupTimeout = startupTimeout ?? _defaultStartupTimeout;
+
+  static const Duration _defaultStartupTimeout = Duration(seconds: 5);
 
   final PipeWireCapture _capture;
   final int bands;
+  final BandWorkerSpawner _spawnWorker;
+  final Duration _startupTimeout;
   final StreamController<List<double>> _levels =
       StreamController<List<double>>.broadcast();
 
@@ -174,18 +196,17 @@ class BandAnalyzer {
     final results = ReceivePort();
     final errors = ReceivePort();
     final exits = ReceivePort();
+    Isolate? isolate;
     try {
-      final isolate = await Isolate.spawn<List<Object?>>(
-        _bandsMain,
-        <Object?>[ready.sendPort, results.sendPort, bands],
-        debugName: 'trickster-bands',
-        errorsAreFatal: true,
-        onError: errors.sendPort,
-        onExit: exits.sendPort,
+      isolate = await _spawnWorker(
+        ready: ready.sendPort,
+        results: results.sendPort,
+        errors: errors.sendPort,
+        exits: exits.sendPort,
+        bands: bands,
       );
-      final port = await ready.first.timeout(const Duration(seconds: 5));
+      final port = await ready.first.timeout(_startupTimeout);
       if (port is! SendPort || generation != _generation) {
-        isolate.kill(priority: Isolate.immediate);
         throw StateError('band worker startup was superseded');
       }
       _isolate = isolate;
@@ -213,11 +234,18 @@ class BandAnalyzer {
       _listenFrames();
       return true;
     } on Object {
+      // The ports are attempt-local until publication, so _teardown cannot see
+      // them. A superseded attempt also must not tear down the newer start.
+      isolate?.kill(priority: Isolate.immediate);
+      ready.close();
+      results.close();
+      errors.close();
+      exits.close();
       if (generation == _generation) {
         _generation += 1;
+        _teardown();
+        await _capture.stop();
       }
-      _teardown();
-      await _capture.stop();
       return false;
     }
   }
@@ -261,6 +289,23 @@ class BandAnalyzer {
     _exits?.close();
     _exits = null;
   }
+}
+
+Future<Isolate> _spawnBandWorker({
+  required SendPort ready,
+  required SendPort results,
+  required SendPort errors,
+  required SendPort exits,
+  required int bands,
+}) {
+  return Isolate.spawn<List<Object?>>(
+    _bandsMain,
+    <Object?>[ready, results, bands],
+    debugName: 'trickster-bands',
+    errorsAreFatal: true,
+    onError: errors,
+    onExit: exits,
+  );
 }
 
 @pragma('vm:entry-point')

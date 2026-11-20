@@ -167,6 +167,28 @@ void main() {
 
   tearDown(() => directory.delete(recursive: true));
 
+  test('placement-only preview emits a new settings state', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final before = bloc.state.settings;
+    final expectation = expectLater(
+      bloc.stream,
+      emits(
+        isA<SettingsAppState>().having(
+          (state) => state.settings.modulePlacement,
+          'modulePlacement',
+          {'clock': ModuleZone.leading},
+        ),
+      ),
+    );
+    bloc.add(
+      SettingsAppPreviewed(
+        before.copyWith(modulePlacement: const {'clock': ModuleZone.leading}),
+      ),
+    );
+    await expectation.timeout(const Duration(seconds: 5));
+  });
+
   testWidgets('settings shell shows the appearance page', (tester) async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);

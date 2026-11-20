@@ -1,12 +1,15 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
+import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -32,6 +35,8 @@ class ModuleScope extends StatelessWidget {
     this.clockBuilder,
     this.cpuBuilder,
     this.gpuBuilder,
+    this.cpuSamplerBuilder,
+    this.gpuSamplerBuilder,
     this.trayBuilder,
     this.batteryBuilder,
     this.workspacesBuilder,
@@ -46,6 +51,12 @@ class ModuleScope extends StatelessWidget {
   final ClockBloc Function()? clockBuilder;
   final CpuBloc Function()? cpuBuilder;
   final GpuBloc Function()? gpuBuilder;
+
+  /// Sampler factories for tests that need the production paused-start wiring
+  /// without touching `/proc/stat`, sysfs, or NVML.
+  final CpuSampler Function()? cpuSamplerBuilder;
+  final GpuSampler Function()? gpuSamplerBuilder;
+
   final TrayBloc Function()? trayBuilder;
   final BatteryBloc Function()? batteryBuilder;
   final WorkspacesBloc Function()? workspacesBuilder;
@@ -57,6 +68,7 @@ class ModuleScope extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsBloc>().state;
+    final pausesSamplers = settings.includes('cpu') || settings.includes('gpu');
     return MultiBlocProvider(
       providers: [
         if (settings.includes('clock'))
@@ -65,13 +77,19 @@ class ModuleScope extends StatelessWidget {
           ),
         if (settings.includes('cpu'))
           BlocProvider<CpuBloc>(
-            create: (_) =>
-                cpuBuilder?.call() ?? (CpuBloc()..add(const CpuStarted())),
+            create: (context) =>
+                cpuBuilder?.call() ??
+                (CpuBloc(sampler: cpuSamplerBuilder?.call())..add(
+                  CpuStarted(paused: context.read<SeatIdleBloc>().state.idle),
+                )),
           ),
         if (settings.includes('gpu'))
           BlocProvider<GpuBloc>(
-            create: (_) =>
-                gpuBuilder?.call() ?? (GpuBloc()..add(const GpuStarted())),
+            create: (context) =>
+                gpuBuilder?.call() ??
+                (GpuBloc(sampler: gpuSamplerBuilder?.call())..add(
+                  GpuStarted(paused: context.read<SeatIdleBloc>().state.idle),
+                )),
           ),
         if (settings.includes('tray'))
           BlocProvider<TrayBloc>(
@@ -115,7 +133,27 @@ class ModuleScope extends StatelessWidget {
                 (OpencodeBloc()..add(const OpencodeStarted())),
           ),
       ],
-      child: child,
+      child: pausesSamplers
+          ? BlocListener<SeatIdleBloc, SeatIdleState>(
+              listenWhen: (previous, next) => previous.idle != next.idle,
+              listener: (context, state) {
+                // The captured module list matches the provider tree this
+                // listener was built under, so a stale idle event can never
+                // read a bloc that was already removed.
+                if (settings.includes('cpu')) {
+                  context.read<CpuBloc>().add(
+                    state.idle ? const CpuPaused() : const CpuResumed(),
+                  );
+                }
+                if (settings.includes('gpu')) {
+                  context.read<GpuBloc>().add(
+                    state.idle ? const GpuPaused() : const GpuResumed(),
+                  );
+                }
+              },
+              child: child,
+            )
+          : child,
     );
   }
 }

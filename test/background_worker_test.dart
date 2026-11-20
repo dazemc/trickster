@@ -13,7 +13,33 @@ void _echoWorker(List<SendPort> bootstrap) {
   });
 }
 
+@pragma('vm:entry-point')
+void _slowWorker(List<SendPort> bootstrap) {
+  // Publish the command port late so close() lands during startup.
+  Future<void>.delayed(const Duration(milliseconds: 250)).then((_) {
+    serveBackgroundWorker(bootstrap, (operation, payload) => payload);
+  });
+}
+
 void main() {
+  test('close during startup cannot be undone by the pending start', () async {
+    final worker = BackgroundWorker(
+      entrypoint: _slowWorker,
+      debugName: 'trickster-test-slow-worker',
+      startupTimeout: const Duration(milliseconds: 200),
+    );
+    final pending = worker.invoke<Object?>(
+      operation: 1,
+      decode: (response) => response,
+    );
+    await worker.close();
+    await expectLater(pending, throwsA(isA<Object>()));
+    await expectLater(
+      worker.invoke<Object?>(operation: 1, decode: (response) => response),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('invoke round-trips payloads and surfaces worker errors', () async {
     final worker = BackgroundWorker(
       entrypoint: _echoWorker,

@@ -13,7 +13,21 @@ sealed class CpuEvent extends Equatable {
 }
 
 class CpuStarted extends CpuEvent {
-  const CpuStarted();
+  const CpuStarted({this.paused = false});
+
+  /// True when the module is created while the seat is already idle.
+  final bool paused;
+
+  @override
+  List<Object?> get props => [paused];
+}
+
+class CpuPaused extends CpuEvent {
+  const CpuPaused();
+}
+
+class CpuResumed extends CpuEvent {
+  const CpuResumed();
 }
 
 class CpuStopped extends CpuEvent {
@@ -34,6 +48,8 @@ class CpuBloc extends Bloc<CpuEvent, CpuSample> {
     : _sampler = sampler ?? CpuSampler(),
       super(initial) {
     on<CpuStarted>(_onStarted);
+    on<CpuPaused>(_onPaused);
+    on<CpuResumed>(_onResumed);
     on<CpuStopped>(_onStopped);
     on<CpuSampled>((event, emit) => emit(event.sample));
   }
@@ -45,7 +61,15 @@ class CpuBloc extends Bloc<CpuEvent, CpuSample> {
     _subscription ??= _sampler.snapshots.listen(
       (sample) => add(CpuSampled(sample)),
     );
-    _sampler.start();
+    _sampler.start(paused: event.paused);
+  }
+
+  void _onPaused(CpuPaused event, Emitter<CpuSample> emit) {
+    _sampler.pause();
+  }
+
+  void _onResumed(CpuResumed event, Emitter<CpuSample> emit) {
+    _sampler.resume();
   }
 
   Future<void> _onStopped(CpuStopped event, Emitter<CpuSample> emit) async {
