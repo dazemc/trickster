@@ -139,8 +139,10 @@ back to an X11 or managed toplevel.
 the blur capability bit. A manager global alone is not enough. The effect is
 set per strip as a region of pill rectangles; overlays are excluded. Without
 the capability the pills paint a translucent gradient and no native effect.
-**Gap:** removal of the blur manager global is not handled, so the native
-effect object can outlive the capability.
+The registry stays alive: removing the manager destroys every strip, overlay,
+and settings effect, drops the proxy, and announces `blurChanged` false; a
+re-advertised manager rebinds and re-announces support so Dart re-sends its
+cached regions.
 
 **Seat idle.** Native binds `ext-idle-notify-v1` on the first seat with a
 60 s timeout. The notification is inhibitor-aware and purely observational: it
