@@ -107,3 +107,8 @@ escalates them to `.llm/todo.md` (see `AGENTS.md` → Instruction precedence).
   `media_bloc.dart:60-66`, `tray_bloc.dart:84-87` and `workspaces_bloc.dart:
   73-79` never dispose the underlying sampler. No production path dispatches
   those events yet; add disposal before enabling runtime module toggles.
+
+- **Band worker exit leaves the monitor capture running.** `bands.dart`'s
+  exit listener calls `_teardown()` and rests the bars but never cancels
+  `_frames` or stops `_capture`, so PipeWire keeps delivering frames until the
+  next stop. Cancel the frame subscription and stop the capture in that path.
