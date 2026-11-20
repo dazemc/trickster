@@ -18,13 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Preserve the settings last-good snapshot across a `.prev` recovery.
-  `FileSettingsTransport.write` must atomically snapshot the in-memory
-  `_lastGood` document to `.prev` before replacing the live file, never copy
-  the possibly corrupt live file. Done when a corrupt live plus good `.prev`
-  revision 1 reads 1, a write to revision 2 leaves live 2 and `.prev` 1,
-  repeated writes keep `.prev` one revision behind, no `.prev.tmp` remains,
-  and `flutter analyze` plus `flutter test` are green.
