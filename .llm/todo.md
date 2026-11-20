@@ -18,3 +18,15 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- M: Rebind the PipeWire volume watcher across metadata/node/device global
+  removal. Track the bound global ids, add proxy `removed`/`destroy` listeners
+  that null the matching pointer and id, clear the sink map and route/volume
+  state on `global_remove` without destroying a server-destroyed proxy, and
+  drop watches before the core in `trickster_volume_stop`. Done when native
+  source-contract tests pin the ids, listeners, removal path, and stop order;
+  `flutter analyze`, full `flutter test`, and a release build are green; and
+  an isolated bar survives a temporary null-sink default switch and unload
+  without a crash or stale volume.
