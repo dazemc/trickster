@@ -18,3 +18,11 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- M: Restore the wallpaper accent for oversized sources. Done when grim uses
+  global `-g` coordinates without `-o`, oversized sources produce a 64 px
+  first-frame thumbnail through magick/ffmpeg without a full Dart read,
+  grim/configured fallback still works, and `tricksterctl status` exposes the
+  sampled accent.
