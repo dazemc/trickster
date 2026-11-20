@@ -18,17 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- M: Rebind the backdrop blur manager when its Wayland global is removed and
-  re-advertised. Keep the blur registry alive in `my_application.cc`, record
-  the manager global id, and on removal destroy blur effects on strips,
-  menus, tooltips, and settings, destroy the manager proxy, clear the
-  manager/global, set supported false, and emit `blurChanged` false. On a new
-  manager global, bind it, record its id, and emit supported true so Dart
-  re-sends cached regions. `blur_capabilities(false)` clears every surface
-  array, and dispose destroys the registry and all effects. Add native
-  source-contract tests for persistence, the global id, the removal arrays,
-  rebind, and dispose. Done when analyze, full tests, and the release build
-  are green.
