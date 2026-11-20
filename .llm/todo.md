@@ -18,3 +18,9 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- S: Cache blur-region scanlines per pill. Done when unchanged layouts reuse
+  cached rows, refresh/resend flush only dirty or structural providers, the
+  final list sends only on change, and scroll/unmount behavior stays covered.
