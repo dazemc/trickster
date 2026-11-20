@@ -63,11 +63,6 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **Tray pixmap equality scans full RGBA buffers.** `SystemTrayIconPixmap.==`
-  and `_RawTrayIcon.didUpdateWidget` compare whole buffers on every update.
-  Add a monotonic revision or identity check first and compare bytes only as a
-  fallback.
-
 - **niri emits duplicate workspace states.** Its handler adds a snapshot for
   every matching line without the `listEquals` guard Sway and Hyprland use.
   Add the last-snapshot guard before emitting.
