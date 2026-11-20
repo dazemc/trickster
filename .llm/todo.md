@@ -18,15 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- M: Add a per-invoke deadline to `BackgroundWorker` covering startup and
-  execution, and a 60 s NVML cooldown after a timeout. A timed-out generation
-  fails every pending request, closes ports, clears isolate/start/commands,
-  and kills that isolate without touching a newer generation; `close()` stays
-  terminal. `NvmlReader` uses a 2 s request timeout and returns an empty error
-  reading during cooldown instead of respawning immediately. Done when worker
-  tests cover a wedged operation, a fresh isolate on the next invoke,
-  concurrent pending failure, close terminality, and no unhandled errors;
-  analyze/full tests/release build are green.
