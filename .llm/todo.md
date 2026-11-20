@@ -15,12 +15,6 @@ an untested step; never batch multiple steps into one change.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-## Phase: correctness and lifecycle hardening
-
-- S: Destroy the cairo input regions used by the tooltip and bootstrap windows.
-  Done when a release build passes and both surfaces remain click-through with
-  no unmatched cairo_region_create in the runner.
-
 ## Phase: shell capabilities
 
 - M: Pause nonessential 1 Hz work while the seat is idle via ext-idle-notify-v1.
