@@ -278,16 +278,31 @@ Caps:
 - control socket: 2 s client timeout;
 - background worker: 10 s startup timeout.
 
-**Current — wallpaper accent caps.** `readWallpaperSource` stats the file
-before opening, rejects anything over 64 MiB, and reads at most 64 MiB + 1 byte
-so a file that grew after the stat is discarded rather than retained.
-`WallpaperSourceLimits` rejects sources over 16384 px on either side or 40 MP
-before a codec is instantiated; the codec decodes only the first frame and
-scales the longest side to 64 px for the pixel scan. The bloc debounces cache
-changes by 300 ms and caches eight paths by mtime. A rejected source yields no
-candidates, so the output falls through to grim capture and then the
-configured accent. The 269 MB GIF and ~1.64 GiB VmHWM observations predate
-these caps; correlation was never proof. Re-measure with the caps in place.
+**Current — wallpaper accent caps and oversized thumbnails.**
+`readWallpaperSource` stats the file before opening, rejects anything over
+64 MiB, and reads at most 64 MiB + 1 byte so a file that grew after the stat is
+discarded rather than retained. `WallpaperSourceLimits` rejects sources over
+16384 px on either side or 40 MP before a codec is instantiated; the codec
+decodes only the first frame and scales the longest side to 64 px for the pixel
+scan. The bloc debounces cache changes by 300 ms and caches eight paths by
+mtime.
+
+A source over the byte cap is not read into Dart. `ProcessWallpaperThumbnailer`
+asks `magick` for `"path[0]"` at 64x64 with 64 MiB memory/map limits, or falls
+back to `ffmpeg` with one frame and a 64x64 aspect-preserving scale. It uses
+binary `Process.run` stdout, a 20 s timeout, an 8 MiB output cap, and probes
+each binary once. If both are unavailable or the output is invalid/oversize,
+the source is rejected and the output falls through to grim and then the
+configured accent. Grim captures with global `-g` coordinates from
+`LayerOutput.x/y`; it never combines `-o` and `-g` (this grim rejects that
+pair).
+
+The runtime proof for `/home/daze/Personal/Pictures/night_city.gif` (268,902,170
+bytes, 3840x2160) in an isolated hidden bar produced wallpaper accent
+`#636ea6` (canonical seed from the muted blue/purple first frame) with VmHWM
+167,452 kB. The GIF was opened only by external decoder child PIDs, not the bar.
+This is a fixed scenario, not a memory budget; the earlier 269 MB/1.64 GiB
+observation remains the reason for the cap.
 
 **Current — tray decode and property caps.** `_decodeIconFile` reads intrinsic
 dimensions through `ImageDescriptor.encoded`, rejects non-positive, over
@@ -363,7 +378,7 @@ same scenario and keep the numbers with their provenance.
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Gap | Rebuilds scanline rows per flush |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster and known-property retention | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties` |
-| Wallpaper source byte/dimension/frame caps | Current | `readWallpaperSource`, `WallpaperSourceLimits` |
+| Wallpaper caps plus external 64 px thumbnail for oversized sources | Current | `readWallpaperSource`, `WallpaperSourceLimits`, `ProcessWallpaperThumbnailer`; 269 MB GIF → `#636ea6`, VmHWM 167,452 kB |
 | Bundle ~28.4 MiB, fonts as measured | Current | Current release bundle |
 | Unused Lucide weight fonts | Gap | Six variable fonts, 3,160,400 B |
 | `!strip` with runner-only strip | Current | Arch PKGBUILDs |
