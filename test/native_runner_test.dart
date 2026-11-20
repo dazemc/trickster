@@ -28,6 +28,48 @@ void main() {
     expect(source, contains('fl_value_new_int(geometry.height)'));
   });
 
+  test('overlay surfaces track their monitor or refuse a null monitor', () {
+    final body = _functionBody(
+      source,
+      'static TricksterSurface* trickster_overlay_surface_new',
+    );
+    final guard = body.indexOf('monitor == nullptr');
+    final allocation = body.indexOf('g_new0(TricksterSurface');
+    expect(guard, isNonNegative);
+    expect(allocation, isNonNegative);
+    expect(guard, lessThan(allocation));
+    expect(body, contains('surface->monitor = monitor;'));
+    expect(body, contains('return nullptr;'));
+  });
+
+  test('monitor removal destroys tracked menu and tooltip overlays', () {
+    final helper = _functionBody(
+      source,
+      'static void trickster_destroy_overlays_for_monitor',
+    );
+    expect(helper, contains('self->menus'));
+    expect(helper, contains('self->tooltips'));
+    expect(helper, contains('gtk_widget_destroy'));
+    expect(helper, contains('g_ptr_array_remove_index'));
+    expect(
+      helper,
+      contains('ext_background_effect_surface_v1_destroy(surface->blur)'),
+    );
+
+    final removed = _functionBody(source, 'static void monitor_removed_cb');
+    expect(
+      removed,
+      contains('trickster_destroy_overlays_for_monitor(self, monitor);'),
+    );
+  });
+
+  test('overlay open callers handle a refused untracked surface', () {
+    expect(source, contains('if (menu != nullptr)'));
+    expect(source, contains('g_ptr_array_add(self->menus, menu);'));
+    expect(source, contains('if (tooltip != nullptr)'));
+    expect(source, contains('g_ptr_array_add(self->tooltips, tooltip);'));
+  });
+
   test('both click-through windows route through the helper', () {
     final helper = RegExp(
       r'static void trickster_make_click_through\(GtkWidget\* widget\)'
@@ -66,4 +108,36 @@ int _count(String source, String token) {
     index = source.indexOf(token, index + token.length);
   }
   return count;
+}
+
+String _functionBody(String source, String signature) {
+  int? open;
+  var search = 0;
+  while (search < source.length) {
+    final candidate = source.indexOf(signature, search);
+    if (candidate < 0) {
+      break;
+    }
+    final body = source.indexOf('{', candidate);
+    final declarationEnd = source.indexOf(';', candidate);
+    if (body >= 0 && (declarationEnd < 0 || body < declarationEnd)) {
+      open = body;
+      break;
+    }
+    search = candidate + signature.length;
+  }
+  expect(open, isNotNull, reason: 'missing definition: $signature');
+  final bodyStart = open!;
+  var depth = 0;
+  for (var index = bodyStart; index < source.length; index++) {
+    if (source[index] == '{') {
+      depth += 1;
+    } else if (source[index] == '}') {
+      depth -= 1;
+      if (depth == 0) {
+        return source.substring(bodyStart, index + 1);
+      }
+    }
+  }
+  fail('unterminated body for: $signature');
 }
