@@ -86,8 +86,15 @@ The visualizer is active only while a player is playing **and** the pill paints
 the equalizer. Its native PipeWire pump delivers every 33 ms (~30 Hz), the FFT
 runs on a widget-free worker isolate, and the mark repaints inside its own
 boundary. When either condition clears, the capture and isolate are stopped.
-**Gap:** on worker exit the analyzer rests the bars but leaves the capture and
-frame subscription running; see `suggestions.md`.
+
+A terminal worker exit is generation-guarded: `BandAnalyzer` cancels the frame
+subscription, tears down the worker ports/isolate, stops the capture, emits zero
+levels, and signals failure once. Explicit `stop()` invalidates the generation
+first, so it stays silent. `VisualizerBloc` drops the level subscription, emits
+inactive/empty, and retries only while playing and visible with 1 s→30 s capped
+exponential backoff; the delay resets only after real non-zero levels. Late
+levels from an older generation are ignored. Dispose/close cancels the retry
+timer and both subscriptions and waits for capture cleanup.
 
 Per-view overlay keys keep a menu or tooltip on one output from rebuilding the
 strips on another.
@@ -371,7 +378,7 @@ same scenario and keep the numbers with their provenance.
 | 220/60 ms entrance, 72/168/80 ms lens, no springs | Current | Motion constants and controllers |
 | Clock only rebuilds its pill | Current | Shared `ClockBloc`, pill-local builder |
 | Visualizer 30 Hz only playing+visible | Current | 33 ms pump, FFT isolate, visibility gate |
-| Worker-exit capture teardown | Gap | Analyzer rests bars but leaves capture/frames |
+| Worker-exit capture teardown and visualizer restart | Current | `BandAnalyzer.failures`, generation guard, capped `VisualizerBloc` retry |
 | CPU/GPU pause on seat idle | Current | `SeatIdleBloc` + samplers |
 | Battery 5 s sysfs, not UPower | Current | `battery.dart` |
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
