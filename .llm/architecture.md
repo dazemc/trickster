@@ -217,6 +217,10 @@ fresh client. Its 60 s refresh remains the only discovery cadence.
 - `PipArtworkCache`: process-wide bounded cache, intentionally alive until
   process exit.
 
+The bar app's post-frame startup is mounted-guarded: a dispose before the
+first callback constructs no config watcher or control server, so dispose owns
+only resources that actually exist.
+
 A service may be shared, but its dispose path must still be owned by the bloc
 or scope that created it. The native runner owns resources Dart cannot see;
 the overlay lifecycle gap above shows what happens when that ownership is not
