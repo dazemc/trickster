@@ -323,7 +323,11 @@ target dimensions from one 24 px longest side, decodes one frame, and disposes
 the buffer, descriptor, codec, and image. `retainStatusNotifierItemProperties`
 keeps only `_knownItemProperties`, so arbitrary `GetAllProperties` values are
 not retained; pixmaps are still removed from the map after decode. The SVG
-path is unchanged.
+path is unchanged. `SystemTrayIconPixmap` computes a 32-bit FNV-1a digest once
+at construction; equality checks identity/dimensions/length then digest and
+falls back to full bytes only on a digest match (collision safety), and
+`hashCode` uses dimensions plus digest. `_RawTrayIcon.didUpdateWidget` compares
+pixmaps instead of scanning RGBA itself.
 
 **Observation, not a budget.** One runtime snapshot measured ~162 MB RSS,
 ~93 MB PSS, and 313 MB swap. VmHWM reached ~1.64 GiB, which is not a baseline
@@ -389,7 +393,7 @@ same scenario and keep the numbers with their provenance.
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
-| Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster and known-property retention | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties` |
+| Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster, known-property retention, digest equality | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties`, `SystemTrayIconPixmap` |
 | Wallpaper caps plus external 64 px thumbnail for oversized sources | Current | `readWallpaperSource`, `WallpaperSourceLimits`, `ProcessWallpaperThumbnailer`; 269 MB GIF → `#636ea6`, VmHWM 167,452 kB |
 | Connector lookup cached per monitor | Current | `connector_cache`; add/remove invalidation, dispose free |
 | Bundle ~28.4 MiB, fonts as measured | Current | Current release bundle |
