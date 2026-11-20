@@ -44,11 +44,6 @@ Nothing in this file authorizes performance work.
   `outputs.conf=hidden` and overlays on map/unmap. Exercise both on 3.50.1;
   fix by destroy/recreate if it reproduces, never speculatively.
 
-- **The bar's post-frame startup can outlive dispose.** `app.dart` registers
-  the config watcher and control server in a post-frame callback with no
-  mounted guard; a dispose before the first frame leaves orphan instances with
-  live timers. Guard the callback or construct both before it.
-
 - **Stopped modules cancel subscriptions but keep services alive.**
   `CpuStopped`, `GpuStopped`, `BatteryStopped`, `MediaStopped`, `TrayStopped`,
   and `WorkspacesStopped` do not dispose the underlying sampler/service, while
