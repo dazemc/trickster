@@ -22,16 +22,24 @@ class BatteryStatus extends Equatable {
 }
 
 class BatterySampler {
-  BatterySampler({this.interval = const Duration(seconds: 5), Directory? root})
-    : _root = root ?? Directory('/sys/class/power_supply');
+  BatterySampler({
+    this.interval = const Duration(seconds: 5),
+    Directory? root,
+    Future<BatteryStatus> Function()? readStatus,
+  }) : _root = root ?? Directory('/sys/class/power_supply'),
+       _readStatusOverride = readStatus;
 
   final Duration interval;
   final Directory _root;
+  final Future<BatteryStatus> Function()? _readStatusOverride;
   Timer? _timer;
   var _running = false;
   var _paused = false;
   var _disposed = false;
   var _generation = 0;
+  var _sampling = false;
+  var _resample = false;
+  BatteryStatus? _lastStatus;
   final _controller = StreamController<BatteryStatus>.broadcast();
 
   Stream<BatteryStatus> get snapshots => _controller.stream;
@@ -56,7 +64,7 @@ class BatterySampler {
     _running = true;
     _paused = paused;
     if (!_paused) {
-      _sample();
+      unawaited(_sample());
       _schedule();
     }
   }
@@ -67,6 +75,7 @@ class BatterySampler {
     }
     _paused = true;
     _generation += 1;
+    _resample = false;
     _timer?.cancel();
     _timer = null;
   }
@@ -77,12 +86,12 @@ class BatterySampler {
     }
     _paused = false;
     _generation += 1;
-    _sample();
+    unawaited(_sample());
     _schedule();
   }
 
   void _schedule() {
-    _timer ??= Timer.periodic(interval, (_) => _sample());
+    _timer ??= Timer.periodic(interval, (_) => unawaited(_sample()));
   }
 
   void dispose() {
@@ -92,56 +101,82 @@ class BatterySampler {
     _disposed = true;
     _running = false;
     _paused = true;
+    _resample = false;
     _generation += 1;
     _timer?.cancel();
     _timer = null;
     _controller.close();
   }
 
-  void _sample() {
+  Future<void> _sample() async {
     if (_disposed || _paused || _controller.isClosed) {
       return;
     }
-    final generation = _generation;
-    final status = _readStatus();
-    // A pause or dispose between the read and the emit must not publish the
-    // previous generation's sample.
-    if (generation != _generation ||
-        _paused ||
-        _disposed ||
-        _controller.isClosed) {
+    if (_sampling) {
+      _resample = true;
       return;
     }
-    _controller.add(status);
+    _sampling = true;
+    final generation = _generation;
+    try {
+      final status = await (_readStatusOverride?.call() ?? _readStatus());
+      // A pause or dispose between the read and the emit must not publish the
+      // previous generation's sample.
+      if (generation != _generation ||
+          _paused ||
+          _disposed ||
+          _controller.isClosed) {
+        return;
+      }
+      if (status == _lastStatus) {
+        return;
+      }
+      _lastStatus = status;
+      _controller.add(status);
+    } finally {
+      _sampling = false;
+      if (_resample) {
+        _resample = false;
+        if (!_paused && !_disposed && !_controller.isClosed) {
+          unawaited(_sample());
+        }
+      }
+    }
   }
 
-  BatteryStatus _readStatus() {
-    if (!_root.existsSync()) {
+  Future<BatteryStatus> _readStatus() async {
+    try {
+      if (!await _root.exists()) {
+        return const BatteryStatus();
+      }
+      await for (final entity in _root.list(followLinks: false)) {
+        if (entity is! Directory) {
+          continue;
+        }
+        final name = entity.uri.pathSegments
+            .where((part) => part.isNotEmpty)
+            .last;
+        if (!name.startsWith('BAT')) {
+          continue;
+        }
+        final capacityFile = File('${entity.path}/capacity');
+        if (!await capacityFile.exists()) {
+          continue;
+        }
+        final statusFile = File('${entity.path}/status');
+        final capacity = int.tryParse(
+          (await capacityFile.readAsString()).trim(),
+        );
+        final status = await statusFile.exists()
+            ? (await statusFile.readAsString()).trim()
+            : '';
+        return BatteryStatus(
+          capacity: capacity,
+          charging: status == 'Charging' || status == 'Full',
+        );
+      }
+    } on Object {
       return const BatteryStatus();
-    }
-    for (final entity in _root.listSync()) {
-      if (entity is! Directory) {
-        continue;
-      }
-      final name = entity.uri.pathSegments
-          .where((part) => part.isNotEmpty)
-          .last;
-      if (!name.startsWith('BAT')) {
-        continue;
-      }
-      final capacityFile = File('${entity.path}/capacity');
-      final statusFile = File('${entity.path}/status');
-      if (!capacityFile.existsSync()) {
-        continue;
-      }
-      final capacity = int.tryParse(capacityFile.readAsStringSync().trim());
-      final status = statusFile.existsSync()
-          ? statusFile.readAsStringSync().trim()
-          : '';
-      return BatteryStatus(
-        capacity: capacity,
-        charging: status == 'Charging' || status == 'Full',
-      );
     }
     return const BatteryStatus();
   }
