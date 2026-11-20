@@ -8,7 +8,6 @@ import 'package:trickster/src/config/paths.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/layout/system_bar.dart';
-import 'package:trickster/src/platform/control_socket.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 
 /// Events the settings application's bloc answers.
@@ -199,11 +198,14 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     OutputsDocumentTransport? outputsSocket,
     OutputsDocumentTransport? outputsFile,
     LayerShell? layerShell,
-  }) : _socket = socket ?? SocketSettingsTransport(),
-       _file = file ?? FileSettingsTransport(File(ConfigPaths().settings)),
-       _outputsSocket = outputsSocket ?? SocketOutputsTransport(),
-       _outputsFile =
-           outputsFile ?? FileOutputsTransport(File(ConfigPaths().outputs)),
+  }) : _settingsTransport = FallbackSettingsTransport(
+         socket: socket ?? SocketSettingsTransport(),
+         file: file ?? FileSettingsTransport(File(ConfigPaths().settings)),
+       ),
+       _outputsTransport = FallbackOutputsTransport(
+         socket: outputsSocket ?? SocketOutputsTransport(),
+         file: outputsFile ?? FileOutputsTransport(File(ConfigPaths().outputs)),
+       ),
        _layerShell = layerShell ?? LayerShell(),
        super(const SettingsAppState()) {
     on<SettingsAppLoadRequested>(_onLoad);
@@ -218,14 +220,11 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     on<SettingsAppDocumentChanged>(_onDocumentChanged);
   }
 
-  final SettingsDocumentTransport _socket;
-  final SettingsDocumentTransport _file;
-  final OutputsDocumentTransport _outputsSocket;
-  final OutputsDocumentTransport _outputsFile;
+  final FallbackSettingsTransport _settingsTransport;
+  final FallbackOutputsTransport _outputsTransport;
   final LayerShell _layerShell;
 
   NativeSettingsStore? _store;
-  OutputsDocumentTransport? _outputsTransport;
 
   BarSettings get settings => state.settings;
   OutputsConfig get outputs => state.outputs;
@@ -241,41 +240,23 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     Emitter<SettingsAppState> emit,
   ) async {
     emit(state.copyWith(busy: true, error: null));
-    var store = NativeSettingsStore(_socket);
-    var usingSocket = true;
+    final store = NativeSettingsStore(_settingsTransport);
+    _store = store;
     var settings = state.settings;
     String? error;
     try {
       settings = await store.read();
-    } on ControlSocketException {
-      store = NativeSettingsStore(_file);
-      usingSocket = false;
-      try {
-        settings = await store.read();
-      } on Object catch (readError) {
-        error = '$readError';
-      }
     } on Object catch (readError) {
       error = '$readError';
     }
-    _store = store;
 
-    var outputsTransport = _outputsSocket;
     var outputs = state.outputs;
     String? outputsError;
     try {
-      outputs = OutputsConfig.parse(await outputsTransport.read());
-    } on ControlSocketException {
-      outputsTransport = _outputsFile;
-      try {
-        outputs = OutputsConfig.parse(await outputsTransport.read());
-      } on Object catch (readError) {
-        outputsError = '$readError';
-      }
+      outputs = OutputsConfig.parse(await _outputsTransport.read());
     } on Object catch (readError) {
       outputsError = '$readError';
     }
-    _outputsTransport = outputsTransport;
 
     List<LayerOutput> available;
     try {
@@ -293,7 +274,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
         loaded: true,
         error: error,
         outputsError: outputsError,
-        usingSocket: usingSocket,
+        usingSocket: _settingsTransport.usingSocket,
       ),
     );
   }
@@ -310,9 +291,22 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     try {
       await store.write(event.settings);
       final settings = await store.read();
-      emit(state.copyWith(settings: settings, busy: false, error: null));
+      emit(
+        state.copyWith(
+          settings: settings,
+          busy: false,
+          error: null,
+          usingSocket: _settingsTransport.usingSocket,
+        ),
+      );
     } on Object catch (writeError) {
-      emit(state.copyWith(busy: false, error: '$writeError'));
+      emit(
+        state.copyWith(
+          busy: false,
+          error: '$writeError',
+          usingSocket: _settingsTransport.usingSocket,
+        ),
+      );
     }
   }
 
@@ -320,14 +314,10 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     SettingsAppOutputsSaveRequested event,
     Emitter<SettingsAppState> emit,
   ) async {
-    final transport = _outputsTransport;
-    if (transport == null) {
-      return;
-    }
     emit(state.copyWith(busy: true, outputsError: null));
     try {
       final outputs = OutputsConfig.parse(
-        await transport.write(event.outputs.encode()),
+        await _outputsTransport.write(event.outputs.encode()),
       );
       emit(state.copyWith(outputs: outputs, busy: false, outputsError: null));
     } on Object catch (writeError) {
@@ -346,7 +336,12 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       return;
     }
     try {
-      emit(state.copyWith(settings: await store.read()));
+      emit(
+        state.copyWith(
+          settings: await store.read(),
+          usingSocket: _settingsTransport.usingSocket,
+        ),
+      );
     } on Object {
       // Transient read failure: keep the editor on the current document.
     }
