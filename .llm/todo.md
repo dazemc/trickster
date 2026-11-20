@@ -18,14 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Track overlay monitors natively. Assign `surface->monitor` in
-  `trickster_overlay_surface_new`, refuse an untrackable null-monitor overlay
-  and return null to the menu/tooltip open callers, destroy matching menu and
-  tooltip windows from `monitor_removed_cb` through a shared helper, and
-  destroy each overlay blur effect before its window. Done when native
-  source-contract tests pin the assignment, null refusal, helper references to
-  both arrays, and removal call; analyze/full tests and a release build are
-  green. Defer live output removal because the screen is off.
