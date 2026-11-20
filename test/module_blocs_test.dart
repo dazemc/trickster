@@ -65,7 +65,7 @@ class FakeBatterySampler extends BatterySampler {
   Stream<BatteryStatus> get snapshots => controller.stream;
 
   @override
-  void start() {}
+  void start({bool paused = false}) {}
 
   @override
   void dispose() {

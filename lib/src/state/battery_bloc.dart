@@ -13,7 +13,21 @@ sealed class BatteryEvent extends Equatable {
 }
 
 class BatteryStarted extends BatteryEvent {
-  const BatteryStarted();
+  const BatteryStarted({this.paused = false});
+
+  /// True when the module is created while the seat is already idle.
+  final bool paused;
+
+  @override
+  List<Object?> get props => [paused];
+}
+
+class BatteryPaused extends BatteryEvent {
+  const BatteryPaused();
+}
+
+class BatteryResumed extends BatteryEvent {
+  const BatteryResumed();
 }
 
 class BatteryStopped extends BatteryEvent {
@@ -36,6 +50,8 @@ class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {
   }) : _sampler = sampler ?? BatterySampler(),
        super(initial) {
     on<BatteryStarted>(_onStarted);
+    on<BatteryPaused>(_onPaused);
+    on<BatteryResumed>(_onResumed);
     on<BatteryStopped>(_onStopped);
     on<BatterySampled>((event, emit) => emit(event.status));
   }
@@ -47,7 +63,15 @@ class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {
     _subscription ??= _sampler.snapshots.listen(
       (status) => add(BatterySampled(status)),
     );
-    _sampler.start();
+    _sampler.start(paused: event.paused);
+  }
+
+  void _onPaused(BatteryPaused event, Emitter<BatteryStatus> emit) {
+    _sampler.pause();
+  }
+
+  void _onResumed(BatteryResumed event, Emitter<BatteryStatus> emit) {
+    _sampler.resume();
   }
 
   Future<void> _onStopped(

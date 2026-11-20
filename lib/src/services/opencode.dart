@@ -414,18 +414,74 @@ class OpencodeSampler {
   HttpClient? _client;
   Timer? _timer;
   var _sampling = false;
+  var _resample = false;
+  var _running = false;
+  var _paused = false;
+  var _generation = 0;
+  var _disposed = false;
 
   Stream<OpencodeUsage> get snapshots => _controller.stream;
 
-  void start() {
-    _timer ??= Timer.periodic(interval, (_) => unawaited(_sample()));
+  @visibleForTesting
+  bool get isRunning => _timer?.isActive ?? false;
+
+  /// Starts sampling. A paused start leaves the timer stopped so a module
+  /// created while the seat is already idle does no periodic work.
+  void start({bool paused = false}) {
+    if (_disposed) {
+      return;
+    }
+    if (_running) {
+      if (paused) {
+        pause();
+      } else {
+        resume();
+      }
+      return;
+    }
+    _running = true;
+    _paused = paused;
+    if (!_paused) {
+      unawaited(_sample());
+      _schedule();
+    }
+  }
+
+  void pause() {
+    if (!_running || _paused) {
+      return;
+    }
+    _paused = true;
+    _generation += 1;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void resume() {
+    if (!_running || !_paused || _disposed) {
+      return;
+    }
+    _paused = false;
+    _generation += 1;
     unawaited(_sample());
+    _schedule();
+  }
+
+  void _schedule() {
+    _timer ??= Timer.periodic(interval, (_) => unawaited(_sample()));
   }
 
   /// Samples immediately; the pill's click uses this after a turn.
   Future<void> refresh() => _sample();
 
   void dispose() {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    _running = false;
+    _paused = true;
+    _generation += 1;
     _timer?.cancel();
     _timer = null;
     _client?.close(force: true);
@@ -434,14 +490,19 @@ class OpencodeSampler {
   }
 
   Future<void> _sample() async {
-    if (_sampling || _controller.isClosed) {
+    if (_paused || _disposed || _controller.isClosed) {
+      return;
+    }
+    if (_sampling) {
+      _resample = true;
       return;
     }
     _sampling = true;
+    final generation = _generation;
     try {
       final state = _readState();
       if (state == null) {
-        _emit(const OpencodeUsage());
+        _emit(const OpencodeUsage(), generation);
         return;
       }
       final client = _client ??= _clientFactory()
@@ -454,7 +515,7 @@ class OpencodeSampler {
       );
       final usage = parseOpencodeUsageLimits(limits);
       if (usage == null) {
-        _emit(const OpencodeUsage());
+        _emit(const OpencodeUsage(), generation);
         return;
       }
       final session = await _getJson(
@@ -478,20 +539,28 @@ class OpencodeSampler {
           session: parseOpencodeSessionList(session),
           updatedAt: DateTime.now(),
         ),
+        generation,
       );
     } on Object {
       // A stopped or restarting server has nothing to show. The timer keeps
       // trying, and the pill reappears on the first successful poll.
-      _emit(const OpencodeUsage());
+      _emit(const OpencodeUsage(), generation);
     } finally {
       _sampling = false;
+      if (_resample) {
+        _resample = false;
+        if (!_paused && !_disposed && !_controller.isClosed) {
+          unawaited(_sample());
+        }
+      }
     }
   }
 
-  void _emit(OpencodeUsage usage) {
-    if (!_controller.isClosed) {
-      _controller.add(usage);
+  void _emit(OpencodeUsage usage, int generation) {
+    if (generation != _generation || _controller.isClosed) {
+      return;
     }
+    _controller.add(usage);
   }
 
   _ServiceState? _readState() {

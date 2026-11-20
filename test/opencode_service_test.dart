@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -48,6 +49,16 @@ Map<String, Object?> _sessionsPayload() {
       },
     ],
   };
+}
+
+Future<void> _waitFor(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('timed out waiting for condition');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }
 
 void main() {
@@ -248,5 +259,109 @@ void main() {
     await bloc.close();
     await server.close(force: true);
     await directory.delete(recursive: true);
+  });
+
+  test('a paused sampler does no work until resumed', () async {
+    final requests = <String>[];
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      requests.add(request.uri.path);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(
+          request.uri.path == '/api/experimental/usage/limits'
+              ? _limitsPayload()
+              : _sessionsPayload(),
+        ),
+      );
+      await request.response.close();
+    });
+    final directory = await Directory.systemTemp.createTemp('trickster-oc-');
+    final state = File('${directory.path}/service.json');
+    state.writeAsStringSync(
+      jsonEncode({'url': 'http://127.0.0.1:${server.port}', 'password': 'x'}),
+    );
+    final sampler = OpencodeSampler(
+      statePath: state.path,
+      interval: const Duration(hours: 1),
+    );
+    final samples = <OpencodeUsage>[];
+    final subscription = sampler.snapshots.listen(samples.add);
+    addTearDown(() async {
+      sampler.dispose();
+      await subscription.cancel();
+      await server.close(force: true);
+      await directory.delete(recursive: true);
+    });
+
+    sampler.start(paused: true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(sampler.isRunning, isFalse);
+    expect(requests, isEmpty);
+    expect(samples, isEmpty);
+
+    sampler.resume();
+    await _waitFor(() => samples.isNotEmpty);
+    expect(requests, <String>[
+      '/api/experimental/usage/limits',
+      '/api/session',
+    ]);
+    expect(sampler.isRunning, isTrue);
+
+    sampler.pause();
+    sampler.pause();
+    expect(sampler.isRunning, isFalse);
+    final pausedRequests = requests.length;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(requests, hasLength(pausedRequests));
+  });
+
+  test('pause drops an in-flight response', () async {
+    final release = Completer<void>();
+    final requestSeen = Completer<void>();
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      if (!requestSeen.isCompleted) {
+        requestSeen.complete();
+      }
+      await release.future;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(
+          request.uri.path == '/api/experimental/usage/limits'
+              ? _limitsPayload()
+              : _sessionsPayload(),
+        ),
+      );
+      await request.response.close();
+    });
+    final directory = await Directory.systemTemp.createTemp('trickster-oc-');
+    final state = File('${directory.path}/service.json');
+    state.writeAsStringSync(
+      jsonEncode({'url': 'http://127.0.0.1:${server.port}', 'password': 'x'}),
+    );
+    final sampler = OpencodeSampler(
+      statePath: state.path,
+      interval: const Duration(hours: 1),
+    );
+    final samples = <OpencodeUsage>[];
+    final subscription = sampler.snapshots.listen(samples.add);
+    addTearDown(() async {
+      if (!release.isCompleted) {
+        release.complete();
+      }
+      sampler.dispose();
+      await subscription.cancel();
+      await server.close(force: true);
+      await directory.delete(recursive: true);
+    });
+
+    sampler.start();
+    await requestSeen.future;
+    sampler.pause();
+    release.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(samples, isEmpty);
+    expect(sampler.isRunning, isFalse);
   });
 }

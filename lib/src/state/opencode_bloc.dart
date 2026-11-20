@@ -13,7 +13,21 @@ sealed class OpencodeEvent extends Equatable {
 }
 
 class OpencodeStarted extends OpencodeEvent {
-  const OpencodeStarted();
+  const OpencodeStarted({this.paused = false});
+
+  /// True when the module is created while the seat is already idle.
+  final bool paused;
+
+  @override
+  List<Object?> get props => [paused];
+}
+
+class OpencodePaused extends OpencodeEvent {
+  const OpencodePaused();
+}
+
+class OpencodeResumed extends OpencodeEvent {
+  const OpencodeResumed();
 }
 
 class OpencodeStopped extends OpencodeEvent {
@@ -40,6 +54,8 @@ class OpencodeBloc extends Bloc<OpencodeEvent, OpencodeUsage> {
   }) : _sampler = sampler ?? OpencodeSampler(),
        super(initial) {
     on<OpencodeStarted>(_onStarted);
+    on<OpencodePaused>(_onPaused);
+    on<OpencodeResumed>(_onResumed);
     on<OpencodeStopped>(_onStopped);
     on<OpencodeSampled>((event, emit) => emit(event.usage));
     on<OpencodeRefreshed>((event, emit) => _sampler.refresh());
@@ -52,7 +68,15 @@ class OpencodeBloc extends Bloc<OpencodeEvent, OpencodeUsage> {
     _subscription ??= _sampler.snapshots.listen(
       (usage) => add(OpencodeSampled(usage)),
     );
-    _sampler.start();
+    _sampler.start(paused: event.paused);
+  }
+
+  void _onPaused(OpencodePaused event, Emitter<OpencodeUsage> emit) {
+    _sampler.pause();
+  }
+
+  void _onResumed(OpencodeResumed event, Emitter<OpencodeUsage> emit) {
+    _sampler.resume();
   }
 
   Future<void> _onStopped(

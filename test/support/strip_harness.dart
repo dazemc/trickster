@@ -145,6 +145,8 @@ Future<void> pumpBarHarness(
   GpuBloc Function()? gpuBuilder,
   CpuSampler Function()? cpuSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
+  BatterySampler Function()? batterySamplerBuilder,
+  OpencodeSampler Function()? opencodeSamplerBuilder,
   TrayBloc Function()? trayBuilder,
   BatteryBloc Function()? batteryBuilder,
   WorkspacesBloc Function()? workspacesBuilder,
@@ -190,9 +192,15 @@ Future<void> pumpBarHarness(
                 trayBuilder ?? () => TrayBloc(initial: const TrayState()),
             batteryBuilder:
                 batteryBuilder ??
-                () => BatteryBloc(
-                  initial: const BatteryStatus(capacity: 87, charging: true),
-                ),
+                (batterySamplerBuilder == null
+                    ? () => BatteryBloc(
+                        initial: const BatteryStatus(
+                          capacity: 87,
+                          charging: true,
+                        ),
+                      )
+                    : null),
+            batterySamplerBuilder: batterySamplerBuilder,
             workspacesBuilder:
                 workspacesBuilder ??
                 () => WorkspacesBloc(
@@ -209,7 +217,10 @@ Future<void> pumpBarHarness(
                 () => SinkVolumeBloc(volume: FakePipeWireVolume()),
             opencodeBuilder:
                 opencodeBuilder ??
-                () => OpencodeBloc(initial: harnessOpencodeUsage),
+                (opencodeSamplerBuilder == null
+                    ? () => OpencodeBloc(initial: harnessOpencodeUsage)
+                    : null),
+            opencodeSamplerBuilder: opencodeSamplerBuilder,
             child: wallpaperAccent == null
                 ? BlocProvider<WallpaperAccentBloc>(
                     create: (_) => WallpaperAccentBloc(watch: false),

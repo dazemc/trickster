@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
@@ -37,6 +39,8 @@ class ModuleScope extends StatelessWidget {
     this.gpuBuilder,
     this.cpuSamplerBuilder,
     this.gpuSamplerBuilder,
+    this.batterySamplerBuilder,
+    this.opencodeSamplerBuilder,
     this.trayBuilder,
     this.batteryBuilder,
     this.workspacesBuilder,
@@ -53,9 +57,11 @@ class ModuleScope extends StatelessWidget {
   final GpuBloc Function()? gpuBuilder;
 
   /// Sampler factories for tests that need the production paused-start wiring
-  /// without touching `/proc/stat`, sysfs, or NVML.
+  /// without touching `/proc/stat`, sysfs, NVML, or the OpenCode server.
   final CpuSampler Function()? cpuSamplerBuilder;
   final GpuSampler Function()? gpuSamplerBuilder;
+  final BatterySampler Function()? batterySamplerBuilder;
+  final OpencodeSampler Function()? opencodeSamplerBuilder;
 
   final TrayBloc Function()? trayBuilder;
   final BatteryBloc Function()? batteryBuilder;
@@ -68,7 +74,11 @@ class ModuleScope extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsBloc>().state;
-    final pausesSamplers = settings.includes('cpu') || settings.includes('gpu');
+    final gatesIdleSamplers =
+        settings.includes('cpu') ||
+        settings.includes('gpu') ||
+        settings.includes('battery') ||
+        settings.includes('opencode');
     return MultiBlocProvider(
       providers: [
         if (settings.includes('clock'))
@@ -98,9 +108,13 @@ class ModuleScope extends StatelessWidget {
           ),
         if (settings.includes('battery'))
           BlocProvider<BatteryBloc>(
-            create: (_) =>
+            create: (context) =>
                 batteryBuilder?.call() ??
-                (BatteryBloc()..add(const BatteryStarted())),
+                (BatteryBloc(sampler: batterySamplerBuilder?.call())..add(
+                  BatteryStarted(
+                    paused: context.read<SeatIdleBloc>().state.idle,
+                  ),
+                )),
           ),
         if (settings.includes('workspaces'))
           BlocProvider<WorkspacesBloc>(
@@ -128,12 +142,16 @@ class ModuleScope extends StatelessWidget {
         ],
         if (settings.includes('opencode'))
           BlocProvider<OpencodeBloc>(
-            create: (_) =>
+            create: (context) =>
                 opencodeBuilder?.call() ??
-                (OpencodeBloc()..add(const OpencodeStarted())),
+                (OpencodeBloc(sampler: opencodeSamplerBuilder?.call())..add(
+                  OpencodeStarted(
+                    paused: context.read<SeatIdleBloc>().state.idle,
+                  ),
+                )),
           ),
       ],
-      child: pausesSamplers
+      child: gatesIdleSamplers
           ? BlocListener<SeatIdleBloc, SeatIdleState>(
               listenWhen: (previous, next) => previous.idle != next.idle,
               listener: (context, state) {
@@ -148,6 +166,18 @@ class ModuleScope extends StatelessWidget {
                 if (settings.includes('gpu')) {
                   context.read<GpuBloc>().add(
                     state.idle ? const GpuPaused() : const GpuResumed(),
+                  );
+                }
+                if (settings.includes('battery')) {
+                  context.read<BatteryBloc>().add(
+                    state.idle ? const BatteryPaused() : const BatteryResumed(),
+                  );
+                }
+                if (settings.includes('opencode')) {
+                  context.read<OpencodeBloc>().add(
+                    state.idle
+                        ? const OpencodePaused()
+                        : const OpencodeResumed(),
                   );
                 }
               },

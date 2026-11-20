@@ -47,8 +47,8 @@ class SeatIdleChanged extends SeatIdleEvent {
 /// Watches the compositor's seat idle notifications for the whole process.
 ///
 /// This is a shared service, not a module: it owns no timer and only exists
-/// when something below reads it. CPU/GPU sampling is the only consumer in
-/// this step; disabled modules still create no blocs, timers, or sampler
+/// when something below reads it. CPU, GPU, battery, and OpenCode sampling are
+/// the consumers; disabled modules still create no blocs, timers, or sampler
 /// subscriptions.
 class SeatIdleBloc extends Bloc<SeatIdleEvent, SeatIdleState> {
   SeatIdleBloc({

@@ -8,8 +8,10 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
@@ -62,6 +64,60 @@ class _RecordingCpuSampler extends CpuSampler {
 }
 
 class _RecordingGpuSampler extends GpuSampler {
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+}
+
+class _RecordingBatterySampler extends BatterySampler {
+  _RecordingBatterySampler() : super(interval: const Duration(days: 1));
+
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+}
+
+class _RecordingOpencodeSampler extends OpencodeSampler {
+  _RecordingOpencodeSampler()
+    : super(
+        statePath: '/nonexistent/trickster/opencode/service.json',
+        interval: const Duration(days: 1),
+      );
+
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -373,5 +429,116 @@ void main() {
     expect(gpu.resumes, 1);
     expect(cpu.pauses, 0);
     expect(cpu.resumes, 0);
+  });
+
+  testWidgets('seat idle pauses battery and opencode once per transition', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final battery = _RecordingBatterySampler();
+    final opencode = _RecordingOpencodeSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'battery', 'opencode']),
+      seatIdleChanges: changes.stream,
+      batterySamplerBuilder: () => battery,
+      opencodeSamplerBuilder: () => opencode,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    expect(battery.pauses, 1);
+    expect(opencode.pauses, 1);
+
+    changes.add(true);
+    await tester.pump();
+    expect(battery.pauses, 1);
+    expect(opencode.pauses, 1);
+
+    changes.add(false);
+    await tester.pump();
+    expect(battery.resumes, 1);
+    expect(opencode.resumes, 1);
+  });
+
+  testWidgets('initial idle seeds battery and opencode paused', (tester) async {
+    final battery = _RecordingBatterySampler();
+    final opencode = _RecordingOpencodeSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'battery', 'opencode']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      batterySamplerBuilder: () => battery,
+      opencodeSamplerBuilder: () => opencode,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    expect(battery.starts, 1);
+    expect(opencode.starts, 1);
+    expect(battery.startedPaused, isTrue);
+    expect(opencode.startedPaused, isTrue);
+    expect(battery.pauses, 0);
+    expect(opencode.pauses, 0);
+  });
+
+  testWidgets('cpu-only idle leaves battery and opencode untouched', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final cpu = _RecordingCpuSampler();
+    final battery = _RecordingBatterySampler();
+    final opencode = _RecordingOpencodeSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'cpu']),
+      seatIdleChanges: changes.stream,
+      cpuSamplerBuilder: () => cpu,
+      batterySamplerBuilder: () => battery,
+      opencodeSamplerBuilder: () => opencode,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(cpu.pauses, 1);
+    expect(cpu.resumes, 1);
+    expect(battery.starts, 0);
+    expect(opencode.starts, 0);
+  });
+
+  testWidgets('removing battery and opencode while idle is harmless', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final battery = _RecordingBatterySampler();
+    final opencode = _RecordingOpencodeSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'battery', 'opencode']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      seatIdleChanges: changes.stream,
+      batterySamplerBuilder: () => battery,
+      opencodeSamplerBuilder: () => opencode,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    final settingsBloc = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<SettingsBloc>();
+    settingsBloc.add(const SettingsModulesChanged(['clock']));
+    await tester.pump();
+    await tester.pump();
+
+    changes.add(false);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(battery.starts, 1);
+    expect(opencode.starts, 1);
   });
 }
