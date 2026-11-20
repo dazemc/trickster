@@ -275,13 +275,16 @@ Caps:
 - control socket: 2 s client timeout;
 - background worker: 10 s startup timeout.
 
-**Gap — wallpaper accent.** `_samplePath` reads the whole file and
-`extractWallpaperAccents` constrains only width. A 269 MB 3840×2160 GIF has
-been observed in the wild, and a VmHWM of ~1.64 GiB was observed on this host.
-The wallpaper path is the leading suspicion, not a proven cause. Cap source
-bytes and both dimensions, decode only the first frame, and test with a large
-animated file before calling this closed. This is the highest memory risk in
-the tree.
+**Current — wallpaper accent caps.** `readWallpaperSource` stats the file
+before opening, rejects anything over 64 MiB, and reads at most 64 MiB + 1 byte
+so a file that grew after the stat is discarded rather than retained.
+`WallpaperSourceLimits` rejects sources over 16384 px on either side or 40 MP
+before a codec is instantiated; the codec decodes only the first frame and
+scales the longest side to 64 px for the pixel scan. The bloc debounces cache
+changes by 300 ms and caches eight paths by mtime. A rejected source yields no
+candidates, so the output falls through to grim capture and then the
+configured accent. The 269 MB GIF and ~1.64 GiB VmHWM observations predate
+these caps; correlation was never proof. Re-measure with the caps in place.
 
 **Gap — tray decode.** The icon-file path constrains only
 `targetWidth: 24`. A 1×N image can decode very tall before the >64 output
@@ -290,9 +293,9 @@ non-pixmap values returned by `GetAllProperties` are still retained.
 
 **Observation, not a budget.** One runtime snapshot measured ~162 MB RSS,
 ~93 MB PSS, and 313 MB swap. VmHWM reached ~1.64 GiB, which is not a baseline
-and must not be published as one. Re-measure after the wallpaper caps with a
-fixed scenario (5 min idle, one wallpaper change, two overlay cycles) and
-record the scenario with the number.
+and must not be published as one. Re-measure with the wallpaper caps in place
+and a fixed scenario (5 min idle, one wallpaper change, two overlay cycles),
+and record the scenario with the number.
 
 **Current package policy.** `options=('!strip' '!debug')` is deliberate in the
 Arch PKGBUILDs. Dart AOT payloads, including `tricksterctl`, degrade or break
@@ -353,7 +356,7 @@ same scenario and keep the numbers with their provenance.
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Gap | Rebuilds scanline rows per flush |
 | Tray 64/256/8 MiB caps | Current | `_StatusNotifierLimits` |
-| Wallpaper source byte/dimension/frame caps | Gap | Whole-file read, width-only decode |
+| Wallpaper source byte/dimension/frame caps | Current | `readWallpaperSource`, `WallpaperSourceLimits` |
 | Bundle ~28.4 MiB, fonts as measured | Current | Current release bundle |
 | Unused Lucide weight fonts | Gap | Six variable fonts, 3,160,400 B |
 | `!strip` with runner-only strip | Current | Arch PKGBUILDs |
