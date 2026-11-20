@@ -18,13 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Guard the bar's post-frame startup against dispose. Add a mounted gate
-  before `_apply`, config-watcher construction, and control-server
-  construction; leave no orphan timers or sockets when the app is removed
-  before its first callback. Add a deterministic widget/unit test with test
-  seams that disposes before the captured callback runs and asserts neither
-  service is created. Done when analyze/full tests and a release build are
-  green; no visual runtime check is required with the screen off.
