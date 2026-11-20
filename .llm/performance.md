@@ -261,8 +261,7 @@ created it. Known gaps:
   before the first frame can leave an orphan watcher and control server;
 - overlay surfaces have no output-removal teardown (see architecture);
 - background worker shutdown is generation-safe, but `invoke` has no
-  per-request timeout;
-- control listener errors are swallowed without a retry.
+  per-request timeout.
 
 Do not publish a shutdown RSS or latency budget from a single run.
 
