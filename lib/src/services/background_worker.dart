@@ -23,15 +23,27 @@ final class BackgroundWorker {
     required BackgroundWorkerEntrypoint entrypoint,
     required String debugName,
     @visibleForTesting Duration? startupTimeout,
-  }) : this._(entrypoint, debugName, startupTimeout ?? _defaultStartupTimeout);
+    Duration? requestTimeout,
+  }) : this._(
+         entrypoint,
+         debugName,
+         startupTimeout ?? _defaultStartupTimeout,
+         requestTimeout,
+       );
 
-  BackgroundWorker._(this._entrypoint, this._debugName, this._startupTimeout);
+  BackgroundWorker._(
+    this._entrypoint,
+    this._debugName,
+    this._startupTimeout,
+    this._requestTimeout,
+  );
 
   static const Duration _defaultStartupTimeout = Duration(seconds: 10);
 
   final BackgroundWorkerEntrypoint _entrypoint;
   final String _debugName;
   final Duration _startupTimeout;
+  final Duration? _requestTimeout;
   var _closed = false;
   final Map<int, Completer<Object?>> _pending = <int, Completer<Object?>>{};
 
@@ -40,7 +52,7 @@ final class BackgroundWorker {
   ReceivePort? _responses;
   ReceivePort? _errors;
   ReceivePort? _exits;
-  Future<SendPort>? _starting;
+  Future<({SendPort commands, int generation})>? _starting;
   int _generation = 0;
   int _nextRequestId = 1;
 
@@ -48,15 +60,51 @@ final class BackgroundWorker {
     required int operation,
     Object? payload,
     required Result Function(Object? response) decode,
+    Duration? timeout,
   }) async {
-    final commands = await _ensureStarted();
+    final deadline = timeout ?? _requestTimeout;
+    final stopwatch = deadline == null ? null : (Stopwatch()..start());
+
+    Future<T> limited<T>(Future<T> future) {
+      if (deadline == null) {
+        return future;
+      }
+      final remaining = deadline - stopwatch!.elapsed;
+      if (remaining <= Duration.zero) {
+        return Future<T>.error(
+          TimeoutException(
+            'Background worker $_debugName request timed out',
+            deadline,
+          ),
+        );
+      }
+      return future.timeout(remaining);
+    }
+
+    final ({SendPort commands, int generation}) started;
+    try {
+      started = await limited(_ensureStarted());
+    } on TimeoutException catch (error) {
+      _abandon(_generation, error);
+      rethrow;
+    }
+    if (_closed ||
+        started.generation != _generation ||
+        !identical(_commands, started.commands)) {
+      throw StateError('Background worker $_debugName was superseded');
+    }
+
     final requestId = _nextRequestId++;
     final completer = Completer<Object?>();
     _pending[requestId] = completer;
-    commands.send(<Object?>[requestId, operation, payload]);
+    started.commands.send(<Object?>[requestId, operation, payload]);
 
     try {
-      return decode(await completer.future);
+      final response = await limited(completer.future);
+      return decode(response);
+    } on TimeoutException catch (error) {
+      _abandon(started.generation, error);
+      rethrow;
     } finally {
       _pending.remove(requestId);
     }
@@ -75,22 +123,48 @@ final class BackgroundWorker {
     _closePorts();
   }
 
-  Future<SendPort> _ensureStarted() {
+  /// Terminal for one hung generation. A newer generation is never killed:
+  /// only the captured generation may clear the worker and fail its pending
+  /// requests. The next invoke starts a fresh isolate.
+  void _abandon(int generation, Object failure) {
+    if (_closed || generation != _generation) {
+      return;
+    }
+    _generation += 1;
+    final isolate = _isolate;
+    _isolate = null;
+    _commands = null;
+    _starting = null;
+    _failPending(failure);
+    _closePorts();
+    isolate?.kill(priority: Isolate.immediate);
+  }
+
+  Future<({SendPort commands, int generation})> _ensureStarted() {
     if (_closed) {
       throw StateError('Background worker $_debugName was closed');
     }
     final commands = _commands;
     if (commands != null) {
-      return Future<SendPort>.value(commands);
+      return Future<({SendPort commands, int generation})>.value((
+        commands: commands,
+        generation: _generation,
+      ));
     }
     final starting = _starting;
     if (starting != null) {
       return starting;
     }
     final next = _start();
-    _starting = next;
-    return next.whenComplete(() {
-      if (identical(_starting, next)) {
+    final started = next.then((commands) {
+      if (_closed || !identical(_commands, commands)) {
+        throw StateError('Background worker $_debugName was superseded');
+      }
+      return (commands: commands, generation: _generation);
+    });
+    _starting = started;
+    return started.whenComplete(() {
+      if (identical(_starting, started)) {
         _starting = null;
       }
     });
