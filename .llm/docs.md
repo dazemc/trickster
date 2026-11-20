@@ -1,20 +1,17 @@
 ---
 title: Trickster docs
-description: Documentation index and phase progress ledger.
+description: Documentation index and verification rules.
 ---
 
 # Trickster docs
 
 Domain knowledge subordinate to `AGENTS.md` and `.llm/workflow.md` (see
-`AGENTS.md` → Instruction precedence); the index and phase ledger carry no
-authority of their own.
+`AGENTS.md` → Instruction precedence); the index carries no authority of its
+own.
 
 The docs site serves this file as its status page through a symlink
-(`docs_site/content/status.md`): edit and commit this `.llm/docs.md` path,
+(`docs_site/content/status.md`). Edit and commit this `.llm/docs.md` path,
 never the symlink.
-
-Start with the [readme](readme.md), then pick a guide. The rendered site
-serves the same pages with sidebar and search.
 
 ## Guides
 
@@ -24,37 +21,42 @@ serves the same pages with sidebar and search.
 
 ## Constitution
 
-- [AGENTS.md](https://github.com/dazemc/trickster/blob/main/AGENTS.md) — project rules, module index
-- [.llm/todo.md](https://github.com/dazemc/trickster/blob/main/.llm/todo.md) — work queue, in build order
-- [.llm/suggestions.md](https://github.com/dazemc/trickster/blob/main/.llm/suggestions.md) — user-reviewed suggestions
+- [AGENTS.md](https://github.com/dazemc/trickster/blob/main/AGENTS.md) — project rules
+- [.llm/todo.md](https://github.com/dazemc/trickster/blob/main/.llm/todo.md) — authorized work
+- [.llm/suggestions.md](https://github.com/dazemc/trickster/blob/main/.llm/suggestions.md) — open findings and proposed amendments
 
-## Phase ledger
+## Phase ledger retired
 
-Updated on every phase merge. Status is `done`, `in progress`, or `queued`.
+The old phase ledger is intentionally retired. It is not reconstructed here:
+git history is the record of what landed, and a hand-maintained table had
+already drifted from the code. Do not reintroduce phase numbers or branch
+columns in this file.
 
-| Phase | Branch | Status | Headline changes |
-| --- | --- | --- | --- |
-| 1 — Bloc migration | `working` | done | flutter_bloc cutover, toJson states, observer transcript |
-| 2 — feel | `working` | done | Workspace pip rail (lens, states, focus verbs, reconnect); CPU/GPU meters (sysfs + NVML, gated); battery bolt and tap; locale clock |
-| 3 — parity | `working` | done | StatusNotifier tray with menus and icon lookup, MPRIS media, menus on transient overlay surfaces |
-| 4 — finish | `working` | done | l10n (en/zh), blur, fonts, per-output surfaces and hotplug, tricksterctl control socket, typed options, accessibility, tooltips |
-| 5 — packaging | `working` | done | Source PKGBUILD, man pages, AUR -bin recipe, v0.1.0 release asset |
-| 6 — follow-ups | `working` | done | Direct and SVG tray icon sources, single `--check` implementation |
-| 7 — version sync | `working` | done | One test pinning every version field to `Cli.appVersion` |
-| 8 — settings application | `working` | done | Same binary in settings mode: transport, appearance, modules, displays (live edge/thickness), options, language, about; vertical compact pills and pill tooltips; 0.2.0 release |
-| 9 — parity and release hygiene | `working` | done | Docs reality pass, Denial porting pin, wallpaper accent sampler (candidate palette, click-to-copy hex), AUR recipe kept in tree, tag-driven release workflow with package/pin automation |
-| 10 — docs and install hygiene | `working` | done | Docs-site analyzer boundary documented, AUR install path, manual release runbook, AUR publishing automated in the release workflow |
-| 11 — workspace rail parity | `working` | done | Centered numbered rail (Denial's indicator slot), state-styled numbers with a deforming lens, fixed workspace count on every monitor (`workspaces.workspace_count`) |
-| 12 — pill glass | `working` | done | Pill-region backdrop blur (scanline-rounded `wl_region`), Denial's dark-glass backing with a painted rim sheen |
-| 13 — bar zones and placement | `working` | done | Tray pinned to the leading edge (Denial layout), per-module `module_placement` zones, Position selector in the settings application |
-| 14 — settings depth | `working` | in progress | Lucide icons for every glyph; per-option reset arrows on module options (steps 1-3 landed) |
-| 15 — docs site delivery | `main` | done | Trickster mark favicon and logo, GitHub Pages workflow at dazemc.github.io/trickster |
-| 16 — workspace rail from the compositor | `working` | done | Rail mirrors compositor placement; chain settings retired |
-| 17 — workspace pip styles | `working` | done | Number/dot/Roman/image pips, per-workspace artwork with own colors, SVG recolor, uniform numeral scaling |
-| 18 — bar options and layout | `working` | done | Zones clamp and wrap with an auto-growing strip; meter parity, custom prefixes, GPU thresholds, wheel-picked colors; clock seconds and date styles; media modes with equalizer and right-click cycling; grim screencopy sampling; drop targets and unavailable rows |
-| 19 — settings frame performance | `working` | done | Frame budget measured (the engine's fixed cadence dominates); drag previews coalesce per frame and the shell rebuilds only on load/error |
-| 20 — bloc-only state | `working` | done | Settings document, wallpaper accent, modules page, tray and tooltip hosts on blocs; `ChangeNotifier`/`Cubit` guard test |
-| 21 — service diagnostics | `working` | done | An unavailable NVIDIA stack (driver/library mismatch) logs one line instead of failing silently |
-| 22 — settings fixes and bar interactions | `working` | done | Displays reports the driven output mode; the clock opens a clamped month calendar that follows the hosted-blur choice |
-| 23 — media visualizer | `working` | done | PipeWire monitor capture on demand; band analysis on a worker isolate; the equalizer paints live levels with a configurable bar count |
-| 24 — sink volume | `working` | done | Default sink volume watched and written over PipeWire (the route wpctl uses); readout with a level glyph, configurable wheel stepping, and a click-open slider |
+## Documentation contract
+
+- Docs never trail the code. Before merging a step, a phase, or a fix, walk
+  `docs_site/content/` for claims the change invalidates; land corrections on
+  `main`, one page per commit.
+- Code and markdown never share a commit; two markdown files never share a
+  commit.
+- Build the site with `(cd docs_site && dart pub get)` once on a fresh clone,
+  then `jaspr build` after edits. Do not commit generated site output.
+- Performance claims carry provenance: Flutter version, output resolution,
+  scale, refresh rate, build mode, scenario, and date. A single RSS snapshot is
+  an observation, never a budget.
+- Mark shipped behavior as current, known divergence as gap, and intent as
+  aspiration. Never describe a gap in the present tense.
+
+## Known stale site claims
+
+These are docs gaps to correct when the relevant page is touched:
+
+- `development.md` says packaging is planned, not published, although packaged
+  releases exist and `packaging/` ships in-tree.
+- Any page calling the battery UPower is stale; the current sampler is sysfs.
+- Any page implying river or COSMIC workspace backends is stale; only Sway,
+  Hyprland, and niri are implemented.
+- Any page implying the bar follows a monitor's refresh rate, exceeds 60 fps,
+  or uses per-output frame scheduling is stale.
+- Any page describing the release package as blanket-stripped is stale; only
+  the C++ runner is stripped.
