@@ -17,7 +17,6 @@ Parsed by the Dart bootstrap at startup. Packaged template, `backup=`-preserved.
 # TRICKSTER_KEYBOARD=on_demand
 # TRICKSTER_OUTPUT_CONFIG=/home/example/.config/trickster/outputs.conf
 # TRICKSTER_ACCENT=#d0bcff
-# TRICKSTER_LOG=trickster=info
 ```
 
 | Key | Values | Default |
@@ -27,7 +26,6 @@ Parsed by the Dart bootstrap at startup. Packaged template, `backup=`-preserved.
 | `TRICKSTER_KEYBOARD` | `none`, `exclusive`, `on_demand` | `on_demand` |
 | `TRICKSTER_OUTPUT_CONFIG` | path to an `outputs.conf` | XDG default |
 | `TRICKSTER_ACCENT` | `#RRGGBB` machine accent override | unset |
-| `TRICKSTER_LOG` | log filter | unset |
 
 Process environment wins over the file for the same key.
 
