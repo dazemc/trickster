@@ -65,8 +65,8 @@ rejected at decode, so a live reload keeps the last-good settings.
 The settings application probes the machine before it offers a module: no
 battery, no dedicated GPU memory, no readable hwmon temperature sensor, a
 missing configured disk mount, no physical or pinned network interface, and
-no Hyprland keyboard backend each move the row into an Unavailable section
-with a reason. Keyboard layout prefers the running bar's control status and
+no supported keyboard-layout backend each move the row into an Unavailable
+section with a reason. Keyboard layout prefers the running bar's control status and
 falls back to the settings process environment. Unavailable rows stay in the
 document but cannot be toggled or resolved from the page.
 
@@ -125,6 +125,8 @@ document but cannot be toggled or resolved from the page.
   queried device name, or the typed `caption_prefix`.
 - `cpu.sparkline` / `gpu.sparkline` (bool, default `true`) — hide the
   recent-history sparkline.
+- `cpu.show_load_average` (bool, default `true`) — append normalized
+  1/5/15-minute load averages and the online core count to the CPU tooltip.
 - `ram.warn` / `ram.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
   the used-memory percent when it crosses each level; `warn` must stay below
   `critical`.
@@ -132,7 +134,8 @@ document but cannot be toggled or resolved from the page.
   the default warning and danger tints.
 - `ram.caption_source` (`generic` or `custom`, default `generic`) and
   `ram.caption_prefix` — label the meter with `RAM` or the typed prefix. RAM
-  has no device-name source.
+  has no device-name source. The hover tooltip adds swap used, total, and
+  percentage when the kernel publishes a swap area.
 - `ram.sparkline` (bool, default `true`) — hide the recent-history sparkline.
 - `ram` is enabled in the default module list; a document that explicitly
   lists `modules` keeps that list, so an existing setup only gains the pill
@@ -175,10 +178,10 @@ document but cannot be toggled or resolved from the page.
   hover tooltip carries used, total, and free in IEC units.
 - `disk` is enabled in the default module list and has no sparkline or
   history; it hides when the mount is missing or unreadable.
-- `keyboard_layout` has no options. It auto-detects a Hyprland session, reads
-  the main keyboard from `j/devices`, follows `.socket2.sock`
-  `activelayout` events, and hides without that backend. It is enabled in the
-  default module list.
+- `keyboard_layout` has no options. It auto-detects Hyprland, Sway, or niri,
+  reads the main or first keyboard through that compositor's input listing,
+  follows its layout events without polling, and hides without a supported
+  backend. It is enabled in the default module list.
 - `network.interface` (Linux interface name, optional) — pin one interface,
   including a virtual one, instead of auto-selecting the active physical
   interface. Auto mode ignores loopback and interfaces without a
