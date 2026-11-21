@@ -85,7 +85,8 @@ the host's 268,902,170-byte GIF cache present, and `accent_source=wallpaper`:
 The RSS difference is one observation, not a budget. The reproducible claim is
 the command/exec trace: a usable `status.state.wallpaper` replaces local
 decode. The settings process still falls back to its own sampler when the bar
-is unreachable or returns no usable state.
+is unreachable, or after a bounded settle when the bar is reachable but has not
+published a usable state.
 
 **StatusNotifier parse cost (2026-11, headless benchmark).** The real
 `StatusNotifierService`/`DBusClient` path was driven by a fake-bus exporter
@@ -245,7 +246,7 @@ samplers keep their normal cadence.
 | StatusNotifier | Worker isolate; UI icon decode; 45 ms coalesce | Worker starts with the configured tray module; event-driven |
 | Workspaces | Sway/Hyprland/niri events | Event-driven; Hyprland 32 ms debounce |
 | Clock | minute-aligned / 1 Hz | Continues |
-| Wallpaper accent | wall-clock cache change, 300 ms debounce | Only when source is wallpaper; settings asks the bar first, local sampler fallback |
+| Wallpaper accent | wall-clock cache change, 300 ms debounce; settings focus/resume/save/cache refresh | Only when source is wallpaper; settings asks the bar first, bounded settle when reachable but unusable, local sampler fallback; no interval poll |
 | Visualizer | 33 ms PipeWire pump | Only playing and visible |
 | Sink volume | PipeWire watch | While the media module is configured |
 
@@ -409,6 +410,17 @@ configured accent. Grim captures with global `-g` coordinates from
 `LayerOutput.x/y`; it never combines `-o` and `-g` (this grim rejects that
 pair).
 
+**Current — settings wallpaper refresh.** The settings window re-reads the
+bar's `status` when it regains platform focus or resumes, when a save changes
+the document revision, and when the wallpaper cache changes; it never runs an
+interval poll. While remote candidates are usable, none of those events starts
+a local decode. A reachable bar with no usable state yet is retried at 100, 250,
+and 500 ms before the local fallback; an unreachable bar falls back immediately.
+Remote status probes and local sampling passes are single-flight, and disabling
+the source invalidates both. A wallpaper-cache event clears the per-output grim
+captures because the capture includes the wallpaper behind the strip; a
+geometry-only refresh reuses them.
+
 The runtime proof for `/home/daze/Personal/Pictures/night_city.gif` (268,902,170
 bytes, 3840x2160) in an isolated hidden bar produced wallpaper accent
 `#636ea6` (canonical seed from the muted blue/purple first frame) with VmHWM
@@ -497,7 +509,7 @@ same scenario and keep the numbers with their provenance.
 | Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster, known-property retention, digest equality | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties`, `SystemTrayIconPixmap` |
 | Wallpaper caps plus external 64 px thumbnail for oversized sources | Current | `readWallpaperSource`, `WallpaperSourceLimits`, `ProcessWallpaperThumbnailer`; 269 MB GIF → `#636ea6`, VmHWM 167,452 kB |
-| Settings prefers the bar's wallpaper state | Current | `loadBarWallpaperAccent`, `WallpaperAccentBloc(remote:)`; headless A/B removes decoder/grim execs |
+| Settings prefers the bar's wallpaper state | Current | `loadBarWallpaperAccentProbe`, `WallpaperAccentBloc(remoteProbe:)`; focus/save/cache refresh, 100/250/500 ms bounded settle, single-flight probes; headless A/B removes decoder/grim execs |
 | Settings initial reads are concurrent | Current | `_settle` in `SettingsAppBloc._onLoad`; gated transport test |
 | Settings save reuses the write response | Current | `NativeSettingsStore.write` returns `SettingsDocument` |
 | Settings watcher ignores temp/prev events | Current | `isEditedDocumentEvent`; atomic-replace destination accepted |
