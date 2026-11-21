@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "keyboard_layout", "battery", "clock"]
 }
 ```
 
@@ -156,6 +156,10 @@ rejected at decode, so a live reload keeps the last-good settings.
   hover tooltip carries used, total, and free in IEC units.
 - `disk` is enabled in the default module list and has no sparkline or
   history; it hides when the mount is missing or unreadable.
+- `keyboard_layout` has no options. It auto-detects a Hyprland session, reads
+  the main keyboard from `j/devices`, follows `.socket2.sock`
+  `activelayout` events, and hides without that backend. It is enabled in the
+  default module list.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
