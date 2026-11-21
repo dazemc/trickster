@@ -203,6 +203,7 @@ samplers keep their normal cadence.
 | Service | Cadence | While seat idle |
 | --- | --- | --- |
 | CPU | 1 Hz `/proc/stat` | Paused; one 100 ms prime sample on resume; 45-sample history; reused buffer |
+| RAM | 1 Hz `/proc/meminfo` | Paused; one fresh immediate sample on resume; 45-sample history; reused 8 KiB buffer |
 | GPU | 1 Hz sysfs/NVML | Paused; in-flight generation dropped; 45-sample history |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
