@@ -32,7 +32,7 @@ instead.
 
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 
-The settings application keeps this same zone order and lists hardware it cannot run in an Unavailable section: no battery, no dedicated GPU memory, no readable temperature sensor, a missing configured disk mount, no physical or pinned network interface, no supported keyboard-layout backend, or no readable backlight. A running bar's control status answers keyboard availability first; the settings process environment is only the fallback. Unavailable modules stay in `settings.json` but cannot be toggled from the page. Disabled modules keep their options gear, so disk path and network interface can be configured before enabling them.
+The settings application keeps this same zone order and lists hardware it cannot run in an Unavailable section: no battery, no dedicated GPU memory, no readable temperature sensor, a missing configured disk mount, no physical or pinned network interface, no supported keyboard-layout backend, or no readable backlight. A running bar's control status answers keyboard availability first; the settings process environment is only the fallback. An enabled module that is unavailable keeps its reason and a disable toggle there. Turning it off moves it to the Disabled section with the same reason and its options gear; turning it back on returns it to Unavailable. A module never appears in both sections, and a disabled module stays togglable regardless of the current probe.
 
 <Info>
 The `ram`, `vram`, `temperature`, `disk`, `keyboard_layout`, `brightness`, and
