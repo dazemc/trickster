@@ -18,10 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- S: Gate the MPRIS recovery timer with seat idle. Done when pausing cancels
-  only the 60 s recovery scan while D-Bus signals and current state stay live,
-  resuming runs one recovery refresh and restarts the timer, media joins the
-  seat-idle gate with a paused seed, and dispose cannot revive it.
