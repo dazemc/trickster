@@ -18,3 +18,18 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- S: Honor reduced motion in every timed transition. Add one shared helper
+  around `MediaQuery.maybeDisableAnimationsOf` and apply it to the
+  `SystemBarEntrance` stagger (settle the controller, schedule no timer), the
+  clock `AnimatedSwitcher`, the meter `AnimatedDefaultTextStyle`, the media
+  control `AnimatedContainer`, and the settings transitions in `app.dart`,
+  `color_wheel.dart`, `appearance.dart`, and `settings_theme.dart`. Install
+  `MediaQuery.fromView` in the settings root so that process sees the
+  platform flag. Do not remove animation controllers or change normal-motion
+  timings. Add widget tests under `MediaQueryData(disableAnimations: true)`
+  for immediate rest with no transient frames, keep the normal-motion suite
+  green, and pass analyze, the full test suite, and the release build. Done
+  when both processes honor the flag and the tests prove it.
