@@ -28,7 +28,10 @@ A short-lived client against `$XDG_RUNTIME_DIR/trickster/control.sock`, mirrorin
 
 It is a control client only — never a second UI runtime.
 
-`status` exposes `state.ram`, `state.temperature`, `state.disk`, and
-`state.keyboard_layout` for those modules. VRAM has no separate state tree:
+`status` exposes `state.ram`, `state.temperature`, `state.disk`,
+`state.network`, and `state.keyboard_layout` for those modules. The network
+sample carries the selected interface, medium, link/admin/default-route flags,
+Ethernet speed, current rates, and lifetime totals; rates are null on the first
+sample and after a reset. VRAM has no separate state tree:
 `memory_used_bytes`, `memory_total_bytes`, and `memory_history` ride each
 entry in `state.gpu.gpus`, including when only `vram` is configured.
