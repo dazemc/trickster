@@ -63,7 +63,9 @@ compositor.
 
 The document carries:
 
-- `modules`: the configured module names, in strip order;
+- `modules`: the configured module names, in strip order. Duplicates keep
+  their first occurrence; unknown names stay in the document but render and
+  start nothing.
 - `module_placement`: leading/center/trailing zone per module;
 - `accent`, `accent_source`, `accent_wallpaper_pick`;
 - `display_appearance`: per-connector appearance overrides;
@@ -104,7 +106,9 @@ replaced after 500 ms, doubling to a 5 s cap; dispose is terminal. An invalid
 file logs and keeps last-good state; the bar never crashes over config.
 
 - **Hot keys** (accent, module list/order, clock format, thresholds) rebuild
-  providers.
+  providers. The settings application watches the same directory and reloads
+  both settings and outputs, while an unsaved outputs preview owns the
+  displays page until its save lands.
 - **Disruptive keys** (edge, layer, thickness, keyboard, output set) destroy
   and recreate only the affected layer surfaces.
 - **Gap:** a non-disruptive settings change still calls native `outputs()`, a

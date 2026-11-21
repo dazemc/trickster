@@ -18,11 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-1. **Settings modules and outputs correctness** (M). Deduplicate configured
-   module names and isolate unknown names so the bar and settings page cannot
-   render duplicate keys; keep unplugged output selections and never collapse
-   a partial selection to all outputs; reload external `outputs.conf` changes
-   without clobbering an unsaved preview; and close the remaining field
-   gaps from the layout pass. Done when `flutter analyze`, `flutter test`, and
-   the release build pass.
