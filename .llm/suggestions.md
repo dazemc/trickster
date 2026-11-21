@@ -31,9 +31,6 @@ Nothing in this file authorizes performance work.
 
 ## Lifecycle and ownership
 
-- **Overlays can stack.** Every overlay is a full-monitor surface and
-  independent owners can still stack. Arbitrate one owner next.
-
 - **3.50 hide/show can leave a black strip.** `#196862`: after
   `gtk_widget_hide`/`show`, GTK replaces the toplevel `wl_surface` and the
   subsurface is not recreated. Trickster hides/shows strips for
