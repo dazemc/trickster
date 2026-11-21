@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "ram", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "battery", "clock"]
 }
 ```
 
@@ -120,6 +120,18 @@ rejected at decode, so a live reload keeps the last-good settings.
 - `ram` is enabled in the default module list; a document that explicitly
   lists `modules` keeps that list, so an existing setup only gains the pill
   when its list includes `ram`.
+- `vram.warn` / `vram.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
+  the dedicated-memory percent when it crosses each level; `warn` must stay
+  below `critical`.
+- `vram.warn_color` / `vram.critical_color` (`#RRGGBB`, optional) — override
+  the default warning and danger tints.
+- `vram.caption_source` (`generic`, `device`, or `custom`, default `generic`)
+  and `vram.caption_prefix` — label each GPU with `VRAM`, its queried device
+  name (NVIDIA), or the typed prefix.
+- `vram.sparkline` (bool, default `true`) — hide the recent-history sparkline.
+- `vram` is enabled in the default module list and renders only on GPUs that
+  publish dedicated memory; existing explicit `modules` lists keep their
+  contents.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
