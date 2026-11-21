@@ -129,6 +129,12 @@ abstract class AppLocalizations {
   /// **'CPU'**
   String get metricCpu;
 
+  /// Caption for the RAM meter.
+  ///
+  /// In en, this message translates to:
+  /// **'RAM'**
+  String get metricRam;
+
   /// Caption for a GPU meter when no device name is known.
   ///
   /// In en, this message translates to:
@@ -579,6 +585,12 @@ abstract class AppLocalizations {
   /// **'CPU'**
   String get moduleCpu;
 
+  /// Display name of the RAM module.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get moduleRam;
+
   /// Display name of the GPU module.
   ///
   /// In en, this message translates to:
@@ -801,7 +813,7 @@ abstract class AppLocalizations {
   /// **'Caption source'**
   String get settingsMeterCaption;
 
-  /// Toggle for the CPU/GPU recent-history sparkline.
+  /// Toggle for a meter's recent-history sparkline.
   ///
   /// In en, this message translates to:
   /// **'Sparkline'**
@@ -879,7 +891,7 @@ abstract class AppLocalizations {
   /// **'Custom'**
   String get settingsMeterCaptionCustom;
 
-  /// Meter caption choice: generic CPU/GPU tags.
+  /// Meter caption choice: the meter's generic tag.
   ///
   /// In en, this message translates to:
   /// **'Generic'**

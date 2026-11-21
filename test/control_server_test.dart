@@ -12,7 +12,9 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -369,6 +371,64 @@ void main() {
 
     final state = reply['state']! as Map<String, Object?>;
     expect(state['seat_idle'], {'idle': true});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status exposes the RAM sample and its idle gate', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) => SettingsBloc(const BarSettings(modules: ['ram'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<RamBloc>(
+            create: (_) => RamBloc(
+              initial: const RamSample(
+                usedBytes: 6 * 1024 * 1024,
+                totalBytes: 8 * 1024 * 1024,
+                history: [0.5, 0.75],
+              ),
+            ),
+          ),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: false),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['ram'], {
+      'current': 0.75,
+      'used_bytes': 6 * 1024 * 1024,
+      'total_bytes': 8 * 1024 * 1024,
+      'history': [0.5, 0.75],
+    });
+    expect(state['seat_idle'], {'idle': false});
     expect(jsonEncode(reply), isA<String>());
   });
 

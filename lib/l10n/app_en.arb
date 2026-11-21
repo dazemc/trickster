@@ -30,6 +30,10 @@
   "@metricCpu": {
     "description": "Caption for the CPU meter."
   },
+  "metricRam": "RAM",
+  "@metricRam": {
+    "description": "Caption for the RAM meter."
+  },
   "desktopGpuLabel": "GPU",
   "@desktopGpuLabel": {
     "description": "Caption for a GPU meter when no device name is known."
@@ -346,6 +350,10 @@
   "@moduleCpu": {
     "description": "Display name of the CPU module."
   },
+  "moduleRam": "Memory",
+  "@moduleRam": {
+    "description": "Display name of the RAM module."
+  },
   "moduleGpu": "GPU",
   "@moduleGpu": {
     "description": "Display name of the GPU module."
@@ -496,7 +504,7 @@
   },
   "settingsMeterSparkline": "Sparkline",
   "@settingsMeterSparkline": {
-    "description": "Toggle for the CPU/GPU recent-history sparkline."
+    "description": "Toggle for a meter's recent-history sparkline."
   },
   "settingsMediaModeCompact": "Compact",
   "@settingsMediaModeCompact": {
@@ -548,7 +556,7 @@
   },
   "settingsMeterCaptionGeneric": "Generic",
   "@settingsMeterCaptionGeneric": {
-    "description": "Meter caption choice: generic CPU/GPU tags."
+    "description": "Meter caption choice: the meter's generic tag."
   },
   "settingsMeterCaptionDevice": "Device name",
   "@settingsMeterCaptionDevice": {

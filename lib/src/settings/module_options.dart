@@ -35,6 +35,7 @@ bool moduleHasOptions(String module) {
     'workspaces' ||
     'clock' ||
     'cpu' ||
+    'ram' ||
     'gpu' ||
     'battery' ||
     'media' ||
@@ -575,6 +576,132 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
           ),
         ],
       ),
+      'ram' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-ram-warn'),
+            label: l10n.settingsWarnLabel,
+            value: settings.ram.warn,
+            min: 0,
+            max: 1,
+            display: '${(settings.ram.warn * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-ram-warn'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+            resetEnabled: settings.ram.warn != const RamOptions().warn,
+            onChanged: (value) {
+              final warn = value;
+              _apply(controller, (settings) {
+                final critical = settings.ram.critical <= warn
+                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    : settings.ram.critical;
+                return settings.copyWith(
+                  ram: settings.ram.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final warn = math
+                  .min(const RamOptions().warn, settings.ram.critical - 0.01)
+                  .clamp(0.0, 0.99);
+              return settings.copyWith(ram: settings.ram.copyWith(warn: warn));
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('ram-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.ram.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                ram: settings.ram.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                ram: settings.ram.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-ram-warn-color'),
+          ),
+          const SizedBox(height: 10),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-ram-critical'),
+            label: l10n.settingsCriticalLabel,
+            value: settings.ram.critical,
+            min: 0,
+            max: 1,
+            display: '${(settings.ram.critical * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-ram-critical'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
+            resetEnabled: settings.ram.critical != const RamOptions().critical,
+            onChanged: (value) {
+              final critical = value;
+              _apply(controller, (settings) {
+                final warn = settings.ram.warn >= critical
+                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    : settings.ram.warn;
+                return settings.copyWith(
+                  ram: settings.ram.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final critical = math
+                  .max(const RamOptions().critical, settings.ram.warn + 0.01)
+                  .clamp(0.01, 1.0);
+              return settings.copyWith(
+                ram: settings.ram.copyWith(critical: critical),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('ram-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.ram.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                ram: settings.ram.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                ram: settings.ram.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-ram-critical-color'),
+          ),
+          ..._meterControls(
+            l10n: l10n,
+            controller: controller,
+            prefix: 'ram',
+            captionSource: settings.ram.captionSource,
+            captionPrefix: settings.ram.captionPrefix,
+            sparkline: settings.ram.sparkline,
+            captionSources: const [
+              MeterCaptionSource.generic,
+              MeterCaptionSource.custom,
+            ],
+            onCaption: (settings, source) => settings.copyWith(
+              ram: settings.ram.copyWith(captionSource: source),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              ram: settings.ram.copyWith(
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
+              ),
+            ),
+            onSparkline: (settings, value) =>
+                settings.copyWith(ram: settings.ram.copyWith(sparkline: value)),
+          ),
+        ],
+      ),
       'battery' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -840,7 +967,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
   }
 
   /// The caption and sparkline controls one meter panel owns; CPU and GPU
-  /// both carry an identical set.
+  /// both carry an identical set. RAM has no device name, so it passes a
+  /// narrowed source list.
   List<Widget> _meterControls({
     required AppLocalizations l10n,
     required SettingsAppBloc controller,
@@ -848,6 +976,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     required MeterCaptionSource captionSource,
     required String? captionPrefix,
     required bool sparkline,
+    List<MeterCaptionSource>? captionSources,
     required BarSettings Function(
       BarSettings settings,
       MeterCaptionSource source,
@@ -874,7 +1003,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          for (final source in MeterCaptionSource.values)
+          for (final source in captionSources ?? MeterCaptionSource.values)
             SettingsChoiceChip(
               key: ValueKey<String>('$prefix-meter-caption-${source.name}'),
               label: _captionLabel(l10n, source),

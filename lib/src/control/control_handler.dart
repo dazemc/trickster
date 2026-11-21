@@ -13,6 +13,7 @@ import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
+import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -51,6 +52,7 @@ Future<Map<String, Object?>> handleControlRequest({
       // configured; it is a shared observer, not a queued module.
       final seatIdle =
           settings.includes('cpu') ||
+              settings.includes('ram') ||
               settings.includes('gpu') ||
               settings.includes('battery') ||
               settings.includes('opencode')
@@ -73,6 +75,8 @@ Future<Map<String, Object?>> handleControlRequest({
             'clock': bloc.state.toJson(),
           if (_read<CpuBloc>(context) case final bloc?)
             'cpu': bloc.state.toJson(),
+          if (_read<RamBloc>(context) case final bloc?)
+            'ram': bloc.state.toJson(),
           if (_read<GpuBloc>(context) case final bloc?)
             'gpu': bloc.state.toJson(),
           if (_read<BatteryBloc>(context) case final bloc?)

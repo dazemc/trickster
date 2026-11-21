@@ -134,9 +134,7 @@ void main() {
 
     test('placement-only changes compare unequal', () {
       const base = BarSettings();
-      final moved = BarSettings(modulePlacement: {
-        'clock': ModuleZone.leading,
-      });
+      final moved = BarSettings(modulePlacement: {'clock': ModuleZone.leading});
       expect(moved, isNot(equals(base)));
       expect(base, isNot(equals(moved)));
       expect(
@@ -255,6 +253,15 @@ void main() {
           criticalColor: Color(0xffff00ff),
           sparkline: false,
         ),
+        ram: RamOptions(
+          warn: 0.6,
+          critical: 0.8,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'MEM',
+          warnColor: Color(0xff00ffff),
+          criticalColor: Color(0xffff8800),
+          sparkline: false,
+        ),
         clock: ClockOptions(
           format: ClockFormat.hour24,
           showDate: false,
@@ -290,6 +297,13 @@ void main() {
       expect(decoded.cpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.cpu.captionPrefix, 'CPU0');
       expect(decoded.cpu.sparkline, isFalse);
+      expect(decoded.ram.warn, 0.6);
+      expect(decoded.ram.critical, 0.8);
+      expect(decoded.ram.captionSource, MeterCaptionSource.custom);
+      expect(decoded.ram.captionPrefix, 'MEM');
+      expect(decoded.ram.warnColor, const Color(0xff00ffff));
+      expect(decoded.ram.criticalColor, const Color(0xffff8800));
+      expect(decoded.ram.sparkline, isFalse);
       expect(decoded.gpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.gpu.captionPrefix, 'GPU0');
       expect(decoded.gpu.warn, 0.6);
@@ -337,6 +351,12 @@ void main() {
       expect(bare.cpu.captionSource, MeterCaptionSource.generic);
       expect(bare.cpu.captionPrefix, isNull);
       expect(bare.cpu.sparkline, isTrue);
+      expect(bare.ram.warn, 0.85);
+      expect(bare.ram.critical, 0.95);
+      expect(bare.ram.captionSource, MeterCaptionSource.generic);
+      expect(bare.ram.captionPrefix, isNull);
+      expect(bare.ram.sparkline, isTrue);
+      expect(bare.modules, contains('ram'));
       expect(bare.gpu.captionSource, MeterCaptionSource.generic);
       expect(bare.gpu.sparkline, isTrue);
       expect(bare.appearance.blur, isTrue);
@@ -400,6 +420,22 @@ void main() {
         throwsFormatException,
       );
       expect(
+        () => BarSettings.decode('{"revision": 1, "ram": "fast"}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "ram": {"warn": 0.9, "critical": 0.5}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "ram": {"caption_source": "device"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
         () => BarSettings.decode(
           '{"revision": 1, "gpu": {"critical_color": "not a color"}}',
         ),
@@ -427,6 +463,8 @@ void main() {
       expect(explicit.cpu.captionSource, MeterCaptionSource.generic);
       expect(explicit.cpu.sparkline, isTrue);
       expect(explicit.gpu.captionSource, MeterCaptionSource.device);
+      expect(explicit.ram.captionSource, MeterCaptionSource.generic);
+      expect(explicit.ram.sparkline, isTrue);
     });
 
     test('the accent source round-trips and rejects unknown values', () {

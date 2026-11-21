@@ -124,6 +124,8 @@ void main() {
     expect(l10n.trayMenuUntitled, '未命名项目');
     expect(l10n.workspaceUrgent, '紧急');
     expect(l10n.metricCpu, 'CPU');
+    expect(l10n.metricRam, 'RAM');
+    expect(l10n.moduleRam, '内存');
     expect(l10n.desktopGpuLabel, 'GPU');
   });
 }

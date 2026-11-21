@@ -6,6 +6,7 @@ import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
@@ -13,6 +14,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
@@ -44,6 +46,29 @@ bool _created(List<String> lines, String bloc) =>
     lines.any((line) => line.startsWith('bloc+ ') && line.contains(bloc));
 
 class _RecordingCpuSampler extends CpuSampler {
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+}
+
+class _RecordingRamSampler extends RamSampler {
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -413,6 +438,63 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.byType(CpuPill), findsNothing);
+  });
+
+  testWidgets('ram-only idle dispatches only the ram events', (tester) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final ram = _RecordingRamSampler();
+    final cpu = _RecordingCpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'ram']),
+      seatIdleChanges: changes.stream,
+      ramSamplerBuilder: () => ram,
+      cpuSamplerBuilder: () => cpu,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(ram.pauses, 1);
+    expect(ram.resumes, 1);
+    expect(cpu.pauses, 0);
+    expect(cpu.resumes, 0);
+  });
+
+  testWidgets('a ram module created while idle starts paused', (tester) async {
+    final ram = _RecordingRamSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'ram']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      ramSamplerBuilder: () => ram,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(ram.starts, 1);
+    expect(ram.startedPaused, isTrue);
+  });
+
+  testWidgets('disabled ram builds no RamBloc or sampler', (tester) async {
+    final lines = <String>[];
+    final previous = Bloc.observer;
+    Bloc.observer = TricksterObserver(log: lines.add);
+    final ram = _RecordingRamSampler();
+    try {
+      await pumpBarHarness(
+        tester,
+        settings: const BarSettings(modules: ['clock']),
+        ramSamplerBuilder: () => ram,
+        settle: const Duration(milliseconds: 100),
+      );
+      expect(_created(lines, 'RamBloc'), isFalse);
+      expect(ram.starts, 0);
+      expect(find.byType(RamPill), findsNothing);
+    } finally {
+      Bloc.observer = previous;
+    }
   });
 
   testWidgets('cpu-only idle dispatches only the cpu events', (tester) async {

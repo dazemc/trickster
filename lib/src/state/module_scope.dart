@@ -6,12 +6,14 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
+import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
@@ -37,8 +39,10 @@ class ModuleScope extends StatelessWidget {
     required this.child,
     this.clockBuilder,
     this.cpuBuilder,
+    this.ramBuilder,
     this.gpuBuilder,
     this.cpuSamplerBuilder,
+    this.ramSamplerBuilder,
     this.gpuSamplerBuilder,
     this.batterySamplerBuilder,
     this.opencodeSamplerBuilder,
@@ -56,11 +60,14 @@ class ModuleScope extends StatelessWidget {
   final Widget child;
   final ClockBloc Function()? clockBuilder;
   final CpuBloc Function()? cpuBuilder;
+  final RamBloc Function()? ramBuilder;
   final GpuBloc Function()? gpuBuilder;
 
   /// Sampler factories for tests that need the production paused-start wiring
-  /// without touching `/proc/stat`, sysfs, NVML, or the OpenCode server.
+  /// without touching `/proc/stat`, `/proc/meminfo`, sysfs, NVML, or the
+  /// OpenCode server.
   final CpuSampler Function()? cpuSamplerBuilder;
+  final RamSampler Function()? ramSamplerBuilder;
   final GpuSampler Function()? gpuSamplerBuilder;
   final BatterySampler Function()? batterySamplerBuilder;
   final OpencodeSampler Function()? opencodeSamplerBuilder;
@@ -79,6 +86,7 @@ class ModuleScope extends StatelessWidget {
     final settings = context.watch<SettingsBloc>().state;
     final gatesIdleSamplers =
         settings.includes('cpu') ||
+        settings.includes('ram') ||
         settings.includes('gpu') ||
         settings.includes('battery') ||
         settings.includes('media') ||
@@ -95,6 +103,14 @@ class ModuleScope extends StatelessWidget {
                 cpuBuilder?.call() ??
                 (CpuBloc(sampler: cpuSamplerBuilder?.call())..add(
                   CpuStarted(paused: context.read<SeatIdleBloc>().state.idle),
+                )),
+          ),
+        if (settings.includes('ram'))
+          BlocProvider<RamBloc>(
+            create: (context) =>
+                ramBuilder?.call() ??
+                (RamBloc(sampler: ramSamplerBuilder?.call())..add(
+                  RamStarted(paused: context.read<SeatIdleBloc>().state.idle),
                 )),
           ),
         if (settings.includes('gpu'))
@@ -167,6 +183,11 @@ class ModuleScope extends StatelessWidget {
                 if (settings.includes('cpu')) {
                   context.read<CpuBloc>().add(
                     state.idle ? const CpuPaused() : const CpuResumed(),
+                  );
+                }
+                if (settings.includes('ram')) {
+                  context.read<RamBloc>().add(
+                    state.idle ? const RamPaused() : const RamResumed(),
                   );
                 }
                 if (settings.includes('gpu')) {

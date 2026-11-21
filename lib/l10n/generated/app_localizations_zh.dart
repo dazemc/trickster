@@ -28,6 +28,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get metricCpu => 'CPU';
 
   @override
+  String get metricRam => 'RAM';
+
+  @override
   String get desktopGpuLabel => 'GPU';
 
   @override
@@ -257,6 +260,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get moduleCpu => 'CPU';
+
+  @override
+  String get moduleRam => '内存';
 
   @override
   String get moduleGpu => 'GPU';

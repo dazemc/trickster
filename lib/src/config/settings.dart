@@ -224,6 +224,113 @@ class CpuOptions extends Equatable {
   }
 }
 
+/// Typed options for the RAM meter. The metric has no device name, so the
+/// caption source is limited to the generic tag or a custom prefix.
+class RamOptions extends Equatable {
+  const RamOptions({
+    this.warn = 0.85,
+    this.critical = 0.95,
+    this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
+    this.sparkline = true,
+  });
+
+  final double warn;
+  final double critical;
+  final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
+
+  @override
+  List<Object?> get props => [
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    warnColor,
+    criticalColor,
+    sparkline,
+  ];
+
+  Map<String, Object?> toJson() => {
+    'warn': warn,
+    'critical': critical,
+    'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
+    if (warnColor != null) 'warn_color': _hex(warnColor!),
+    if (criticalColor != null) 'critical_color': _hex(criticalColor!),
+    'sparkline': sparkline,
+  };
+
+  RamOptions copyWith({
+    double? warn,
+    double? critical,
+    MeterCaptionSource? captionSource,
+    Object? captionPrefix = _unset,
+    Object? warnColor = _unset,
+    Object? criticalColor = _unset,
+    bool? sparkline,
+  }) {
+    return RamOptions(
+      warn: warn ?? this.warn,
+      critical: critical ?? this.critical,
+      captionSource: captionSource ?? this.captionSource,
+      captionPrefix: identical(captionPrefix, _unset)
+          ? this.captionPrefix
+          : captionPrefix as String?,
+      warnColor: identical(warnColor, _unset)
+          ? this.warnColor
+          : warnColor as Color?,
+      criticalColor: identical(criticalColor, _unset)
+          ? this.criticalColor
+          : criticalColor as Color?,
+      sparkline: sparkline ?? this.sparkline,
+    );
+  }
+
+  static RamOptions fromJson(Object? json) {
+    if (json == null) {
+      return const RamOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.ram must be an object');
+    }
+    final warn = _ratio(json['warn'], 'settings.ram.warn') ?? 0.85;
+    final critical = _ratio(json['critical'], 'settings.ram.critical') ?? 0.95;
+    if (warn >= critical) {
+      throw const FormatException('settings.ram.warn must be below critical');
+    }
+    final captionSource = MeterCaptionSource.parse(json['caption_source']);
+    if (captionSource == MeterCaptionSource.device) {
+      throw const FormatException(
+        'settings.ram.caption_source must be generic or custom',
+      );
+    }
+    return RamOptions(
+      warn: warn,
+      critical: critical,
+      captionSource: captionSource,
+      captionPrefix: _prefix(json['caption_prefix']),
+      warnColor: _meterColor(json['warn_color'], 'settings.ram.warn_color'),
+      criticalColor: _meterColor(
+        json['critical_color'],
+        'settings.ram.critical_color',
+      ),
+      sparkline: json['sparkline'] as bool? ?? true,
+    );
+  }
+}
+
 /// Typed options for the GPU meter; the same shape as the CPU's meter keys.
 class GpuOptions extends Equatable {
   const GpuOptions({
@@ -881,6 +988,7 @@ class BarSettings extends Equatable {
     'media',
     'cpu',
     'gpu',
+    'ram',
     'battery',
     'clock',
     'opencode',
@@ -898,6 +1006,7 @@ class BarSettings extends Equatable {
     this.appearance = const AppearanceOptions(),
     this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
+    this.ram = const RamOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
@@ -931,6 +1040,7 @@ class BarSettings extends Equatable {
   /// Look of the workspace rail's pips.
   final WorkspaceOptions workspaces;
   final CpuOptions cpu;
+  final RamOptions ram;
   final ClockOptions clock;
   final BatteryOptions battery;
   final GpuOptions gpu;
@@ -956,6 +1066,7 @@ class BarSettings extends Equatable {
     workspaces,
     ...modules,
     cpu,
+    ram,
     clock,
     battery,
     gpu,
@@ -1009,6 +1120,7 @@ class BarSettings extends Equatable {
           if (!entry.value.isEmpty) entry.key: entry.value.toJson(),
       },
     'cpu': cpu.toJson(),
+    'ram': ram.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
@@ -1036,6 +1148,7 @@ class BarSettings extends Equatable {
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
+      ram: ram,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1059,6 +1172,7 @@ class BarSettings extends Equatable {
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
+      ram: ram,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1082,6 +1196,7 @@ class BarSettings extends Equatable {
       modules: modules,
       modulePlacement: modulePlacement,
       cpu: cpu,
+      ram: ram,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1096,6 +1211,7 @@ class BarSettings extends Equatable {
     List<String>? modules,
     Map<String, ModuleZone>? modulePlacement,
     CpuOptions? cpu,
+    RamOptions? ram,
     ClockOptions? clock,
     BatteryOptions? battery,
     GpuOptions? gpu,
@@ -1121,6 +1237,7 @@ class BarSettings extends Equatable {
       modules: modules ?? this.modules,
       modulePlacement: modulePlacement ?? this.modulePlacement,
       cpu: cpu ?? this.cpu,
+      ram: ram ?? this.ram,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
@@ -1160,21 +1277,13 @@ class BarSettings extends Equatable {
       accentWallpaperPick: _accentPick(decoded['accent_wallpaper_pick']),
       modules: modules is List
           ? modules.whereType<String>().toList(growable: false)
-          : const [
-              'workspaces',
-              'tray',
-              'media',
-              'cpu',
-              'gpu',
-              'battery',
-              'clock',
-              'opencode',
-            ],
+          : knownModules,
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
       appearance: AppearanceOptions.fromJson(decoded['appearance']),
       workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
       cpu: CpuOptions.fromJson(decoded['cpu'], legacy: legacyMeter),
+      ram: RamOptions.fromJson(decoded['ram']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),

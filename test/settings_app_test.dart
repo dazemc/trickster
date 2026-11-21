@@ -435,6 +435,29 @@ void main() {
     await reset('reset-cpu-critical');
     expect(bloc.settings.cpu.critical, const CpuOptions().critical);
 
+    await openOptions('ram');
+    await nudgeToMax('options-ram-warn');
+    await reset('reset-ram-warn');
+    expect(bloc.settings.ram.warn, const RamOptions().warn);
+    await reset('reset-ram-critical');
+    expect(bloc.settings.ram.critical, const RamOptions().critical);
+    expect(
+      find.byKey(const ValueKey<String>('ram-meter-caption-device')),
+      findsNothing,
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('ram-meter-caption-custom')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('ram-meter-caption-custom')),
+    );
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.ram.captionSource, MeterCaptionSource.custom);
+    await reset('reset-ram-meter-caption');
+    expect(bloc.settings.ram.captionSource, MeterCaptionSource.generic);
+
     await openOptions('battery');
     await nudgeToMax('options-battery-warn');
     await reset('reset-battery-warn');
@@ -460,6 +483,8 @@ void main() {
     expect(decoded.clock.format, const ClockOptions().format);
     expect(decoded.cpu.warn, const CpuOptions().warn);
     expect(decoded.cpu.critical, const CpuOptions().critical);
+    expect(decoded.ram.warn, const RamOptions().warn);
+    expect(decoded.ram.critical, const RamOptions().critical);
     expect(decoded.battery.warn, const BatteryOptions().warn);
     expect(decoded.battery.critical, const BatteryOptions().critical);
     expect(decoded.gpu.captionSource, const GpuOptions().captionSource);

@@ -8,6 +8,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
@@ -17,6 +18,7 @@ import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
+import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
@@ -35,6 +37,45 @@ class FakeCpuSampler extends CpuSampler {
 
   @override
   Stream<CpuSample> get snapshots => controller.stream;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+
+  @override
+  void dispose() {
+    disposed = true;
+    disposes += 1;
+    controller.close();
+  }
+}
+
+class FakeRamSampler extends RamSampler {
+  FakeRamSampler() : super(interval: const Duration(days: 1));
+
+  final controller = StreamController<RamSample>.broadcast();
+
+  var disposed = false;
+  var disposes = 0;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  Stream<RamSample> get snapshots => controller.stream;
 
   @override
   void start({bool paused = false}) {
@@ -439,6 +480,95 @@ cpu MHz\t\t: 3400.000
       );
       expect(sample.current, sample.history.last);
     });
+  });
+
+  group('RamBloc', () {
+    late FakeRamSampler fake;
+
+    test('started then sampled emits the sample', () async {
+      final sampler = FakeRamSampler();
+      final bloc = RamBloc(sampler: sampler);
+      const sample = RamSample(
+        usedBytes: 3 * 1024 * 1024,
+        totalBytes: 8 * 1024 * 1024,
+        history: [0.375],
+      );
+      try {
+        bloc.add(const RamStarted());
+        await pumpEventQueue();
+        sampler.controller.add(sample);
+        await expectLater(bloc.stream, emits(sample));
+      } finally {
+        await bloc.close();
+      }
+      expect(sampler.disposed, isTrue);
+    });
+
+    test('stopped is terminal and close does not dispose twice', () async {
+      final sampler = FakeRamSampler();
+      final bloc = RamBloc(sampler: sampler);
+      final seen = <RamSample>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const RamStarted());
+      await pumpEventQueue();
+      bloc.add(const RamStopped());
+      await pumpEventQueue();
+
+      expect(sampler.disposes, 1);
+      expect(sampler.controller.isClosed, isTrue);
+
+      bloc.add(const RamSampled(RamSample(usedBytes: 9, totalBytes: 10)));
+      bloc.add(const RamStarted(paused: true));
+      bloc.add(const RamPaused());
+      bloc.add(const RamResumed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(sampler.starts, 1);
+      expect(sampler.pauses, 0);
+      expect(sampler.resumes, 0);
+      expect(sampler.disposes, 1);
+
+      await bloc.close();
+      expect(sampler.disposes, 1);
+      await subscription.cancel();
+    });
+
+    blocTest<RamBloc, RamSample>(
+      'seat pauses and resumes the sampler without emitting',
+      build: () {
+        fake = FakeRamSampler();
+        return RamBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const RamStarted());
+        await pumpEventQueue();
+        bloc.add(const RamPaused());
+        await pumpEventQueue();
+        bloc.add(const RamResumed());
+        await pumpEventQueue();
+      },
+      expect: () => const <RamSample>[],
+      verify: (_) {
+        expect(fake.pauses, 1);
+        expect(fake.resumes, 1);
+      },
+    );
+
+    blocTest<RamBloc, RamSample>(
+      'a module started while idle seeds a paused sampler',
+      build: () {
+        fake = FakeRamSampler();
+        return RamBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const RamStarted(paused: true));
+        await pumpEventQueue();
+      },
+      expect: () => const <RamSample>[],
+      verify: (_) => expect(fake.startedPaused, isTrue),
+    );
   });
 
   group('BatteryBloc', () {

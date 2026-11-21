@@ -12,6 +12,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
@@ -24,6 +25,7 @@ import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
+import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -142,8 +144,10 @@ Future<void> pumpBarHarness(
   WallpaperAccentBloc? wallpaperAccent,
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
+  RamBloc Function()? ramBuilder,
   GpuBloc Function()? gpuBuilder,
   CpuSampler Function()? cpuSamplerBuilder,
+  RamSampler Function()? ramSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
   BatterySampler Function()? batterySamplerBuilder,
   OpencodeSampler Function()? opencodeSamplerBuilder,
@@ -182,12 +186,24 @@ Future<void> pumpBarHarness(
                 (cpuSamplerBuilder == null
                     ? () => CpuBloc(initial: const CpuSample(0.42))
                     : null),
+            ramBuilder:
+                ramBuilder ??
+                (ramSamplerBuilder == null
+                    ? () => RamBloc(
+                        initial: const RamSample(
+                          usedBytes: 4 * 1024 * 1024 * 1024,
+                          totalBytes: 8 * 1024 * 1024 * 1024,
+                          history: [0.5],
+                        ),
+                      )
+                    : null),
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null
                     ? () => GpuBloc(initial: const GpuState())
                     : null),
             cpuSamplerBuilder: cpuSamplerBuilder,
+            ramSamplerBuilder: ramSamplerBuilder,
             gpuSamplerBuilder: gpuSamplerBuilder,
             trayBuilder:
                 trayBuilder ?? () => TrayBloc(initial: const TrayState()),

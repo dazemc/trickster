@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -17,6 +18,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
@@ -97,6 +99,26 @@ void main() {
     );
     expect(_nodeByLabel(tester, 'RTX 4070 Ti').getSemanticsData().value, '42%');
     expect(find.bySemanticsLabel('AMD0'), findsNothing);
+    handle.dispose();
+  });
+
+  testWidgets('ram meter announces the RAM caption and percent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _keymap(
+        const RamPill(
+          accent: _accent,
+          sample: RamSample(
+            usedBytes: 4 * 1024 * 1024,
+            totalBytes: 8 * 1024 * 1024,
+            history: [0.5],
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    expect(_nodeByLabel(tester, 'RAM').getSemanticsData().value, '50%');
     handle.dispose();
   });
 

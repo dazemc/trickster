@@ -12,6 +12,7 @@ import 'package:trickster/src/bar/media.dart';
 import 'package:trickster/src/bar/opencode.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
+import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -22,6 +23,7 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/opencode.dart';
+import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
@@ -29,6 +31,7 @@ import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
+import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -269,6 +272,37 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                   warnColor: settings.cpu.warnColor,
                   criticalColor: settings.cpu.criticalColor,
                   sparkline: settings.cpu.sparkline,
+                  vertical: vertical,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      'ram': (position) => BlocBuilder<RamBloc, RamSample>(
+        builder: (context, sample) {
+          if (sample.current == null) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            key: const ValueKey<String>('system-bar-ram'),
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
+              child: RepaintBoundary(
+                child: RamPill(
+                  accent: accent,
+                  sample: sample,
+                  warn: settings.ram.warn,
+                  critical: settings.ram.critical,
+                  captionSource: settings.ram.captionSource,
+                  captionPrefix: settings.ram.captionPrefix,
+                  warnColor: settings.ram.warnColor,
+                  criticalColor: settings.ram.criticalColor,
+                  sparkline: settings.ram.sparkline,
                   vertical: vertical,
                 ),
               ),
