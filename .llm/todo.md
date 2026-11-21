@@ -18,13 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Memory modules
-
-- **M — Add the first-class RAM module.** Add `RamSample`/`RamSampler`
-  (`/proc/meminfo`, 1 Hz, 45-sample history, paused start, idle pause/resume),
-  `RamBloc`, `RamOptions`, the `ram` module row/pill, settings options,
-  en/zh strings, and `tricksterctl status` state. RAM is default-on and hides
-  when no reading exists. Done: sampler/pill/config/gating/status tests,
-  `flutter analyze`, full `flutter test`, and a release build pass; headless
-  runtime proof replaces the screen-off visual check.
