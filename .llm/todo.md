@@ -18,15 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Input modules
-
-- **M — Add the first-class Hyprland keyboard-layout module.** Add
-  `KeyboardLayoutState`/`HyprlandKeyboardLayout`, the event-driven
-  `.socket2.sock` `activelayout` subscription with reconnect, the
-  `KeyboardLayoutBloc`, the `keyboard_layout` pill/settings/l10n/status, and
-  the ModuleScope provider. It is default-on, Hyprland-only, and creates no
-  sockets when the backend is unavailable. Done: fixture devices JSON,
-  event/reconnect/multi-keyboard tests, bloc/pill/gating/status/l10n tests,
-  `flutter analyze`, full `flutter test`, and a release build pass; headless
-  status proof replaces the screen-off visual check.
