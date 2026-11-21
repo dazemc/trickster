@@ -12,12 +12,14 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
+import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
@@ -403,6 +405,8 @@ void main() {
               initial: const RamSample(
                 usedBytes: 6 * 1024 * 1024,
                 totalBytes: 8 * 1024 * 1024,
+                swapUsedBytes: 1024 * 1024,
+                swapTotalBytes: 4 * 1024 * 1024,
                 history: [0.5, 0.75],
               ),
             ),
@@ -436,7 +440,79 @@ void main() {
       'current': 0.75,
       'used_bytes': 6 * 1024 * 1024,
       'total_bytes': 8 * 1024 * 1024,
+      'swap_current': 0.25,
+      'swap_used_bytes': 1024 * 1024,
+      'swap_total_bytes': 4 * 1024 * 1024,
       'history': [0.5, 0.75],
+    });
+    expect(state['seat_idle'], {'idle': false});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status exposes the CPU load average and its idle gate', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) => SettingsBloc(const BarSettings(modules: ['cpu'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<CpuBloc>(
+            create: (_) => CpuBloc(
+              initial: const CpuSample(
+                0.42,
+                history: [0.42],
+                name: 'Test CPU',
+                loadAverage: LoadAverage(
+                  load1: 0.84,
+                  load5: 0.71,
+                  load15: 0.62,
+                  onlineCores: 16,
+                ),
+              ),
+            ),
+          ),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: false),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['cpu'], {
+      'current': 0.42,
+      'history': [0.42],
+      'name': 'Test CPU',
+      'load_average': {
+        'load1': 0.84,
+        'load5': 0.71,
+        'load15': 0.62,
+        'online_cores': 16,
+      },
     });
     expect(state['seat_idle'], {'idle': false});
     expect(jsonEncode(reply), isA<String>());

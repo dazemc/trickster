@@ -50,6 +50,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String swapUsageDetail(int percent, String used, String total) {
+    return '交换 $percent% · $used / $total';
+  }
+
+  @override
+  String cpuLoadDetail(int one, int five, int fifteen, int cores) {
+    return '负载 1分钟 $one% · 5分钟 $five% · 15分钟 $fifteen%（$cores 核）';
+  }
+
+  @override
   String get networkWifi => 'Wi-Fi';
 
   @override
@@ -482,6 +492,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsCpuSection => 'CPU 阈值';
+
+  @override
+  String get settingsCpuLoadAverage => '平均负载';
 
   @override
   String get settingsBatterySection => '电池阈值';

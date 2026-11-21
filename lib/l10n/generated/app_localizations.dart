@@ -165,6 +165,18 @@ abstract class AppLocalizations {
   /// **'{used} used · {total} total · {free} free'**
   String diskUsageDetail(String used, String total, String free);
 
+  /// RAM tooltip detail for swap usage with IEC byte values.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap {percent}% · {used} / {total}'**
+  String swapUsageDetail(int percent, String used, String total);
+
+  /// CPU tooltip detail with normalized load averages and online core count.
+  ///
+  /// In en, this message translates to:
+  /// **'Load 1m {one}% · 5m {five}% · 15m {fifteen}% ({cores} cores)'**
+  String cpuLoadDetail(int one, int five, int fifteen, int cores);
+
   /// Network pill label for a connected Wi-Fi link.
   ///
   /// In en, this message translates to:
@@ -992,6 +1004,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'CPU thresholds'**
   String get settingsCpuSection;
+
+  /// Toggle that appends load average to the CPU tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Load average'**
+  String get settingsCpuLoadAverage;
 
   /// Section heading for battery threshold options.
   ///

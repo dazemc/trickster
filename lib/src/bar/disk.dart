@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:trickster/src/bar/format.dart';
 import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
@@ -6,22 +7,6 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/theme/accent.dart';
-
-/// Formats bytes with IEC (1024-based) units for the disk tooltip.
-String formatIecBytes(int bytes) {
-  if (bytes < 1024) {
-    return '$bytes B';
-  }
-  const units = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'];
-  var value = bytes / 1024;
-  var unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  final digits = value >= 100 || value == value.roundToDouble() ? 0 : 1;
-  return '${value.toStringAsFixed(digits)} ${units[unit]}';
-}
 
 /// One configured mount's used fraction. The pill disappears when no statvfs
 /// reading is available, so it never paints a synthetic zero.

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/meter.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
@@ -14,6 +15,14 @@ const _accent = WallpaperAccent(Color(0xffd0bcff));
 const _sample = RamSample(
   usedBytes: 4 * 1024 * 1024,
   totalBytes: 8 * 1024 * 1024,
+  history: [0.25, 0.5],
+);
+
+const _swapSample = RamSample(
+  usedBytes: 4 * 1024 * 1024,
+  totalBytes: 8 * 1024 * 1024,
+  swapUsedBytes: 2 * 1024 * 1024,
+  swapTotalBytes: 8 * 1024 * 1024,
   history: [0.25, 0.5],
 );
 
@@ -59,6 +68,36 @@ void main() {
     expect(find.text('RAM'), findsOneWidget);
     expect(find.text('50%', findRichText: true), findsOneWidget);
     expect(find.byKey(LoadMeter.sparklineKey), paints..path());
+    final tooltip = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(tooltip.label, 'RAM 50%');
+  });
+
+  testWidgets('the tooltip appends swap only when a swap area exists', (
+    tester,
+  ) async {
+    await _pump(tester, _swapSample);
+    final withSwap = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(withSwap.label, 'RAM 50% · Swap 25% · 2 MiB / 8 MiB');
+
+    await _pump(tester, _sample);
+    final withoutSwap = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(withoutSwap.label, 'RAM 50%');
+  });
+
+  testWidgets('zero swap total never paints a synthetic reading', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const RamSample(
+        usedBytes: 4 * 1024 * 1024,
+        totalBytes: 8 * 1024 * 1024,
+        swapUsedBytes: 0,
+        swapTotalBytes: 0,
+      ),
+    );
+    final tooltip = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(tooltip.label, 'RAM 50%');
   });
 
   testWidgets('a missing reading renders nothing, never a zero percent', (

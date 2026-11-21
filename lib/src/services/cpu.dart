@@ -6,8 +6,71 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+/// One `/proc/loadavg` reading with the online CPU count used to normalize it.
+class LoadAverage extends Equatable {
+  const LoadAverage({
+    required this.load1,
+    required this.load5,
+    required this.load15,
+    required this.onlineCores,
+  });
+
+  final double load1;
+  final double load5;
+  final double load15;
+  final int onlineCores;
+
+  double get load1Fraction => load1 / onlineCores;
+  double get load5Fraction => load5 / onlineCores;
+  double get load15Fraction => load15 / onlineCores;
+
+  @override
+  List<Object?> get props => [load1, load5, load15, onlineCores];
+
+  Map<String, Object?> toJson() => {
+    'load1': load1,
+    'load5': load5,
+    'load15': load15,
+    'online_cores': onlineCores,
+  };
+
+  static LoadAverage? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      return null;
+    }
+    final load1 = (json['load1'] as num?)?.toDouble();
+    final load5 = (json['load5'] as num?)?.toDouble();
+    final load15 = (json['load15'] as num?)?.toDouble();
+    final onlineCores = (json['online_cores'] as num?)?.toInt();
+    if (load1 == null ||
+        load5 == null ||
+        load15 == null ||
+        onlineCores == null ||
+        onlineCores <= 0 ||
+        !load1.isFinite ||
+        !load5.isFinite ||
+        !load15.isFinite ||
+        load1 < 0 ||
+        load5 < 0 ||
+        load15 < 0) {
+      return null;
+    }
+    return LoadAverage(
+      load1: load1,
+      load5: load5,
+      load15: load15,
+      onlineCores: onlineCores,
+    );
+  }
+}
+
 class CpuSample extends Equatable {
-  const CpuSample(this.current, {this.history = const <double>[], this.name});
+  const CpuSample(
+    this.current, {
+    this.history = const <double>[],
+    this.name,
+    this.loadAverage,
+  });
 
   /// Readings each sparkline keeps: 45 samples at the 1 Hz cadence.
   static const int capacity = 45;
@@ -21,21 +84,30 @@ class CpuSample extends Equatable {
   /// caption stays the generic `CPU` tag until a module option selects it.
   final String? name;
 
-  CpuSample append(double usage) {
+  /// The latest `/proc/loadavg` reading, or null before it is available.
+  final LoadAverage? loadAverage;
+
+  CpuSample append(double usage, {LoadAverage? loadAverage}) {
     final next = <double>[...history, usage];
     if (next.length > capacity) {
       next.removeRange(0, next.length - capacity);
     }
-    return CpuSample(usage, history: List.unmodifiable(next), name: name);
+    return CpuSample(
+      usage,
+      history: List.unmodifiable(next),
+      name: name,
+      loadAverage: loadAverage ?? this.loadAverage,
+    );
   }
 
   @override
-  List<Object?> get props => [current, history, name];
+  List<Object?> get props => [current, history, name, loadAverage];
 
   Map<String, Object?> toJson() => {
     'current': current,
     'history': history,
     'name': name,
+    'load_average': loadAverage?.toJson(),
   };
 
   static CpuSample fromJson(Map<String, dynamic> json) => CpuSample(
@@ -45,6 +117,7 @@ class CpuSample extends Equatable {
         (value as num).toDouble(),
     ],
     name: json['name'] as String?,
+    loadAverage: LoadAverage.fromJson(json['load_average']),
   );
 }
 
@@ -69,14 +142,67 @@ String? parseCpuModelName(String cpuInfo) {
   return null;
 }
 
+/// Parses the three load averages from `/proc/loadavg`. The trailing runnable
+/// and last-PID fields are ignored.
+@visibleForTesting
+({double load1, double load5, double load15})? parseLoadAverage(String source) {
+  final parts = source.trim().split(RegExp(r'\s+'));
+  if (parts.length < 3) {
+    return null;
+  }
+  final load1 = double.tryParse(parts[0]);
+  final load5 = double.tryParse(parts[1]);
+  final load15 = double.tryParse(parts[2]);
+  if (load1 == null ||
+      load5 == null ||
+      load15 == null ||
+      !load1.isFinite ||
+      !load5.isFinite ||
+      !load15.isFinite ||
+      load1 < 0 ||
+      load5 < 0 ||
+      load15 < 0) {
+    return null;
+  }
+  return (load1: load1, load5: load5, load15: load15);
+}
+
+/// Counts the CPUs in a `/sys/devices/system/cpu/online` list such as
+/// `0-15` or `0-3,8-11`. Ranges are counted arithmetically, never expanded.
+@visibleForTesting
+int? parseOnlineCpuCount(String source) {
+  final trimmed = source.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  var count = 0;
+  for (final token in trimmed.split(',')) {
+    final range = token.trim().split('-');
+    if (range.isEmpty || range.length > 2) {
+      return null;
+    }
+    final start = int.tryParse(range[0].trim());
+    final end = range.length == 1 ? start : int.tryParse(range[1].trim());
+    if (start == null || end == null || start < 0 || end < start) {
+      return null;
+    }
+    count += end - start + 1;
+  }
+  return count > 0 ? count : null;
+}
+
 class CpuSampler {
   CpuSampler({
     this.interval = const Duration(seconds: 1),
     this.resumePrime = const Duration(milliseconds: 100),
     String cpuInfoPath = '/proc/cpuinfo',
     String statPath = '/proc/stat',
+    String loadavgPath = '/proc/loadavg',
+    String onlineCpusPath = '/sys/devices/system/cpu/online',
   }) : _cpuInfoPath = cpuInfoPath,
-       _statPath = statPath;
+       _statPath = statPath,
+       _loadavgPath = loadavgPath,
+       _onlineCpusPath = onlineCpusPath;
 
   final Duration interval;
 
@@ -86,9 +212,13 @@ class CpuSampler {
   final Duration resumePrime;
   final String _cpuInfoPath;
   final String _statPath;
+  final String _loadavgPath;
+  final String _onlineCpusPath;
   final Uint8List _buffer = Uint8List(256);
+  final Uint8List _loadavgBuffer = Uint8List(128);
   int? _idle;
   int? _total;
+  int? _onlineCores;
   CpuSample _latest = const CpuSample(null);
   String? _name;
   var _nameRead = false;
@@ -145,6 +275,8 @@ class CpuSampler {
     if (!_running) {
       return;
     }
+    // A resume can follow CPU hotplug; re-read the online count once.
+    _onlineCores = null;
     _primeAfterIdle();
   }
 
@@ -191,6 +323,34 @@ class CpuSampler {
     return _name;
   }
 
+  int? _readOnlineCores() {
+    try {
+      return parseOnlineCpuCount(File(_onlineCpusPath).readAsStringSync());
+    } on Object {
+      return null;
+    }
+  }
+
+  ({double load1, double load5, double load15})? _readLoadAverage() {
+    final file = File(_loadavgPath);
+    RandomAccessFile? opened;
+    try {
+      if (!file.existsSync()) {
+        return null;
+      }
+      opened = file.openSync();
+      final read = opened.readIntoSync(_loadavgBuffer);
+      if (read <= 0) {
+        return null;
+      }
+      return parseLoadAverage(String.fromCharCodes(_loadavgBuffer, 0, read));
+    } on Object {
+      return null;
+    } finally {
+      opened?.closeSync();
+    }
+  }
+
   void _sample() {
     final file = File(_statPath);
     if (!file.existsSync()) {
@@ -227,7 +387,20 @@ class CpuSampler {
         return;
       }
       final busy = 1.0 - (idleDelta / totalDelta);
-      _latest = _latest.append(math.min(1.0, math.max(0.0, busy)));
+      final cores = _onlineCores ??= _readOnlineCores();
+      final parsedLoad = _readLoadAverage();
+      final loadAverage = cores == null || parsedLoad == null
+          ? null
+          : LoadAverage(
+              load1: parsedLoad.load1,
+              load5: parsedLoad.load5,
+              load15: parsedLoad.load15,
+              onlineCores: cores,
+            );
+      _latest = _latest.append(
+        math.min(1.0, math.max(0.0, busy)),
+        loadAverage: loadAverage,
+      );
       _controller.add(_latest);
     } finally {
       opened.closeSync();

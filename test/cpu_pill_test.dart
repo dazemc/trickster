@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/meter.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/cpu.dart';
@@ -11,6 +12,12 @@ import 'package:trickster/src/theme/tokens.dart';
 import 'support/strip_harness.dart';
 
 const _accent = WallpaperAccent(Color(0xffd0bcff));
+const _load = LoadAverage(
+  load1: 0.84,
+  load5: 0.71,
+  load15: 0.62,
+  onlineCores: 16,
+);
 
 void main() {
   test('series maps to pixels with the newest sample at the right edge', () {
@@ -40,6 +47,55 @@ void main() {
   ) async {
     await _pump(tester, const CpuSample(0.42, history: [0.1, 0.42]));
     expect(find.byKey(LoadMeter.sparklineKey), paints..path());
+  });
+
+  testWidgets('the tooltip appends normalized load and core count', (
+    tester,
+  ) async {
+    await _pump(tester, const CpuSample(0.42, loadAverage: _load));
+    final tooltip = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(tooltip.label, 'CPU 42% · Load 1m 5% · 5m 4% · 15m 4% (16 cores)');
+  });
+
+  testWidgets('the load detail is optional and absent without data', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const CpuSample(0.42, loadAverage: _load),
+      showLoadAverage: false,
+    );
+    expect(
+      tester.widget<PillTooltip>(find.byType(PillTooltip)).label,
+      'CPU 42%',
+    );
+
+    await _pump(tester, const CpuSample(0.42));
+    expect(
+      tester.widget<PillTooltip>(find.byType(PillTooltip)).label,
+      'CPU 42%',
+    );
+  });
+
+  testWidgets('load above the online core count is not clamped', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const CpuSample(
+        0.42,
+        loadAverage: LoadAverage(
+          load1: 20,
+          load5: 10,
+          load15: 5,
+          onlineCores: 16,
+        ),
+      ),
+    );
+    expect(
+      tester.widget<PillTooltip>(find.byType(PillTooltip)).label,
+      'CPU 42% · Load 1m 125% · 5m 63% · 15m 31% (16 cores)',
+    );
   });
 
   testWidgets('pill leaves the sparkline blank with one sample', (
@@ -162,6 +218,7 @@ Future<void> _pump(
   CpuSample sample, {
   MeterCaptionSource captionSource = MeterCaptionSource.generic,
   String? captionPrefix,
+  bool showLoadAverage = true,
 }) {
   return tester.pumpWidget(
     withOverlayBlocs(
@@ -172,6 +229,7 @@ Future<void> _pump(
             sample: sample,
             captionSource: captionSource,
             captionPrefix: captionPrefix,
+            showLoadAverage: showLoadAverage,
           ),
         ),
       ),

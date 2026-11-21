@@ -138,6 +138,15 @@ void main() {
       l10n.diskUsageDetail('620 GiB', '1 TiB', '404 GiB'),
       '620 GiB 已用 · 1 TiB 总计 · 404 GiB 可用',
     );
+    expect(
+      l10n.swapUsageDetail(25, '2 MiB', '8 MiB'),
+      '交换 25% · 2 MiB / 8 MiB',
+    );
+    expect(
+      l10n.cpuLoadDetail(5, 4, 4, 16),
+      '负载 1分钟 5% · 5分钟 4% · 15分钟 4%（16 核）',
+    );
+    expect(l10n.settingsCpuLoadAverage, '平均负载');
     expect(l10n.moduleNetwork, '网络');
     expect(l10n.networkEthernet, '以太网');
     expect(l10n.networkDisconnected, '未连接');

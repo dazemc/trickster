@@ -11,6 +11,8 @@ Buffers:          50 kB
 Cached:          100 kB
 SReclaimable:     10 kB
 Shmem:             5 kB
+SwapTotal:      2000 kB
+SwapFree:        500 kB
 ''';
 
 const _fallbackMeminfo = '''
@@ -56,12 +58,38 @@ void main() {
     expect(parsed, isNotNull);
     expect(parsed!.total, 1000 * 1024);
     expect(parsed.available, 250 * 1024);
+    expect(parsed.swapTotal, 2000 * 1024);
+    expect(parsed.swapFree, 500 * 1024);
+  });
+
+  test('swap totals require a positive total and a free reading', () {
+    final zero = parseMeminfo(
+      'MemTotal: 1000 kB\nMemAvailable: 500 kB\n'
+      'SwapTotal: 0 kB\nSwapFree: 0 kB\n',
+    );
+    expect(zero!.swapTotal, isNull);
+    expect(zero.swapFree, isNull);
+
+    final missingFree = parseMeminfo(
+      'MemTotal: 1000 kB\nMemAvailable: 500 kB\nSwapTotal: 1000 kB\n',
+    );
+    expect(missingFree!.swapTotal, isNull);
+    expect(missingFree.swapFree, isNull);
+
+    final clamped = parseMeminfo(
+      'MemTotal: 1000 kB\nMemAvailable: 500 kB\n'
+      'SwapTotal: 1000 kB\nSwapFree: 1500 kB\n',
+    );
+    expect(clamped!.swapTotal, 1000 * 1024);
+    expect(clamped.swapFree, 1000 * 1024);
   });
 
   test('the fallback sums free, buffers, cached, reclaimable, and shmem', () {
     final parsed = parseMeminfo(_fallbackMeminfo);
     expect(parsed, isNotNull);
     expect(parsed!.available, (100 + 50 + 100 + 10 - 5) * 1024);
+    expect(parsed.swapTotal, isNull);
+    expect(parsed.swapFree, isNull);
   });
 
   test('a present zero MemAvailable is not replaced by the fallback', () {
@@ -94,10 +122,12 @@ void main() {
     expect(sample.current, isNull);
   });
 
-  test('ram json round-trips including history', () {
+  test('ram json round-trips including history and swap', () {
     const sample = RamSample(
       usedBytes: 4 * 1024 * 1024,
       totalBytes: 8 * 1024 * 1024,
+      swapUsedBytes: 1024 * 1024,
+      swapTotalBytes: 2 * 1024 * 1024,
       history: [0.25, 0.5],
     );
     final decoded = RamSample.fromJson(
@@ -105,9 +135,35 @@ void main() {
     );
     expect(decoded.usedBytes, 4 * 1024 * 1024);
     expect(decoded.totalBytes, 8 * 1024 * 1024);
+    expect(decoded.swapUsedBytes, 1024 * 1024);
+    expect(decoded.swapTotalBytes, 2 * 1024 * 1024);
+    expect(decoded.swapFraction, 0.5);
+    expect(decoded.hasSwap, isTrue);
     expect(decoded.history, [0.25, 0.5]);
     expect(decoded.current, 0.5);
     expect(decoded.toJson()['current'], 0.5);
+    expect(decoded.toJson()['swap_current'], 0.5);
+  });
+
+  test('an old ram document decodes with no swap and append preserves it', () {
+    final decoded = RamSample.fromJson(const <String, dynamic>{
+      'used_bytes': 4,
+      'total_bytes': 8,
+      'history': [0.5],
+    });
+    expect(decoded.swapUsedBytes, isNull);
+    expect(decoded.swapTotalBytes, isNull);
+    expect(decoded.swapFraction, isNull);
+
+    final sample = const RamSample(
+      usedBytes: 4,
+      totalBytes: 8,
+      swapUsedBytes: 1,
+      swapTotalBytes: 2,
+    ).append(0.5);
+    expect(sample.swapUsedBytes, 1);
+    expect(sample.swapTotalBytes, 2);
+    expect(sample.swapFraction, 0.5);
   });
 
   testWidgets('start samples immediately and pause stops the timer', (
@@ -121,6 +177,9 @@ void main() {
     expect(f.sampler.isRunning, isTrue);
     expect(f.samples, hasLength(1));
     expect(f.samples.single.current, closeTo(0.75, 1e-9));
+    expect(f.samples.single.swapTotalBytes, 2000 * 1024);
+    expect(f.samples.single.swapUsedBytes, 1500 * 1024);
+    expect(f.samples.single.swapFraction, closeTo(0.75, 1e-9));
     expect(f.samples.single.history, hasLength(1));
 
     f.sampler.pause();
@@ -139,7 +198,21 @@ void main() {
     expect(f.sampler.isRunning, isTrue);
     expect(f.samples, hasLength(2));
     expect(f.samples.last.current, closeTo(0.5, 1e-9));
+    expect(f.samples.last.swapFraction, closeTo(0.75, 1e-9));
     expect(f.samples.last.history, hasLength(2));
+  });
+
+  testWidgets('a machine without swap emits no swap reading', (tester) async {
+    final f = _fixture(contents: _fallbackMeminfo);
+    addTearDown(f.dispose);
+
+    f.sampler.start();
+    await tester.pump();
+    expect(f.samples, hasLength(1));
+    expect(f.samples.single.current, isNotNull);
+    expect(f.samples.single.swapUsedBytes, isNull);
+    expect(f.samples.single.swapTotalBytes, isNull);
+    expect(f.samples.single.swapFraction, isNull);
   });
 
   testWidgets('a paused start does no work until resumed', (tester) async {

@@ -1142,6 +1142,16 @@ void main() {
     expect(bloc.settings.cpu.warn, const CpuOptions().warn);
     await reset('reset-cpu-critical');
     expect(bloc.settings.cpu.critical, const CpuOptions().critical);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('cpu-load-average')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('cpu-load-average')));
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.cpu.showLoadAverage, isFalse);
+    await reset('reset-cpu-load-average');
+    expect(bloc.settings.cpu.showLoadAverage, isTrue);
 
     await openOptions('ram');
     await nudgeToMax('options-ram-warn');

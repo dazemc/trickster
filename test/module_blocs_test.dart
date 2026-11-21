@@ -590,12 +590,24 @@ void main() {
     );
 
     test('cpu json round-trips', () {
-      const sample = CpuSample(0.25, name: 'AMD Ryzen 9 5950X');
+      const sample = CpuSample(
+        0.25,
+        name: 'AMD Ryzen 9 5950X',
+        loadAverage: LoadAverage(
+          load1: 0.84,
+          load5: 0.71,
+          load15: 0.62,
+          onlineCores: 16,
+        ),
+      );
       final decoded = CpuSample.fromJson(
         Map<String, dynamic>.from(sample.toJson()),
       );
       expect(decoded.current, 0.25);
       expect(decoded.name, 'AMD Ryzen 9 5950X');
+      expect(decoded.loadAverage?.onlineCores, 16);
+      expect(decoded.loadAverage?.load1, closeTo(0.84, 1e-9));
+      expect(decoded.loadAverage?.load1Fraction, closeTo(0.0525, 1e-9));
       final series = const CpuSample(null).append(0.25).append(0.75);
       final decodedSeries = CpuSample.fromJson(
         Map<String, dynamic>.from(series.toJson()),
@@ -616,12 +628,20 @@ cpu MHz\t\t: 3400.000
       expect(parseCpuModelName('model name\t: \n'), isNull);
     });
 
-    test('cpu series preserves the device name', () {
+    test('cpu series preserves the device name and load average', () {
       final sample = const CpuSample(
         null,
         name: 'AMD Ryzen 9 5950X',
+        loadAverage: LoadAverage(
+          load1: 0.84,
+          load5: 0.71,
+          load15: 0.62,
+          onlineCores: 16,
+        ),
       ).append(0.5).append(0.75);
       expect(sample.name, 'AMD Ryzen 9 5950X');
+      expect(sample.loadAverage?.onlineCores, 16);
+      expect(sample.loadAverage?.load1, closeTo(0.84, 1e-9));
     });
 
     test('cpu series keeps the cap and appends newest last', () {
@@ -726,6 +746,23 @@ cpu MHz\t\t: 3400.000
       expect: () => const <RamSample>[],
       verify: (_) => expect(fake.startedPaused, isTrue),
     );
+
+    test('ram json round-trips swap state', () {
+      const sample = RamSample(
+        usedBytes: 4 * 1024 * 1024,
+        totalBytes: 8 * 1024 * 1024,
+        swapUsedBytes: 2 * 1024 * 1024,
+        swapTotalBytes: 8 * 1024 * 1024,
+        history: [0.5],
+      );
+      final decoded = RamSample.fromJson(
+        Map<String, dynamic>.from(sample.toJson()),
+      );
+      expect(decoded.swapUsedBytes, 2 * 1024 * 1024);
+      expect(decoded.swapTotalBytes, 8 * 1024 * 1024);
+      expect(decoded.swapFraction, 0.25);
+      expect(decoded.toJson()['swap_current'], 0.25);
+    });
   });
 
   group('TemperatureBloc', () {

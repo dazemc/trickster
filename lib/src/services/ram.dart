@@ -6,15 +6,24 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// One system-memory reading as a 0-1 used fraction plus the byte totals the
-/// fraction came from.
+/// fraction came from. Swap rides the same reading: the RAM tooltip shows it
+/// when the kernel publishes a swap area.
 class RamSample extends Equatable {
-  const RamSample({this.usedBytes, this.totalBytes, this.history = const []});
+  const RamSample({
+    this.usedBytes,
+    this.totalBytes,
+    this.swapUsedBytes,
+    this.swapTotalBytes,
+    this.history = const [],
+  });
 
   /// Readings the sparkline keeps: 45 samples at the 1 Hz cadence.
   static const int capacity = 45;
 
   final int? usedBytes;
   final int? totalBytes;
+  final int? swapUsedBytes;
+  final int? swapTotalBytes;
 
   /// Up to [capacity] used fractions, oldest first; the newest equals
   /// [current].
@@ -29,6 +38,17 @@ class RamSample extends Equatable {
     return (used / total).clamp(0.0, 1.0);
   }
 
+  double? get swapFraction {
+    final total = swapTotalBytes;
+    final used = swapUsedBytes;
+    if (total == null || total <= 0 || used == null) {
+      return null;
+    }
+    return (used / total).clamp(0.0, 1.0);
+  }
+
+  bool get hasSwap => swapFraction != null;
+
   RamSample append(double usage) {
     final next = <double>[...history, usage];
     if (next.length > capacity) {
@@ -37,23 +57,36 @@ class RamSample extends Equatable {
     return RamSample(
       usedBytes: usedBytes,
       totalBytes: totalBytes,
+      swapUsedBytes: swapUsedBytes,
+      swapTotalBytes: swapTotalBytes,
       history: List.unmodifiable(next),
     );
   }
 
   @override
-  List<Object?> get props => [usedBytes, totalBytes, history];
+  List<Object?> get props => [
+    usedBytes,
+    totalBytes,
+    swapUsedBytes,
+    swapTotalBytes,
+    history,
+  ];
 
   Map<String, Object?> toJson() => {
     'current': current,
     'used_bytes': usedBytes,
     'total_bytes': totalBytes,
+    'swap_current': swapFraction,
+    'swap_used_bytes': swapUsedBytes,
+    'swap_total_bytes': swapTotalBytes,
     'history': history,
   };
 
   static RamSample fromJson(Map<String, dynamic> json) => RamSample(
     usedBytes: (json['used_bytes'] as num?)?.toInt(),
     totalBytes: (json['total_bytes'] as num?)?.toInt(),
+    swapUsedBytes: (json['swap_used_bytes'] as num?)?.toInt(),
+    swapTotalBytes: (json['swap_total_bytes'] as num?)?.toInt(),
     history: [
       for (final value in json['history'] as List<dynamic>? ?? const [])
         (value as num).toDouble(),
@@ -61,13 +94,16 @@ class RamSample extends Equatable {
   );
 }
 
-/// Parses the bytes available from `/proc/meminfo`.
+/// Parses the bytes available from `/proc/meminfo`, plus the swap totals when
+/// the kernel reports a swap area.
 ///
 /// `MemAvailable` is the kernel's estimate and matches what `free` reports.
 /// The fallback is only for kernels that predate it; it is deliberately not
 /// used when the key exists, even if the value is zero.
 @visibleForTesting
-({int total, int available})? parseMeminfo(String source) {
+({int total, int available, int? swapTotal, int? swapFree})? parseMeminfo(
+  String source,
+) {
   final values = <String, int>{};
   for (final line in source.split('\n')) {
     final separator = line.indexOf(':');
@@ -104,7 +140,25 @@ class RamSample extends Equatable {
         (values['Shmem'] ?? 0);
   }
 
-  return (total: total, available: available.clamp(0, total));
+  final swapTotal = values['SwapTotal'];
+  final swapFree = values['SwapFree'];
+  int? reportedTotal;
+  int? clampedFree;
+  if (swapTotal != null && swapTotal > 0 && swapFree != null) {
+    reportedTotal = swapTotal;
+    clampedFree = swapFree < 0
+        ? 0
+        : swapFree > swapTotal
+        ? swapTotal
+        : swapFree;
+  }
+
+  return (
+    total: total,
+    available: available.clamp(0, total),
+    swapTotal: reportedTotal,
+    swapFree: clampedFree,
+  );
 }
 
 /// Reads aggregate memory use from `/proc/meminfo` at 1 Hz.
@@ -216,9 +270,15 @@ class RamSampler {
       if (parsed == null) {
         return;
       }
+      final swapTotal = parsed.swapTotal;
+      final swapFree = parsed.swapFree;
       _latest = RamSample(
         usedBytes: parsed.total - parsed.available,
         totalBytes: parsed.total,
+        swapUsedBytes: swapTotal == null || swapFree == null
+            ? null
+            : swapTotal - swapFree,
+        swapTotalBytes: swapTotal,
         history: _latest.history,
       ).append((parsed.total - parsed.available) / parsed.total);
       _controller.add(_latest);

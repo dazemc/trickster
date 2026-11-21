@@ -50,6 +50,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String swapUsageDetail(int percent, String used, String total) {
+    return 'Swap $percent% · $used / $total';
+  }
+
+  @override
+  String cpuLoadDetail(int one, int five, int fifteen, int cores) {
+    return 'Load 1m $one% · 5m $five% · 15m $fifteen% ($cores cores)';
+  }
+
+  @override
   String get networkWifi => 'Wi-Fi';
 
   @override
@@ -489,6 +499,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCpuSection => 'CPU thresholds';
+
+  @override
+  String get settingsCpuLoadAverage => 'Load average';
 
   @override
   String get settingsBatterySection => 'Battery thresholds';

@@ -335,6 +335,7 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                   warnColor: settings.cpu.warnColor,
                   criticalColor: settings.cpu.criticalColor,
                   sparkline: settings.cpu.sparkline,
+                  showLoadAverage: settings.cpu.showLoadAverage,
                   vertical: vertical,
                 ),
               ),

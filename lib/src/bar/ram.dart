@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:trickster/src/bar/format.dart';
 import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
@@ -50,9 +51,15 @@ class RamPill extends StatelessWidget {
             (captionPrefix?.isNotEmpty ?? false)
         ? captionPrefix!
         : context.l10n.metricRam;
+    final swap = sample.swapFraction;
+    final swapUsed = sample.swapUsedBytes;
+    final swapTotal = sample.swapTotalBytes;
+    final swapDetail = swap == null || swapUsed == null || swapTotal == null
+        ? ''
+        : ' · ${context.l10n.swapUsageDetail((swap * 100).round(), formatIecBytes(swapUsed), formatIecBytes(swapTotal))}';
     return PillTooltip(
       accent: accent,
-      label: '$label ${(current * 100).round()}%',
+      label: '$label ${(current * 100).round()}%$swapDetail',
       child: SystemBarCard(
         accent: accent,
         padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),

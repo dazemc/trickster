@@ -74,6 +74,46 @@
       }
     }
   },
+  "swapUsageDetail": "Swap {percent}% · {used} / {total}",
+  "@swapUsageDetail": {
+    "description": "RAM tooltip detail for swap usage with IEC byte values.",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "15"
+      },
+      "used": {
+        "type": "String",
+        "example": "1.2 GiB"
+      },
+      "total": {
+        "type": "String",
+        "example": "8.0 GiB"
+      }
+    }
+  },
+  "cpuLoadDetail": "Load 1m {one}% · 5m {five}% · 15m {fifteen}% ({cores} cores)",
+  "@cpuLoadDetail": {
+    "description": "CPU tooltip detail with normalized load averages and online core count.",
+    "placeholders": {
+      "one": {
+        "type": "int",
+        "example": "5"
+      },
+      "five": {
+        "type": "int",
+        "example": "4"
+      },
+      "fifteen": {
+        "type": "int",
+        "example": "4"
+      },
+      "cores": {
+        "type": "int",
+        "example": "16"
+      }
+    }
+  },
   "networkWifi": "Wi-Fi",
   "@networkWifi": {
     "description": "Network pill label for a connected Wi-Fi link."
@@ -689,6 +729,10 @@
   "settingsCpuSection": "CPU thresholds",
   "@settingsCpuSection": {
     "description": "Section heading for CPU threshold options."
+  },
+  "settingsCpuLoadAverage": "Load average",
+  "@settingsCpuLoadAverage": {
+    "description": "Toggle that appends load average to the CPU tooltip."
   },
   "settingsBatterySection": "Battery thresholds",
   "@settingsBatterySection": {

@@ -260,6 +260,7 @@ void main() {
           warnColor: Color(0xffffff00),
           criticalColor: Color(0xffff00ff),
           sparkline: false,
+          showLoadAverage: false,
         ),
         ram: RamOptions(
           warn: 0.6,
@@ -335,6 +336,8 @@ void main() {
       expect(decoded.cpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.cpu.captionPrefix, 'CPU0');
       expect(decoded.cpu.sparkline, isFalse);
+      expect(decoded.cpu.showLoadAverage, isFalse);
+      expect(const CpuOptions().showLoadAverage, isTrue);
       expect(decoded.ram.warn, 0.6);
       expect(decoded.ram.critical, 0.8);
       expect(decoded.ram.captionSource, MeterCaptionSource.custom);

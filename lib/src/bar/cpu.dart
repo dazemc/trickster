@@ -18,6 +18,7 @@ class CpuPill extends StatelessWidget {
     this.warnColor,
     this.criticalColor,
     this.sparkline = true,
+    this.showLoadAverage = true,
     this.vertical = false,
     super.key,
   });
@@ -37,6 +38,9 @@ class CpuPill extends StatelessWidget {
 
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
+
+  /// Whether the tooltip appends normalized load averages.
+  final bool showLoadAverage;
   final bool vertical;
 
   @override
@@ -56,9 +60,13 @@ class CpuPill extends StatelessWidget {
         captionPrefix!,
       _ => context.l10n.metricCpu,
     };
+    final load = showLoadAverage ? sample.loadAverage : null;
+    final loadDetail = load == null
+        ? ''
+        : ' · ${context.l10n.cpuLoadDetail((load.load1Fraction * 100).round(), (load.load5Fraction * 100).round(), (load.load15Fraction * 100).round(), load.onlineCores)}';
     return PillTooltip(
       accent: accent,
-      label: '$label ${((current ?? 0.0) * 100).round()}%',
+      label: '$label ${((current ?? 0.0) * 100).round()}%$loadDetail',
       child: SystemBarCard(
         accent: accent,
         padding: EdgeInsets.symmetric(horizontal: vertical ? 6 : 12),

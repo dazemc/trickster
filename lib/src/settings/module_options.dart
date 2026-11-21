@@ -586,6 +586,27 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             onSparkline: (settings, value) =>
                 settings.copyWith(cpu: settings.cpu.copyWith(sparkline: value)),
           ),
+          const SizedBox(height: 18),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('cpu-load-average'),
+            label: l10n.settingsCpuLoadAverage,
+            value: settings.cpu.showLoadAverage,
+            resetKey: const ValueKey<String>('reset-cpu-load-average'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCpuLoadAverage),
+            resetEnabled: !settings.cpu.showLoadAverage,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(showLoadAverage: value),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                cpu: settings.cpu.copyWith(showLoadAverage: true),
+              ),
+            ),
+          ),
         ],
       ),
       'ram' => Column(

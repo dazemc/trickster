@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/disk.dart';
+import 'package:trickster/src/bar/format.dart';
 import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/config/settings.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/l10n/generated/app_localizations.dart';
-import 'package:trickster/src/bar/disk.dart' show formatIecBytes;
+import 'package:trickster/src/bar/format.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/locale.dart';

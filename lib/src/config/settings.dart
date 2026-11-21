@@ -128,6 +128,7 @@ class CpuOptions extends Equatable {
     this.warnColor,
     this.criticalColor,
     this.sparkline = true,
+    this.showLoadAverage = true,
   });
 
   final double warn;
@@ -144,6 +145,9 @@ class CpuOptions extends Equatable {
   /// Whether the recent-history sparkline renders.
   final bool sparkline;
 
+  /// Whether the tooltip appends normalized 1/5/15-minute load averages.
+  final bool showLoadAverage;
+
   @override
   List<Object?> get props => [
     warn,
@@ -153,6 +157,7 @@ class CpuOptions extends Equatable {
     warnColor,
     criticalColor,
     sparkline,
+    showLoadAverage,
   ];
 
   Map<String, Object?> toJson() => {
@@ -163,6 +168,7 @@ class CpuOptions extends Equatable {
     if (warnColor != null) 'warn_color': _hex(warnColor!),
     if (criticalColor != null) 'critical_color': _hex(criticalColor!),
     'sparkline': sparkline,
+    'show_load_average': showLoadAverage,
   };
 
   CpuOptions copyWith({
@@ -173,6 +179,7 @@ class CpuOptions extends Equatable {
     Object? warnColor = _unset,
     Object? criticalColor = _unset,
     bool? sparkline,
+    bool? showLoadAverage,
   }) {
     return CpuOptions(
       warn: warn ?? this.warn,
@@ -188,6 +195,7 @@ class CpuOptions extends Equatable {
           ? this.criticalColor
           : criticalColor as Color?,
       sparkline: sparkline ?? this.sparkline,
+      showLoadAverage: showLoadAverage ?? this.showLoadAverage,
     );
   }
 
@@ -220,6 +228,7 @@ class CpuOptions extends Equatable {
         'settings.cpu.critical_color',
       ),
       sparkline: _sparkline(decoded, legacy),
+      showLoadAverage: decoded['show_load_average'] as bool? ?? true,
     );
   }
 }
