@@ -30,6 +30,8 @@ class BatteryResumed extends BatteryEvent {
   const BatteryResumed();
 }
 
+/// Terminal for this bloc: the sampler is disposed, later lifecycle or sample
+/// events are ignored, and `close()` remains safe without disposing twice.
 class BatteryStopped extends BatteryEvent {
   const BatteryStopped();
 }
@@ -53,13 +55,21 @@ class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {
     on<BatteryPaused>(_onPaused);
     on<BatteryResumed>(_onResumed);
     on<BatteryStopped>(_onStopped);
-    on<BatterySampled>((event, emit) => emit(event.status));
+    on<BatterySampled>((event, emit) {
+      if (!_stopped) {
+        emit(event.status);
+      }
+    });
   }
 
   final BatterySampler _sampler;
   StreamSubscription<BatteryStatus>? _subscription;
+  var _stopped = false;
 
   void _onStarted(BatteryStarted event, Emitter<BatteryStatus> emit) {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _sampler.snapshots.listen(
       (status) => add(BatterySampled(status)),
     );
@@ -67,10 +77,16 @@ class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {
   }
 
   void _onPaused(BatteryPaused event, Emitter<BatteryStatus> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.pause();
   }
 
   void _onResumed(BatteryResumed event, Emitter<BatteryStatus> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.resume();
   }
 
@@ -78,15 +94,24 @@ class BatteryBloc extends Bloc<BatteryEvent, BatteryStatus> {
     BatteryStopped event,
     Emitter<BatteryStatus> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    _sampler.dispose();
   }
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    _sampler.dispose();
+    if (!wasStopped) {
+      _sampler.dispose();
+    }
     return super.close();
   }
 }

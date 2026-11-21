@@ -30,6 +30,8 @@ class CpuResumed extends CpuEvent {
   const CpuResumed();
 }
 
+/// Terminal for this bloc: the sampler is disposed, later lifecycle or sample
+/// events are ignored, and `close()` remains safe without disposing twice.
 class CpuStopped extends CpuEvent {
   const CpuStopped();
 }
@@ -51,13 +53,21 @@ class CpuBloc extends Bloc<CpuEvent, CpuSample> {
     on<CpuPaused>(_onPaused);
     on<CpuResumed>(_onResumed);
     on<CpuStopped>(_onStopped);
-    on<CpuSampled>((event, emit) => emit(event.sample));
+    on<CpuSampled>((event, emit) {
+      if (!_stopped) {
+        emit(event.sample);
+      }
+    });
   }
 
   final CpuSampler _sampler;
   StreamSubscription<CpuSample>? _subscription;
+  var _stopped = false;
 
   void _onStarted(CpuStarted event, Emitter<CpuSample> emit) {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _sampler.snapshots.listen(
       (sample) => add(CpuSampled(sample)),
     );
@@ -65,23 +75,38 @@ class CpuBloc extends Bloc<CpuEvent, CpuSample> {
   }
 
   void _onPaused(CpuPaused event, Emitter<CpuSample> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.pause();
   }
 
   void _onResumed(CpuResumed event, Emitter<CpuSample> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.resume();
   }
 
   Future<void> _onStopped(CpuStopped event, Emitter<CpuSample> emit) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    _sampler.dispose();
   }
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    _sampler.dispose();
+    if (!wasStopped) {
+      _sampler.dispose();
+    }
     return super.close();
   }
 }
