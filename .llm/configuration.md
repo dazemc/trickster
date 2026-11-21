@@ -92,13 +92,19 @@ system_bar=hidden
   while a good snapshot exists. An invalid document is rejected before either
   file changes.
 - Normal startup reads the live document first. A missing, unreadable, empty,
-  or corrupt live file recovers the same `.prev` snapshot the settings
-  transport reads. When a live parse error forced the recovery, the bar applies
-  the snapshot and logs a warning; `--check` fails the live document separately
-  while the bar still runs the recovered placement.
+  corrupt, or placement-less live file recovers the same `.prev` snapshot the
+  settings transport reads. When an invalid or placement-less live document
+  forced the recovery, the bar applies the snapshot and logs a warning;
+  `--check` fails the live document separately while the bar still runs the
+  recovered placement.
+- A placement-less live file — the shipped comments-only seed, or comments plus
+  unrelated keys — is never a torn write: with a valid `.prev` it recovers with
+  that warning, and with no snapshot it means canonical defaults without an
+  error. Only an empty or corrupt live document reports an error when no usable
+  snapshot exists.
 - With neither a usable live document nor a usable snapshot, startup uses the
-  canonical defaults and reports the live error; it never crashes. A live
-  document that parses wins over any snapshot.
+  canonical defaults and never crashes. A live document that parses, including
+  a rollback to a lower band, wins over any snapshot.
 - `--edge SIDE` also reactivates a hidden document: the side changes and a zero
   thickness becomes the default 32, so a one-shot edge override cannot leave an
   inactive bar.
