@@ -10,13 +10,13 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | Name | Pill | Source | Visibility rule |
 | --- | --- | --- | --- |
 | `clock` | Date caption + time; optional seconds (1 Hz while shown) and date styles; clicking opens a month calendar on an overlay | Local time, minute-aligned timer (per second with seconds shown) | Always renders |
-| `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer; pauses while the seat idles | Hidden if unreadable |
+| `cpu` | CPU caption + sparkline + percent; hover adds normalized 1/5/15-minute load averages and online core count unless disabled | `/proc/stat` plus `/proc/loadavg`/online CPU count, 1 Hz shared sampler, reused read buffers; pauses while the seat idles | Hidden if unreadable |
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler; pauses while the seat idles | Hidden with no reading |
 | `vram` | VRAM caption + sparkline + percent per GPU with dedicated memory; caption can be the queried device name | `mem_info_vram_used`/`total` (amdgpu) or NVML `nvmlDeviceGetMemoryInfo` on the same 1 Hz shared sampler; pauses while the seat idles | Hidden per GPU with no memory; AMD integrated graphics may expose a BIOS carveout as VRAM; runtime-suspended NVIDIA dGPUs do not appear |
-| `ram` | RAM caption + sparkline + percent | `/proc/meminfo` (`MemTotal`/`MemAvailable`, with the `MemFree + Buffers + Cached + SReclaimable - Shmem` fallback), 1 Hz sampler with a reused 8 KiB buffer; pauses while the seat idles | Hidden if unreadable |
+| `ram` | RAM caption + sparkline + percent; hover adds swap used/total and percentage when published | `/proc/meminfo` (`MemTotal`/`MemAvailable`, with the `MemFree + Buffers + Cached + SReclaimable - Shmem` fallback, plus `SwapTotal`/`SwapFree`), 1 Hz sampler with a reused 8 KiB buffer; pauses while the seat idles | Hidden if unreadable |
 | `temperature` | CPU/TEMP caption + Celsius + sparkline | `/sys/class/hwmon` `temp*_input`/`temp*_label`/`name`, 1 Hz; prefers `k10temp`/`coretemp`/`zenpower` with `Tctl`/`Tdie`/`Package`, otherwise the hottest readable sensor; pauses while the seat idles | Hidden when no sensor is readable |
 | `disk` | DISK caption + used percent + IEC used/total/free tooltip | One configured mount path over `statvfs` in a worker isolate, 30 s; pauses while the seat idles | Hidden when the mount is missing or unreadable |
-| `keyboard_layout` | KB caption + active layout; full layout set in the tooltip | Hyprland `j/devices` initial state plus `.socket2.sock` `activelayout` events, coalesced re-query, capped reconnect; no polling and no idle pause | Hidden without a Hyprland backend or a readable main keyboard |
+| `keyboard_layout` | KB caption + active layout; full layout set in the tooltip | Hyprland `j/devices`/`.socket2.sock`, Sway `get_inputs`/`input` events, or niri keyboard events, auto-detected; coalesced re-query and capped reconnect; no polling and no idle pause | Hidden without a Hyprland, Sway, or niri backend or a readable keyboard |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `network` | State label (Wi-Fi, Ethernet, Connected, Linked, Disconnected, or Off) plus compact ↓/↑ rates; hover adds interface, link, Ethernet speed, and lifetime totals | One selected interface: `/sys/class/net` identity/medium, IPv4/IPv6 default routes, `/proc/net/dev` counters at 1 Hz; pauses while the seat idles; no NetworkManager/iwd metadata yet | Hidden only when no physical or pinned interface exists |
 | `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
@@ -31,7 +31,7 @@ instead.
 
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 
-The settings application keeps this same zone order and lists hardware it cannot run in an Unavailable section: no battery, no dedicated GPU memory, no readable temperature sensor, a missing configured disk mount, no physical or pinned network interface, or no Hyprland keyboard backend. A running bar's control status answers keyboard availability first; the settings process environment is only the fallback. Unavailable modules stay in `settings.json` but cannot be toggled from the page. Disabled modules keep their options gear, so disk path and network interface can be configured before enabling them.
+The settings application keeps this same zone order and lists hardware it cannot run in an Unavailable section: no battery, no dedicated GPU memory, no readable temperature sensor, a missing configured disk mount, no physical or pinned network interface, or no supported keyboard-layout backend. A running bar's control status answers keyboard availability first; the settings process environment is only the fallback. Unavailable modules stay in `settings.json` but cannot be toggled from the page. Disabled modules keep their options gear, so disk path and network interface can be configured before enabling them.
 
 <Info>
 The `ram`, `vram`, `temperature`, `disk`, `keyboard_layout`, and `network`
@@ -45,9 +45,10 @@ NetworkManager/iwd metadata slice. Until then a Wi-Fi link uses the generic
 `Wi-Fi` label, and a virtual interface can only be sampled by pinning it in
 `network.interface`.
 
-`keyboard_layout` follows the keyboard Hyprland marks `main`; if none is
-marked, the first keyboard in compositor order wins. Other keyboards are
-ignored because the bar has one global layout pill.
+`keyboard_layout` follows the keyboard Hyprland marks `main`; Sway uses the
+first keyboard that publishes layout data, falling back to the first keyboard
+in compositor order, and niri follows its reported active keyboard. Other
+keyboards are ignored because the bar has one global layout pill.
 </Info>
 
 `vram` renders one pill per GPU that publishes dedicated memory. It is not an
