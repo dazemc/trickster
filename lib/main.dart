@@ -58,7 +58,7 @@ Future<void> main(List<String> args) async {
       providers: [
         BlocProvider(
           create: (_) => SettingsBloc(runtime.settings, (settings) async {
-            await settingsStore.write(settings);
+            await persistMediaMode(settingsStore, settings.media.mode);
           }),
         ),
         BlocProvider(create: (_) => SessionBloc(runtime.session)),
@@ -115,11 +115,19 @@ Future<void> _check(Cli cli) async {
       edge: cli.edge,
       strict: true,
     );
-    ok(
-      'outputs.conf',
-      '${runtime.outputs.side.name},${runtime.outputs.thickness.round()}',
-    );
-    ok('settings.json', 'revision ${runtime.settings.revision}');
+    if (runtime.outputsError case final error?) {
+      bad('outputs.conf', error);
+    } else {
+      ok(
+        'outputs.conf',
+        '${runtime.outputs.side.name},${runtime.outputs.thickness.round()}',
+      );
+    }
+    if (runtime.settingsError case final error?) {
+      bad('settings.json', error);
+    } else {
+      ok('settings.json', 'revision ${runtime.settings.revision}');
+    }
   } on Object catch (error) {
     bad('config', '$error');
   }

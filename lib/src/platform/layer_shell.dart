@@ -17,6 +17,8 @@ class LayerShell {
           _blurChanges.add(call.arguments as bool);
         } else if (call.method == 'idleChanged' && call.arguments is bool) {
           _seatIdleChanges.add(call.arguments as bool);
+        } else if (call.method == 'settingsCloseRequested') {
+          _settingsCloseRequests.add(null);
         }
       });
     }
@@ -26,7 +28,15 @@ class LayerShell {
       StreamController<bool>.broadcast();
   static final StreamController<bool> _seatIdleChanges =
       StreamController<bool>.broadcast();
+  static final StreamController<void> _settingsCloseRequests =
+      StreamController<void>.broadcast();
   static bool _listening = false;
+
+  /// Titlebar/Alt+F4 close requests. The window manager asks the Dart side to
+  /// flush and then call [closeSettingsWindow]; the native fallback bounds
+  /// the wait.
+  static Stream<void> get settingsCloseRequests =>
+      _settingsCloseRequests.stream;
 
   final MethodChannel _channel;
   final bool _native;

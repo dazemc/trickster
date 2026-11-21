@@ -314,8 +314,27 @@ class _TricksterAppState extends State<TricksterApp>
         configPath: widget.initial.paths.outputOverride,
         strict: true,
       );
-      _apply(loaded);
-      return null;
+      // A corrupt document keeps only its own last-good bloc state; the other
+      // document still applies from the same reload.
+      final merged = RuntimeConfig(
+        paths: loaded.paths,
+        session: loaded.session,
+        outputs: loaded.outputsError == null
+            ? loaded.outputs
+            : context.read<OutputsBloc>().state,
+        settings: loaded.settingsError == null
+            ? loaded.settings
+            : context.read<SettingsBloc>().state,
+        outputsError: loaded.outputsError,
+        settingsError: loaded.settingsError,
+      );
+      _apply(merged);
+      if (!merged.hasErrors) {
+        return null;
+      }
+      final error = merged.errorSummary!;
+      stderr.writeln('trickster: keeping last-good config: $error');
+      return error;
     } on Object catch (error) {
       stderr.writeln('trickster: keeping last-good config: $error');
       return '$error';

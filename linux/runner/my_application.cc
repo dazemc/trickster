@@ -46,6 +46,8 @@ struct _MyApplication {
   GtkWindow* settings_window;
   FlView* settings_view;
   struct ext_background_effect_surface_v1* settings_blur;
+  gboolean settings_close_requested;
+  guint settings_close_fallback_source;
   GtkWindow* bootstrap_window;
   FlView* bootstrap_view;
   gboolean blur_checked;
@@ -1420,6 +1422,11 @@ static void monitor_removed_cb(GdkDisplay* display, GdkMonitor* monitor,
 // settings application is a normal Wayland client of the host compositor.
 static void trickster_settings_destroy_cb(GtkWidget* widget, gpointer data) {
   MyApplication* self = MY_APPLICATION(data);
+  if (self->settings_close_fallback_source != 0) {
+    g_source_remove(self->settings_close_fallback_source);
+    self->settings_close_fallback_source = 0;
+  }
+  self->settings_close_requested = FALSE;
   if (self->settings_blur != nullptr) {
     ext_background_effect_surface_v1_destroy(self->settings_blur);
     self->settings_blur = nullptr;
@@ -1427,6 +1434,38 @@ static void trickster_settings_destroy_cb(GtkWidget* widget, gpointer data) {
   self->settings_window = nullptr;
   self->settings_view = nullptr;
   g_application_quit(G_APPLICATION(self));
+}
+
+// The compositor's titlebar close and Alt+F4 arrive here. Ask Dart to flush
+// and call settingsClose; keep a bounded fallback so a dead Dart isolate
+// cannot make the window unclosable.
+static gboolean trickster_settings_close_fallback(gpointer data) {
+  MyApplication* self = MY_APPLICATION(data);
+  self->settings_close_fallback_source = 0;
+  self->settings_close_requested = FALSE;
+  if (self->settings_window != nullptr) {
+    gtk_widget_destroy(GTK_WIDGET(self->settings_window));
+  }
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean trickster_settings_delete_cb(GtkWidget* widget, GdkEvent* event,
+                                             gpointer data) {
+  MyApplication* self = MY_APPLICATION(data);
+  if (self->settings_close_requested) {
+    return TRUE;
+  }
+  self->settings_close_requested = TRUE;
+  if (self->method_channel == nullptr) {
+    gtk_widget_destroy(widget);
+    return TRUE;
+  }
+  fl_method_channel_invoke_method(self->method_channel,
+                                  "settingsCloseRequested", nullptr, nullptr,
+                                  nullptr, nullptr);
+  self->settings_close_fallback_source =
+      g_timeout_add(5000, trickster_settings_close_fallback, self);
+  return TRUE;
 }
 
 // The settings toplevel asks the compositor to blur behind it; the Flutter
@@ -1498,6 +1537,8 @@ static void trickster_settings_show(MyApplication* self,
   gtk_window_set_default_size(window, 980, 720);
   g_signal_connect(window, "destroy", G_CALLBACK(trickster_settings_destroy_cb),
                    self);
+  g_signal_connect(window, "delete-event",
+                   G_CALLBACK(trickster_settings_delete_cb), self);
 
   // Only a translucent toplevel is worth compositing a backdrop behind; with
   // no manager the window stays opaque and the Dart fills match.

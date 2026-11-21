@@ -39,11 +39,19 @@ abstract interface class SettingsDocumentTransport {
 }
 
 class FileSettingsTransport implements SettingsDocumentTransport {
-  FileSettingsTransport(this.file, {String Function(File file)? readFile})
-    : _readFile = readFile ?? _readFileSync;
+  FileSettingsTransport(
+    this.file, {
+    String Function(File file)? readFile,
+    this.asyncLock = true,
+  }) : _readFile = readFile ?? _readFileSync;
 
   final File file;
   final String Function(File file) _readFile;
+
+  /// Production waits for another process's lock without blocking the frame
+  /// loop. Widget tests run without a real event loop and opt into the sync
+  /// lock so file writes still complete inside `pump`.
+  final bool asyncLock;
 
   SettingsDocument? _lastGood;
 
@@ -52,34 +60,41 @@ class FileSettingsTransport implements SettingsDocumentTransport {
   /// Synchronous read shared by the async transport and bootstrap. The live
   /// document wins; an unreadable or corrupt live file falls through to the
   /// retained previous snapshot, then to the in-memory last-good copy.
+  SettingsDocument? _candidate(File candidate) {
+    if (!candidate.existsSync()) {
+      return null;
+    }
+    try {
+      final json = _readFile(candidate);
+      final settings = BarSettings.decode(json);
+      return SettingsDocument(revision: settings.revision, json: json);
+    } on Object {
+      // An unreadable or corrupt candidate cannot be authoritative.
+      return null;
+    }
+  }
+
   SettingsDocument readSync() {
-    for (final candidate in <File>[file, File('${file.path}.prev')]) {
-      if (!candidate.existsSync()) {
-        continue;
-      }
-      final String json;
-      try {
-        json = _readFile(candidate);
-      } on Object {
-        // An unreadable candidate is no more authoritative than a torn one.
-        continue;
-      }
-      try {
-        final settings = BarSettings.decode(json);
-        final document = SettingsDocument(
-          revision: settings.revision,
-          json: json,
-        );
-        _lastGood = document;
-        return document;
-      } on Object {
-        // Try the next candidate.
-      }
+    // A valid live document always wins, including a deliberate external
+    // rollback to a lower revision. `.prev`/memory only recover when live is
+    // missing, unreadable, or corrupt.
+    final live = _candidate(file);
+    if (live != null) {
+      _lastGood = live;
+      return live;
     }
+
+    var recovered = _candidate(File('${file.path}.prev'));
     final remembered = _lastGood;
-    if (remembered != null) {
-      return remembered;
+    if (remembered != null &&
+        (recovered == null || remembered.revision > recovered.revision)) {
+      recovered = remembered;
     }
+    if (recovered != null) {
+      _lastGood = recovered;
+      return recovered;
+    }
+
     if (!file.existsSync()) {
       final created = SettingsDocument(
         revision: 1,
@@ -94,8 +109,7 @@ class FileSettingsTransport implements SettingsDocumentTransport {
     // surface the live document's error rather than silently losing settings.
     final json = _readFile(file);
     final settings = BarSettings.decode(json);
-    final document = SettingsDocument(revision: settings.revision, json: json);
-    return document;
+    return SettingsDocument(revision: settings.revision, json: json);
   }
 
   @override
@@ -111,7 +125,9 @@ class FileSettingsTransport implements SettingsDocumentTransport {
       return;
     }
     final previous = File('${file.path}.prev');
-    final temporary = File('${previous.path}.tmp');
+    final temporary = File(
+      '${previous.path}.tmp.$pid.${DateTime.now().microsecondsSinceEpoch}',
+    );
     try {
       temporary.writeAsStringSync(good.json, flush: true);
       temporary.renameSync(previous.path);
@@ -132,44 +148,64 @@ class FileSettingsTransport implements SettingsDocumentTransport {
     required int expectedRevision,
     required String document,
   }) async {
-    // Always re-read: the revision line belongs to the file, not to this
-    // long-lived object. A second transport instance (the bar's and a
-    // file-fallback settings app are separate writers) may have advanced it.
-    final current = await read();
-    if (expectedRevision != current.revision) {
-      throw SettingsRevisionConflict(
-        expected: expectedRevision,
-        actual: current.revision,
-      );
+    file.parent.createSync(recursive: true);
+    // Every writer takes the same advisory lock, so the read/check/rename
+    // below is one critical section across transports and processes. The
+    // lock file is never deleted: deleting it would let a later writer lock
+    // a different inode and defeat the exclusion.
+    final lockFile = File('${file.path}.lock');
+    final RandomAccessFile lock;
+    if (asyncLock) {
+      lock = await lockFile.open(mode: FileMode.append);
+      await lock.lock(FileLock.exclusive);
+    } else {
+      lock = lockFile.openSync(mode: FileMode.append);
+      lock.lockSync(FileLock.exclusive);
     }
-    final settings = BarSettings.decode(document);
-    final next = SettingsDocument(
-      revision: settings.revision,
-      json: document.endsWith('\n') ? document : '$document\n',
-    );
-    final temporary = File('${file.path}.tmp');
     try {
-      file.parent.createSync(recursive: true);
-      // Snapshot the last document known to decode, never the live file: the
-      // live file is corrupt when read recovered from .prev, and copying it
-      // here would destroy the only good snapshot before the new write.
-      _snapshotLastGood();
-      temporary.writeAsStringSync(next.json, flush: true);
-      // Atomic replace: a crash before this point leaves the live document
-      // (or its .prev snapshot) intact; no reader ever sees a partial file.
-      temporary.renameSync(file.path);
-    } on Object {
-      if (temporary.existsSync()) {
-        try {
-          temporary.deleteSync();
-        } on Object {
-          // Best effort: the temp file is never a source of truth.
-        }
+      final current = readSync();
+      if (expectedRevision != current.revision) {
+        throw SettingsRevisionConflict(
+          expected: expectedRevision,
+          actual: current.revision,
+        );
       }
-      rethrow;
+      final settings = BarSettings.decode(document);
+      final next = SettingsDocument(
+        revision: settings.revision,
+        json: document.endsWith('\n') ? document : '$document\n',
+      );
+      final temporary = File(
+        '${file.path}.tmp.$pid.${DateTime.now().microsecondsSinceEpoch}',
+      );
+      try {
+        // Snapshot the last document known to decode, never the live file:
+        // the live file is corrupt when read recovered from .prev, and
+        // copying it here would destroy the only good snapshot first.
+        _snapshotLastGood();
+        temporary.writeAsStringSync(next.json, flush: true);
+        // Atomic replace: a crash before this point leaves the live document
+        // (or its .prev snapshot) intact; no reader ever sees a partial file.
+        temporary.renameSync(file.path);
+      } on Object {
+        if (temporary.existsSync()) {
+          try {
+            temporary.deleteSync();
+          } on Object {
+            // Best effort: the temp file is never a source of truth.
+          }
+        }
+        rethrow;
+      }
+      _lastGood = next;
+      return next;
+    } finally {
+      if (asyncLock) {
+        await lock.close();
+      } else {
+        lock.closeSync();
+      }
     }
-    _lastGood = next;
-    return next;
   }
 }
 
@@ -252,12 +288,12 @@ class SocketSettingsTransport implements SettingsDocumentTransport {
       if (error.toLowerCase().contains('revision')) {
         throw StateError(error);
       }
-      throw ControlSocketException(error);
+      throw ControlServerException(error);
     }
     final revision = reply['revision'];
     final document = reply['document'];
     if (revision is! int || document is! String) {
-      throw const ControlSocketException(
+      throw const ControlServerException(
         'control socket sent a malformed settings document',
       );
     }

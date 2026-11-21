@@ -14,12 +14,28 @@ class RuntimeConfig {
     required this.session,
     required this.outputs,
     required this.settings,
+    this.outputsError,
+    this.settingsError,
   });
 
   final ConfigPaths paths;
   final SessionConfig session;
   final OutputsConfig outputs;
   final BarSettings settings;
+
+  /// Parse errors for one document; the other document still loads.
+  final String? outputsError;
+  final String? settingsError;
+
+  bool get hasErrors => outputsError != null || settingsError != null;
+
+  String? get errorSummary {
+    final errors = <String>[
+      if (outputsError case final error?) 'outputs.conf: $error',
+      if (settingsError case final error?) 'settings.json: $error',
+    ];
+    return errors.isEmpty ? null : errors.join('; ');
+  }
 }
 
 class Bootstrap {
@@ -34,11 +50,15 @@ class Bootstrap {
       outputOverride: configPath ?? sessionFile.outputConfig,
     );
     _seedUserConfig(paths);
+    final (outputs, outputsError) = _outputs(paths, edge: edge);
+    final (settings, settingsError) = _settings(paths, strict: strict);
     return RuntimeConfig(
       paths: paths,
       session: SessionConfig.fromEnvironment(defaults: sessionFile),
-      outputs: _outputs(paths, edge: edge, strict: strict),
-      settings: _settings(paths, strict: strict),
+      outputs: outputs,
+      settings: settings,
+      outputsError: outputsError,
+      settingsError: settingsError,
     );
   }
 
@@ -55,21 +75,16 @@ class Bootstrap {
     }
   }
 
-  static OutputsConfig _outputs(
-    ConfigPaths paths, {
-    String? edge,
-    bool strict = false,
-  }) {
+  static (OutputsConfig, String?) _outputs(ConfigPaths paths, {String? edge}) {
     final file = File(paths.outputs);
     var config = const OutputsConfig();
+    String? error;
     if (file.existsSync()) {
       try {
         config = OutputsConfig.parse(file.readAsStringSync());
-      } on FormatException catch (error) {
-        stderr.writeln('trickster: $error');
-        if (strict) {
-          rethrow;
-        }
+      } on Object catch (parseError) {
+        stderr.writeln('trickster: $parseError');
+        error = '$parseError';
       }
     }
     if (edge != null) {
@@ -79,33 +94,40 @@ class Bootstrap {
         connectors: config.connectors,
       );
     }
-    return config;
+    return (config, error);
   }
 
-  static BarSettings _settings(ConfigPaths paths, {bool strict = false}) {
+  static (BarSettings, String?) _settings(
+    ConfigPaths paths, {
+    bool strict = false,
+  }) {
     final file = File(paths.settings);
-    if (!file.existsSync()) {
-      return const BarSettings();
+    final previous = File('${file.path}.prev');
+    if (!file.existsSync() && !previous.existsSync()) {
+      return (const BarSettings(), null);
     }
-    if (strict) {
+    if (strict && file.existsSync()) {
       // A preflight validates the live document itself; `.prev` recovery is a
       // runtime courtesy, never an excuse to pass a corrupt file.
       try {
-        return BarSettings.decode(file.readAsStringSync());
+        return (BarSettings.decode(file.readAsStringSync()), null);
       } on Object catch (error) {
         // Decoders cast typed fields, so a wrong JSON scalar throws TypeError
         // rather than FormatException. Both mean "invalid document" here.
         stderr.writeln('trickster: $error');
-        rethrow;
+        return (const BarSettings(), '$error');
       }
     }
     try {
       // Match the settings application: a torn or unreadable live file falls
       // back to `.prev` instead of discarding the user's document.
-      return BarSettings.decode(FileSettingsTransport(file).readSync().json);
+      return (
+        BarSettings.decode(FileSettingsTransport(file).readSync().json),
+        null,
+      );
     } on Object catch (error) {
       stderr.writeln('trickster: $error');
-      return const BarSettings();
+      return (const BarSettings(), '$error');
     }
   }
 
@@ -128,7 +150,7 @@ class Bootstrap {
       outputs.writeAsStringSync(_outputsTemplate(outputsTemplate));
     }
     final settings = File(paths.settings);
-    if (!settings.existsSync()) {
+    if (!settings.existsSync() && !File('${settings.path}.prev').existsSync()) {
       settings.writeAsStringSync(const BarSettings().encode());
     }
   }

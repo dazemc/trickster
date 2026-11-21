@@ -5,6 +5,8 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/state/settings_bloc.dart';
 
 class _RacingTransport implements SettingsDocumentTransport {
   _RacingTransport(this.document);
@@ -99,6 +101,47 @@ class _DelayedWriteTransport implements SettingsDocumentTransport {
     );
     return this.document;
   }
+}
+
+class _ServerErrorThenOkTransport implements SettingsDocumentTransport {
+  var reads = 0;
+
+  @override
+  Future<SettingsDocument> read() async {
+    reads += 1;
+    if (reads == 1) {
+      throw const ControlServerException('permission denied');
+    }
+    return SettingsDocument(
+      revision: 2,
+      json: const BarSettings(revision: 2).encode(),
+    );
+  }
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async => throw const ControlServerException('permission denied');
+}
+
+class _CountingFileTransport implements SettingsDocumentTransport {
+  var reads = 0;
+
+  @override
+  Future<SettingsDocument> read() async {
+    reads += 1;
+    return SettingsDocument(
+      revision: 9,
+      json: const BarSettings(revision: 9).encode(),
+    );
+  }
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async => throw StateError('file transport must not be used');
 }
 
 void main() {
@@ -223,6 +266,67 @@ void main() {
       },
     );
 
+    test(
+      'a server refusal never flips the socket to the file transport',
+      () async {
+        final socket = _ServerErrorThenOkTransport();
+        final file = _CountingFileTransport();
+        final fallback = FallbackSettingsTransport(socket: socket, file: file);
+
+        await expectLater(
+          fallback.read(),
+          throwsA(isA<ControlServerException>()),
+        );
+        expect(fallback.usingSocket, isTrue);
+        expect(file.reads, 0);
+
+        final next = await fallback.read();
+        expect(next.revision, 2);
+        expect(fallback.usingSocket, isTrue);
+        expect(file.reads, 0);
+      },
+    );
+
+    test(
+      'media persist merges onto an external settings-app revision',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'trickster-media-merge',
+        );
+        try {
+          final file = File('${directory.path}/settings.json')
+            ..writeAsStringSync(
+              const BarSettings(
+                revision: 1,
+                media: MediaOptions(mode: MediaMode.full),
+              ).encode(),
+            );
+          final store = NativeSettingsStore(FileSettingsTransport(file));
+          await store.read();
+
+          final settingsApp = FileSettingsTransport(file);
+          await settingsApp.read();
+          await settingsApp.write(
+            expectedRevision: 1,
+            document: const BarSettings(
+              revision: 2,
+              locale: 'zh',
+              accent: Color(0xff112233),
+            ).encode(),
+          );
+
+          await persistMediaMode(store, MediaMode.compact);
+          final disk = BarSettings.decode(file.readAsStringSync());
+          expect(disk.revision, 3);
+          expect(disk.media.mode, MediaMode.compact);
+          expect(disk.locale, 'zh');
+          expect(disk.accent, const Color(0xff112233));
+        } finally {
+          await directory.delete(recursive: true);
+        }
+      },
+    );
+
     test('file transport round-trips and keeps revisions', () async {
       final directory = await Directory.systemTemp.createTemp('trickster');
       try {
@@ -280,6 +384,131 @@ void main() {
           BarSettings.decode(file.readAsStringSync()).accent,
           const Color(0xff112233),
         );
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    test('concurrent writers cannot both win the same revision', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-concurrent',
+      );
+      try {
+        final file = File('${directory.path}/settings.json')
+          ..writeAsStringSync(const BarSettings(revision: 1).encode());
+        for (var iteration = 0; iteration < 20; iteration += 1) {
+          final first = FileSettingsTransport(file);
+          final second = FileSettingsTransport(file);
+          final current = (await first.read()).revision;
+          expect((await second.read()).revision, current);
+
+          final outcomes = await Future.wait<Object?>([
+            first
+                .write(
+                  expectedRevision: current,
+                  document: BarSettings(
+                    revision: current + 1,
+                    accent: const Color(0xff112233),
+                  ).encode(),
+                )
+                .then<Object?>((document) => document)
+                .catchError((Object error) => error),
+            second
+                .write(
+                  expectedRevision: current,
+                  document: BarSettings(
+                    revision: current + 1,
+                    accent: const Color(0xff445566),
+                  ).encode(),
+                )
+                .then<Object?>((document) => document)
+                .catchError((Object error) => error),
+          ]);
+
+          expect(
+            outcomes.whereType<SettingsDocument>(),
+            hasLength(1),
+            reason: 'exactly one writer lands (iteration $iteration)',
+          );
+          expect(
+            outcomes.whereType<SettingsRevisionConflict>(),
+            hasLength(1),
+            reason: 'the loser sees the conflict (iteration $iteration)',
+          );
+          final disk = BarSettings.decode(file.readAsStringSync());
+          expect(disk.revision, current + 1);
+          expect(
+            disk.accent,
+            anyOf(const Color(0xff112233), const Color(0xff445566)),
+          );
+        }
+        expect(
+          File('${file.path}.tmp').existsSync(),
+          isFalse,
+          reason: 'no fixed-name partial temp',
+        );
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    test('a valid live rollback wins over newer memory', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-rollback',
+      );
+      try {
+        final file = File('${directory.path}/settings.json');
+        final transport = FileSettingsTransport(file);
+        await transport.read();
+        await transport.write(
+          expectedRevision: 1,
+          document: const BarSettings(revision: 2).encode(),
+        );
+        await transport.write(
+          expectedRevision: 2,
+          document: const BarSettings(revision: 3).encode(),
+        );
+        expect((await transport.read()).revision, 3);
+
+        file.writeAsStringSync(const BarSettings(revision: 2).encode());
+        expect((await transport.read()).revision, 2);
+        await transport.write(
+          expectedRevision: 2,
+          document: const BarSettings(revision: 3).encode(),
+        );
+        expect(BarSettings.decode(file.readAsStringSync()).revision, 3);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    test('recovery never downgrades a newer remembered document', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-newest',
+      );
+      try {
+        final file = File('${directory.path}/settings.json');
+        final transport = FileSettingsTransport(file);
+        await transport.read();
+        await transport.write(
+          expectedRevision: 1,
+          document: const BarSettings(revision: 2).encode(),
+        );
+        await transport.write(
+          expectedRevision: 2,
+          document: const BarSettings(revision: 3).encode(),
+        );
+        expect(
+          BarSettings.decode(
+            File('${file.path}.prev').readAsStringSync(),
+          ).revision,
+          2,
+        );
+
+        file.writeAsStringSync('{"revision":3,"modules":');
+        final recovered = await transport.read();
+        expect(recovered.revision, 3);
+        expect(BarSettings.decode(recovered.json).revision, 3);
       } finally {
         await directory.delete(recursive: true);
       }

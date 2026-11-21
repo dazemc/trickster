@@ -300,6 +300,16 @@ enum SettingsSection { appearance, modules, displays, language, about }
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
   final ScrollController _pageScroll = ScrollController();
+  StreamSubscription<void>? _closeRequests;
+  var _closing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _closeRequests = LayerShell.settingsCloseRequests.listen(
+      (_) => unawaited(_close()),
+    );
+  }
 
   Future<void> _flushDocuments() async {
     final bloc = context.read<SettingsAppBloc>();
@@ -320,10 +330,42 @@ class _SettingsHomeState extends State<SettingsHome> {
   }
 
   Future<void> _close() async {
-    await _flushDocuments();
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    final deadline = DateTime.now().add(const Duration(seconds: 3));
+    try {
+      while (mounted) {
+        await _flushDocuments();
+        if (!mounted) {
+          return;
+        }
+        final bloc = context.read<SettingsAppBloc>();
+        if (!DebouncedSaver.hasPendingFor(bloc) && !bloc.hasPendingOutputs) {
+          break;
+        }
+        if (DateTime.now().isAfter(deadline)) {
+          break;
+        }
+        // A control touched while the gated save was in flight has a stale
+        // draft base. Rebase its change closures onto the newest document
+        // before the next flush; then let the new debounce settle.
+        try {
+          DebouncedSaver.rebaseFor(bloc, await bloc.readLatest());
+        } on Object {
+          // Fall through to the normal flush/error path.
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    } on Object {
+      // A failed flush must not leave the window unclosable; the native
+      // titlebar fallback is the final backstop either way.
+    }
     if (!mounted) {
       return;
     }
+    _closing = false;
     if (widget.onClose != null) {
       widget.onClose!();
       return;
@@ -333,6 +375,7 @@ class _SettingsHomeState extends State<SettingsHome> {
 
   @override
   void dispose() {
+    unawaited(_closeRequests?.cancel());
     _pageScroll.dispose();
     super.dispose();
   }

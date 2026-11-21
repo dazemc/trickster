@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bootstrap.dart';
 import 'package:trickster/src/config/paths.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 
 void main() {
   late Directory home;
@@ -49,7 +50,7 @@ void main() {
   });
 
   test(
-    'malformed scalar values fall back to defaults but fail strict load',
+    'malformed scalar values fall back to defaults and surface strict error',
     () {
       final paths = ConfigPaths(configHome: home.path);
       Directory(paths.root).createSync(recursive: true);
@@ -59,10 +60,10 @@ void main() {
 
       final runtime = Bootstrap.load(paths: paths);
       expect(runtime.settings, const BarSettings());
-      expect(
-        () => Bootstrap.load(paths: paths, strict: true),
-        throwsA(isA<TypeError>()),
-      );
+      final strict = Bootstrap.load(paths: paths, strict: true);
+      expect(strict.settings, const BarSettings());
+      expect(strict.settingsError, isNotNull);
+      expect(strict.outputsError, isNull);
     },
   );
 
@@ -76,7 +77,45 @@ void main() {
 
     final runtime = Bootstrap.load(paths: paths);
     expect(runtime.settings.revision, 4);
-    expect(() => Bootstrap.load(paths: paths, strict: true), throwsA(anything));
+    final strict = Bootstrap.load(paths: paths, strict: true);
+    expect(strict.settingsError, isNotNull);
+    expect(strict.settings, const BarSettings());
+  });
+
+  test('strict reload keeps settings and outputs independent', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('system_bar=bottom,40\n');
+    File(paths.settings).writeAsStringSync('{"revision":3,"modules":');
+
+    final settingsBroken = Bootstrap.load(paths: paths, strict: true);
+    expect(settingsBroken.outputs.side, SystemBarSide.bottom);
+    expect(settingsBroken.outputs.thickness, 40);
+    expect(settingsBroken.outputsError, isNull);
+    expect(settingsBroken.settingsError, isNotNull);
+
+    File(
+      paths.settings,
+    ).writeAsStringSync(const BarSettings(revision: 3, locale: 'zh').encode());
+    File(paths.outputs).writeAsStringSync('system_bar=nonsense,40\n');
+    final outputsBroken = Bootstrap.load(paths: paths, strict: true);
+    expect(outputsBroken.settings.revision, 3);
+    expect(outputsBroken.settings.locale, 'zh');
+    expect(outputsBroken.settingsError, isNull);
+    expect(outputsBroken.outputsError, isNotNull);
+  });
+
+  test('a recoverable .prev prevents seeding a default live document', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(
+      '${paths.settings}.prev',
+    ).writeAsStringSync(const BarSettings(revision: 7, locale: 'zh').encode());
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.settings.revision, 7);
+    expect(runtime.settings.locale, 'zh');
+    expect(File(paths.settings).existsSync(), isFalse);
   });
 
   test('a missing template falls back to the built-in header', () {

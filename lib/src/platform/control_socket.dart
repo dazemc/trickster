@@ -21,6 +21,18 @@ class ControlSocketException implements Exception {
   String toString() => 'ControlSocketException: $message';
 }
 
+/// The bar answered, but refused the operation (permission, disk, version,
+/// malformed server reply). This is not transport loss: the socket remains
+/// usable and the file fallback must not take over.
+class ControlServerException implements Exception {
+  const ControlServerException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'ControlServerException: $message';
+}
+
 /// Sends one JSON request line to the bar's control socket and returns the
 /// one JSON reply line. Shared by the settings transport and `tricksterctl`.
 Future<Map<String, Object?>> controlRequest(

@@ -321,6 +321,19 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
   bool get loaded => state.loaded;
   bool get usingSocket => state.usingSocket;
 
+  /// Whether the displays page owns an unsaved outputs preview.
+  bool get hasPendingOutputs => _outputsDraft;
+
+  /// Reads the document without emitting it over the current draft; used by
+  /// the close drain to rebase edits made during the flush.
+  Future<BarSettings> readLatest() async {
+    final store = _store;
+    if (store == null) {
+      return state.settings;
+    }
+    return store.read();
+  }
+
   Future<void> _onLoad(
     SettingsAppLoadRequested event,
     Emitter<SettingsAppState> emit,

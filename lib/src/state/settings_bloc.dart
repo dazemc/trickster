@@ -6,6 +6,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/config/store.dart';
 
 sealed class SettingsEvent extends Equatable {
   const SettingsEvent();
@@ -50,6 +51,16 @@ class SettingsMediaModeChanged extends SettingsEvent {
 
   @override
   List<Object?> get props => [mode];
+}
+
+/// Persists the bar's one whole-document edit without replacing fields the
+/// settings application wrote after the bar last loaded. The fresh read also
+/// adopts the external revision into [store].
+Future<void> persistMediaMode(NativeSettingsStore store, MediaMode mode) async {
+  final current = await store.read();
+  await store.write(
+    current.copyWith(media: current.media.copyWith(mode: mode)),
+  );
 }
 
 class SettingsBloc extends Bloc<SettingsEvent, BarSettings> {

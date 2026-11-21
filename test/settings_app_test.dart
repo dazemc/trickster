@@ -46,13 +46,17 @@ class _FakeLayerShell extends LayerShell {
   Future<List<LayerOutput>> outputs() async => reported;
 }
 
-Future<SettingsAppBloc> _bloc(File file, {LayerShell? layerShell}) async {
+Future<SettingsAppBloc> _bloc(
+  File file, {
+  LayerShell? layerShell,
+  SettingsDocumentTransport? settingsFile,
+}) async {
   final directory = file.parent;
   final bloc = SettingsAppBloc(
     socket: SocketSettingsTransport(
       socketPath: '${directory.path}/no-bar.sock',
     ),
-    file: FileSettingsTransport(file),
+    file: settingsFile ?? FileSettingsTransport(file, asyncLock: false),
     outputsSocket: SocketOutputsTransport(
       socketPath: '${directory.path}/no-bar.sock',
     ),
@@ -280,6 +284,33 @@ String _fieldText(WidgetTester tester, Finder field) {
 void _blur(WidgetTester tester) {
   FocusManager.instance.primaryFocus?.unfocus();
   tester.binding.scheduleFrame();
+}
+
+class _GatedFileTransport implements SettingsDocumentTransport {
+  _GatedFileTransport(this.file)
+    : _inner = FileSettingsTransport(file, asyncLock: false);
+
+  final File file;
+  final FileSettingsTransport _inner;
+  final gate = Completer<void>();
+  final writeStarted = Completer<void>();
+  var writes = 0;
+
+  @override
+  Future<SettingsDocument> read() => _inner.read();
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    writes += 1;
+    if (writes == 1) {
+      writeStarted.complete();
+      await gate.future;
+    }
+    return _inner.write(expectedRevision: expectedRevision, document: document);
+  }
 }
 
 void main() {
@@ -3386,6 +3417,107 @@ void main() {
     expect(decoded.accent, const Color(0xff112233));
     saver.dispose(flush: false);
   });
+
+  testWidgets('a native close request uses the flush-then-close path', (
+    tester,
+  ) async {
+    LayerShell();
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    var closed = 0;
+    await _pump(tester, bloc, onClose: () => closed++);
+
+    await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      'org.trickster.bar/layer_shell',
+      const StandardMethodCodec().encodeMethodCall(
+        const MethodCall('settingsCloseRequested'),
+      ),
+      (_) {},
+    );
+    await tester.pumpAndSettle();
+    expect(closed, 1);
+  });
+
+  testWidgets('close flushes an edit made while the first save is gated', (
+    tester,
+  ) async {
+    final transport = _GatedFileTransport(file);
+    final bloc = await _bloc(file, settingsFile: transport);
+    addTearDown(bloc.close);
+    var closed = 0;
+    await _pump(tester, bloc, onClose: () => closed++);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-preset-#8AB4FF')),
+    );
+    await tester.pump();
+    await tester.tap(find.byType(SettingsCloseButton));
+    await tester.pump();
+    await transport.writeStarted.future;
+
+    // The settings window is still interactive while the first write waits.
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-preset-#FF6B6B')),
+    );
+    await tester.pump();
+
+    transport.gate.complete();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(closed, 1);
+    expect(transport.writes, greaterThanOrEqualTo(2));
+    expect(
+      BarSettings.decode(file.readAsStringSync()).accent,
+      const Color(0xffff6b6b),
+    );
+  });
+
+  test(
+    'a failed initial load cannot save defaults over the real document',
+    () async {
+      file.writeAsStringSync(
+        const BarSettings(
+          revision: 7,
+          locale: 'zh',
+          accent: Color(0xff112233),
+        ).encode(),
+      );
+      var reads = 0;
+      final flaky = FileSettingsTransport(
+        file,
+        readFile: (candidate) {
+          reads += 1;
+          if (reads <= 2) {
+            throw const FileSystemException('temporarily unavailable');
+          }
+          return candidate.readAsStringSync();
+        },
+      );
+      final bloc = await _bloc(file, settingsFile: flaky);
+      addTearDown(bloc.close);
+      expect(bloc.error, isNotNull);
+      expect(bloc.settings.revision, 1);
+
+      final draft = bloc.settings.copyWith(accent: const Color(0xff445566));
+      bloc.add(SettingsAppPreviewed(draft));
+      await bloc.stream.firstWhere(
+        (state) => state.settings.accent == const Color(0xff445566),
+      );
+      bloc.add(SettingsAppSaveRequested(draft));
+      final conflicted = await bloc.stream.firstWhere(
+        (state) =>
+            !state.busy && state.error != null && state.settings.revision == 7,
+      );
+      expect(conflicted.error, contains('changed elsewhere'));
+      expect(conflicted.settings.locale, 'zh');
+      expect(conflicted.settings.accent, const Color(0xff112233));
+      final disk = BarSettings.decode(file.readAsStringSync());
+      expect(disk.revision, 7);
+      expect(disk.locale, 'zh');
+      expect(disk.accent, const Color(0xff112233));
+    },
+  );
 
   testWidgets('language page writes the locale', (tester) async {
     final bloc = await _bloc(file);
