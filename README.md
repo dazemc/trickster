@@ -63,7 +63,7 @@ Files on disk, Denial-style `KEY=VALUE` with `#` comments:
 
 - `/etc/trickster/session.conf` (`TRICKSTER_*`): machine environment —
   config-path override, layer, namespace, keyboard behavior, accent
-  override, log filter.
+  override.
 - `$XDG_CONFIG_HOME/trickster/outputs.conf`: bar placement using Denial's
   `system_bar=` grammar (`top,32`; `bottom,40,eDP-1`; `hidden`).
 - `$XDG_CONFIG_HOME/trickster/settings.json`: versioned settings document
