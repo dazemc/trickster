@@ -39,7 +39,7 @@ Denial's `system_bar=` grammar, verbatim. Template copied on first launch, never
 # system_bar=hidden
 ```
 
-The third field and beyond select connectors; with no connectors the bar lands on every output. Thickness is a positive logical-pixel band up to 512; the parser rejects a non-finite, zero, negative, or oversized value, so the bar keeps its last-good file instead of accepting a band that could swallow an output. A settings save rewrites only the `system_bar=` line: comments and unrelated keys stay byte-for-byte, the write is atomic (unique temp file plus rename), and the live document is snapshotted to `outputs.conf.prev` for recovery from a torn write. `hidden` forces thickness 0 and releases the exclusive zone; the settings page clears the connector selection when hidden is chosen, so returning to an edge starts from every output at the default thickness. A failed save is reported on the displays page while the bar keeps its previous placement; a control-socket rejection stays on the socket rather than silently rewriting the file, and only genuine transport loss falls back to the file.
+The third field and beyond select connectors; with no connectors the bar lands on every output. Thickness is a positive logical-pixel band up to 512; the parser rejects a non-finite, zero, negative, or oversized value, so the bar keeps its last-good file instead of accepting a band that could swallow an output. A settings save rewrites only the `system_bar=` line: comments and unrelated keys stay byte-for-byte, the write is atomic (unique temp file plus rename), and the live document is snapshotted to `outputs.conf.prev` for recovery from a torn write. `hidden` forces thickness 0 and releases the exclusive zone; the settings page clears the connector selection when hidden is chosen, so returning to an edge starts from every output at the default thickness. A failed save is reported on the displays page while the bar keeps its previous placement; a control-socket rejection stays on the socket rather than silently rewriting the file, and only genuine transport loss falls back to the file. The page cannot turn off the last selected visible output because an empty connector list means every output, so that row locks on with a note while its toggle and semantics action are disabled; the all-outputs reset and hidden mode keep their behavior. Output rows join the Tab order as single buttons: Enter or Space toggles one, the accent ring marks focus, and assistive technology hears the connector, mode, toggled state, and the lock reason when locked.
 
 ### Settings — `~/.config/trickster/settings.json`
 
@@ -104,6 +104,10 @@ with an active layout) and falls back to the settings process environment.
   copyable hex values.
 - `display_appearance` (optional object keyed by connector) — per-display
   overrides of the accent keys; a missing key falls back to the global one.
+  A connector that unplugged but still owns an override keeps its own chip
+  beside the live outputs, so the stale entry can be selected, retargeted, or
+  reset without the monitor attached; the all-displays chip remains the
+  fallback for a vanished target with no override.
 - `appearance.blur` (bool, default `true`) — when false the pills keep the
   opaque fill even if the host advertises `ext-background-effect`; the clock
   calendar's panel follows the same choice.
