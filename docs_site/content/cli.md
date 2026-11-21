@@ -27,3 +27,7 @@ A short-lived client against `$XDG_RUNTIME_DIR/trickster/control.sock`, mirrorin
 | `tricksterctl --help` | Short-lived client commands and flags |
 
 It is a control client only — never a second UI runtime.
+
+`status` exposes `state.ram` for the RAM module. VRAM has no separate state
+tree: `memory_used_bytes`, `memory_total_bytes`, and `memory_history` ride each
+entry in `state.gpu.gpus`, including when only `vram` is configured.
