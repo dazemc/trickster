@@ -435,6 +435,21 @@ void main() {
       expect(reading.interfaces.containsKey('enp42s0'), isTrue);
     });
 
+    test('a missing pin is not re-enumerated on every read', () {
+      _addInterface(fixture.root, fixture.devices, 'enp42s0', ifindex: 2);
+      final reader = fixture.reader(refresh: const Duration(hours: 1));
+      expect(
+        reader.read(pinnedName: 'wlan9').interfaces.containsKey('wlan9'),
+        isFalse,
+      );
+      _addInterface(fixture.root, fixture.devices, 'wlan9', ifindex: 3);
+      expect(
+        reader.read(pinnedName: 'wlan9').interfaces.containsKey('wlan9'),
+        isFalse,
+        reason: 'identity enumeration is throttled, not per tick',
+      );
+    });
+
     test('the real kernel read is coherent', () {
       final reader = SystemNetworkReader();
       addTearDown(reader.dispose);

@@ -403,9 +403,7 @@ class SystemNetworkReader implements NetworkReader {
         cache == null || _interfaceClock.elapsed >= interfaceRefresh;
     final missingSelected =
         selectedName != null && !(cache?.containsKey(selectedName) ?? false);
-    final missingPinned =
-        pinnedName != null && !(cache?.containsKey(pinnedName) ?? false);
-    if (expired || missingSelected || missingPinned) {
+    if (expired || missingSelected) {
       _interfaces = _enumerateInterfaces(pinnedName: pinnedName);
       _interfaceClock
         ..reset()
