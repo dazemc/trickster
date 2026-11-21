@@ -12,6 +12,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `clock` | Date caption + time; optional seconds (1 Hz while shown) and date styles; clicking opens a month calendar on an overlay | Local time, minute-aligned timer (per second with seconds shown) | Always renders |
 | `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer; pauses while the seat idles | Hidden if unreadable |
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler; pauses while the seat idles | Hidden with no reading |
+| `vram` | VRAM caption + sparkline + percent per GPU with dedicated memory; caption can be the queried device name | `mem_info_vram_used`/`total` (amdgpu, i915/Arc), Xe `tile0/vram0/*`, or NVML `nvmlDeviceGetMemoryInfo` on the same 1 Hz shared sampler; pauses while the seat idles | Hidden per GPU with no memory; suspended dGPUs and unified-memory iGPUs do not appear |
 | `ram` | RAM caption + sparkline + percent | `/proc/meminfo` (`MemTotal`/`MemAvailable`, with the `MemFree + Buffers + Cached + SReclaimable - Shmem` fallback), 1 Hz sampler with a reused 8 KiB buffer; pauses while the seat idles | Hidden if unreadable |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
@@ -27,9 +28,13 @@ instead.
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 
 <Info>
-The `ram` module is a user-requested addition. Denial has no memory module, so
-do not describe it as Denial parity.
+The `ram` and `vram` modules are user-requested additions. Denial has no
+memory module, so do not describe either as Denial parity.
 </Info>
+
+`vram` renders one pill per GPU that publishes dedicated memory. It is not an
+aggregate across devices, and it never fabricates a zero reading for a GPU
+whose memory is unavailable.
 
 <Info>
 Tray is StatusNotifier only. Denial's XEmbed merge came from owning Xwayland, which a guest cannot borrow.
