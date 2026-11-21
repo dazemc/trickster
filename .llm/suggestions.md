@@ -36,6 +36,12 @@ Nothing in this file authorizes performance work.
 
 ## Lifecycle and ownership
 
+- **3.50 hide/show can leave a black strip.** `#196862`: after
+  `gtk_widget_hide`/`show`, GTK replaces the toplevel `wl_surface` and the
+  subsurface is not recreated. Trickster hides/shows strips for
+  `outputs.conf=hidden` and overlays on map/unmap. Exercise both on 3.50.1;
+  fix by destroy/recreate if it reproduces, never speculatively.
+
 - **MPRIS controls are dropped while the worker respawns.** The proxy returns
   immediately when no command port exists, so a play/pause/next/previous
   pressed during the 1–30 s backoff is lost. Consider a bounded one-shot
@@ -81,6 +87,11 @@ Nothing in this file authorizes performance work.
   path like `_reconcileOutputs`.
 
 ## Performance and refresh
+
+- **Settings lifecycle refresh has no widget-level test.** `wallpaperAccentEventFor`
+  and the bloc refresh paths are covered, but `TricksterSettingsApp`
+  constructs its own blocs, so no test drives `didChangeViewFocus` or app
+  resume into a `status` probe. Add injectable seams or a binding test.
 
 - **Enabled-but-unavailable modules still start their blocs and samplers.**
   `BarSettings` defaults to `knownModules`, and `ModuleScope` gates providers
