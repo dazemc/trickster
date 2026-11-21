@@ -11,14 +11,29 @@ Status words: **Current** is verified in the tree; **Gap** is tracked in
 
 **Current.** Files use Denial-style `KEY=VALUE` with `#` comments.
 
-1. `/etc/trickster/session.conf` supplies machine defaults.
-2. `TRICKSTER_*` environment variables override the file per key.
-3. `--config PATH` overrides the `outputs.conf` path for one run.
-4. `--edge SIDE` overrides only the strip side for one run.
-5. `--check` parses strictly; normal startup keeps last-good state and logs.
+For the `outputs.conf` document, every process resolves the same path in this
+order:
+
+1. `--config PATH` on the command line.
+2. `TRICKSTER_OUTPUT_CONFIG` in the process environment.
+3. `TRICKSTER_OUTPUT_CONFIG` in `/etc/trickster/session.conf`.
+4. `$XDG_CONFIG_HOME/trickster/outputs.conf`.
+
+`Bootstrap.resolvePaths` performs that resolution once; the bar, the settings
+application, and the bar menu's settings launch use the same result. An
+injected `ConfigPaths` (tests, embedders) wins over every source. Paths are
+normalized to absolute form with `.`/`..` collapsed and duplicate separators
+removed; symbolic links are deliberately not resolved, so watcher event
+spellings still compare equal. A relative override and its canonical spelling
+name the same document.
+
+The remaining `TRICKSTER_*` keys come from `/etc/trickster/session.conf` and
+the process environment, which overrides the file per key. `--edge SIDE`
+overrides only the strip side for one run. `--check` parses strictly; normal
+startup keeps last-good state and logs.
 
 The settings document path is always
-`$XDG_CONFIG_HOME/trickster/settings.json`; `--config` does not move it.
+`$XDG_CONFIG_HOME/trickster/settings.json`; no override moves it.
 
 ## `/etc/trickster/session.conf`
 
@@ -61,7 +76,11 @@ system_bar=hidden
 - Unknown keys are ignored. A malformed line, including a non-finite,
   non-positive, oversized, or empty-connector value, is a `FormatException`.
 - The per-user file is seeded once from `/etc/trickster/outputs.conf` (or the
-  built-in template) and never overwritten after that.
+  built-in template) and never overwritten after that. A valid
+  `outputs.conf.prev` already counts as a recoverable document: seeding leaves
+  a missing live file alone instead of shadowing the snapshot with defaults.
+  An unwritable config directory is logged and the bar continues with what it
+  can read.
 - A settings write merges only the `system_bar=` line: comments and unrelated
   keys survive byte-for-byte, the first existing line is replaced (duplicates
   collapse), or one is inserted. Writes are atomic through a unique temp file
@@ -70,6 +89,17 @@ system_bar=hidden
   live file to `.prev` to defaults, so a torn live file never resets placement
   while a good snapshot exists. An invalid document is rejected before either
   file changes.
+- Normal startup reads the live document first. A missing, unreadable, empty,
+  or corrupt live file recovers the same `.prev` snapshot the settings
+  transport reads. When a live parse error forced the recovery, the bar applies
+  the snapshot and logs a warning; `--check` fails the live document separately
+  while the bar still runs the recovered placement.
+- With neither a usable live document nor a usable snapshot, startup uses the
+  canonical defaults and reports the live error; it never crashes. A live
+  document that parses wins over any snapshot.
+- `--edge SIDE` also reactivates a hidden document: the side changes and a zero
+  thickness becomes the default 32, so a one-shot edge override cannot leave an
+  inactive bar.
 - The settings application still prefers the bar's control socket. A
   server-side rejection (`OutputsRequestException`) is surfaced on the
   displays page while the socket stays in use; only a `ControlSocketException`
@@ -80,8 +110,11 @@ system_bar=hidden
 
 ## `$XDG_CONFIG_HOME/trickster/settings.json`
 
-**Current.** A versioned JSON document owned by the bar. `revision` must be a
-positive integer; the bar and settings application share one revision line.
+**Current.** A versioned JSON document owned by the bar. The bar and the
+settings application address it, and the resolved outputs document, through
+the same `ConfigPaths`; neither process reconstructs a default path. `revision`
+must be a positive integer; the bar and settings application share one revision
+line.
 Unknown keys are ignored. Retired workspace counts, per-output overrides, and
 display order are ignored on decode because workspace placement belongs to the
 compositor.
@@ -190,20 +223,28 @@ place. Enabled-row drags still follow the nearest zone.
 
 ## Live reload
 
-**Current.** A `dart:io` watcher on the config directory debounces 200 ms and
-reloads through the bootstrap path. A watch stream that errors or closes is
-replaced after 500 ms, doubling to a 5 s cap; dispose is terminal.
-`ConfigWatcher.start` never throws: a directory-creation or watch failure
-enters the same retry path, and dispose leaves no subscription, debounce, or
-restart timer. An invalid file logs and keeps last-good state; the other
-document from the same reload still applies, so a corrupt `settings.json` does
-not postpone a valid `outputs.conf` change (or the reverse). The bar never
-crashes over config.
+**Current.** `dart:io` watchers cover the settings root and, when the outputs
+override's parent is a different directory, that parent too. A normalized
+exact filter admits only the resolved `settings.json` and `outputs.conf` paths,
+including an atomic rename's destination; `.tmp`/`.prev` neighbours and
+unrelated files never schedule a reload. Events debounce 200 ms and reload
+through the bootstrap path. A watch stream that errors or closes is replaced
+after 500 ms, doubling to a 5 s cap; dispose is terminal. `ConfigWatcher.start`
+never throws: a directory-creation or watch failure enters the same retry path,
+and dispose leaves no subscription, debounce, or restart timer. An invalid file
+logs and keeps last-good state; a live document recovered from `.prev` applies
+and logs a warning. The other document from the same reload still applies, so
+a corrupt `settings.json` does not postpone a valid `outputs.conf` change (or
+the reverse). The bar never crashes over config.
 
 - **Hot keys** (accent, module list/order, clock format, thresholds) rebuild
-  providers. The settings application watches the same directory and reloads
-  both settings and outputs, while an unsaved outputs preview owns the
-  displays page until its save lands.
+  providers. The settings application watches the same roots and reloads both
+  settings and outputs, while an unsaved outputs preview owns the displays page
+  until its save lands.
+- A settings-app `outputs.write` over the control socket applies immediately
+  through the bar's reload path, so an override outside a watched directory
+  still takes effect without waiting for a file event; the watcher covers file
+  fallback and hand edits.
 - **Disruptive keys** (edge, layer, thickness, keyboard, output set) destroy
   and recreate only the affected layer surfaces.
 - **Gap:** a non-disruptive settings change still calls native `outputs()`, a
@@ -215,7 +256,9 @@ crashes over config.
 
 - `trickster --check` validates Wayland, `outputs.conf`, `settings.json`,
   layer-shell, blur capability, idle-notify, and outputs; it exits the process
-  because the GTK loop outlives `main`.
+  because the GTK loop outlives `main`. A live outputs document that needed
+  `.prev` recovery still fails the preflight, and the warning names the live
+  parse error separately from the recovered placement.
 - `trickster --version`, `--config PATH`, `--edge SIDE`.
 - `trickster --settings` runs the settings application: separate process,
   separate engine, no strip surfaces.
