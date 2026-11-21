@@ -7,7 +7,15 @@ import 'package:trickster/src/config/key_value.dart';
 
 enum TricksterLayer { background, bottom, top, overlay }
 
-enum TricksterKeyboard { none, exclusive, onDemand }
+enum TricksterKeyboard {
+  none('none'),
+  exclusive('exclusive'),
+  onDemand('on_demand');
+
+  const TricksterKeyboard(this.wire);
+
+  final String wire;
+}
 
 class SessionConfig extends Equatable {
   const SessionConfig({
@@ -30,7 +38,7 @@ class SessionConfig extends Equatable {
   Map<String, Object?> toJson() => {
     'layer': layer.name,
     'namespace': namespace,
-    'keyboard': keyboard.name,
+    'keyboard': keyboard.wire,
     if (accent != null)
       'accent':
           '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
@@ -93,7 +101,7 @@ class SessionConfig extends Equatable {
       null || '' => TricksterKeyboard.onDemand,
       'none' => TricksterKeyboard.none,
       'exclusive' => TricksterKeyboard.exclusive,
-      'on_demand' => TricksterKeyboard.onDemand,
+      'on_demand' || 'onDemand' => TricksterKeyboard.onDemand,
       _ => throw FormatException('unknown TRICKSTER_KEYBOARD: $value'),
     };
   }

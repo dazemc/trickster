@@ -71,6 +71,23 @@ void main() {
       expect(config.accent?.toARGB32(), 0xffff0000);
     });
 
+    test('keyboard values round-trip through json with wire spellings', () {
+      for (final keyboard in TricksterKeyboard.values) {
+        final config = SessionConfig(keyboard: keyboard);
+        final json = Map<String, dynamic>.from(config.toJson());
+        expect(json['keyboard'], keyboard.wire);
+        expect(SessionConfig.fromJson(json).keyboard, keyboard);
+      }
+      expect(const SessionConfig().toJson()['keyboard'], 'on_demand');
+    });
+
+    test('legacy onDemand json still parses', () {
+      final config = SessionConfig.fromJson(const <String, dynamic>{
+        'keyboard': 'onDemand',
+      });
+      expect(config.keyboard, TricksterKeyboard.onDemand);
+    });
+
     test('accepts and ignores the retired TRICKSTER_LOG key', () {
       const source =
           'TRICKSTER_NAMESPACE=logless\n'
