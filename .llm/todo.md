@@ -18,10 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Settings performance
-
-1. **S — Settings: scoped module drag rebuilds.** Do not emit a modules bloc
-   state for pointer moves that do not change the preview slot, and read the
-   last pointer outside reactive state. Done with a bloc test proving repeated
-   same-slot drag previews emit once and the existing drag tests stay green.
