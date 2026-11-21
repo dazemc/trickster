@@ -157,6 +157,21 @@ hides the clock date and seconds, so the inspector disables both toggles and
 notes why. Switching sections resets the page scroll to the top. These are
 window-local behavior; documents, revisions, and persistence are unchanged.
 
+**Module availability.** The settings application probes hardware once and
+refreshes when the probe's document inputs change. Disk availability means an
+existing path, whether a mount directory or a file inside the mount; network
+availability means a physical link or the pinned `network.interface`;
+keyboard layout means an available backend with an active layout, matching
+`KeyboardLayoutState.hasLayout`, with the running bar's control status
+preferred over the process environment. A `disk.path` or `network.interface`
+edit schedules one re-probe 250 ms after the preview, and a completed save
+re-probes if the last answer still belongs to older inputs. A loader failure
+keeps the last good answer, a stale loader answer is dropped, and a fresh
+answer prunes an inspector whose enabled module became unavailable. A row
+dropped from Disabled enables and moves only when released inside a real zone
+(heading or card); a page-header or outside release leaves it disabled and in
+place. Enabled-row drags still follow the nearest zone.
+
 **Gaps.**
 
 - A settings document with an invalid scalar type is an invalid document; if
