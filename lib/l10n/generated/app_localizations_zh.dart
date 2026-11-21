@@ -516,6 +516,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOutputsUnavailable => '宿主未报告任何输出。';
 
   @override
+  String get settingsOutputsLastNote => '状态栏至少需要一个输出，因此最后选中的输出会保持开启。';
+
+  @override
   String get settingsOutputsSaveError => '无法保存显示设置；状态栏仍使用原有位置。';
 
   @override

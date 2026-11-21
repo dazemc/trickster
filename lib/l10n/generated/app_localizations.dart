@@ -1017,6 +1017,12 @@ abstract class AppLocalizations {
   /// **'No outputs reported by the host.'**
   String get settingsOutputsUnavailable;
 
+  /// Explains why the last selected output's toggle is locked on.
+  ///
+  /// In en, this message translates to:
+  /// **'The bar needs at least one output, so the last selected output stays on.'**
+  String get settingsOutputsLastNote;
+
   /// Inline error banner when an outputs.conf write fails.
   ///
   /// In en, this message translates to:

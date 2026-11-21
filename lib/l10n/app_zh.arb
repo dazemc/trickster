@@ -794,6 +794,10 @@
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
   },
+  "settingsOutputsLastNote": "状态栏至少需要一个输出，因此最后选中的输出会保持开启。",
+  "@settingsOutputsLastNote": {
+    "description": "Explains why the last selected output's toggle is locked on."
+  },
   "settingsOutputsSaveError": "无法保存显示设置；状态栏仍使用原有位置。",
   "@settingsOutputsSaveError": {
     "description": "Inline error banner when an outputs.conf write fails."

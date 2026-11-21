@@ -269,6 +269,25 @@ class LayerOutput {
 
   /// The driven mode as `WIDTHxHEIGHT` in physical pixels.
   String get modeLabel => '${width * scale}×${height * scale}';
+
+  // An output refresh that reports the same geometry is the same output.
+  // Equality lets state consumers skip a rebuild when a poll or event
+  // publishes an identical list.
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is LayerOutput &&
+            other.name == name &&
+            other.viewId == viewId &&
+            other.x == x &&
+            other.y == y &&
+            other.width == width &&
+            other.height == height &&
+            other.scale == scale;
+  }
+
+  @override
+  int get hashCode => Object.hash(name, viewId, x, y, width, height, scale);
 }
 
 /// The outputs that host a strip: every one when the config names no

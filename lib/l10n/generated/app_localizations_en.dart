@@ -524,6 +524,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOutputsUnavailable => 'No outputs reported by the host.';
 
   @override
+  String get settingsOutputsLastNote =>
+      'The bar needs at least one output, so the last selected output stays on.';
+
+  @override
   String get settingsOutputsSaveError =>
       'Could not save display settings; the bar keeps its previous placement.';
 

@@ -196,6 +196,16 @@ class _AppearancePageState extends State<AppearancePage> {
     final candidates = target == null
         ? wallpaper.topCandidates
         : wallpaper.candidatesFor(target);
+    final availableNames = {for (final output in outputs) output.name};
+    // Every override whose display is unplugged gets a chip, not only the one
+    // currently selected: a stale override must be reachable so it can be
+    // cleared or retargeted without the monitor attached. The selected one is
+    // kept even in the transient frame where its override already vanished.
+    final orphanTargets = <String>{
+      for (final connector in overrides.keys)
+        if (!availableNames.contains(connector)) connector,
+      if (target != null && !availableNames.contains(target)) target,
+    }.toList()..sort();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -204,7 +214,7 @@ class _AppearancePageState extends State<AppearancePage> {
           caption: l10n.settingsAppearanceCaption,
         ),
         const SizedBox(height: 20),
-        if (outputs.isNotEmpty || target != null) ...[
+        if (outputs.isNotEmpty || orphanTargets.isNotEmpty) ...[
           SettingsCard(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
@@ -249,16 +259,14 @@ class _AppearancePageState extends State<AppearancePage> {
                         selected: target == output.name,
                         onPressed: () => setState(() => _target = output.name),
                       ),
-                    // The connector unplugged but still owns an override;
-                    // keep it visible and selected rather than editing an
-                    // invisible target with no chip highlighted.
-                    if (target != null &&
-                        !outputs.any((output) => output.name == target))
+                    // Unplugged connectors that still own an override: show
+                    // each one so a stale entry can be selected and cleared.
+                    for (final connector in orphanTargets)
                       SettingsChoiceChip(
-                        key: ValueKey<String>('appearance-target-$target'),
-                        label: target,
-                        selected: true,
-                        onPressed: () => setState(() => _target = target),
+                        key: ValueKey<String>('appearance-target-$connector'),
+                        label: connector,
+                        selected: target == connector,
+                        onPressed: () => setState(() => _target = connector),
                       ),
                   ],
                 ),

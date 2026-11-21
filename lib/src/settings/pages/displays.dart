@@ -8,6 +8,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
 /// Displays page: edge, thickness, and which outputs host the bar, written
@@ -98,6 +99,14 @@ class _DisplaysPageState extends State<DisplaysPage> {
         ? available.map((output) => output.name).toSet()
         : outputs.connectors.toSet();
     final hidden = outputs.side == SystemBarSide.hidden;
+    // The grammar's empty connector list means "every output", so the last
+    // selected visible output cannot be turned off. Locking that row and
+    // explaining why keeps the blocked toggle from looking broken.
+    final lockedOutput =
+        selected.length == 1 &&
+            available.any((output) => output.name == selected.single)
+        ? selected.single
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -312,6 +321,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
                           key: ValueKey<String>('output-${output.name}'),
                           output: output,
                           selected: selected.contains(output.name),
+                          locked: output.name == lockedOutput,
                           onToggle: () => _toggleOutput(
                             controller,
                             outputs,
@@ -319,6 +329,16 @@ class _DisplaysPageState extends State<DisplaysPage> {
                             output.name,
                           ),
                         ),
+                      if (lockedOutput != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          l10n.settingsOutputsLastNote,
+                          style: ShellText.systemBarCaption.copyWith(
+                            color: ShellMediaColors.lightForegroundSecondary
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       if (outputs.connectors.isEmpty)
                         Text(
@@ -438,54 +458,75 @@ class _OutputRow extends StatelessWidget {
   const _OutputRow({
     required this.output,
     required this.selected,
+    required this.locked,
     required this.onToggle,
     super.key,
   });
 
   final LayerOutput output;
   final bool selected;
+
+  /// Whether this is the last selected visible output: the grammar cannot
+  /// express "no outputs", so its toggle stays on and disabled.
+  final bool locked;
   final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final label = '${output.name} ${output.modeLabel}';
     return Semantics(
+      button: true,
       toggled: selected,
-      label: output.name,
-      hint: l10n.settingsOutputToggleHint,
-      onTap: onToggle,
+      enabled: !locked,
+      label: label,
+      hint: locked
+          ? l10n.settingsOutputsLastNote
+          : l10n.settingsOutputToggleHint,
+      onTap: locked ? null : onToggle,
       child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onToggle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${output.name}  ${output.modeLabel}',
-                      style: ShellText.systemBarValue.copyWith(
-                        color: selected
-                            ? ShellMediaColors.lightForeground
-                            : ShellMediaColors.lightForegroundSecondary,
-                      ),
-                    ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: selected
-                          ? ShellBrandColors.defaultAccent
-                          : SettingsColors.surfaceHigh,
-                      border: Border.all(color: SettingsColors.outline),
-                    ),
-                    child: const SizedBox.square(dimension: 18),
-                  ),
-                ],
+        child: SettingsActivatable(
+          enabled: !locked,
+          onPressed: onToggle,
+          builder: (context, focus) => AnimatedContainer(
+            duration: Motion.duration(context, Motion.pill),
+            curve: Motion.standard,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              color: focus.hovered && !locked
+                  ? SettingsGlass.control(context, SettingsColors.surfaceHigh)
+                  : null,
+              border: Border.all(
+                color: focus.focused
+                    ? ShellBrandColors.defaultAccent
+                    : ShellMediaColors.transparentDark,
+                width: 1.5,
               ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${output.name}  ${output.modeLabel}',
+                    style: ShellText.systemBarValue.copyWith(
+                      color: selected
+                          ? ShellMediaColors.lightForeground
+                          : ShellMediaColors.lightForegroundSecondary,
+                    ),
+                  ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected
+                        ? ShellBrandColors.defaultAccent
+                        : SettingsColors.surfaceHigh,
+                    border: Border.all(color: SettingsColors.outline),
+                  ),
+                  child: const SizedBox.square(dimension: 18),
+                ),
+              ],
             ),
           ),
         ),

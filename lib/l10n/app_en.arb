@@ -794,6 +794,10 @@
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
   },
+  "settingsOutputsLastNote": "The bar needs at least one output, so the last selected output stays on.",
+  "@settingsOutputsLastNote": {
+    "description": "Explains why the last selected output's toggle is locked on."
+  },
   "settingsOutputsSaveError": "Could not save display settings; the bar keeps its previous placement.",
   "@settingsOutputsSaveError": {
     "description": "Inline error banner when an outputs.conf write fails."
