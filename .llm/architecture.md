@@ -209,20 +209,21 @@ connection and still runs on the UI isolate. Its UI boundary is
 `StatusNotifierClient`: tray models live in `status_notifier_models.dart`,
 icon-file/SVG decoding lives in `tray_icon_decoder.dart`, and the service keeps
 D-Bus pixmap decoding and icon-path resolution. `TrayBloc` depends on the
-interface while the local service remains the default. A transport failure
-discards that client, recreates the watcher endpoint and signal subscriptions,
-re-registers the preserved item addresses, and clears stale items and pending
-refreshes. A cheap `GetId` heartbeat detects a silent bus drop.
+interface; production defaults to the worker proxy while the local service is
+retained for tests and injected use. A transport failure discards that client,
+recreates the watcher endpoint and signal subscriptions, re-registers the
+preserved item addresses, and clears stale items and pending refreshes. A
+cheap `GetId` heartbeat detects a silent bus drop.
 
 **StatusNotifier worker.** `StatusNotifierWorkerProxy` spawns one
 `trickster-sni-worker` isolate that owns the only `DBusClient`, watcher
 endpoint, registrations, property/menu parsing, and heartbeat. Bounded
 protocol payloads carry commands, replies, snapshots, menu entries, and icon
 payloads; icon-name paths cross as paths and are decoded by `TrayIconDecoder`
-on the UI isolate. The proxy spawns the worker only on `start`, respawns after
-isolate death with 1 s→30 s capped backoff, and sends a dispose command before
-killing it. `TrayBloc` still defaults to the local service; the default flip
-is a separate step.
+on the UI isolate. The proxy spawns the worker only when the configured tray
+module receives `TrayStarted`, respawns after isolate death with 1 s→30 s
+capped backoff, and sends a dispose command before killing it. A disabled tray
+creates no bloc or worker. Live tray verification remains deferred.
 
 **MPRIS worker.** MPRIS runs in a dedicated widget-free worker isolate: its
 service and only DBusClient live there, snapshots cross back as JSON-compatible
