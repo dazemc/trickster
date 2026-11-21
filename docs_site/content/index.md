@@ -17,6 +17,8 @@ Trickster takes Denial's system bar — the floating pills, the accent, the moti
   sparkline (user-requested addition, not Denial parity).
 - VRAM: a per-GPU dedicated-memory meter from sysfs or NVML, sharing the GPU
   sampler (user-requested addition, not Denial parity).
+- Temperature: a hwmon Celsius meter with CPU-sensor priority and a hottest
+  fallback (user-requested addition, not Denial parity).
 - Denial-style files-on-disk config with live reload and a `--check` preflight.
 - Sway, Hyprland, niri, river, and COSMIC targets.
 
