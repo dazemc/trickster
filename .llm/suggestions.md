@@ -54,11 +54,11 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **Settings wallpaper candidates freeze while open.** `loadBarWallpaperAccent`
-  runs once per enable; with a usable bar state the settings app starts no
-  wallpaper-cache watcher, so a wallpaper change leaves the appearance palette
-  stale until the window is reopened. Add a focus or cache-event refresh that
-  refetches `status` without returning to local decode; no interval poll.
+- **Settings lifecycle refresh has no widget-level test.** `wallpaperAccentEventFor`
+  and the bloc's refresh paths are covered, but `TricksterSettingsApp`
+  constructs its own blocs, so no test drives `didChangeViewFocus` or app
+  resume into a `status` probe. Add injectable bloc/probe seams (or a binding
+  test) before the persistence/UI tracks edit `settings/app.dart` again.
 
 - **StatusNotifier offload is justified by measured frame-scale stalls.** One
   conforming 128² pixmap parse costs ~5.3 ms p50 on the UI isolate (256²
