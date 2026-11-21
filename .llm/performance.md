@@ -260,9 +260,10 @@ signals stay live. MPRIS parsing, discovery, and method calls run in its worker
 isolate; only JSON-compatible snapshots and command replies cross back. An
 isolate exit or startup failure is retried with 1 s→30 s capped backoff and
 never more than one spawn in flight; the recovery-paused start is replayed and
-a valid snapshot resets the backoff. StatusNotifier still opens its D-Bus
-client on the UI isolate; moving it needs a proxy design because it exports
-bus objects.
+a valid snapshot resets the backoff. StatusNotifier's default remains the
+UI-isolate local service. The default-off worker path owns the only D-Bus
+client and watcher objects and crosses bounded snapshot/menu/command payloads;
+icon files stay UI-decoded, so the default flip is separate.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
 event-driven. All three dedup snapshots against the last emission; niri's
