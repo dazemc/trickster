@@ -18,3 +18,13 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- S: Remove the unused `TRICKSTER_LOG` contract. Drop `log` from
+  `SessionConfig` (constructor, field, props, JSON, parse, environment) while
+  legacy session.conf files carrying the key still parse and ignore it; remove
+  the key from the shipped template, man page, docs, `AGENTS.md`, and `.llm`
+  notes. Done when tests prove parse/fromEnvironment/toJson expose no log
+  contract, a `TRICKSTER_LOG` source round-trip is accepted and ignored, and
+  analyze/full tests/release build are green.
