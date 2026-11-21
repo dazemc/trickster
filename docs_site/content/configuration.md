@@ -196,7 +196,9 @@ document but cannot be toggled or resolved from the page.
   tooltip; otherwise the kernel link/route reading remains the fallback.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
-  below `warn`.
+  below `warn`. The hover tooltip adds the kernel charge state and a
+  minute-rounded time to empty or full when the battery publishes usable
+  power/current counters.
 - `media.mode` (`full`, `semi`, or `compact`, default `semi`) — full shows
   the equalizer, now-playing text, and transport keys; semi the equalizer
   and keys; compact only the keys. Right-clicking the pill cycles the modes
