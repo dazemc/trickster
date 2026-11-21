@@ -65,10 +65,12 @@ rejected at decode, so a live reload keeps the last-good settings.
 The settings application probes the machine before it offers a module: no
 battery, no dedicated GPU memory, no readable hwmon temperature sensor, a
 missing configured disk mount, no physical or pinned network interface, no
-supported keyboard-layout backend, and no readable backlight each move the row
-into an Unavailable section with a reason. Keyboard layout prefers the running bar's control status and
-falls back to the settings process environment. Unavailable rows stay in the
-document but cannot be toggled or resolved from the page.
+supported keyboard-layout backend, and no readable backlight each move an
+enabled row into an Unavailable section with a reason and a disable toggle.
+Turning it off moves it to Disabled with the same reason and its options gear;
+turning it back on returns it to Unavailable. A module never appears in both
+sections. Keyboard layout prefers the running bar's control status and falls
+back to the settings process environment.
 
 - `accent_source` (`custom` or `wallpaper`, default `custom`) — where the
   accent comes from. `wallpaper` samples the host wallpaper's dominant
