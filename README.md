@@ -48,6 +48,8 @@ The Denial set, in Denial's visual language:
 
 - Clock, battery (UPower), media (MPRIS), system tray (StatusNotifier),
   CPU/GPU, workspaces (Sway, Hyprland, and niri backends).
+- RAM: a 1 Hz `/proc/meminfo` meter with thresholds, captions, and a
+  sparkline. This is a user-requested addition; Denial has no memory module.
 - OpenCode usage: the signed-in workspace's Go allowance windows (rolling,
   weekly, monthly), reset times, and the newest session's tokens and cost,
   read from OpenCode's local server. Clicking the pill opens the companion
