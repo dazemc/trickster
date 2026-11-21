@@ -315,6 +315,56 @@ void main() {
     await expectation.timeout(const Duration(seconds: 5));
   });
 
+  test('same-slot drag previews do not emit a new state', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final modules = ModulesBloc(
+      settings: bloc,
+      availabilityProbe: () => const <ModuleAvailability>[],
+    );
+    addTearDown(modules.close);
+
+    final zone = bloc.settings.zoneFor('clock');
+    modules.add(ModulesDragStarted(module: 'clock', zone: zone));
+    await modules.stream.firstWhere((state) => state.dragging == 'clock');
+    final index = modules.state.previewIndex;
+    var emits = 0;
+    final subscription = modules.stream.listen((_) => emits += 1);
+
+    modules
+      ..add(
+        ModulesDragPreviewed(
+          zone: zone,
+          index: index,
+          position: const Offset(10, 20),
+        ),
+      )
+      ..add(
+        ModulesDragPreviewed(
+          zone: zone,
+          index: index,
+          position: const Offset(30, 40),
+        ),
+      );
+    await Future<void>.delayed(Duration.zero);
+    expect(emits, 0);
+    expect(modules.lastPointer, const Offset(30, 40));
+
+    final changed = modules.stream.firstWhere(
+      (state) => state.previewIndex != index,
+    );
+    modules.add(
+      ModulesDragPreviewed(
+        zone: zone,
+        index: index + 1,
+        position: const Offset(50, 60),
+      ),
+    );
+    await changed;
+    expect(modules.state.lastPointer, const Offset(50, 60));
+    await subscription.cancel();
+  });
+
   testWidgets('settings shell shows the appearance page', (tester) async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);

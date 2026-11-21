@@ -316,6 +316,14 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   _availabilityLoader;
   DebouncedSaver? _saver;
 
+  /// The latest pointer position. This is deliberately outside
+  /// [ModulesState]: a pointer move inside the same preview slot must not
+  /// rebuild every module row, but the drop fallback still needs the exact
+  /// release position.
+  Offset? _lastPointer;
+
+  Offset? get lastPointer => _lastPointer;
+
   BarSettings get _document => _settings.settings;
 
   /// Applies [change] as a live preview and saves it after the debounce.
@@ -473,6 +481,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
 
   void _onDragStarted(ModulesDragStarted event, Emitter<ModulesState> emit) {
     final current = _groupsFor(_document)[event.zone] ?? const <String>[];
+    _lastPointer = null;
     emit(
       state.copyWith(
         dragging: event.module,
@@ -488,8 +497,8 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     ModulesDragPreviewed event,
     Emitter<ModulesState> emit,
   ) {
+    _lastPointer = event.position;
     if (event.zone == state.previewZone && event.index == state.previewIndex) {
-      emit(state.copyWith(lastPointer: event.position));
       return;
     }
     emit(
@@ -506,6 +515,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     final zone = state.previewZone;
     final index = state.previewIndex;
     final handled = state.dropHandled;
+    _lastPointer = null;
     emit(
       state.copyWith(
         dragging: null,
