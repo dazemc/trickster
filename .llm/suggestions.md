@@ -59,8 +59,9 @@ Nothing in this file authorizes performance work.
   ~21.8 ms, 512² ~90.5 ms, AOT), and 32×64² at 10 Hz takes 54% UI CPU. The
   pure-Dart D-Bus parse dominates; `dart:ui`/flutter_svg icon-file decoding is
   ~1.56 ms and stays on the UI isolate. The models/decoder/client boundary
-  has landed; the local service remains the default. The protocol/worker/proxy
-  default-off slice and the default flip remain unqueued.
+  and the default-off protocol/worker/proxy path have landed; the local
+  service remains the default. Only the default flip remains unqueued, and it
+  needs a live tray proof.
 
 ## Correctness and verification
 
