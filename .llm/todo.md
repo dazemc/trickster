@@ -18,3 +18,14 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Telemetry modules
+
+- **M — Add the first-class temperature module.** Add
+  `TemperatureSample`/`TemperatureSampler` over hwmon (CPU-sensor priority,
+  hottest fallback), `TemperatureBloc`, `TemperatureOptions` in Celsius, the
+  `temperature` pill/options/l10n/status, and the ModuleScope idle gate. The
+  module is default-on and hides when no sensor is readable. Done:
+  sampler/pill/config/gating/status/l10n tests, `flutter analyze`, full
+  `flutter test`, and a release build pass; headless status proof replaces the
+  screen-off visual check.
