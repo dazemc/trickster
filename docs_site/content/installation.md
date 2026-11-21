@@ -16,11 +16,26 @@ flutter pub get
 flutter build linux --release
 ```
 
-The bundle lands at `build/linux/x64/release/bundle/trickster`. Run it directly — there is no installer yet:
+The bundle lands at `build/linux/x64/release/bundle/trickster`. Run it directly:
 
 ```sh
 ./build/linux/x64/release/bundle/trickster
 ```
+
+To install the newest bundle over the local package at `/usr/lib/trickster`
+(and keep the launchers in `/usr/bin` pointing at it):
+
+```sh
+make release   # flutter build linux --release, then overwrite the install
+# or, after a build already exists:
+make install
+```
+
+`make release` asks for sudo because `/usr/lib/trickster` is root-owned. It
+replaces `trickster`, `data/`, and `lib/` in place; it preserves the package's
+separately compiled `tricksterctl`. Use `make release` instead of a bare
+`flutter build linux --release` when the installed bar must pick up the newest
+binary on its next start.
 
 The same binary runs the settings application:
 
