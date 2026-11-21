@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "keyboard_layout", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "keyboard_layout", "battery", "network", "clock"]
 }
 ```
 
@@ -160,6 +160,15 @@ rejected at decode, so a live reload keeps the last-good settings.
   the main keyboard from `j/devices`, follows `.socket2.sock`
   `activelayout` events, and hides without that backend. It is enabled in the
   default module list.
+- `network.interface` (Linux interface name, optional) — pin one interface,
+  including a virtual one, instead of auto-selecting the active physical
+  interface. Auto mode ignores loopback and interfaces without a
+  `/sys/class/net/<if>/device` link, so tunnels and container veths are never
+  sampled or summed. `network.show_rates` (bool, default `true`) — show the
+  compact receive/transmit rates on the pill; the hover tooltip always keeps
+  them. `network` is enabled in the default module list and hides only when no
+  physical or pinned interface exists. Its first slice is kernel-only: no
+  SSID, signal, band, or D-Bus metadata yet.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
