@@ -51,6 +51,69 @@ void main() {
     }
   });
 
+  test('start creates a missing directory', () async {
+    final nested = Directory('${directory.path}/nested/deeper');
+    final harness = _WatchHarness();
+    final watcher = ConfigWatcher(
+      directory: nested,
+      onChanged: () {},
+      watch: harness.open,
+    );
+    try {
+      watcher.start();
+      expect(nested.existsSync(), isTrue);
+    } finally {
+      await watcher.dispose();
+      await harness.close();
+    }
+  });
+
+  test(
+    'a throwing watch never escapes start and stops retrying on dispose',
+    () async {
+      var opens = 0;
+      final watcher = ConfigWatcher(
+        directory: directory,
+        retryDelay: const Duration(milliseconds: 10),
+        retryDelayMax: const Duration(milliseconds: 20),
+        onChanged: () {},
+        watch: (_) {
+          opens += 1;
+          throw StateError('watch failed');
+        },
+      );
+      expect(watcher.start, returnsNormally);
+      expect(opens, 1);
+      await _waitFor(() => opens >= 3);
+      expect(watcher.hasPendingWork, isTrue);
+
+      await watcher.dispose();
+      expect(watcher.hasPendingWork, isFalse);
+      final settled = opens;
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(opens, settled);
+    },
+  );
+
+  test('a directory path that is a file never throws from start', () async {
+    final occupied = File('${directory.path}/occupied')
+      ..writeAsStringSync('not a directory');
+    final watcher = ConfigWatcher(
+      directory: Directory(occupied.path),
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 20),
+      onChanged: () {},
+    );
+    expect(watcher.start, returnsNormally);
+    expect(occupied.existsSync(), isTrue);
+
+    // Let several retries run: creation and watch failures must stay inside
+    // the backoff loop rather than reach the caller.
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await watcher.dispose();
+    expect(watcher.hasPendingWork, isFalse);
+  });
+
   test('the event filter suppresses unrelated paths', () async {
     final harness = _WatchHarness();
     var changes = 0;
@@ -188,6 +251,7 @@ void main() {
       watcher.start();
       harness.current.addError(StateError('watch failed'));
       await watcher.dispose();
+      expect(watcher.hasPendingWork, isFalse);
       await Future<void>.delayed(const Duration(milliseconds: 250));
       expect(harness.controllers, hasLength(1));
       expect(harness.current.hasListener, isFalse);

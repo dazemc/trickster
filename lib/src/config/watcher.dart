@@ -47,20 +47,28 @@ class ConfigWatcher {
   static Stream<FileSystemEvent> _watchDirectory(Directory directory) =>
       directory.watch();
 
+  /// Starts the watch. The directory is created when possible; a creation
+  /// failure (a read-only parent, or a file occupying the path) never escapes
+  /// here, because the settings window starts this from `initState`. The
+  /// failure goes through the same backoff as a failed watch and is retried.
   void start() {
     if (_disposed) {
       return;
     }
-    if (!directory.existsSync()) {
-      directory.createSync(recursive: true);
-    }
     _subscribe();
   }
+
+  /// Whether a live subscription or a pending debounce/restart is owned;
+  /// tests assert [dispose] leaves none.
+  @visibleForTesting
+  bool get hasPendingWork =>
+      _subscription != null || _timer != null || _restart != null;
 
   void _subscribe() {
     if (_disposed || _subscription != null || _restart != null) {
       return;
     }
+    _ensureDirectory();
     final generation = _generation;
     final StreamSubscription<FileSystemEvent> subscription;
     try {
@@ -83,6 +91,19 @@ class ConfigWatcher {
       return;
     }
     _subscription = subscription;
+  }
+
+  /// Creates [directory] when absent. Failures are not fatal: [_watch] below
+  /// reports the same condition and [_handleDrop] schedules the retry, which
+  /// attempts creation again.
+  void _ensureDirectory() {
+    try {
+      if (!directory.existsSync()) {
+        directory.createSync(recursive: true);
+      }
+    } on Object {
+      // Deferred to the watch and retry path.
+    }
   }
 
   void _handleEvent(int generation) {

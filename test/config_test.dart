@@ -232,6 +232,47 @@ void main() {
       expect(BarSettings.renderableModules(decoded.modules), ['clock', 'cpu']);
     });
 
+    test('missing modules default; an empty list stays empty', () {
+      expect(
+        BarSettings.decode('{"revision": 1}').modules,
+        BarSettings.knownModules,
+      );
+      expect(
+        BarSettings.decode('{"revision": 1, "modules": []}').modules,
+        isEmpty,
+      );
+    });
+
+    test('non-list modules are rejected instead of enabling defaults', () {
+      for (final value in ['"clock"', '{}', 'null', '7', 'true']) {
+        expect(
+          () => BarSettings.decode('{"revision": 1, "modules": $value}'),
+          throwsFormatException,
+          reason: 'modules=$value must be rejected',
+        );
+      }
+    });
+
+    test('non-string module entries are rejected instead of skipped', () {
+      for (final value in ['["clock", 7, "cpu"]', '[null]', '["clock", {}]']) {
+        expect(
+          () => BarSettings.decode('{"revision": 1, "modules": $value}'),
+          throwsFormatException,
+          reason: 'modules=$value must be rejected',
+        );
+      }
+    });
+
+    test('module order and unknown names round-trip', () {
+      const settings = BarSettings(
+        revision: 5,
+        modules: ['weather', 'clock', 'cpu'],
+      );
+      final decoded = BarSettings.decode(settings.encode());
+      expect(decoded.modules, ['weather', 'clock', 'cpu']);
+      expect(BarSettings.renderableModules(decoded.modules), ['clock', 'cpu']);
+    });
+
     test('placement-only changes compare unequal', () {
       const base = BarSettings();
       final moved = BarSettings(modulePlacement: {'clock': ModuleZone.leading});

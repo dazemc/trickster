@@ -1724,7 +1724,9 @@ class BarSettings extends Equatable {
         'settings.json revision must be a positive integer',
       );
     }
-    final modules = decoded['modules'];
+    final modules = decoded.containsKey('modules')
+        ? _configuredModules(decoded['modules'])
+        : knownModules;
     final locale = decoded['locale'];
     final legacyMeter = decoded['meter'];
     if (locale != null && !knownLocales.contains(locale)) {
@@ -1738,7 +1740,7 @@ class BarSettings extends Equatable {
       locale: locale is String ? locale : null,
       accentSource: AccentSource.parse(decoded['accent_source']),
       accentWallpaperPick: _accentPick(decoded['accent_wallpaper_pick']),
-      modules: _configuredModules(modules),
+      modules: modules,
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
       appearance: AppearanceOptions.fromJson(decoded['appearance']),
@@ -1759,16 +1761,27 @@ class BarSettings extends Equatable {
 
   /// Configured module names, first occurrence only. A hand-edited duplicate
   /// otherwise becomes duplicate widget keys in both the bar and settings
-  /// page; order is the strip order, so the first occurrence wins.
+  /// page; order is the strip order, so the first occurrence wins. A missing
+  /// key defaults to [knownModules]; a non-list value or a non-string entry is
+  /// invalid and rejected instead of silently enabling every module.
   static List<String> _configuredModules(Object? value) {
     if (value is! List) {
-      return knownModules;
+      throw const FormatException(
+        'settings.modules must be a list of module names',
+      );
     }
     final seen = <String>{};
-    return [
-      for (final module in value)
-        if (module is String && seen.add(module)) module,
-    ];
+    final modules = <String>[];
+    for (var index = 0; index < value.length; index += 1) {
+      final module = value[index];
+      if (module is! String) {
+        throw FormatException('settings.modules[$index] must be a string');
+      }
+      if (seen.add(module)) {
+        modules.add(module);
+      }
+    }
+    return modules;
   }
 
   /// Known modules in [modules], deduplicated first occurrence. Unknown names
