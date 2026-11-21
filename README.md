@@ -54,6 +54,8 @@ The Denial set, in Denial's visual language:
   This shares the GPU sampler and is also a user-requested addition.
 - Temperature: a hwmon Celsius meter that prefers CPU sensors and falls back
   to the hottest readable sensor (user-requested addition).
+- Disk: a 30 s statvfs meter for one configured mount, with IEC used/total/free
+  detail on hover (user-requested addition).
 - OpenCode usage: the signed-in workspace's Go allowance windows (rolling,
   weekly, monthly), reset times, and the newest session's tokens and cost,
   read from OpenCode's local server. Clicking the pill opens the companion
