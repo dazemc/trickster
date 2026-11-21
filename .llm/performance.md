@@ -71,6 +71,37 @@ temporary rebuild and pointer counters):
 This is a regression reference, not a current-host measurement. Re-measure
 before quoting it for a new Flutter or output.
 
+**StatusNotifier parse cost (2026-11, headless benchmark).** The real
+`StatusNotifierService`/`DBusClient` path was driven by a fake-bus exporter
+isolate under `flutter test`, one `PropertiesChanged` per update carrying
+`Title`/`Status`/`IconPixmap`, with a 1 ms event-loop grid probe. The
+in-process `DBusServer` in `dbus 0.8.1` corrupts signals above roughly 64 KiB
+(a 262144-byte pixmap arrived as 65536, then the stream failed), so only 64²
+loads ran end to end; 128² and larger were measured at the exact client parse
+layer (`DBusReadBuffer` + `DBusPropertiesChangedSignal` + the product pixmap
+decode) and cross-checked with an AOT `dart compile exe` of the same path.
+AOT is within ~7% of the `flutter test` JIT numbers, so these are not
+debug-build artifacts.
+
+Per update, AOT: 64² (16 KiB wire) ≈1.1 ms; 128² (64 KiB) ≈5.3 ms p50, p95
+5.9; 256² (256 KiB) ≈21.8 ms; 512² (1 MiB) ≈90.5 ms, p95 108. Cost is linear
+at ~80–86 µs per KiB of pixmap bytes and is dominated by `dbus` materializing
+one `DBusByte` per input byte; the pure-Dart downscale, premultiply, and digest
+add only 0.08–0.14 ms. The `dart:ui` PNG decode (512² → 24²) is ~1.56 ms mean
+with 0.69 ms event-loop p95, so it is not the bottleneck.
+
+Sustained 8×64² at 10 Hz (1.3 MB/s) held p95 at 1.0 ms (max 7.4 ms, 15 samples
+>4 ms in 5 s) at 15% UI CPU. 32×64² at 10 Hz (5.2 MB/s) took 54% UI CPU with
+p99 5.1 ms (max 7.4 ms, 101 samples >4 ms) and grew process RSS by ~19 MB over
+the window, allocator churn from parsed pixmap trees rather than a leak
+signal. Each update is one synchronous burst: 128² already spends 32% of a
+16.7 ms frame, 256² 1.3 frames, 512² 5.4 frames. Decision: move the D-Bus
+backend and pixmap conversion to a worker isolate and keep the
+`dart:ui`/flutter_svg icon-file decoder on the UI isolate. Deferral is
+defensible only if the accepted pixmap domain were capped at 64² and a few Hz,
+which it is not (512² input is accepted). Snapshot-driven tray rebuilds remain
+a separate coalescing follow-up.
+
 ## Rebuild algebra
 
 **Current.** The strip paints nothing. Every pill sits inside its own
