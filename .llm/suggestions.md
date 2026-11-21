@@ -62,12 +62,6 @@ Nothing in this file authorizes performance work.
   fake-bus test, and worker-crash recovery before landing. No authorized TODO
   step.
 
-## Idle and sampling
-
-- **Seat idle observes only the first seat.** `SeatIdleBloc` binds one
-  `ext-idle-notify-v1` notification, so a multi-seat compositor keeps gated
-  samplers running on the other seats. Bind one notification per seat.
-
 ## Correctness and verification
 
 - **Equatable 3.0 still compares `runtimeType` at the top level;**
