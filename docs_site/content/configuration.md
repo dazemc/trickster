@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "battery", "clock"]
 }
 ```
 
@@ -132,6 +132,18 @@ rejected at decode, so a live reload keeps the last-good settings.
 - `vram` is enabled in the default module list and renders only on GPUs that
   publish dedicated memory; existing explicit `modules` lists keep their
   contents.
+- `temperature.warn` / `temperature.critical` (number of °C, defaults `80` /
+  `95`) — tint the reading when it crosses each level; `warn` must stay below
+  `critical`.
+- `temperature.warn_color` / `temperature.critical_color` (`#RRGGBB`,
+  optional) — override the default warning and danger tints.
+- `temperature.caption_source` (`generic` or `custom`, default `generic`) and
+  `temperature.caption_prefix` — label the meter `CPU` for a CPU sensor,
+  `TEMP` for a fallback sensor, or the typed prefix.
+- `temperature.sparkline` (bool, default `true`) — hide the recent-history
+  sparkline.
+- `temperature` is enabled in the default module list and hides when no hwmon
+  sensor is readable.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
