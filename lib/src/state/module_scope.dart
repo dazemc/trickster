@@ -7,6 +7,7 @@ import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
@@ -17,6 +18,7 @@ import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
+import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
@@ -40,9 +42,11 @@ class ModuleScope extends StatelessWidget {
     this.clockBuilder,
     this.cpuBuilder,
     this.ramBuilder,
+    this.temperatureBuilder,
     this.gpuBuilder,
     this.cpuSamplerBuilder,
     this.ramSamplerBuilder,
+    this.temperatureSamplerBuilder,
     this.gpuSamplerBuilder,
     this.batterySamplerBuilder,
     this.opencodeSamplerBuilder,
@@ -61,13 +65,15 @@ class ModuleScope extends StatelessWidget {
   final ClockBloc Function()? clockBuilder;
   final CpuBloc Function()? cpuBuilder;
   final RamBloc Function()? ramBuilder;
+  final TemperatureBloc Function()? temperatureBuilder;
   final GpuBloc Function()? gpuBuilder;
 
   /// Sampler factories for tests that need the production paused-start wiring
-  /// without touching `/proc/stat`, `/proc/meminfo`, sysfs, NVML, or the
-  /// OpenCode server.
+  /// without touching `/proc/stat`, `/proc/meminfo`, hwmon, sysfs, NVML, or
+  /// the OpenCode server.
   final CpuSampler Function()? cpuSamplerBuilder;
   final RamSampler Function()? ramSamplerBuilder;
+  final TemperatureSampler Function()? temperatureSamplerBuilder;
   final GpuSampler Function()? gpuSamplerBuilder;
   final BatterySampler Function()? batterySamplerBuilder;
   final OpencodeSampler Function()? opencodeSamplerBuilder;
@@ -87,6 +93,7 @@ class ModuleScope extends StatelessWidget {
     final gatesIdleSamplers =
         settings.includes('cpu') ||
         settings.includes('ram') ||
+        settings.includes('temperature') ||
         settings.includes('gpu') ||
         settings.includes('vram') ||
         settings.includes('battery') ||
@@ -113,6 +120,17 @@ class ModuleScope extends StatelessWidget {
                 (RamBloc(sampler: ramSamplerBuilder?.call())..add(
                   RamStarted(paused: context.read<SeatIdleBloc>().state.idle),
                 )),
+          ),
+        if (settings.includes('temperature'))
+          BlocProvider<TemperatureBloc>(
+            create: (context) =>
+                temperatureBuilder?.call() ??
+                (TemperatureBloc(sampler: temperatureSamplerBuilder?.call())
+                  ..add(
+                    TemperatureStarted(
+                      paused: context.read<SeatIdleBloc>().state.idle,
+                    ),
+                  )),
           ),
         if (settings.includes('gpu') || settings.includes('vram'))
           BlocProvider<GpuBloc>(
@@ -193,6 +211,13 @@ class ModuleScope extends StatelessWidget {
                 if (settings.includes('ram')) {
                   context.read<RamBloc>().add(
                     state.idle ? const RamPaused() : const RamResumed(),
+                  );
+                }
+                if (settings.includes('temperature')) {
+                  context.read<TemperatureBloc>().add(
+                    state.idle
+                        ? const TemperaturePaused()
+                        : const TemperatureResumed(),
                   );
                 }
                 if (settings.includes('gpu') || settings.includes('vram')) {

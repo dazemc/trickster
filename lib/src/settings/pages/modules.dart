@@ -24,6 +24,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
     'gpu' => l10n.moduleGpu,
     'vram' => l10n.moduleVram,
     'ram' => l10n.moduleRam,
+    'temperature' => l10n.moduleTemperature,
     'battery' => l10n.moduleBattery,
     'clock' => l10n.moduleClock,
     'opencode' => l10n.moduleOpencode,

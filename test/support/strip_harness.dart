@@ -14,6 +14,7 @@ import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/calendar_bloc.dart';
@@ -30,6 +31,7 @@ import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
+import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/tray_menu.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
@@ -145,10 +147,12 @@ Future<void> pumpBarHarness(
   ClockBloc Function()? clockBuilder,
   CpuBloc Function()? cpuBuilder,
   RamBloc Function()? ramBuilder,
+  TemperatureBloc Function()? temperatureBuilder,
   GpuBloc Function()? gpuBuilder,
   GpuState gpuInitial = const GpuState(),
   CpuSampler Function()? cpuSamplerBuilder,
   RamSampler Function()? ramSamplerBuilder,
+  TemperatureSampler Function()? temperatureSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
   BatterySampler Function()? batterySamplerBuilder,
   OpencodeSampler Function()? opencodeSamplerBuilder,
@@ -198,6 +202,19 @@ Future<void> pumpBarHarness(
                         ),
                       )
                     : null),
+            temperatureBuilder:
+                temperatureBuilder ??
+                (temperatureSamplerBuilder == null
+                    ? () => TemperatureBloc(
+                        initial: const TemperatureSample(
+                          celsius: 36,
+                          label: 'Tctl',
+                          chip: 'k10temp',
+                          isCpu: true,
+                          history: [36],
+                        ),
+                      )
+                    : null),
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null
@@ -205,6 +222,7 @@ Future<void> pumpBarHarness(
                     : null),
             cpuSamplerBuilder: cpuSamplerBuilder,
             ramSamplerBuilder: ramSamplerBuilder,
+            temperatureSamplerBuilder: temperatureSamplerBuilder,
             gpuSamplerBuilder: gpuSamplerBuilder,
             trayBuilder:
                 trayBuilder ?? () => TrayBloc(initial: const TrayState()),

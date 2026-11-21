@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/ram.dart';
+import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -19,6 +20,7 @@ import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
@@ -72,6 +74,29 @@ class _RecordingCpuSampler extends CpuSampler {
 }
 
 class _RecordingRamSampler extends RamSampler {
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+}
+
+class _RecordingTemperatureSampler extends TemperatureSampler {
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -512,6 +537,59 @@ void main() {
     );
     expect(gpu.starts, 0);
     expect(find.byType(VramPill), findsNothing);
+  });
+
+  testWidgets('temperature-only idle dispatches only its own events', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final temperature = _RecordingTemperatureSampler();
+    final cpu = _RecordingCpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'temperature']),
+      seatIdleChanges: changes.stream,
+      temperatureSamplerBuilder: () => temperature,
+      cpuSamplerBuilder: () => cpu,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(temperature.pauses, 1);
+    expect(temperature.resumes, 1);
+    expect(cpu.pauses, 0);
+    expect(cpu.resumes, 0);
+  });
+
+  testWidgets('disabled temperature builds no bloc or sampler', (tester) async {
+    final temperature = _RecordingTemperatureSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      temperatureSamplerBuilder: () => temperature,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(temperature.starts, 0);
+    expect(find.byType(TemperaturePill), findsNothing);
+  });
+
+  testWidgets('a temperature module created while idle starts paused', (
+    tester,
+  ) async {
+    final temperature = _RecordingTemperatureSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'temperature']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      temperatureSamplerBuilder: () => temperature,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(temperature.starts, 1);
+    expect(temperature.startedPaused, isTrue);
   });
 
   testWidgets('ram-only idle dispatches only the ram events', (tester) async {

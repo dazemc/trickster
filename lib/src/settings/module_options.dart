@@ -36,6 +36,7 @@ bool moduleHasOptions(String module) {
     'clock' ||
     'cpu' ||
     'ram' ||
+    'temperature' ||
     'gpu' ||
     'vram' ||
     'battery' ||
@@ -700,6 +701,160 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             ),
             onSparkline: (settings, value) =>
                 settings.copyWith(ram: settings.ram.copyWith(sparkline: value)),
+          ),
+        ],
+      ),
+      'temperature' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-temperature-warn'),
+            label: l10n.settingsWarnLabel,
+            value: settings.temperature.warn,
+            min: 0,
+            max: 150,
+            display: l10n.temperatureCelsius(
+              '${settings.temperature.warn.round()}',
+            ),
+            resetKey: const ValueKey<String>('reset-temperature-warn'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+            resetEnabled:
+                settings.temperature.warn != const TemperatureOptions().warn,
+            onChanged: (value) {
+              final warn = value.roundToDouble();
+              _apply(controller, (settings) {
+                final critical = settings.temperature.critical <= warn
+                    ? (warn + 1).clamp(1, 150).toDouble()
+                    : settings.temperature.critical;
+                return settings.copyWith(
+                  temperature: settings.temperature.copyWith(
+                    warn: warn,
+                    critical: critical,
+                  ),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final warn = math
+                  .min(
+                    const TemperatureOptions().warn,
+                    settings.temperature.critical - 1,
+                  )
+                  .clamp(0, 149)
+                  .toDouble();
+              return settings.copyWith(
+                temperature: settings.temperature.copyWith(warn: warn),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('temperature-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.temperature.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                temperature: settings.temperature.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                temperature: settings.temperature.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-temperature-warn-color'),
+          ),
+          const SizedBox(height: 10),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-temperature-critical'),
+            label: l10n.settingsCriticalLabel,
+            value: settings.temperature.critical,
+            min: 0,
+            max: 150,
+            display: l10n.temperatureCelsius(
+              '${settings.temperature.critical.round()}',
+            ),
+            resetKey: const ValueKey<String>('reset-temperature-critical'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
+            resetEnabled:
+                settings.temperature.critical !=
+                const TemperatureOptions().critical,
+            onChanged: (value) {
+              final critical = value.roundToDouble();
+              _apply(controller, (settings) {
+                final warn = settings.temperature.warn >= critical
+                    ? (critical - 1).clamp(0, 149).toDouble()
+                    : settings.temperature.warn;
+                return settings.copyWith(
+                  temperature: settings.temperature.copyWith(
+                    warn: warn,
+                    critical: critical,
+                  ),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final critical = math
+                  .max(
+                    const TemperatureOptions().critical,
+                    settings.temperature.warn + 1,
+                  )
+                  .clamp(1, 150)
+                  .toDouble();
+              return settings.copyWith(
+                temperature: settings.temperature.copyWith(critical: critical),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('temperature-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.temperature.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                temperature: settings.temperature.copyWith(
+                  criticalColor: color,
+                ),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                temperature: settings.temperature.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>(
+              'reset-temperature-critical-color',
+            ),
+          ),
+          ..._meterControls(
+            l10n: l10n,
+            controller: controller,
+            prefix: 'temperature',
+            captionSource: settings.temperature.captionSource,
+            captionPrefix: settings.temperature.captionPrefix,
+            sparkline: settings.temperature.sparkline,
+            captionSources: const [
+              MeterCaptionSource.generic,
+              MeterCaptionSource.custom,
+            ],
+            onCaption: (settings, source) => settings.copyWith(
+              temperature: settings.temperature.copyWith(captionSource: source),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              temperature: settings.temperature.copyWith(
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
+              ),
+            ),
+            onSparkline: (settings, value) => settings.copyWith(
+              temperature: settings.temperature.copyWith(sparkline: value),
+            ),
           ),
         ],
       ),

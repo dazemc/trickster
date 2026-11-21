@@ -262,6 +262,15 @@ void main() {
           criticalColor: Color(0xffff8800),
           sparkline: false,
         ),
+        temperature: TemperatureOptions(
+          warn: 70,
+          critical: 90,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'TEMP0',
+          warnColor: Color(0xffff00aa),
+          criticalColor: Color(0xffaa00ff),
+          sparkline: false,
+        ),
         clock: ClockOptions(
           format: ClockFormat.hour24,
           showDate: false,
@@ -313,6 +322,13 @@ void main() {
       expect(decoded.ram.warnColor, const Color(0xff00ffff));
       expect(decoded.ram.criticalColor, const Color(0xffff8800));
       expect(decoded.ram.sparkline, isFalse);
+      expect(decoded.temperature.warn, 70);
+      expect(decoded.temperature.critical, 90);
+      expect(decoded.temperature.captionSource, MeterCaptionSource.custom);
+      expect(decoded.temperature.captionPrefix, 'TEMP0');
+      expect(decoded.temperature.warnColor, const Color(0xffff00aa));
+      expect(decoded.temperature.criticalColor, const Color(0xffaa00ff));
+      expect(decoded.temperature.sparkline, isFalse);
       expect(decoded.gpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.gpu.captionPrefix, 'GPU0');
       expect(decoded.gpu.warn, 0.6);
@@ -377,7 +393,18 @@ void main() {
       expect(bare.vram.captionSource, MeterCaptionSource.generic);
       expect(bare.vram.captionPrefix, isNull);
       expect(bare.vram.sparkline, isTrue);
+      expect(bare.temperature.warn, 80);
+      expect(bare.temperature.critical, 95);
+      expect(bare.temperature.captionSource, MeterCaptionSource.generic);
+      expect(bare.temperature.captionPrefix, isNull);
+      expect(bare.temperature.sparkline, isTrue);
       expect(bare.modules, contains('ram'));
+      expect(bare.modules, contains('temperature'));
+      expect(
+        bare.modules.indexOf('temperature'),
+        bare.modules.indexOf('ram') + 1,
+        reason: 'temperature follows ram in the default order',
+      );
       expect(bare.modules, contains('vram'));
       expect(
         bare.modules.indexOf('vram'),
@@ -479,6 +506,33 @@ void main() {
         throwsFormatException,
       );
       expect(
+        () => BarSettings.decode('{"revision": 1, "temperature": "hot"}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "temperature": {"warn": 95, "critical": 80}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "temperature": {"warn": "hot"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () =>
+            BarSettings.decode('{"revision": 1, "temperature": {"warn": 200}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "temperature": {"caption_source": "device"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
         () => BarSettings.decode(
           '{"revision": 1, "gpu": {"critical_color": "not a color"}}',
         ),
@@ -510,6 +564,8 @@ void main() {
       expect(explicit.ram.sparkline, isTrue);
       expect(explicit.vram.captionSource, MeterCaptionSource.generic);
       expect(explicit.vram.sparkline, isTrue);
+      expect(explicit.temperature.captionSource, MeterCaptionSource.generic);
+      expect(explicit.temperature.sparkline, isTrue);
     });
 
     test('the accent source round-trips and rejects unknown values', () {

@@ -31,6 +31,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get metricRam => 'RAM';
 
   @override
+  String get metricTemperature => 'TEMP';
+
+  @override
+  String temperatureCelsius(String value) {
+    return '$value°C';
+  }
+
+  @override
   String get desktopGpuLabel => 'GPU';
 
   @override
@@ -273,6 +281,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moduleRam => 'Memory';
+
+  @override
+  String get moduleTemperature => 'Temperature';
 
   @override
   String get moduleGpu => 'GPU';

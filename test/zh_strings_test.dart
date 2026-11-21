@@ -129,5 +129,8 @@ void main() {
     expect(l10n.desktopGpuLabel, 'GPU');
     expect(l10n.desktopVramLabel, 'VRAM');
     expect(l10n.moduleVram, '显存');
+    expect(l10n.metricTemperature, 'TEMP');
+    expect(l10n.moduleTemperature, '温度');
+    expect(l10n.temperatureCelsius('36'), '36°C');
   });
 }

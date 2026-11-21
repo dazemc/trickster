@@ -17,6 +17,8 @@ class LoadMeter extends StatelessWidget {
     this.valueColor,
     this.sparkline = true,
     this.vertical = false,
+    this.readingText,
+    this.readingUnit = '%',
     super.key,
   });
 
@@ -37,14 +39,23 @@ class LoadMeter extends StatelessWidget {
   /// Vertical strips stack the caption over the percent.
   final bool vertical;
 
+  /// Optional reading text, used by non-percent meters such as temperature.
+  /// When null the meter renders the 0-1 [current] as a percentage.
+  final String? readingText;
+
+  /// Unit appended to the reading; defaults to `%`.
+  final String readingUnit;
+
   @override
   Widget build(BuildContext context) {
     final percent = ((current ?? 0.0) * 100).round();
+    final text = readingText ?? '$percent';
+    final unit = readingUnit;
     final captionColor = accent.captionColor();
     if (vertical) {
       return Semantics(
         label: label,
-        value: '$percent%',
+        value: '$text$unit',
         child: ExcludeSemantics(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -66,7 +77,7 @@ class LoadMeter extends StatelessWidget {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      '$percent%',
+                      '$text$unit',
                       maxLines: 1,
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
@@ -98,7 +109,7 @@ class LoadMeter extends StatelessWidget {
     }
     return Semantics(
       label: label,
-      value: '$percent%',
+      value: '$text$unit',
       child: ExcludeSemantics(
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -132,14 +143,14 @@ class LoadMeter extends StatelessWidget {
             ],
             const SizedBox(width: 7),
             SizedBox(
-              width: 34,
+              width: readingText == null ? 34 : 44,
               child: Text.rich(
                 TextSpan(
-                  text: '$percent',
+                  text: text,
                   style: ShellText.systemBarValue.copyWith(color: valueColor),
                   children: [
                     TextSpan(
-                      text: '%',
+                      text: unit,
                       style: ShellText.systemBarCaption.copyWith(
                         color: captionColor,
                       ),

@@ -13,6 +13,7 @@ import 'package:trickster/src/bar/opencode.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/bar/ram.dart';
+import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
@@ -26,6 +27,7 @@ import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
@@ -35,6 +37,7 @@ import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
@@ -361,6 +364,42 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
           );
         },
       ),
+      'temperature': (position) =>
+          BlocBuilder<TemperatureBloc, TemperatureSample>(
+            builder: (context, sample) {
+              if (sample.celsius == null) {
+                return const SizedBox.shrink();
+              }
+              return SystemBarEntrance(
+                key: const ValueKey<String>('system-bar-temperature'),
+                index: position,
+                horizontal: horizontal,
+                child: Padding(
+                  padding: vertical
+                      ? const EdgeInsets.only(
+                          bottom: TricksterBarStrip._cardGap,
+                        )
+                      : const EdgeInsets.only(
+                          right: TricksterBarStrip._cardGap,
+                        ),
+                  child: RepaintBoundary(
+                    child: TemperaturePill(
+                      accent: accent,
+                      sample: sample,
+                      warn: settings.temperature.warn,
+                      critical: settings.temperature.critical,
+                      captionSource: settings.temperature.captionSource,
+                      captionPrefix: settings.temperature.captionPrefix,
+                      warnColor: settings.temperature.warnColor,
+                      criticalColor: settings.temperature.criticalColor,
+                      sparkline: settings.temperature.sparkline,
+                      vertical: vertical,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
       'battery': (position) => BlocBuilder<BatteryBloc, BatteryStatus>(
         builder: (context, status) {
           if (status.capacity == null) {

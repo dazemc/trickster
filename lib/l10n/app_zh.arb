@@ -34,6 +34,20 @@
   "@metricRam": {
     "description": "Caption for the RAM meter."
   },
+  "metricTemperature": "TEMP",
+  "@metricTemperature": {
+    "description": "Caption for a temperature meter when no CPU sensor is selected."
+  },
+  "temperatureCelsius": "{value}°C",
+  "@temperatureCelsius": {
+    "description": "Temperature value with its Celsius unit.",
+    "placeholders": {
+      "value": {
+        "type": "String",
+        "example": "36"
+      }
+    }
+  },
   "desktopGpuLabel": "GPU",
   "@desktopGpuLabel": {
     "description": "Caption for a GPU meter when no device name is known."
@@ -361,6 +375,10 @@
   "moduleRam": "内存",
   "@moduleRam": {
     "description": "Display name of the RAM module."
+  },
+  "moduleTemperature": "温度",
+  "@moduleTemperature": {
+    "description": "Display name of the temperature module."
   },
   "moduleGpu": "GPU",
   "@moduleGpu": {

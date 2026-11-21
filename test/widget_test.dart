@@ -12,6 +12,7 @@ import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/ram.dart';
+import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
@@ -21,11 +22,13 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
+import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
@@ -79,7 +82,7 @@ void main() {
   ) async {
     await pumpBarHarness(tester, output: 'HDMI-A-1');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('CPU'), findsOneWidget);
+    expect(find.text('CPU'), findsNWidgets(2));
     expect(find.text('42%', findRichText: true), findsOneWidget);
     expect(find.text('87%'), findsOneWidget);
     expect(
@@ -175,6 +178,48 @@ void main() {
       );
       await tester.pump();
       expect(find.byType(VramPill), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'temperature pill follows the block state and hides without data',
+    (tester) async {
+      await pumpBarHarness(tester);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(TemperaturePill), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('system-bar-temperature')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(TemperaturePill),
+          matching: find.text('CPU'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('36°C', findRichText: true), findsOneWidget);
+
+      final temperature = tester
+          .element(find.byType(TricksterBarStrip))
+          .read<TemperatureBloc>();
+      temperature.add(
+        const TemperatureSampled(
+          TemperatureSample(
+            celsius: 55,
+            label: 'Tctl',
+            chip: 'k10temp',
+            isCpu: true,
+            history: [36, 55],
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('55°C', findRichText: true), findsOneWidget);
+
+      temperature.add(const TemperatureSampled(TemperatureSample()));
+      await tester.pump();
+      expect(find.byType(TemperaturePill), findsNothing);
     },
   );
 
@@ -713,6 +758,7 @@ void main() {
       settings: const BarSettings(
         cpu: CpuOptions(sparkline: false),
         ram: RamOptions(sparkline: false),
+        temperature: TemperatureOptions(sparkline: false),
       ),
     );
     await tester.pump(const Duration(milliseconds: 500));

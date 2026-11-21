@@ -135,6 +135,18 @@ abstract class AppLocalizations {
   /// **'RAM'**
   String get metricRam;
 
+  /// Caption for a temperature meter when no CPU sensor is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'TEMP'**
+  String get metricTemperature;
+
+  /// Temperature value with its Celsius unit.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}°C'**
+  String temperatureCelsius(String value);
+
   /// Caption for a GPU meter when no device name is known.
   ///
   /// In en, this message translates to:
@@ -602,6 +614,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Memory'**
   String get moduleRam;
+
+  /// Display name of the temperature module.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get moduleTemperature;
 
   /// Display name of the GPU module.
   ///

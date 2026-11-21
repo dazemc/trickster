@@ -331,6 +331,119 @@ class RamOptions extends Equatable {
   }
 }
 
+/// Typed options for the temperature meter. Thresholds are Celsius, not
+/// fractions, and the metric has no device-name caption source.
+class TemperatureOptions extends Equatable {
+  const TemperatureOptions({
+    this.warn = 80,
+    this.critical = 95,
+    this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
+    this.sparkline = true,
+  });
+
+  final double warn;
+  final double critical;
+  final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
+
+  @override
+  List<Object?> get props => [
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    warnColor,
+    criticalColor,
+    sparkline,
+  ];
+
+  Map<String, Object?> toJson() => {
+    'warn': warn,
+    'critical': critical,
+    'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
+    if (warnColor != null) 'warn_color': _hex(warnColor!),
+    if (criticalColor != null) 'critical_color': _hex(criticalColor!),
+    'sparkline': sparkline,
+  };
+
+  TemperatureOptions copyWith({
+    double? warn,
+    double? critical,
+    MeterCaptionSource? captionSource,
+    Object? captionPrefix = _unset,
+    Object? warnColor = _unset,
+    Object? criticalColor = _unset,
+    bool? sparkline,
+  }) {
+    return TemperatureOptions(
+      warn: warn ?? this.warn,
+      critical: critical ?? this.critical,
+      captionSource: captionSource ?? this.captionSource,
+      captionPrefix: identical(captionPrefix, _unset)
+          ? this.captionPrefix
+          : captionPrefix as String?,
+      warnColor: identical(warnColor, _unset)
+          ? this.warnColor
+          : warnColor as Color?,
+      criticalColor: identical(criticalColor, _unset)
+          ? this.criticalColor
+          : criticalColor as Color?,
+      sparkline: sparkline ?? this.sparkline,
+    );
+  }
+
+  static TemperatureOptions fromJson(Object? json) {
+    if (json == null) {
+      return const TemperatureOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.temperature must be an object');
+    }
+    final warn = _celsius(json['warn'], 'settings.temperature.warn') ?? 80;
+    final critical =
+        _celsius(json['critical'], 'settings.temperature.critical') ?? 95;
+    if (warn >= critical) {
+      throw const FormatException(
+        'settings.temperature.warn must be below critical',
+      );
+    }
+    final captionSource = MeterCaptionSource.parse(json['caption_source']);
+    if (captionSource == MeterCaptionSource.device) {
+      throw const FormatException(
+        'settings.temperature.caption_source must be generic or custom',
+      );
+    }
+    return TemperatureOptions(
+      warn: warn,
+      critical: critical,
+      captionSource: captionSource,
+      captionPrefix: _prefix(json['caption_prefix']),
+      warnColor: _meterColor(
+        json['warn_color'],
+        'settings.temperature.warn_color',
+      ),
+      criticalColor: _meterColor(
+        json['critical_color'],
+        'settings.temperature.critical_color',
+      ),
+      sparkline: json['sparkline'] as bool? ?? true,
+    );
+  }
+}
+
 /// Typed options for the GPU meter; the same shape as the CPU's meter keys.
 class GpuOptions extends Equatable {
   const GpuOptions({
@@ -943,6 +1056,16 @@ double? _ratio(Object? value, String key) {
   return value.toDouble();
 }
 
+double? _celsius(Object? value, String key) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! num || value < 0 || value > 150) {
+    throw FormatException('$key must be between 0 and 150 Celsius');
+  }
+  return value.toDouble();
+}
+
 int? _percent(Object? value, String key) {
   if (value == null) {
     return null;
@@ -1090,6 +1213,7 @@ class BarSettings extends Equatable {
     'gpu',
     'vram',
     'ram',
+    'temperature',
     'battery',
     'clock',
     'opencode',
@@ -1108,6 +1232,7 @@ class BarSettings extends Equatable {
     this.workspaces = const WorkspaceOptions(),
     this.cpu = const CpuOptions(),
     this.ram = const RamOptions(),
+    this.temperature = const TemperatureOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
@@ -1143,6 +1268,7 @@ class BarSettings extends Equatable {
   final WorkspaceOptions workspaces;
   final CpuOptions cpu;
   final RamOptions ram;
+  final TemperatureOptions temperature;
   final ClockOptions clock;
   final BatteryOptions battery;
   final GpuOptions gpu;
@@ -1170,6 +1296,7 @@ class BarSettings extends Equatable {
     ...modules,
     cpu,
     ram,
+    temperature,
     clock,
     battery,
     gpu,
@@ -1225,6 +1352,7 @@ class BarSettings extends Equatable {
       },
     'cpu': cpu.toJson(),
     'ram': ram.toJson(),
+    'temperature': temperature.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
@@ -1254,6 +1382,7 @@ class BarSettings extends Equatable {
       modulePlacement: modulePlacement,
       cpu: cpu,
       ram: ram,
+      temperature: temperature,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1279,6 +1408,7 @@ class BarSettings extends Equatable {
       modulePlacement: modulePlacement,
       cpu: cpu,
       ram: ram,
+      temperature: temperature,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1304,6 +1434,7 @@ class BarSettings extends Equatable {
       modulePlacement: modulePlacement,
       cpu: cpu,
       ram: ram,
+      temperature: temperature,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1320,6 +1451,7 @@ class BarSettings extends Equatable {
     Map<String, ModuleZone>? modulePlacement,
     CpuOptions? cpu,
     RamOptions? ram,
+    TemperatureOptions? temperature,
     ClockOptions? clock,
     BatteryOptions? battery,
     GpuOptions? gpu,
@@ -1347,6 +1479,7 @@ class BarSettings extends Equatable {
       modulePlacement: modulePlacement ?? this.modulePlacement,
       cpu: cpu ?? this.cpu,
       ram: ram ?? this.ram,
+      temperature: temperature ?? this.temperature,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
@@ -1394,6 +1527,7 @@ class BarSettings extends Equatable {
       workspaces: WorkspaceOptions.fromJson(decoded['workspaces']),
       cpu: CpuOptions.fromJson(decoded['cpu'], legacy: legacyMeter),
       ram: RamOptions.fromJson(decoded['ram']),
+      temperature: TemperatureOptions.fromJson(decoded['temperature']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),

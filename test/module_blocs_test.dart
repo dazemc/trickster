@@ -10,6 +10,7 @@ import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
 
@@ -76,6 +78,45 @@ class FakeRamSampler extends RamSampler {
 
   @override
   Stream<RamSample> get snapshots => controller.stream;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+
+  @override
+  void dispose() {
+    disposed = true;
+    disposes += 1;
+    controller.close();
+  }
+}
+
+class FakeTemperatureSampler extends TemperatureSampler {
+  FakeTemperatureSampler() : super(interval: const Duration(days: 1));
+
+  final controller = StreamController<TemperatureSample>.broadcast();
+
+  var disposed = false;
+  var disposes = 0;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  Stream<TemperatureSample> get snapshots => controller.stream;
 
   @override
   void start({bool paused = false}) {
@@ -567,6 +608,97 @@ cpu MHz\t\t: 3400.000
         await pumpEventQueue();
       },
       expect: () => const <RamSample>[],
+      verify: (_) => expect(fake.startedPaused, isTrue),
+    );
+  });
+
+  group('TemperatureBloc', () {
+    late FakeTemperatureSampler fake;
+
+    test('started then sampled emits the sample', () async {
+      final sampler = FakeTemperatureSampler();
+      final bloc = TemperatureBloc(sampler: sampler);
+      const sample = TemperatureSample(
+        celsius: 55,
+        label: 'Tctl',
+        chip: 'k10temp',
+        isCpu: true,
+        history: [55],
+      );
+      try {
+        bloc.add(const TemperatureStarted());
+        await pumpEventQueue();
+        sampler.controller.add(sample);
+        await expectLater(bloc.stream, emits(sample));
+      } finally {
+        await bloc.close();
+      }
+      expect(sampler.disposed, isTrue);
+    });
+
+    test('stopped is terminal and close does not dispose twice', () async {
+      final sampler = FakeTemperatureSampler();
+      final bloc = TemperatureBloc(sampler: sampler);
+      final seen = <TemperatureSample>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const TemperatureStarted());
+      await pumpEventQueue();
+      bloc.add(const TemperatureStopped());
+      await pumpEventQueue();
+
+      expect(sampler.disposes, 1);
+      expect(sampler.controller.isClosed, isTrue);
+
+      bloc.add(const TemperatureSampled(TemperatureSample(celsius: 60)));
+      bloc.add(const TemperatureStarted(paused: true));
+      bloc.add(const TemperaturePaused());
+      bloc.add(const TemperatureResumed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(sampler.starts, 1);
+      expect(sampler.pauses, 0);
+      expect(sampler.resumes, 0);
+      expect(sampler.disposes, 1);
+
+      await bloc.close();
+      expect(sampler.disposes, 1);
+      await subscription.cancel();
+    });
+
+    blocTest<TemperatureBloc, TemperatureSample>(
+      'seat pauses and resumes the sampler without emitting',
+      build: () {
+        fake = FakeTemperatureSampler();
+        return TemperatureBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const TemperatureStarted());
+        await pumpEventQueue();
+        bloc.add(const TemperaturePaused());
+        await pumpEventQueue();
+        bloc.add(const TemperatureResumed());
+        await pumpEventQueue();
+      },
+      expect: () => const <TemperatureSample>[],
+      verify: (_) {
+        expect(fake.pauses, 1);
+        expect(fake.resumes, 1);
+      },
+    );
+
+    blocTest<TemperatureBloc, TemperatureSample>(
+      'a module started while idle seeds a paused sampler',
+      build: () {
+        fake = FakeTemperatureSampler();
+        return TemperatureBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const TemperatureStarted(paused: true));
+        await pumpEventQueue();
+      },
+      expect: () => const <TemperatureSample>[],
       verify: (_) => expect(fake.startedPaused, isTrue),
     );
   });

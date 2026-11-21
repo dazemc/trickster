@@ -387,6 +387,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Video memory'), findsOneWidget);
+    expect(find.text('Temperature'), findsOneWidget);
 
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
@@ -460,6 +461,32 @@ void main() {
     await reset('reset-ram-meter-caption');
     expect(bloc.settings.ram.captionSource, MeterCaptionSource.generic);
 
+    await openOptions('temperature');
+    await nudgeToMax('options-temperature-warn');
+    await reset('reset-temperature-warn');
+    expect(bloc.settings.temperature.warn, const TemperatureOptions().warn);
+    await reset('reset-temperature-critical');
+    expect(
+      bloc.settings.temperature.critical,
+      const TemperatureOptions().critical,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('temperature-meter-caption-device')),
+      findsNothing,
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('temperature-meter-caption-custom')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('temperature-meter-caption-custom')),
+    );
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.temperature.captionSource, MeterCaptionSource.custom);
+    await reset('reset-temperature-meter-caption');
+    expect(bloc.settings.temperature.captionSource, MeterCaptionSource.generic);
+
     await openOptions('vram');
     await nudgeToMax('options-vram-warn');
     await reset('reset-vram-warn');
@@ -506,6 +533,8 @@ void main() {
     expect(decoded.cpu.critical, const CpuOptions().critical);
     expect(decoded.ram.warn, const RamOptions().warn);
     expect(decoded.ram.critical, const RamOptions().critical);
+    expect(decoded.temperature.warn, const TemperatureOptions().warn);
+    expect(decoded.temperature.critical, const TemperatureOptions().critical);
     expect(decoded.vram.warn, const VramOptions().warn);
     expect(decoded.vram.critical, const VramOptions().critical);
     expect(decoded.battery.warn, const BatteryOptions().warn);

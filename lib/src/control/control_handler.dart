@@ -18,6 +18,7 @@ import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/sink_volume_bloc.dart';
+import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/visualizer_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
@@ -53,6 +54,7 @@ Future<Map<String, Object?>> handleControlRequest({
       final seatIdle =
           settings.includes('cpu') ||
               settings.includes('ram') ||
+              settings.includes('temperature') ||
               settings.includes('gpu') ||
               settings.includes('vram') ||
               settings.includes('battery') ||
@@ -78,6 +80,8 @@ Future<Map<String, Object?>> handleControlRequest({
             'cpu': bloc.state.toJson(),
           if (_read<RamBloc>(context) case final bloc?)
             'ram': bloc.state.toJson(),
+          if (_read<TemperatureBloc>(context) case final bloc?)
+            'temperature': bloc.state.toJson(),
           if (_read<GpuBloc>(context) case final bloc?)
             'gpu': bloc.state.toJson(),
           if (_read<BatteryBloc>(context) case final bloc?)

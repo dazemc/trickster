@@ -10,6 +10,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/ram.dart';
+import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
@@ -21,6 +22,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -142,6 +144,28 @@ void main() {
     );
     final handle = tester.ensureSemantics();
     expect(_nodeByLabel(tester, 'VRAM').getSemanticsData().value, '50%');
+    handle.dispose();
+  });
+
+  testWidgets('temperature meter announces the CPU caption and Celsius', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _keymap(
+        const TemperaturePill(
+          accent: _accent,
+          sample: TemperatureSample(
+            celsius: 36,
+            label: 'Tctl',
+            chip: 'k10temp',
+            isCpu: true,
+            history: [36],
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    expect(_nodeByLabel(tester, 'CPU').getSemanticsData().value, '36°C');
     handle.dispose();
   });
 
