@@ -128,8 +128,8 @@ own blocs under the same rule.
 States that cross a process, control-socket, or diagnostic boundary are
 JSON-shaped. The convention lives on the state's model type
 (`BatteryStatus`, `CpuSample`, `RamSample`, `TemperatureSample`, `DiskSample`,
-`KeyboardLayoutState`, `GpuState`, `WorkspacesState`, and peers), not on every
-bloc class.
+`NetworkSample`, `KeyboardLayoutState`, `GpuState`, `WorkspacesState`, and
+peers), not on every bloc class.
 
 Debug and profile builds trace every bloc event, transition, error, and
 lifecycle to stderr through `TricksterObserver`; release stays silent. Read
@@ -170,6 +170,18 @@ clears its reading and a re-advertised default binds a fresh proxy.
 binding; only a socket this server owns is unlinked on dispose. An accept
 stream that errors or closes is rebound after a capped 500 ms–30 s backoff;
 dispose cancels the retry, and a live foreign owner is never stolen.
+
+**Network link.** The kernel slice owns one selected interface. Identity and
+medium come from `/sys/class/net` (a `device` link marks a physical interface;
+auto mode excludes loopback, bridges, bonds, container veths, and tunnels),
+IPv4/IPv6 default routes come from `/proc/net/route` and
+`/proc/net/ipv6_route`, and counters come from `/proc/net/dev`. A pinned
+`network.interface` bypasses auto selection, including for a virtual interface.
+The sampler runs at 1 Hz, pauses with the seat, rebaselines on resume, and
+reports null rates on the first sample, a counter reset, or an interface/link
+change. It never aggregates interfaces and never spawns `nmcli`/`iw`.
+NetworkManager/iwd SSID, signal, band, and connectivity metadata are not part
+of this slice.
 
 ## Workspaces
 
