@@ -56,6 +56,8 @@ The Denial set, in Denial's visual language:
   to the hottest readable sensor (user-requested addition).
 - Disk: a 30 s statvfs meter for one configured mount, with IEC used/total/free
   detail on hover (user-requested addition).
+- Keyboard layout: a Hyprland-only event-driven KB pill with the full layout
+  set on hover (user-requested addition).
 - OpenCode usage: the signed-in workspace's Go allowance windows (rolling,
   weekly, monthly), reset times, and the newest session's tokens and cost,
   read from OpenCode's local server. Clicking the pill opens the companion
