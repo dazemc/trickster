@@ -37,6 +37,11 @@ Nothing in this file authorizes performance work.
   `outputs.conf=hidden` and overlays on map/unmap. Exercise both on 3.50.1;
   fix by destroy/recreate if it reproduces, never speculatively.
 
+- **MPRIS controls are dropped while the worker respawns.** The proxy returns
+  immediately when no command port exists, so a play/pause/next/previous
+  pressed during the 1–30 s backoff is lost. Consider a bounded one-shot
+  retry or disabling the controls while unavailable.
+
 - **Stopped modules cancel subscriptions but keep services alive.**
   `CpuStopped`, `GpuStopped`, `BatteryStopped`, `MediaStopped`, `TrayStopped`,
   and `WorkspacesStopped` do not dispose the underlying sampler/service, while
