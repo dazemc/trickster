@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "battery", "clock"]
 }
 ```
 
@@ -144,6 +144,18 @@ rejected at decode, so a live reload keeps the last-good settings.
   sparkline.
 - `temperature` is enabled in the default module list and hides when no hwmon
   sensor is readable.
+- `disk.path` (absolute mount path, default `/`) — the mount sampled with
+  `statvfs` every 30 s on a worker isolate.
+- `disk.warn` / `disk.critical` (number 0–1, defaults `0.80` / `0.95`) — tint
+  the used fraction when it crosses each level; `warn` must stay below
+  `critical`.
+- `disk.warn_color` / `disk.critical_color` (`#RRGGBB`, optional) — override
+  the default warning and danger tints.
+- `disk.caption_source` (`generic` or `custom`, default `generic`) and
+  `disk.caption_prefix` — label the meter `DISK` or the typed prefix. The
+  hover tooltip carries used, total, and free in IEC units.
+- `disk` is enabled in the default module list and has no sparkline or
+  history; it hides when the mount is missing or unreadable.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
