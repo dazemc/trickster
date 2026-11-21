@@ -62,11 +62,6 @@ Nothing in this file authorizes performance work.
   session clients on the UI isolate; signal coalescing bounds frequency, not
   parse cost. Move proxy work to the existing `background_worker.dart` pattern.
 
-- **Reduced-motion coverage is partial.** The workspace lens/switch and the
-  visualizer honor `MediaQuery.maybeDisableAnimationsOf`; the pill entrance and
-  other transitions do not. Audit every timed transition before claiming
-  accessibility parity.
-
 ## Idle and sampling
 
 - **Seat idle observes only the first seat.** `SeatIdleBloc` binds one
