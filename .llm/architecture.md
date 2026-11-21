@@ -216,8 +216,10 @@ mid-session re-probe. Both paths implement the same transport interfaces and
 the revision retry stays in `NativeSettingsStore`.
 
 One settings revision line covers both processes and the bar's own writes (the
-media pill's mode cycle). A revision mismatch is a retryable `StateError`;
-the store retries once and never keeps a document history.
+media pill's mode cycle). A revision mismatch is a `SettingsRevisionConflict`;
+the store adopts the latest disk document and the editor asks the user to
+retry, rather than resending a stale whole snapshot. It never keeps a document
+history.
 
 **D-Bus tray.** The StatusNotifier service owns one session client per
 connection and still runs on the UI isolate. Its UI boundary is
