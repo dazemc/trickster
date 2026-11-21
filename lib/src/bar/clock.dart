@@ -171,7 +171,7 @@ class _ClockRow extends StatelessWidget {
                 const SizedBox(width: 8),
               ],
               AnimatedSwitcher(
-                duration: Motion.cardSettle,
+                duration: Motion.duration(context, Motion.cardSettle),
                 switchInCurve: Motion.standard,
                 switchOutCurve: Motion.standard,
                 transitionBuilder: (child, animation) => FadeTransition(

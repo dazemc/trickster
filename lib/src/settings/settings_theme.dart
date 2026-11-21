@@ -102,7 +102,7 @@ class _SettingsCloseButtonState extends State<SettingsCloseButton> {
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed,
             child: AnimatedContainer(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               width: 30,
               height: 30,
               decoration: BoxDecoration(
@@ -163,7 +163,7 @@ class _SettingsButtonState extends State<SettingsButton> {
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed,
             child: AnimatedContainer(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               curve: Motion.standard,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
@@ -370,7 +370,7 @@ class SettingsChoiceChip extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: onPressed,
             child: AnimatedContainer(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               curve: Motion.standard,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
@@ -426,7 +426,7 @@ class SettingsToggle extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: () => onChanged(!enabled),
             child: AnimatedContainer(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               curve: Motion.standard,
               width: 44,
               height: 24,
@@ -442,7 +442,7 @@ class SettingsToggle extends StatelessWidget {
                 border: Border.all(color: SettingsColors.outline),
               ),
               child: AnimatedAlign(
-                duration: Motion.pill,
+                duration: Motion.duration(context, Motion.pill),
                 curve: Motion.standard,
                 alignment: enabled
                     ? Alignment.centerRight

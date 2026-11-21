@@ -565,11 +565,11 @@ class _SwatchButtonState extends State<_SwatchButton> {
             behavior: HitTestBehavior.opaque,
             onTap: widget.onPressed,
             child: AnimatedScale(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               curve: Motion.standard,
               scale: scale,
               child: AnimatedContainer(
-                duration: Motion.pill,
+                duration: Motion.duration(context, Motion.pill),
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(

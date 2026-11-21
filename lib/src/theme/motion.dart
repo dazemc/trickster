@@ -12,4 +12,11 @@ abstract final class Motion {
   static const Curve md3Emphasized = Cubic(0.2, 0.0, 0.0, 1.0);
   static const Curve md3EmphasizedAccelerate = Cubic(0.3, 0.0, 0.8, 0.15);
   static const Curve md3EmphasizedDecelerate = Cubic(0.05, 0.7, 0.1, 1.0);
+
+  /// [normal], or zero when the nearest [MediaQuery] asks for reduced motion.
+  /// Animated widgets then settle on their first frame instead of tweening.
+  static Duration duration(BuildContext context, Duration normal) =>
+      (MediaQuery.maybeDisableAnimationsOf(context) ?? false)
+      ? Duration.zero
+      : normal;
 }

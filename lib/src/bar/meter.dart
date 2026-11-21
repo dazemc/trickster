@@ -105,7 +105,7 @@ class LoadMeter extends StatelessWidget {
           children: [
             Flexible(
               child: AnimatedDefaultTextStyle(
-                duration: Motion.wallpaperReveal,
+                duration: Motion.duration(context, Motion.wallpaperReveal),
                 curve: Motion.standard,
                 style: ShellText.systemBarCaption.copyWith(color: captionColor),
                 child: Text(
