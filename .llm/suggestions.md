@@ -54,13 +54,14 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **StatusNotifier parsing runs on the UI isolate.** A full worker move is
-  not safe as one slice: exported watcher objects are pure Dart and can live in
-  a worker, but `dart:ui`/flutter_svg icon-file decoding cannot run in a
-  spawned isolate. The safe boundary is a worker-owned D-Bus backend plus a UI
-  icon decoder and snapshot merge. Requires measured tray jank, a real-worker
-  fake-bus test, and worker-crash recovery before landing. No authorized TODO
-  step.
+- **StatusNotifier offload is justified by measured frame-scale stalls.** One
+  conforming 128² pixmap parse costs ~5.3 ms p50 on the UI isolate (256²
+  ~21.8 ms, 512² ~90.5 ms, AOT), and 32×64² at 10 Hz takes 54% UI CPU. The
+  pure-Dart D-Bus parse dominates; `dart:ui`/flutter_svg icon-file decoding is
+  ~1.56 ms and stays on the UI isolate. Implement a worker DBus backend plus
+  the UI icon decoder in staged slices: extract models/decoder/client
+  boundary, then the protocol/worker/proxy default-off, then flip the default.
+  No code has landed; no authorized TODO step.
 
 ## Correctness and verification
 
