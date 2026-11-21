@@ -50,8 +50,10 @@ The Denial set, in Denial's visual language:
   CPU/GPU, workspaces (Sway, Hyprland, and niri backends).
 - RAM: a 1 Hz `/proc/meminfo` meter with thresholds, captions, and a
   sparkline. This is a user-requested addition; Denial has no memory module.
-- VRAM: a per-GPU dedicated-memory meter from amdgpu/i915/Xe sysfs or NVML.
-  This shares the GPU sampler and is also a user-requested addition.
+- VRAM: a per-GPU dedicated-memory meter from amdgpu sysfs or NVML. AMD
+  integrated graphics may expose a BIOS VRAM carveout as a meter; NVIDIA
+  runtime-suspended dGPUs are left asleep. This shares the GPU sampler and is
+  also a user-requested addition.
 - Temperature: a hwmon Celsius meter that prefers CPU sensors and falls back
   to the hottest readable sensor (user-requested addition).
 - Disk: a 30 s statvfs meter for one configured mount, with IEC used/total/free
