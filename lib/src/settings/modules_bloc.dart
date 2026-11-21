@@ -31,10 +31,11 @@ Map<ModuleZone, List<String>> moduleGroups(
   String? exclude,
 }) {
   final missing = <String>{for (final entry in unavailable) entry.module};
+  final configured = BarSettings.renderableModules(settings.modules);
   return <ModuleZone, List<String>>{
     for (final zone in ModuleZone.values)
       zone: [
-        for (final module in settings.modules)
+        for (final module in configured)
           if (module != exclude &&
               !missing.contains(module) &&
               settings.zoneFor(module) == zone)
@@ -397,7 +398,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
         for (final unavailable in state.unavailable) unavailable.module,
       };
       final segment = [
-        for (final candidate in settings.modules)
+        for (final candidate in BarSettings.renderableModules(settings.modules))
           if (!missing.contains(candidate) &&
               settings.zoneFor(candidate) == zone)
             candidate,
@@ -439,7 +440,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
         for (final unavailable in state.unavailable) unavailable.module,
       };
       final inZone = [
-        for (final candidate in modules)
+        for (final candidate in BarSettings.renderableModules(modules))
           if (!missing.contains(candidate) &&
               (placement[candidate] ?? defaultModuleZone(candidate)) == zone)
             candidate,

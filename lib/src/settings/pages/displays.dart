@@ -286,6 +286,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
     String name,
   ) {
     final all = available.map((output) => output.name).toList();
+    final availableSet = all.toSet();
     final selected = outputs.connectors.isEmpty
         ? all.toSet()
         : outputs.connectors.toSet();
@@ -294,19 +295,29 @@ class _DisplaysPageState extends State<DisplaysPage> {
     } else {
       selected.add(name);
     }
-    // The grammar treats an empty list as every output, so the last output
-    // cannot be deselected here.
+    // The grammar treats an empty list as every output, so the last visible
+    // output cannot be deselected here.
     if (selected.isEmpty) {
       return;
     }
-    final ordered = [
+    // A connector that is currently unplugged still belongs to the explicit
+    // selection; dropping it would silently change what the bar hosts when
+    // it returns. Only visible outputs drive the all-outputs shorthand.
+    final visible = [
       for (final connector in all)
         if (selected.contains(connector)) connector,
     ];
+    final stale = [
+      for (final connector in outputs.connectors)
+        if (!availableSet.contains(connector) && selected.contains(connector))
+          connector,
+    ];
+    final ordered = [...visible, ...stale];
+    final allVisible = visible.length == all.length;
     _applyNow(
       controller,
       outputs.copyWith(
-        connectors: selected.length == all.length ? const [] : ordered,
+        connectors: allVisible && stale.isEmpty ? const [] : ordered,
       ),
     );
   }

@@ -13,6 +13,7 @@ import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/wallpaper.dart';
@@ -30,17 +31,21 @@ import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 
 class _FakeLayerShell extends LayerShell {
-  _FakeLayerShell() : super(channel: const MethodChannel('test/trickster'));
+  _FakeLayerShell({
+    this.reported = const <LayerOutput>[
+      LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+      // A scaled output: 1280x720 logical is a 2560x1440 mode at scale 2.
+      LayerOutput(name: 'HDMI-A-1', width: 1280, height: 720, scale: 2),
+    ],
+  }) : super(channel: const MethodChannel('test/trickster'));
+
+  final List<LayerOutput> reported;
 
   @override
-  Future<List<LayerOutput>> outputs() async => const <LayerOutput>[
-    LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
-    // A scaled output: 1280x720 logical is a 2560x1440 mode at scale 2.
-    LayerOutput(name: 'HDMI-A-1', width: 1280, height: 720, scale: 2),
-  ];
+  Future<List<LayerOutput>> outputs() async => reported;
 }
 
-Future<SettingsAppBloc> _bloc(File file) async {
+Future<SettingsAppBloc> _bloc(File file, {LayerShell? layerShell}) async {
   final directory = file.parent;
   final bloc = SettingsAppBloc(
     socket: SocketSettingsTransport(
@@ -51,7 +56,7 @@ Future<SettingsAppBloc> _bloc(File file) async {
       socketPath: '${directory.path}/no-bar.sock',
     ),
     outputsFile: FileOutputsTransport(File('${directory.path}/outputs.conf')),
-    layerShell: _FakeLayerShell(),
+    layerShell: layerShell ?? _FakeLayerShell(),
   );
   bloc.add(const SettingsAppLoadRequested());
   await bloc.stream.firstWhere((state) => state.loaded);
@@ -1364,6 +1369,65 @@ void main() {
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
 
+  testWidgets('an unplugged connector never collapses to all outputs', (
+    tester,
+  ) async {
+    final outputs = File('${directory.path}/outputs.conf')
+      ..writeAsStringSync('system_bar=top,32,eDP-1,HDMI-A-1\n');
+    final bloc = await _bloc(
+      file,
+      layerShell: _FakeLayerShell(
+        reported: const <LayerOutput>[
+          LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+        ],
+      ),
+    );
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await tester.tap(find.bySemanticsLabel('Displays'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
+    await tester.pumpAndSettle();
+    final parsed = OutputsConfig.parse(outputs.readAsStringSync());
+    expect(parsed.connectors, ['HDMI-A-1']);
+    expect(parsed.hosts('eDP-1'), isFalse);
+    expect(parsed.hosts('HDMI-A-1'), isTrue);
+  });
+
+  test(
+    'an external outputs change reloads unless a draft owns the page',
+    () async {
+      final bloc = await _bloc(file);
+      addTearDown(bloc.close);
+      final outputs = File('${directory.path}/outputs.conf')
+        ..writeAsStringSync('system_bar=bottom,40\n');
+      bloc.add(const SettingsAppOutputsChanged());
+      final reloaded = await bloc.stream.firstWhere(
+        (state) => state.outputs.side == SystemBarSide.bottom,
+      );
+      expect(reloaded.outputs.thickness, 40);
+
+      bloc.add(
+        const SettingsAppOutputsPreviewed(
+          OutputsConfig(
+            side: SystemBarSide.left,
+            thickness: 80,
+            connectors: ['eDP-1'],
+          ),
+        ),
+      );
+      await bloc.stream.firstWhere(
+        (state) => state.outputs.side == SystemBarSide.left,
+      );
+      outputs.writeAsStringSync('system_bar=right,60\n');
+      bloc.add(const SettingsAppOutputsChanged());
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(bloc.outputs.side, SystemBarSide.left);
+      expect(bloc.outputs.thickness, 80);
+    },
+  );
+
   testWidgets('drag preview follows the hovered half of the row', (
     tester,
   ) async {
@@ -1567,6 +1631,24 @@ void main() {
       tester.getCenter(battery).dy,
       greaterThan(tester.getCenter(unavailable).dy),
     );
+  });
+
+  testWidgets('duplicate and unknown modules never multiply rows', (
+    tester,
+  ) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["clock", "weather", "clock", "cpu"]}',
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('module-clock')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('module-cpu')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('module-weather')), findsNothing);
+    expect(bloc.settings.modules, ['clock', 'weather', 'cpu']);
   });
 
   testWidgets('modules group by placement zone', (tester) async {

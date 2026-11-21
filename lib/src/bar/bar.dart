@@ -664,10 +664,11 @@ Widget _moduleZone({
     },
     crossExtent: bandCross,
     children: [
-      for (var position = 0; position < settings.modules.length; position++)
-        if (settings.zoneFor(settings.modules[position]) == zone)
-          builders[settings.modules[position]]?.call(position) ??
-              const SizedBox.shrink(),
+      for (final (position, module) in BarSettings.renderableModules(
+        settings.modules,
+      ).indexed)
+        if (settings.zoneFor(module) == zone)
+          builders[module]?.call(position) ?? const SizedBox.shrink(),
     ],
   );
 }
