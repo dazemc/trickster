@@ -68,7 +68,7 @@ The document carries:
 - `accent`, `accent_source`, `accent_wallpaper_pick`;
 - `display_appearance`: per-connector appearance overrides;
 - `appearance`, `workspaces`, `cpu`, `ram`, `clock`, `battery`, `gpu`,
-  `media`, `opencode`: nested module options;
+  `vram`, `media`, `opencode`: nested module options;
 - `locale`: `en` or `zh`; null follows the system.
 
 Every write is revision-checked. A mismatch is a `StateError`; the store
