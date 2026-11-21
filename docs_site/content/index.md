@@ -15,6 +15,8 @@ Trickster takes Denial's system bar — the floating pills, the accent, the moti
   session's tokens and cost.
 - RAM: a 1 Hz `/proc/meminfo` meter with thresholds, captions, and a
   sparkline (user-requested addition, not Denial parity).
+- VRAM: a per-GPU dedicated-memory meter from sysfs or NVML, sharing the GPU
+  sampler (user-requested addition, not Denial parity).
 - Denial-style files-on-disk config with live reload and a `--check` preflight.
 - Sway, Hyprland, niri, river, and COSMIC targets.
 
