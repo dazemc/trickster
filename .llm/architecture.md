@@ -147,12 +147,15 @@ and settings effect, drops the proxy, and announces `blurChanged` false; a
 re-advertised manager rebinds and re-announces support so Dart re-sends its
 cached regions.
 
-**Seat idle.** Native binds `ext-idle-notify-v1` on the first seat with a
-60 s timeout. The notification is inhibitor-aware and purely observational: it
-reads no input devices and never installs an inhibitor. The observer rebinds
-when the compositor removes and later re-advertises the seat or notifier. A
-missing protocol means samplers keep their normal cadence. The settings
-process does not install the observer.
+**Seat idle.** Native binds every advertised `wl_seat` at version 1 and
+creates one inhibitor-aware `ext-idle-notify-v1` notification per seat with a
+60 s timeout. The observer reads no input devices and never installs an
+inhibitor. The aggregate is idle only when at least one seat is bound and
+every seat has a live notification reporting idle; any resume, seat removal
+or reset, or notifier loss falls back to false. Late seats bind, removed
+seats are destroyed, and a new notifier recreates notifications for the bound
+seats. A missing protocol means samplers keep their normal cadence. The
+settings process does not install the observer.
 
 **Sink volume.** The default sink is watched over PipeWire while the media
 module is configured. The watcher tracks the bound metadata, node, and device
@@ -227,7 +230,7 @@ kills the worker.
 **Current.** Ownership is split so every long-lived object has one owner:
 
 - Native runner: engine, bootstrap/strip/overlay views, layer-shell windows,
-  blur effect and regions, idle registry/seat/notifier, PipeWire capture and
+  blur effect and regions, idle registry/seats/notifier, PipeWire capture and
   volume streams.
 - Dart bar app: config watcher, control server, overlay coordinator and blocs
   (tray menu, calendar, volume slider, tooltip), wallpaper accent bloc,
