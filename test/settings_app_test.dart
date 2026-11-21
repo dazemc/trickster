@@ -291,6 +291,16 @@ void main() {
       ),
       isFalse,
     );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemMoveEvent(
+          '/cfg/trickster/settings.json.tmp',
+          false,
+          '/cfg/trickster/settings.json',
+        ),
+      ),
+      isTrue,
+    );
   });
 
   test('placement-only preview emits a new settings state', () async {

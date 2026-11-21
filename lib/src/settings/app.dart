@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show FileSystemEvent, Platform;
+import 'dart:io' show FileSystemEvent, FileSystemMoveEvent, Platform;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,8 +31,19 @@ import 'package:trickster/src/theme/tokens.dart';
 /// Atomic writes also create `.tmp` and `.prev` neighbours; those must not
 /// schedule a reload.
 bool isEditedDocumentEvent(FileSystemEvent event) {
-  final name = event.path.split(Platform.pathSeparator).last;
-  return name == 'settings.json' || name == 'outputs.conf';
+  bool edited(String path) {
+    final name = path.split(Platform.pathSeparator).last;
+    return name == 'settings.json' || name == 'outputs.conf';
+  }
+
+  if (edited(event.path)) {
+    return true;
+  }
+  // Atomic replace reports the temporary source path with the live document
+  // as the destination.
+  return event is FileSystemMoveEvent &&
+      event.destination != null &&
+      edited(event.destination!);
 }
 
 /// Root of the settings application: the same binary in settings mode, its
