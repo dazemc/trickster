@@ -230,12 +230,12 @@ samplers keep their normal cadence.
 
 | Service | Cadence | While seat idle |
 | --- | --- | --- |
-| CPU | 1 Hz `/proc/stat` | Paused; one 100 ms prime sample on resume; 45-sample history; reused buffer |
+| CPU | 1 Hz `/proc/stat` plus `/proc/loadavg` and online CPU count | Paused; one 100 ms prime sample on resume; 45-sample history; reused buffers |
 | RAM | 1 Hz `/proc/meminfo` | Paused; one fresh immediate sample on resume; 45-sample history; reused 8 KiB buffer |
 | Temperature | 1 Hz `/sys/class/hwmon` | Paused; one fresh immediate sample on resume; 45-sample Celsius history; CPU-sensor priority with hottest fallback |
 | Disk | 30 s statvfs on a worker isolate | Paused; one fresh immediate sample on resume; no history; bounded native buffers reused |
 | Network | 1 Hz `/proc/net/dev` + IPv4/IPv6 route tables; sysfs identity cache 10 s | Paused; counters rebaselined on resume; no history; one selected interface, no aggregation; no D-Bus or process spawn |
-| Keyboard layout | Hyprland `j/devices` + `.socket2.sock` events | Event-driven; no idle pause; coalesced re-query; capped reconnect backoff |
+| Keyboard layout | Hyprland `j/devices`/`.socket2.sock`, Sway `get_inputs`/`input` events, or niri keyboard events | Event-driven; no idle pause; coalesced re-query; capped reconnect backoff |
 | GPU / VRAM | 1 Hz sysfs/NVML; usage and memory flags | Paused; in-flight generation dropped; 45-sample histories; one timer and one NVML worker whether either or both modules are configured |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
