@@ -43,15 +43,36 @@ system_bar=hidden
 ```
 
 - First value: side (`top`, `bottom`, `left`, `right`, `hidden`).
-- Optional second value: thickness in logical pixels; must be positive.
-- Remaining values: connector names. An empty list means every output.
+- Optional second value: thickness in logical pixels; must be finite,
+  positive, and at most 512 (`OutputsConfig.maxThickness`). The bound applies
+  to every value that arrives through the file, so the raw layer-shell request
+  is at most 512; `stripWithin`'s separate half-output clamp is preview/test
+  geometry and has no production caller yet.
+- Remaining values: connector names. Names are trimmed, deduplicated by first
+  occurrence, and must not be empty. An empty list means every output.
 - `hidden` forces thickness 0 and releases the exclusive zone; the strip is
-  unmapped.
-- Unknown keys are ignored. A malformed line is a `FormatException`.
+  unmapped and the grammar carries no connector selection. The settings page
+  clears its connector selection on entering hidden, and leaving hidden starts
+  from the default thickness with every output selected.
+- Unknown keys are ignored. A malformed line, including a non-finite,
+  non-positive, oversized, or empty-connector value, is a `FormatException`.
 - The per-user file is seeded once from `/etc/trickster/outputs.conf` (or the
   built-in template) and never overwritten after that.
-- Strip math ports Denial's `display_layout.dart`; thickness clamps to half the
-  output, and the work area becomes the layer-shell exclusive zone.
+- A settings write merges only the `system_bar=` line: comments and unrelated
+  keys survive byte-for-byte, the first existing line is replaced (duplicates
+  collapse), or one is inserted. Writes are atomic through a unique temp file
+  and rename; the previous valid document is snapshotted to
+  `outputs.conf.prev` (one snapshot, no history), and reads fall through the
+  live file to `.prev` to defaults, so a torn live file never resets placement
+  while a good snapshot exists. An invalid document is rejected before either
+  file changes.
+- The settings application still prefers the bar's control socket. A
+  server-side rejection (`OutputsRequestException`) is surfaced on the
+  displays page while the socket stays in use; only a `ControlSocketException`
+  (genuine transport loss) flips permanently to the file.
+- Strip math ports Denial's `display_layout.dart`; the work area becomes the
+  layer-shell exclusive zone. `stripWithin`'s half-output clamp has no
+  production caller; the 512 file bound is what limits the live request.
 
 ## `$XDG_CONFIG_HOME/trickster/settings.json`
 
@@ -63,9 +84,11 @@ compositor.
 
 The document carries:
 
-- `modules`: the configured module names, in strip order. Duplicates keep
-  their first occurrence; unknown names stay in the document but render and
-  start nothing.
+- `modules`: the configured module names, in strip order. Must be a list of
+  strings: a missing key defaults to `knownModules`, an empty list stays
+  empty, and a non-list value or a non-string entry throws `FormatException`
+  instead of silently defaulting. Duplicates keep their first occurrence;
+  unknown names stay in the document but render and start nothing.
 - `module_placement`: leading/center/trailing zone per module;
 - `accent`, `accent_source`, `accent_wallpaper_pick`;
 - `display_appearance`: per-connector appearance overrides;
@@ -102,8 +125,11 @@ current + last-good + one previous snapshot, not a history.
 
 **Current.** A `dart:io` watcher on the config directory debounces 200 ms and
 reloads through the bootstrap path. A watch stream that errors or closes is
-replaced after 500 ms, doubling to a 5 s cap; dispose is terminal. An invalid
-file logs and keeps last-good state; the bar never crashes over config.
+replaced after 500 ms, doubling to a 5 s cap; dispose is terminal.
+`ConfigWatcher.start` never throws: a directory-creation or watch failure
+enters the same retry path, and dispose leaves no subscription, debounce, or
+restart timer. An invalid file logs and keeps last-good state; the bar never
+crashes over config.
 
 - **Hot keys** (accent, module list/order, clock format, thresholds) rebuild
   providers. The settings application watches the same directory and reloads
