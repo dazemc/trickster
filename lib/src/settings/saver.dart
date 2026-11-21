@@ -42,9 +42,11 @@ class DebouncedSaver {
   var _previewScheduled = false;
   var _leases = 0;
 
-  /// [change] receives the current settings and returns the next ones.
+  /// [change] receives the current settings and returns the next ones. A
+  /// second independent change in the same frame composes onto the pending
+  /// document; the same field still collapses to the latest value.
   void apply(BarSettings Function(BarSettings) change) {
-    final next = change(bloc.settings);
+    final next = change(_pending ?? bloc.settings);
     _pending = next;
     _timer?.cancel();
     _timer = Timer(delay, () {

@@ -3259,6 +3259,134 @@ void main() {
     expect(reloaded.settings.revision, next.revision);
   });
 
+  test(
+    'an external write before a pending settings save is not clobbered',
+    () async {
+      final bloc = await _bloc(file);
+      addTearDown(bloc.close);
+      final committed = bloc.settings;
+      final draft = committed.copyWith(
+        disk: committed.disk.copyWith(path: '/data'),
+      );
+      bloc.add(SettingsAppPreviewed(draft));
+      await bloc.stream.firstWhere(
+        (state) => state.settings.disk.path == '/data',
+      );
+
+      final external = committed
+          .copyWith(media: committed.media.copyWith(mode: MediaMode.compact))
+          .copyWith(revision: committed.revision + 1);
+      final writer = FileSettingsTransport(file);
+      await writer.read();
+      await writer.write(
+        expectedRevision: committed.revision,
+        document: external.encode(),
+      );
+
+      bloc.add(SettingsAppSaveRequested(draft));
+      final conflicted = await bloc.stream.firstWhere(
+        (state) =>
+            !state.busy &&
+            state.error != null &&
+            state.settings.media.mode == MediaMode.compact,
+      );
+      expect(conflicted.error, contains('changed elsewhere'));
+      expect(conflicted.settings.disk.path, '/');
+      final disk = BarSettings.decode(file.readAsStringSync());
+      expect(disk.revision, external.revision);
+      expect(disk.media.mode, MediaMode.compact);
+      expect(disk.disk.path, '/');
+    },
+  );
+
+  test('an external reload keeps a pending settings draft', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final committed = bloc.settings;
+    final draft = committed.copyWith(
+      disk: committed.disk.copyWith(path: '/data'),
+    );
+    bloc.add(SettingsAppPreviewed(draft));
+    await bloc.stream.firstWhere(
+      (state) => state.settings.disk.path == '/data',
+    );
+
+    final external = committed
+        .copyWith(media: committed.media.copyWith(mode: MediaMode.compact))
+        .copyWith(revision: committed.revision + 1);
+    final writer = FileSettingsTransport(file);
+    await writer.read();
+    await writer.write(
+      expectedRevision: committed.revision,
+      document: external.encode(),
+    );
+
+    bloc.add(const SettingsAppDocumentChanged());
+    final guarded = await bloc.stream.firstWhere(
+      (state) => state.error != null,
+    );
+    expect(guarded.settings.disk.path, '/data');
+    expect(guarded.settings.media.mode, isNot(MediaMode.compact));
+    expect(guarded.error, contains('unsaved edit'));
+    expect(
+      BarSettings.decode(file.readAsStringSync()).media.mode,
+      MediaMode.compact,
+    );
+  });
+
+  test('a successful external reload clears a prior conflict error', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final committed = bloc.settings;
+    final draft = committed.copyWith(accent: const Color(0xff112233));
+    bloc.add(SettingsAppPreviewed(draft));
+    await bloc.stream.firstWhere(
+      (state) => state.settings.accent == const Color(0xff112233),
+    );
+
+    final external = committed
+        .copyWith(media: committed.media.copyWith(mode: MediaMode.compact))
+        .copyWith(revision: committed.revision + 1);
+    final writer = FileSettingsTransport(file);
+    await writer.read();
+    await writer.write(
+      expectedRevision: committed.revision,
+      document: external.encode(),
+    );
+
+    bloc.add(SettingsAppSaveRequested(draft));
+    await bloc.stream.firstWhere((state) => !state.busy && state.error != null);
+
+    bloc.add(const SettingsAppDocumentChanged());
+    final reloaded = await bloc.stream.firstWhere(
+      (state) =>
+          state.error == null && state.settings.media.mode == MediaMode.compact,
+    );
+    expect(reloaded.settings.media.mode, MediaMode.compact);
+  });
+
+  testWidgets('same-frame independent settings edits compose', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final saver = DebouncedSaver(bloc);
+
+    saver.apply(
+      (settings) =>
+          settings.copyWith(disk: settings.disk.copyWith(path: '/data')),
+    );
+    saver.apply((settings) => settings.withAccent(const Color(0xff112233)));
+    await tester.pump();
+    expect(bloc.settings.disk.path, '/data');
+    expect(bloc.settings.accent, const Color(0xff112233));
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    final decoded = BarSettings.decode(file.readAsStringSync());
+    expect(decoded.disk.path, '/data');
+    expect(decoded.accent, const Color(0xff112233));
+    saver.dispose(flush: false);
+  });
+
   testWidgets('language page writes the locale', (tester) async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);

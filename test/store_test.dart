@@ -119,7 +119,7 @@ void main() {
       await store.read();
       expect(store.revision, 3);
 
-      await store.write(const BarSettings(modules: ['clock']));
+      await store.write(const BarSettings(revision: 3, modules: ['clock']));
       expect(store.revision, 4);
       expect(transport.document.revision, 4);
     });
@@ -177,10 +177,49 @@ void main() {
         expect(transport.document.revision, 2);
 
         // A deliberate retry starts from the adopted revision and lands.
-        await store.write(const BarSettings(modules: ['clock']));
+        await store.write(const BarSettings(revision: 2, modules: ['clock']));
         expect(transport.writes, 2);
         expect(store.revision, 3);
         expect(transport.document.revision, 3);
+      },
+    );
+
+    test(
+      'a first persist from a stale bar snapshot cannot overwrite disk',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'trickster-first-persist',
+        );
+        try {
+          final file = File('${directory.path}/settings.json')
+            ..writeAsStringSync(const BarSettings(revision: 1).encode());
+          final settingsApp = FileSettingsTransport(file);
+          await settingsApp.read();
+          await settingsApp.write(
+            expectedRevision: 1,
+            document: const BarSettings(
+              revision: 2,
+              media: MediaOptions(mode: MediaMode.compact),
+            ).encode(),
+          );
+
+          // The bar loaded revision 1 before the settings app wrote revision 2
+          // and has never persisted, so its store has no adopted revision.
+          final bar = NativeSettingsStore(FileSettingsTransport(file));
+          await expectLater(
+            bar.write(
+              const BarSettings(revision: 1, accent: Color(0xff112233)),
+            ),
+            throwsA(isA<SettingsRevisionConflict>()),
+          );
+
+          final disk = BarSettings.decode(file.readAsStringSync());
+          expect(disk.revision, 2);
+          expect(disk.media.mode, MediaMode.compact);
+          expect(disk.accent, isNull);
+        } finally {
+          await directory.delete(recursive: true);
+        }
       },
     );
 

@@ -243,6 +243,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     );
     on<SettingsAppPreviewed>(
       (event, emit) => _serial(() async {
+        _settingsDraft = true;
         emit(state.copyWith(settings: event.settings));
       }),
     );
@@ -276,6 +277,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
   /// concurrent by default; without this a slow socket write could emit an
   /// older document after a newer preview or watcher reload.
   Future<void> _queue = Future<void>.value();
+  var _settingsDraft = false;
   var _outputsDraft = false;
 
   Future<void> _serial(Future<void> Function() action) {
@@ -339,6 +341,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     final (outputsValue, outputsError) = await outputsRead;
     final (availableValue, _) = await availableRead;
 
+    _settingsDraft = false;
     _outputsDraft = false;
     emit(
       SettingsAppState(
@@ -367,6 +370,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     try {
       final written = await store.write(event.settings);
       final settings = BarSettings.decode(written.json);
+      _settingsDraft = false;
       emit(
         state.copyWith(
           settings: settings,
@@ -384,6 +388,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       } on Object {
         // Keep the in-memory editor if even the reload fails.
       }
+      _settingsDraft = false;
       emit(
         state.copyWith(
           settings: latest,
@@ -435,9 +440,24 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       return;
     }
     try {
+      final latest = await store.read();
+      if (_settingsDraft) {
+        // Keep the previewed document. The save that follows still conflicts
+        // against the newer revision instead of overwriting it with a stale
+        // whole snapshot.
+        emit(
+          state.copyWith(
+            error:
+                'settings changed elsewhere; your unsaved edit is still open',
+            usingSocket: _settingsTransport.usingSocket,
+          ),
+        );
+        return;
+      }
       emit(
         state.copyWith(
-          settings: await store.read(),
+          settings: latest,
+          error: null,
           usingSocket: _settingsTransport.usingSocket,
         ),
       );

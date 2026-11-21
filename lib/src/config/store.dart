@@ -294,8 +294,18 @@ class NativeSettingsStore {
   }
 
   Future<SettingsDocument> _write(BarSettings settings) async {
-    if (_revision <= 0) {
+    // The caller's snapshot carries the revision it was derived from. A
+    // first bar persist can have adopted nothing while the settings app has
+    // already written; reading here would otherwise let the stale snapshot
+    // overwrite that document at the adopted revision.
+    if (_revision <= 0 || settings.revision != _revision) {
       await _readNow();
+    }
+    if (settings.revision != _revision) {
+      throw SettingsRevisionConflict(
+        expected: settings.revision,
+        actual: _revision,
+      );
     }
     final expected = _revision;
     final payload = settings.copyWith(revision: expected + 1).encode();
