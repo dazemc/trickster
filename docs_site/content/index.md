@@ -21,8 +21,8 @@ Trickster takes Denial's system bar — the floating pills, the accent, the moti
   fallback (user-requested addition, not Denial parity).
 - Disk: a 30 s statvfs meter for one configured mount, with IEC used/total/free
   detail on hover (user-requested addition, not Denial parity).
-- Keyboard layout: a Hyprland event-driven KB pill with the full layout set on
-  hover (user-requested addition, not Denial parity).
+- Keyboard layout: an event-driven KB pill for Hyprland, Sway, and niri, with
+  the full layout set on hover (user-requested addition, not Denial parity).
 - Denial-style files-on-disk config with live reload and a `--check` preflight.
 - Sway, Hyprland, niri, river, and COSMIC targets.
 
