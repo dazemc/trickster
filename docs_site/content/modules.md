@@ -18,6 +18,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `disk` | DISK caption + used percent + IEC used/total/free tooltip | One configured mount path over `statvfs` in a worker isolate, 30 s; pauses while the seat idles | Hidden when the mount is missing or unreadable |
 | `keyboard_layout` | KB caption + active layout; full layout set in the tooltip | Hyprland `j/devices` initial state plus `.socket2.sock` `activelayout` events, coalesced re-query, capped reconnect; no polling and no idle pause | Hidden without a Hyprland backend or a readable main keyboard |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
+| `network` | State label (Wi-Fi, Ethernet, Connected, Linked, Disconnected, or Off) plus compact ↓/↑ rates; hover adds interface, link, Ethernet speed, and lifetime totals | One selected interface: `/sys/class/net` identity/medium, IPv4/IPv6 default routes, `/proc/net/dev` counters at 1 Hz; pauses while the seat idles; no NetworkManager/iwd metadata yet | Hidden only when no physical or pinned interface exists |
 | `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
 | `media` | Live equalizer mark (band levels from the sink monitor; bar count configurable), now-playing text, transport keys, and the sink volume readout (level glyph, accent while muted, wheel to step, click for a slider) in full/semi/compact modes; left-click controls, right-click cycles and saves | MPRIS (`org.mpris.MediaPlayer2.*`) and the default sink (monitor and volume), event-driven | Hidden with no playing or paused player |
 | `tray` | Icon per StatusNotifier item; right-click opens the D-Bus menu | StatusNotifier watcher (SNI) and `com.canonical.dbusmenu` | Hidden with no items |
@@ -31,10 +32,16 @@ instead.
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 
 <Info>
-The `ram`, `vram`, `temperature`, `disk`, and `keyboard_layout` modules are
-user-requested additions. Denial has no memory, temperature, or disk module,
-and owns keyboard input directly; do not describe these modules as Denial
-parity.
+The `ram`, `vram`, `temperature`, `disk`, `keyboard_layout`, and `network`
+modules are user-requested additions. Denial has no memory, temperature, disk,
+or network module, and owns keyboard input directly; do not describe these
+modules as Denial parity.
+
+`network` is kernel-only today: it never spawns `nmcli` or `iw`, and it does
+not show an SSID, signal, band, or captive-portal state. Those arrive with the
+NetworkManager/iwd metadata slice. Until then a Wi-Fi link uses the generic
+`Wi-Fi` label, and a virtual interface can only be sampled by pinning it in
+`network.interface`.
 
 `keyboard_layout` follows the keyboard Hyprland marks `main`; if none is
 marked, the first keyboard in compositor order wins. Other keyboards are
