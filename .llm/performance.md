@@ -207,7 +207,7 @@ samplers keep their normal cadence.
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
 | MPRIS | Worker isolate; D-Bus signals + 60 s recovery | Recovery scan paused; signals and current state stay live; one scan on resume; 16-player cap |
-| StatusNotifier | D-Bus signals; 45 ms coalesce | Event-driven |
+| StatusNotifier | Worker isolate; UI icon decode; 45 ms coalesce | Worker starts with the configured tray module; event-driven |
 | Workspaces | Sway/Hyprland/niri events | Event-driven; Hyprland 32 ms debounce |
 | Clock | minute-aligned / 1 Hz | Continues |
 | Wallpaper accent | wall-clock cache change, 300 ms debounce | Only when source is wallpaper |
@@ -260,10 +260,11 @@ signals stay live. MPRIS parsing, discovery, and method calls run in its worker
 isolate; only JSON-compatible snapshots and command replies cross back. An
 isolate exit or startup failure is retried with 1 s→30 s capped backoff and
 never more than one spawn in flight; the recovery-paused start is replayed and
-a valid snapshot resets the backoff. StatusNotifier's default remains the
-UI-isolate local service. The default-off worker path owns the only D-Bus
-client and watcher objects and crosses bounded snapshot/menu/command payloads;
-icon files stay UI-decoded, so the default flip is separate.
+a valid snapshot resets the backoff. StatusNotifier's default is the worker
+path: it owns the only D-Bus client and watcher objects and crosses bounded
+snapshot/menu/command payloads, while icon files stay UI-decoded. The worker
+starts only with the configured tray module's `TrayStarted`; the local service
+remains for tests. Live tray verification remains deferred.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
 event-driven. All three dedup snapshots against the last emission; niri's
