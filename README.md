@@ -60,11 +60,11 @@ The Denial set, in Denial's visual language:
   detail on hover (user-requested addition).
 - Keyboard layout: an event-driven KB pill for Hyprland, Sway, and niri, with
   the full layout set on hover (user-requested addition).
-- Network: a kernel-only interface pill showing the selected link's state and
-  compact receive/transmit rates, with interface, link, Ethernet speed, and
-  lifetime totals on hover. It samples exactly one physical interface, never
-  sums tunnels, pauses with the seat, and spawns no `nmcli` or `iw`
-  (user-requested addition; SSID/signal metadata is a later slice).
+- Network: an interface pill showing the selected link's state and compact
+  receive/transmit rates, enriched by NetworkManager or iwd SSID, signal,
+  band, and connectivity metadata when available, with a kernel-only fallback.
+  It samples exactly one physical interface, never sums tunnels, pauses with
+  the seat, and spawns no `nmcli` or `iw` (user-requested addition).
 - OpenCode usage: the signed-in workspace's Go allowance windows (rolling,
   weekly, monthly), reset times, and the newest session's tokens and cost,
   read from OpenCode's local server. Clicking the pill opens the companion
