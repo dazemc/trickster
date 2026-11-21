@@ -202,13 +202,19 @@ media pill's mode cycle). A revision mismatch is a retryable `StateError`;
 the store retries once and never keeps a document history.
 
 **D-Bus tray.** The StatusNotifier service owns one session client per
-connection. A transport failure discards that client, recreates the watcher
-endpoint and signal subscriptions, re-registers the preserved item addresses,
-and clears stale items and pending refreshes. A cheap `GetId` heartbeat
-detects a silent bus drop. MPRIS owns one client per connection too: a
-transport failure cancels its owner/properties subscriptions, clears the
-active player, emits unavailable, then re-subscribes and rediscovers on a
-fresh client. Its 60 s refresh remains the only discovery cadence.
+connection and still runs on the UI isolate. A transport failure discards
+that client, recreates the watcher endpoint and signal subscriptions,
+re-registers the preserved item addresses, and clears stale items and pending
+refreshes. A cheap `GetId` heartbeat detects a silent bus drop.
+
+**MPRIS worker.** MPRIS runs in a dedicated widget-free worker isolate: its
+service and only DBusClient live there, snapshots cross back as JSON-compatible
+`MprisPlaybackState` maps, and controls/recovery travel to the worker as
+commands. A transport failure cancels its owner/properties subscriptions,
+clears the active player, emits unavailable, then re-subscribes and
+rediscovers on a fresh client inside the worker. Its 60 s refresh remains the
+only discovery cadence. The UI proxy spawns the worker only when the media
+module starts and kills it on dispose.
 
 ## Resource ownership
 
@@ -220,6 +226,8 @@ fresh client. Its 60 s refresh remains the only discovery cadence.
 - Dart bar app: config watcher, control server, overlay coordinator and blocs
   (tray menu, calendar, volume slider, tooltip), wallpaper accent bloc,
   settings and outputs transports.
+- MPRIS worker isolate: `MediaPlayerService`, its DBusClient, snapshots, and
+  recovery timers; only JSON-compatible state and command replies cross back.
 - Module blocs: their sampler, D-Bus client, socket, worker isolate, or timer.
 - `PipArtworkCache`: process-wide bounded cache, intentionally alive until
   process exit.
