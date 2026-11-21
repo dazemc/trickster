@@ -19,15 +19,7 @@ until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
 
-1. **Settings save and state consistency** (M). Make threshold controls keep a
-   strict step at every endpoint and reset; flush debounced settings edits on
-   page switch, options collapse, and close; serialize the settings bloc's
-   document events; surface revision conflicts instead of overwriting the
-   latest disk document; recover `.prev` through unreadable candidate reads in
-   both bootstrap and the settings store; round-trip settings-app output
-   geometry; guard availability probes; and correct the fallback docs. Done
-   when `flutter analyze`, `flutter test`, and the release build pass.
-2. **Settings modules and outputs correctness** (M). Deduplicate configured
+1. **Settings modules and outputs correctness** (M). Deduplicate configured
    module names and isolate unknown names so the bar and settings page cannot
    render duplicate keys; keep unplugged output selections and never collapse
    a partial selection to all outputs; reload external `outputs.conf` changes
