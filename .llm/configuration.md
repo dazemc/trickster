@@ -149,11 +149,13 @@ Tab traverses, Enter or Space activates buttons, chips, toggles, navigation
 rows, and reset controls, and sliders step along their scale with the arrow
 keys, clamped exactly like the semantics path. Focus rings use the accent;
 selected chips and enabled toggles switch to a contrasting ring so the accent
-fill cannot swallow it. The options inspector is modal to pointer input and
-keyboard focus (a scrim plus its own `FocusScope` and traversal group), closes
-on Escape or its close control, and restores focus to the gear that opened it.
-Switching sections resets the page scroll to the top. These are window-local
-behavior; documents, revisions, and persistence are unchanged.
+fill cannot swallow it. The options inspector is modal to pointer input,
+keyboard focus, and the semantics tree (a scrim, its own `FocusScope` and
+traversal group, and a `BlockSemantics` barrier), closes on Escape or its close
+control, and restores focus to the gear that opened it. A left or right strip
+hides the clock date and seconds, so the inspector disables both toggles and
+notes why. Switching sections resets the page scroll to the top. These are
+window-local behavior; documents, revisions, and persistence are unchanged.
 
 **Gaps.**
 
