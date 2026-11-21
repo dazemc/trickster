@@ -18,13 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## StatusNotifier offload
-
-- **S — Extract the StatusNotifier boundary.** Move the tray models to
-  `status_notifier_models.dart`, the icon-file/SVG decode to
-  `tray_icon_decoder.dart`, and add `StatusNotifierClient` with
-  `StatusNotifierService` implementing it and `TrayBloc` depending on the
-  interface. The default stays the local service; no protocol, worker, proxy,
-  or default flip. Done: `flutter analyze` clean, `flutter test` green,
-  `flutter build linux --release` succeeds, and tray behavior is unchanged.
