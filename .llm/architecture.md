@@ -214,6 +214,16 @@ discards that client, recreates the watcher endpoint and signal subscriptions,
 re-registers the preserved item addresses, and clears stale items and pending
 refreshes. A cheap `GetId` heartbeat detects a silent bus drop.
 
+**StatusNotifier worker.** `StatusNotifierWorkerProxy` spawns one
+`trickster-sni-worker` isolate that owns the only `DBusClient`, watcher
+endpoint, registrations, property/menu parsing, and heartbeat. Bounded
+protocol payloads carry commands, replies, snapshots, menu entries, and icon
+payloads; icon-name paths cross as paths and are decoded by `TrayIconDecoder`
+on the UI isolate. The proxy spawns the worker only on `start`, respawns after
+isolate death with 1 s→30 s capped backoff, and sends a dispose command before
+killing it. `TrayBloc` still defaults to the local service; the default flip
+is a separate step.
+
 **MPRIS worker.** MPRIS runs in a dedicated widget-free worker isolate: its
 service and only DBusClient live there, snapshots cross back as JSON-compatible
 `MprisPlaybackState` maps, and controls/recovery travel to the worker as
