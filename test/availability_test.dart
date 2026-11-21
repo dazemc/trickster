@@ -24,12 +24,14 @@ void main() {
       hasDisk: () => false,
       hasNetwork: () => false,
       hasKeyboardLayoutBackend: () => false,
+      hasBacklight: () => false,
     );
     expect(_modules(unavailable), [
       'vram',
       'temperature',
       'disk',
       'keyboard_layout',
+      'brightness',
       'battery',
       'network',
     ]);
@@ -38,6 +40,7 @@ void main() {
       ModuleUnavailableReason.noTemperature,
       ModuleUnavailableReason.noDisk,
       ModuleUnavailableReason.noKeyboardLayoutBackend,
+      ModuleUnavailableReason.noBacklight,
       ModuleUnavailableReason.noBattery,
       ModuleUnavailableReason.noNetwork,
     ]);
@@ -52,6 +55,7 @@ void main() {
         hasDisk: () => true,
         hasNetwork: () => true,
         hasKeyboardLayoutBackend: () => true,
+        hasBacklight: () => true,
       ),
       isEmpty,
     );
@@ -65,6 +69,7 @@ void main() {
       hasDisk: () => true,
       hasNetwork: () => true,
       hasKeyboardLayoutBackend: () => true,
+      hasBacklight: () => true,
     );
     expect(_modules(unavailable), ['temperature']);
     expect(unavailable.single.reason, ModuleUnavailableReason.noTemperature);
@@ -78,6 +83,7 @@ void main() {
       hasDisk: () => true,
       hasNetwork: () => true,
       hasKeyboardLayoutBackend: () => true,
+      hasBacklight: () => true,
     );
     expect(_modules(unavailable), ['battery']);
     expect(unavailable.single.reason, ModuleUnavailableReason.noBattery);
@@ -161,6 +167,32 @@ void main() {
     expect(TemperatureSampler.hasReadableSensor(hwmonRoot: root.path), isFalse);
     File('${chip.path}/temp1_input').writeAsStringSync('42000');
     expect(TemperatureSampler.hasReadableSensor(hwmonRoot: root.path), isTrue);
+  });
+
+  test('brightness probe reads an injectable backlight root', () {
+    final root = Directory.systemTemp.createTempSync('trickster-backlight');
+    addTearDown(() => root.deleteSync(recursive: true));
+    List<ModuleAvailability> probe() => probeModuleAvailability(
+      hasBattery: () => true,
+      hasVram: () => true,
+      hasTemperature: () => true,
+      hasDisk: () => true,
+      hasNetwork: () => true,
+      hasKeyboardLayoutBackend: () => true,
+      backlightRoot: root.path,
+    );
+
+    expect(_modules(probe()), ['brightness']);
+    expect(probe().single.reason, ModuleUnavailableReason.noBacklight);
+
+    final panel = Directory('${root.path}/intel_backlight')..createSync();
+    File('${panel.path}/brightness').writeAsStringSync('63\n');
+    File('${panel.path}/max_brightness').writeAsStringSync('100\n');
+    File('${panel.path}/type').writeAsStringSync('firmware\n');
+    expect(probe(), isEmpty);
+
+    File('${panel.path}/max_brightness').writeAsStringSync('0\n');
+    expect(_modules(probe()), ['brightness']);
   });
 
   test('disk probe distinguishes a reachable and missing mount', () {

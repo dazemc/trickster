@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -13,6 +14,7 @@ import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/brightness_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
@@ -52,12 +54,14 @@ class ModuleScope extends StatelessWidget {
     this.temperatureBuilder,
     this.diskBuilder,
     this.keyboardLayoutBuilder,
+    this.brightnessBuilder,
     this.networkBuilder,
     this.gpuBuilder,
     this.cpuSamplerBuilder,
     this.ramSamplerBuilder,
     this.temperatureSamplerBuilder,
     this.diskSamplerBuilder,
+    this.brightnessSamplerBuilder,
     this.networkSamplerBuilder,
     this.gpuSamplerBuilder,
     this.batterySamplerBuilder,
@@ -80,6 +84,7 @@ class ModuleScope extends StatelessWidget {
   final TemperatureBloc Function()? temperatureBuilder;
   final DiskBloc Function()? diskBuilder;
   final KeyboardLayoutBloc Function()? keyboardLayoutBuilder;
+  final BrightnessBloc Function()? brightnessBuilder;
   final NetworkBloc Function()? networkBuilder;
   final GpuBloc Function({
     required bool includeUsage,
@@ -94,6 +99,7 @@ class ModuleScope extends StatelessWidget {
   final RamSampler Function()? ramSamplerBuilder;
   final TemperatureSampler Function()? temperatureSamplerBuilder;
   final DiskSampler Function()? diskSamplerBuilder;
+  final BrightnessSampler Function()? brightnessSamplerBuilder;
   final NetworkSampler Function()? networkSamplerBuilder;
   final GpuSampler Function()? gpuSamplerBuilder;
   final BatterySampler Function()? batterySamplerBuilder;
@@ -116,6 +122,7 @@ class ModuleScope extends StatelessWidget {
         settings.includes('ram') ||
         settings.includes('temperature') ||
         settings.includes('disk') ||
+        settings.includes('brightness') ||
         settings.includes('network') ||
         settings.includes('gpu') ||
         settings.includes('vram') ||
@@ -173,6 +180,16 @@ class ModuleScope extends StatelessWidget {
             create: (_) =>
                 keyboardLayoutBuilder?.call() ??
                 (KeyboardLayoutBloc()..add(const KeyboardLayoutStarted())),
+          ),
+        if (settings.includes('brightness'))
+          BlocProvider<BrightnessBloc>(
+            create: (context) =>
+                brightnessBuilder?.call() ??
+                (BrightnessBloc(sampler: brightnessSamplerBuilder?.call())..add(
+                  BrightnessStarted(
+                    paused: context.read<SeatIdleBloc>().state.idle,
+                  ),
+                )),
           ),
         if (settings.includes('network'))
           BlocProvider<NetworkBloc>(
@@ -283,68 +300,86 @@ class ModuleScope extends StatelessWidget {
             ),
           );
         },
-        child: gatesIdleSamplers
-            ? BlocListener<SeatIdleBloc, SeatIdleState>(
-                listenWhen: (previous, next) => previous.idle != next.idle,
-                listener: (context, state) {
-                  // The captured module list matches the provider tree this
-                  // listener was built under, so a stale idle event can never
-                  // read a bloc that was already removed.
-                  if (settings.includes('cpu')) {
-                    context.read<CpuBloc>().add(
-                      state.idle ? const CpuPaused() : const CpuResumed(),
-                    );
-                  }
-                  if (settings.includes('ram')) {
-                    context.read<RamBloc>().add(
-                      state.idle ? const RamPaused() : const RamResumed(),
-                    );
-                  }
-                  if (settings.includes('temperature')) {
-                    context.read<TemperatureBloc>().add(
-                      state.idle
-                          ? const TemperaturePaused()
-                          : const TemperatureResumed(),
-                    );
-                  }
-                  if (settings.includes('disk')) {
-                    context.read<DiskBloc>().add(
-                      state.idle ? const DiskPaused() : const DiskResumed(),
-                    );
-                  }
-                  if (settings.includes('network')) {
-                    context.read<NetworkBloc>().add(
-                      state.idle
-                          ? const NetworkPaused()
-                          : const NetworkResumed(),
-                    );
-                  }
-                  if (settings.includes('gpu') || settings.includes('vram')) {
-                    context.read<GpuBloc>().add(
-                      state.idle ? const GpuPaused() : const GpuResumed(),
-                    );
-                  }
-                  if (settings.includes('battery')) {
-                    context.read<BatteryBloc>().add(
-                      state.idle
-                          ? const BatteryPaused()
-                          : const BatteryResumed(),
-                    );
-                  }
-                  if (settings.includes('media')) {
-                    context.read<MediaBloc>().add(MediaIdleChanged(state.idle));
-                  }
-                  if (settings.includes('opencode')) {
-                    context.read<OpencodeBloc>().add(
-                      state.idle
-                          ? const OpencodePaused()
-                          : const OpencodeResumed(),
-                    );
-                  }
-                },
-                child: child,
-              )
-            : child,
+        child: BlocListener<SettingsBloc, BarSettings>(
+          listenWhen: (previous, next) =>
+              previous != next &&
+              previous.includes('brightness') &&
+              next.includes('brightness'),
+          listener: (context, _) {
+            context.read<BrightnessBloc>().add(const BrightnessRefreshed());
+          },
+          child: gatesIdleSamplers
+              ? BlocListener<SeatIdleBloc, SeatIdleState>(
+                  listenWhen: (previous, next) => previous.idle != next.idle,
+                  listener: (context, state) {
+                    // The captured module list matches the provider tree this
+                    // listener was built under, so a stale idle event can never
+                    // read a bloc that was already removed.
+                    if (settings.includes('cpu')) {
+                      context.read<CpuBloc>().add(
+                        state.idle ? const CpuPaused() : const CpuResumed(),
+                      );
+                    }
+                    if (settings.includes('ram')) {
+                      context.read<RamBloc>().add(
+                        state.idle ? const RamPaused() : const RamResumed(),
+                      );
+                    }
+                    if (settings.includes('temperature')) {
+                      context.read<TemperatureBloc>().add(
+                        state.idle
+                            ? const TemperaturePaused()
+                            : const TemperatureResumed(),
+                      );
+                    }
+                    if (settings.includes('disk')) {
+                      context.read<DiskBloc>().add(
+                        state.idle ? const DiskPaused() : const DiskResumed(),
+                      );
+                    }
+                    if (settings.includes('brightness')) {
+                      context.read<BrightnessBloc>().add(
+                        state.idle
+                            ? const BrightnessPaused()
+                            : const BrightnessResumed(),
+                      );
+                    }
+                    if (settings.includes('network')) {
+                      context.read<NetworkBloc>().add(
+                        state.idle
+                            ? const NetworkPaused()
+                            : const NetworkResumed(),
+                      );
+                    }
+                    if (settings.includes('gpu') || settings.includes('vram')) {
+                      context.read<GpuBloc>().add(
+                        state.idle ? const GpuPaused() : const GpuResumed(),
+                      );
+                    }
+                    if (settings.includes('battery')) {
+                      context.read<BatteryBloc>().add(
+                        state.idle
+                            ? const BatteryPaused()
+                            : const BatteryResumed(),
+                      );
+                    }
+                    if (settings.includes('media')) {
+                      context.read<MediaBloc>().add(
+                        MediaIdleChanged(state.idle),
+                      );
+                    }
+                    if (settings.includes('opencode')) {
+                      context.read<OpencodeBloc>().add(
+                        state.idle
+                            ? const OpencodePaused()
+                            : const OpencodeResumed(),
+                      );
+                    }
+                  },
+                  child: child,
+                )
+              : child,
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
+import 'package:trickster/src/bar/brightness.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
@@ -22,6 +23,7 @@ import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/keyboard_layout.dart';
@@ -31,6 +33,7 @@ import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/services/workspaces.dart';
+import 'package:trickster/src/state/brightness_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
@@ -259,6 +262,41 @@ void main() {
     disk.add(const DiskSampled(DiskSample()));
     await tester.pump();
     expect(find.byType(DiskPill), findsNothing);
+  });
+
+  testWidgets('brightness pill follows the bloc and hides without a device', (
+    tester,
+  ) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(BrightnessPill), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-brightness')),
+      findsOneWidget,
+    );
+    expect(find.text('BRI'), findsOneWidget);
+    expect(find.text('63%', findRichText: true), findsOneWidget);
+
+    final brightness = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<BrightnessBloc>();
+    brightness.add(
+      const BrightnessSampled(
+        BrightnessSample(
+          current: 80,
+          max: 100,
+          actual: 80,
+          device: 'intel_backlight',
+          type: 'firmware',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('80%', findRichText: true), findsOneWidget);
+
+    brightness.add(const BrightnessSampled(BrightnessSample()));
+    await tester.pump();
+    expect(find.byType(BrightnessPill), findsNothing);
   });
 
   testWidgets('network pill follows the block state and hides without data', (

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/battery.dart';
+import 'package:trickster/src/bar/brightness.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -191,6 +193,27 @@ void main() {
     );
     final handle = tester.ensureSemantics();
     expect(_nodeByLabel(tester, 'DISK').getSemanticsData().value, '60%');
+    handle.dispose();
+  });
+
+  testWidgets('brightness meter announces the BRI caption and percent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _keymap(
+        const BrightnessPill(
+          accent: _accent,
+          sample: BrightnessSample(
+            current: 63,
+            max: 100,
+            device: 'intel_backlight',
+            type: 'firmware',
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    expect(_nodeByLabel(tester, 'BRI').getSemanticsData().value, '63%');
     handle.dispose();
   });
 

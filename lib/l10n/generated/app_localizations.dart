@@ -195,6 +195,24 @@ abstract class AppLocalizations {
   /// **'KB'**
   String get metricKeyboardLayout;
 
+  /// Caption for the brightness meter.
+  ///
+  /// In en, this message translates to:
+  /// **'BRI'**
+  String get metricBrightness;
+
+  /// Brightness pill tooltip without a device name.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness {percent}%'**
+  String brightnessTooltip(int percent);
+
+  /// Brightness pill tooltip naming the backlight device.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness {percent}% · {device}'**
+  String brightnessTooltipWithDevice(int percent, String device);
+
   /// Keyboard-layout tooltip listing the available layouts.
   ///
   /// In en, this message translates to:
@@ -633,6 +651,12 @@ abstract class AppLocalizations {
   /// **'No supported keyboard-layout backend detected'**
   String get settingsUnavailableNoKeyboardLayoutBackend;
 
+  /// Reason shown when no readable backlight device is detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No backlight detected'**
+  String get settingsUnavailableNoBacklight;
+
   /// Gear label revealing one module's typed options.
   ///
   /// In en, this message translates to:
@@ -866,6 +890,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keyboard layout'**
   String get moduleKeyboardLayout;
+
+  /// Display name of the brightness module.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get moduleBrightness;
 
   /// Display name of the GPU module.
   ///

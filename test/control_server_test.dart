@@ -12,6 +12,7 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -19,6 +20,7 @@ import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
+import 'package:trickster/src/state/brightness_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
@@ -639,6 +641,71 @@ void main() {
       'chip': 'k10temp',
       'is_cpu': true,
       'history': [50.0, 55.0],
+    });
+    expect(state['seat_idle'], {'idle': false});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status exposes the brightness sample and its idle gate', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) =>
+                SettingsBloc(const BarSettings(modules: ['brightness'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<BrightnessBloc>(
+            create: (_) => BrightnessBloc(
+              initial: const BrightnessSample(
+                current: 63,
+                max: 100,
+                actual: 63,
+                device: 'intel_backlight',
+                type: 'firmware',
+                scale: 'linear',
+              ),
+            ),
+          ),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: false),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['brightness'], {
+      'current': 63,
+      'max': 100,
+      'actual': 63,
+      'device': 'intel_backlight',
+      'type': 'firmware',
+      'scale': 'linear',
+      'percent': 63,
     });
     expect(state['seat_idle'], {'idle': false});
     expect(jsonEncode(reply), isA<String>());

@@ -71,6 +71,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get metricKeyboardLayout => 'KB';
 
   @override
+  String get metricBrightness => 'BRI';
+
+  @override
+  String brightnessTooltip(int percent) {
+    return '亮度 $percent%';
+  }
+
+  @override
+  String brightnessTooltipWithDevice(int percent, String device) {
+    return '亮度 $percent% · $device';
+  }
+
+  @override
   String keyboardLayoutNames(String layouts) {
     return '布局：$layouts';
   }
@@ -316,6 +329,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoKeyboardLayoutBackend => '未检测到支持的键盘后端';
 
   @override
+  String get settingsUnavailableNoBacklight => '未检测到背光设备';
+
+  @override
   String settingsModuleOptions(String module) {
     return '$module 选项';
   }
@@ -435,6 +451,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get moduleKeyboardLayout => '键盘布局';
+
+  @override
+  String get moduleBrightness => '亮度';
 
   @override
   String get moduleGpu => 'GPU';

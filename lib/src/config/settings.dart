@@ -1412,6 +1412,7 @@ class BarSettings extends Equatable {
     'temperature',
     'disk',
     'keyboard_layout',
+    'brightness',
     'battery',
     'network',
     'clock',

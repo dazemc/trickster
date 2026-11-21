@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/battery.dart';
+import 'package:trickster/src/bar/brightness.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
@@ -17,6 +18,7 @@ import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -26,6 +28,7 @@ import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
+import 'package:trickster/src/state/brightness_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
@@ -124,6 +127,35 @@ class _RecordingTemperatureSampler extends TemperatureSampler {
   @override
   void resume() {
     resumes += 1;
+  }
+}
+
+class _RecordingBrightnessSampler extends BrightnessSampler {
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  var refreshes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+
+  @override
+  void refresh() {
+    refreshes += 1;
   }
 }
 
@@ -336,6 +368,7 @@ void main() {
     expect(find.byType(ClockPill), findsOneWidget);
     expect(find.byType(CpuPill), findsNothing);
     expect(find.byType(BatteryPill), findsNothing);
+    expect(find.byType(BrightnessPill), findsNothing);
     expect(find.byType(WorkspacesPill), findsNothing);
 
     // The transcript is the silence instrument: no bloc, hence no
@@ -346,6 +379,7 @@ void main() {
     expect(_created(lines, 'TrayBloc'), isFalse);
     expect(trayBuilds, 0);
     expect(_created(lines, 'BatteryBloc'), isFalse);
+    expect(_created(lines, 'BrightnessBloc'), isFalse);
     expect(_created(lines, 'WorkspacesBloc'), isFalse);
     expect(_created(lines, 'MediaBloc'), isFalse);
     expect(_created(lines, 'OpencodeBloc'), isFalse);
@@ -356,6 +390,7 @@ void main() {
             line.contains('GpuBloc') ||
             line.contains('TrayBloc') ||
             line.contains('BatteryBloc') ||
+            line.contains('BrightnessBloc') ||
             line.contains('WorkspacesBloc') ||
             line.contains('MediaBloc') ||
             line.contains('OpencodeBloc'),
@@ -752,6 +787,96 @@ void main() {
     );
     expect(temperature.starts, 1);
     expect(temperature.startedPaused, isTrue);
+  });
+
+  testWidgets('brightness-only idle dispatches only its own events', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final brightness = _RecordingBrightnessSampler();
+    final cpu = _RecordingCpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'brightness']),
+      seatIdleChanges: changes.stream,
+      brightnessSamplerBuilder: () => brightness,
+      cpuSamplerBuilder: () => cpu,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(brightness.pauses, 1);
+    expect(brightness.resumes, 1);
+    expect(cpu.pauses, 0);
+    expect(cpu.resumes, 0);
+  });
+
+  testWidgets('disabled brightness builds no bloc or sampler', (tester) async {
+    final brightness = _RecordingBrightnessSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      brightnessSamplerBuilder: () => brightness,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(brightness.starts, 0);
+    expect(find.byType(BrightnessPill), findsNothing);
+  });
+
+  testWidgets('a brightness module created while idle starts paused', (
+    tester,
+  ) async {
+    final brightness = _RecordingBrightnessSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'brightness']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      brightnessSamplerBuilder: () => brightness,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(brightness.starts, 1);
+    expect(brightness.startedPaused, isTrue);
+  });
+
+  testWidgets('a settings reload refreshes brightness without recreating it', (
+    tester,
+  ) async {
+    final brightness = _RecordingBrightnessSampler();
+    var builds = 0;
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'brightness']),
+      brightnessBuilder: () {
+        builds += 1;
+        return BrightnessBloc(sampler: brightness)
+          ..add(const BrightnessStarted());
+      },
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(builds, 1);
+    expect(brightness.starts, 1);
+
+    final settingsBloc = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<SettingsBloc>();
+    settingsBloc.add(
+      const SettingsLoaded(
+        BarSettings(
+          modules: ['clock', 'brightness'],
+          accent: Color(0xff123456),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(builds, 1);
+    expect(brightness.starts, 1);
+    expect(brightness.refreshes, 1);
   });
 
   testWidgets('disk-only idle dispatches only its own events', (tester) async {

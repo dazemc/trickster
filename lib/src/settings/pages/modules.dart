@@ -29,6 +29,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
     'temperature' => l10n.moduleTemperature,
     'disk' => l10n.moduleDisk,
     'keyboard_layout' => l10n.moduleKeyboardLayout,
+    'brightness' => l10n.moduleBrightness,
     'battery' => l10n.moduleBattery,
     'network' => l10n.moduleNetwork,
     'clock' => l10n.moduleClock,
@@ -47,6 +48,7 @@ String _reasonLabel(AppLocalizations l10n, ModuleUnavailableReason reason) {
     ModuleUnavailableReason.noNetwork => l10n.settingsUnavailableNoNetwork,
     ModuleUnavailableReason.noKeyboardLayoutBackend =>
       l10n.settingsUnavailableNoKeyboardLayoutBackend,
+    ModuleUnavailableReason.noBacklight => l10n.settingsUnavailableNoBacklight,
   };
 }
 

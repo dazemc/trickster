@@ -3,10 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/bar/battery.dart';
+import 'package:trickster/src/bar/brightness.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/bar/tray.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -104,6 +107,30 @@ void main() {
     expect(passive.value, '被动');
   });
 
+  testWidgets('brightness pill speaks the Chinese tooltip and percent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _scope(
+        Center(
+          child: BrightnessPill(
+            accent: _accent,
+            sample: const BrightnessSample(
+              current: 63,
+              max: 100,
+              device: 'intel_backlight',
+              type: 'firmware',
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('BRI'), findsOneWidget);
+    expect(find.text('63%', findRichText: true), findsOneWidget);
+    final tooltip = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(tooltip.label, '亮度 63% · intel_backlight');
+  });
+
   testWidgets('catalog exposes the Chinese chrome strings', (tester) async {
     late AppLocalizations l10n;
     await tester.pumpWidget(
@@ -165,6 +192,14 @@ void main() {
     expect(l10n.moduleKeyboardLayout, '键盘布局');
     expect(l10n.keyboardLayoutNames('US / RU'), '布局：US / RU');
     expect(l10n.settingsUnavailableNoKeyboardLayoutBackend, '未检测到支持的键盘后端');
+    expect(l10n.metricBrightness, 'BRI');
+    expect(l10n.moduleBrightness, '亮度');
+    expect(l10n.brightnessTooltip(63), '亮度 63%');
+    expect(
+      l10n.brightnessTooltipWithDevice(63, 'intel_backlight'),
+      '亮度 63% · intel_backlight',
+    );
+    expect(l10n.settingsUnavailableNoBacklight, '未检测到背光设备');
     expect(l10n.settingsUnavailableNoTemperature, '未检测到温度传感器');
     expect(l10n.settingsUnavailableNoDisk, '配置的磁盘路径不可用');
     expect(l10n.settingsUnavailableNoNetwork, '未检测到网络接口');

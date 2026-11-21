@@ -71,6 +71,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get metricKeyboardLayout => 'KB';
 
   @override
+  String get metricBrightness => 'BRI';
+
+  @override
+  String brightnessTooltip(int percent) {
+    return 'Brightness $percent%';
+  }
+
+  @override
+  String brightnessTooltipWithDevice(int percent, String device) {
+    return 'Brightness $percent% · $device';
+  }
+
+  @override
   String keyboardLayoutNames(String layouts) {
     return 'Layouts: $layouts';
   }
@@ -322,6 +335,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'No supported keyboard-layout backend detected';
 
   @override
+  String get settingsUnavailableNoBacklight => 'No backlight detected';
+
+  @override
   String settingsModuleOptions(String module) {
     return '$module options';
   }
@@ -441,6 +457,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moduleKeyboardLayout => 'Keyboard layout';
+
+  @override
+  String get moduleBrightness => 'Brightness';
 
   @override
   String get moduleGpu => 'GPU';

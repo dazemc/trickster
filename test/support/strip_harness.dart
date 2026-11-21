@@ -8,6 +8,7 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/battery.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
+import 'package:trickster/src/state/brightness_bloc.dart';
 import 'package:trickster/src/state/calendar_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
@@ -169,16 +171,26 @@ Future<void> pumpBarHarness(
   RamBloc Function()? ramBuilder,
   TemperatureBloc Function()? temperatureBuilder,
   DiskBloc Function()? diskBuilder,
+  BrightnessBloc Function()? brightnessBuilder,
   KeyboardLayoutBloc Function()? keyboardLayoutBuilder,
   NetworkBloc Function()? networkBuilder,
   GpuBloc Function({required bool includeUsage, required bool includeMemory})?
   gpuBuilder,
   GpuState gpuInitial = const GpuState(),
   NetworkSample networkInitial = harnessNetworkSample,
+  BrightnessSample brightnessInitial = const BrightnessSample(
+    current: 63,
+    max: 100,
+    actual: 63,
+    device: 'intel_backlight',
+    type: 'firmware',
+    scale: 'linear',
+  ),
   CpuSampler Function()? cpuSamplerBuilder,
   RamSampler Function()? ramSamplerBuilder,
   TemperatureSampler Function()? temperatureSamplerBuilder,
   DiskSampler Function()? diskSamplerBuilder,
+  BrightnessSampler Function()? brightnessSamplerBuilder,
   NetworkSampler Function()? networkSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
   BatterySampler Function()? batterySamplerBuilder,
@@ -265,6 +277,11 @@ Future<void> pumpBarHarness(
                     names: ['us'],
                   ),
                 ),
+            brightnessBuilder:
+                brightnessBuilder ??
+                (brightnessSamplerBuilder == null
+                    ? () => BrightnessBloc(initial: brightnessInitial)
+                    : null),
             networkBuilder:
                 networkBuilder ??
                 (networkSamplerBuilder == null
@@ -286,6 +303,7 @@ Future<void> pumpBarHarness(
             ramSamplerBuilder: ramSamplerBuilder,
             temperatureSamplerBuilder: temperatureSamplerBuilder,
             diskSamplerBuilder: diskSamplerBuilder,
+            brightnessSamplerBuilder: brightnessSamplerBuilder,
             networkSamplerBuilder: networkSamplerBuilder,
             gpuSamplerBuilder: gpuSamplerBuilder,
             trayBuilder:

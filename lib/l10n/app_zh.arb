@@ -108,6 +108,34 @@
   "@metricKeyboardLayout": {
     "description": "Caption for the keyboard-layout pill."
   },
+  "metricBrightness": "BRI",
+  "@metricBrightness": {
+    "description": "Caption for the brightness meter."
+  },
+  "brightnessTooltip": "亮度 {percent}%",
+  "@brightnessTooltip": {
+    "description": "Brightness pill tooltip without a device name.",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "63"
+      }
+    }
+  },
+  "brightnessTooltipWithDevice": "亮度 {percent}% · {device}",
+  "@brightnessTooltipWithDevice": {
+    "description": "Brightness pill tooltip naming the backlight device.",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "63"
+      },
+      "device": {
+        "type": "String",
+        "example": "intel_backlight"
+      }
+    }
+  },
   "keyboardLayoutNames": "布局：{layouts}",
   "@keyboardLayoutNames": {
     "description": "Keyboard-layout tooltip listing the available layouts.",
@@ -517,6 +545,10 @@
   "@settingsUnavailableNoKeyboardLayoutBackend": {
     "description": "Reason shown when no compositor keyboard backend is available."
   },
+  "settingsUnavailableNoBacklight": "未检测到背光设备",
+  "@settingsUnavailableNoBacklight": {
+    "description": "Reason shown when no readable backlight device is detected."
+  },
   "settingsModuleOptions": "{module} 选项",
   "@settingsModuleOptions": {
     "description": "Gear label revealing one module's options.",
@@ -677,6 +709,10 @@
   "moduleKeyboardLayout": "键盘布局",
   "@moduleKeyboardLayout": {
     "description": "Display name of the keyboard layout module."
+  },
+  "moduleBrightness": "亮度",
+  "@moduleBrightness": {
+    "description": "Display name of the brightness module."
   },
   "moduleGpu": "GPU",
   "@moduleGpu": {

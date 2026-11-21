@@ -453,6 +453,12 @@ void main() {
         bare.modules.indexOf('disk') + 1,
         reason: 'keyboard_layout follows disk in the default order',
       );
+      expect(bare.modules, contains('brightness'));
+      expect(
+        bare.modules.indexOf('brightness'),
+        bare.modules.indexOf('keyboard_layout') + 1,
+        reason: 'brightness follows keyboard_layout in the default order',
+      );
       expect(bare.modules, contains('ram'));
       expect(bare.modules, contains('temperature'));
       expect(

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/services/brightness.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/temperature.dart';
@@ -21,6 +22,7 @@ enum ModuleUnavailableReason {
   noDisk,
   noNetwork,
   noKeyboardLayoutBackend,
+  noBacklight,
 }
 
 /// Probes the machine for hardware and configured paths the bar might not
@@ -38,6 +40,8 @@ List<ModuleAvailability> probeModuleAvailability({
   bool Function()? hasDisk,
   bool Function()? hasNetwork,
   bool Function()? hasKeyboardLayoutBackend,
+  bool Function()? hasBacklight,
+  String backlightRoot = '/sys/class/backlight',
 }) {
   final unavailable = <ModuleAvailability>[];
   if (!_available(hasBattery, _hasBattery)) {
@@ -88,6 +92,17 @@ List<ModuleAvailability> probeModuleAvailability({
       const ModuleAvailability(
         module: 'keyboard_layout',
         reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
+      ),
+    );
+  }
+  if (!_available(
+    hasBacklight,
+    () => BrightnessSampler.hasReadableDevice(backlightRoot: backlightRoot),
+  )) {
+    unavailable.add(
+      const ModuleAvailability(
+        module: 'brightness',
+        reason: ModuleUnavailableReason.noBacklight,
       ),
     );
   }
