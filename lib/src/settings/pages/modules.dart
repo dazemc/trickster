@@ -372,13 +372,17 @@ class _ModulesPageState extends State<ModulesPage> {
     // The dragged row stays in the tree (its Draggable collapses it to a
     // zero-height slot) so the drag survives the preview rebuilds.
     final groups = moduleGroups(settings, state.unavailable);
-    final unavailableModules = <String>{
-      for (final unavailable in state.unavailable) unavailable.module,
+    final unavailableReasons = <String, ModuleUnavailableReason>{
+      for (final unavailable in state.unavailable)
+        unavailable.module: unavailable.reason,
     };
     final disabled = <String>[
       for (final module in BarSettings.knownModules)
-        if (!settings.includes(module) && !unavailableModules.contains(module))
-          module,
+        if (!settings.includes(module)) module,
+    ];
+    final enabledUnavailable = <ModuleAvailability>[
+      for (final unavailable in state.unavailable)
+        if (settings.includes(unavailable.module)) unavailable,
     ];
 
     Widget moduleRow(
@@ -387,12 +391,14 @@ class _ModulesPageState extends State<ModulesPage> {
       required bool reorderable,
       required double feedbackWidth,
       bool draggableOut = false,
+      String? note,
     }) {
       final hasOptions = moduleHasOptions(module);
       return _ModuleRow(
         key: ValueKey<String>('module-$module'),
         module: module,
         label: moduleLabel(l10n, module),
+        note: note,
         enabled: settings.includes(module),
         reorderable: reorderable || draggableOut,
         options: hasOptions
@@ -540,23 +546,31 @@ class _ModulesPageState extends State<ModulesPage> {
               ),
               const SizedBox(height: 16),
             ],
-            if (state.unavailable.isNotEmpty) ...[
+            if (enabledUnavailable.isNotEmpty) ...[
               SettingsHeading(
                 key: const ValueKey<String>('module-zone-unavailable'),
                 title: l10n.settingsModulesUnavailable,
               ),
               const SizedBox(height: 10),
               SettingsCard(
+                key: const ValueKey<String>('module-zone-unavailable-card'),
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   children: [
-                    for (final unavailable in state.unavailable)
+                    for (final unavailable in enabledUnavailable)
                       _UnavailableRow(
                         key: ValueKey<String>(
                           'module-unavailable-${unavailable.module}',
                         ),
+                        module: unavailable.module,
                         label: moduleLabel(l10n, unavailable.module),
                         reason: _reasonLabel(l10n, unavailable.reason),
+                        onToggle: (value) => modules.add(
+                          ModulesToggled(
+                            module: unavailable.module,
+                            enabled: value,
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -598,6 +612,13 @@ class _ModulesPageState extends State<ModulesPage> {
                           reorderable: false,
                           draggableOut: true,
                           feedbackWidth: constraints.maxWidth,
+                          // An unavailable module that is off still belongs
+                          // here: the reason explains why it renders nothing,
+                          // and its toggle is the way back.
+                          note: switch (unavailableReasons[module]) {
+                            null => null,
+                            final reason => _reasonLabel(l10n, reason),
+                          },
                         ),
                       if (_visibleModules(disabled, state.dragging).isEmpty)
                         _dropHere(
@@ -658,10 +679,18 @@ class _RowSlot extends StatelessWidget {
 
 /// A module this machine cannot run, with the reason why.
 class _UnavailableRow extends StatelessWidget {
-  const _UnavailableRow({required this.label, required this.reason, super.key});
+  const _UnavailableRow({
+    required this.module,
+    required this.label,
+    required this.reason,
+    required this.onToggle,
+    super.key,
+  });
 
+  final String module;
   final String label;
   final String reason;
+  final ValueChanged<bool> onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -693,6 +722,13 @@ class _UnavailableRow extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: 12),
+          SettingsToggle(
+            key: ValueKey<String>('module-toggle-$module'),
+            label: label,
+            enabled: true,
+            onChanged: onToggle,
+          ),
         ],
       ),
     );
@@ -703,6 +739,7 @@ class _ModuleRow extends StatelessWidget {
   const _ModuleRow({
     required this.module,
     required this.label,
+    this.note,
     required this.enabled,
     required this.reorderable,
     required this.options,
@@ -721,6 +758,7 @@ class _ModuleRow extends StatelessWidget {
 
   final String module;
   final String label;
+  final String? note;
   final bool enabled;
   final bool reorderable;
   final Widget? options;
@@ -806,6 +844,20 @@ class _ModuleRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         top,
+        if (note case final note?)
+          Padding(
+            padding: const EdgeInsets.only(left: 64, right: 16, top: 2),
+            child: Text(
+              note,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary.withValues(
+                  alpha: 0.7,
+                ),
+              ),
+            ),
+          ),
         if (options != null && optionsExpanded)
           Padding(
             padding: const EdgeInsets.only(

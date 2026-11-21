@@ -1728,15 +1728,256 @@ void main() {
       find.text('No supported keyboard-layout backend detected'),
       findsOneWidget,
     );
-    // The battery is not offered as a toggle in a zone segment.
+    // An enabled unavailable module is still disableable from its row.
     expect(
-      find.byKey(const ValueKey<String>('module-toggle-battery')),
-      findsNothing,
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('module-zone-unavailable-card')),
+        matching: find.byKey(const ValueKey<String>('module-toggle-battery')),
+      ),
+      findsOneWidget,
     );
     expect(
       tester.getCenter(battery).dy,
       greaterThan(tester.getCenter(unavailable).dy),
     );
+  });
+
+  testWidgets('a disabled available module stays in the Disabled section', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final toggle = find.byKey(const ValueKey<String>('module-toggle-network'));
+    await tester.scrollUntilVisible(toggle, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, isNot(contains('network')));
+
+    final disabled = find.byKey(
+      const ValueKey<String>('module-zone-disabled-drop'),
+    );
+    expect(find.descendant(of: disabled, matching: toggle), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('module-zone-unavailable-card')),
+        matching: toggle,
+      ),
+      findsNothing,
+    );
+    expect(toggle, findsOneWidget);
+
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, contains('network'));
+    expect(find.descendant(of: disabled, matching: toggle), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('module-zone-unavailable-card')),
+        matching: toggle,
+      ),
+      findsNothing,
+    );
+    _expectNoException(tester);
+  });
+
+  testWidgets(
+    'unavailable modules toggle through Disabled without duplicate rows',
+    (tester) async {
+      final bloc = await _bloc(file);
+      addTearDown(bloc.close);
+      await _pump(
+        tester,
+        bloc,
+        availabilityProbe: () => const [
+          ModuleAvailability(
+            module: 'battery',
+            reason: ModuleUnavailableReason.noBattery,
+          ),
+          ModuleAvailability(
+            module: 'brightness',
+            reason: ModuleUnavailableReason.noBacklight,
+          ),
+        ],
+      );
+      await _openModules(tester);
+      await tester.pumpAndSettle();
+
+      final disabled = find.byKey(
+        const ValueKey<String>('module-zone-disabled-drop'),
+      );
+      for (final (module, reason) in [
+        ('battery', 'No battery detected'),
+        ('brightness', 'No backlight detected'),
+      ]) {
+        final toggle = find.byKey(ValueKey<String>('module-toggle-$module'));
+        await tester.scrollUntilVisible(
+          toggle,
+          160,
+          scrollable: _pageScrollable(),
+        );
+        await tester.pumpAndSettle();
+        expect(toggle, findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey<String>('module-zone-unavailable-card'),
+            ),
+            matching: toggle,
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(bloc.settings.modules, isNot(contains(module)));
+        expect(find.descendant(of: disabled, matching: toggle), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey<String>('module-zone-unavailable-card'),
+            ),
+            matching: toggle,
+          ),
+          findsNothing,
+        );
+        expect(toggle, findsOneWidget);
+        expect(find.text(reason), findsOneWidget);
+
+        await tester.ensureVisible(toggle);
+        await tester.pumpAndSettle();
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(bloc.settings.modules, contains(module));
+        expect(find.descendant(of: disabled, matching: toggle), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey<String>('module-zone-unavailable-card'),
+            ),
+            matching: toggle,
+          ),
+          findsOneWidget,
+        );
+        expect(toggle, findsOneWidget);
+      }
+      _expectNoException(tester);
+    },
+  );
+
+  testWidgets('an availability refresh does not hide a disabled row', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final refresh = Completer<List<ModuleAvailability>>();
+    await _pump(
+      tester,
+      bloc,
+      availabilityProbe: () => const <ModuleAvailability>[],
+      availabilityLoader: (_) => refresh.future,
+    );
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final toggle = find.byKey(const ValueKey<String>('module-toggle-network'));
+    await tester.scrollUntilVisible(toggle, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, isNot(contains('network')));
+
+    refresh.complete(const [
+      ModuleAvailability(
+        module: 'network',
+        reason: ModuleUnavailableReason.noNetwork,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    final disabled = find.byKey(
+      const ValueKey<String>('module-zone-disabled-drop'),
+    );
+    expect(find.descendant(of: disabled, matching: toggle), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('module-zone-unavailable-card')),
+        matching: toggle,
+      ),
+      findsNothing,
+    );
+    expect(find.text('No network interface detected'), findsOneWidget);
+    _expectNoException(tester);
+  });
+
+  testWidgets('disabled unavailable rows lay out at real surfaces', (
+    tester,
+  ) async {
+    for (final size in const [
+      Size(900, 600),
+      Size(1280, 800),
+      Size(1920, 1080),
+    ]) {
+      final bloc = await _bloc(file);
+      addTearDown(bloc.close);
+      await _pump(
+        tester,
+        bloc,
+        size: size,
+        availabilityProbe: () => const [
+          ModuleAvailability(
+            module: 'battery',
+            reason: ModuleUnavailableReason.noBattery,
+          ),
+          ModuleAvailability(
+            module: 'brightness',
+            reason: ModuleUnavailableReason.noBacklight,
+          ),
+        ],
+      );
+      await _openModules(tester);
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey<String>('module-toggle-battery')),
+        160,
+        scrollable: _pageScrollable(),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('module-toggle-battery')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('module-toggle-brightness')),
+      );
+      await tester.pumpAndSettle();
+      expect(bloc.settings.modules, isNot(contains('battery')));
+      expect(bloc.settings.modules, isNot(contains('brightness')));
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey<String>('module-zone-disabled')),
+        160,
+        scrollable: _pageScrollable(),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('module-battery')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('module-brightness')),
+        findsOneWidget,
+      );
+      expect(tester.getSize(find.byType(SettingsHome)), size);
+      _expectNoException(tester);
+    }
   });
 
   testWidgets('duplicate and unknown modules never multiply rows', (
