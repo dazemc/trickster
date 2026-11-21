@@ -214,7 +214,13 @@ commands. A transport failure cancels its owner/properties subscriptions,
 clears the active player, emits unavailable, then re-subscribes and
 rediscovers on a fresh client inside the worker. Its 60 s refresh remains the
 only discovery cadence. The UI proxy spawns the worker only when the media
-module starts and kills it on dispose.
+module starts. If the isolate errors, exits, or fails during startup, the
+proxy fails pending requests, tears down that connection, emits unavailable,
+and respawns once per attempt with 1 s→30 s backoff and a single in-flight
+spawn. It preserves the recovery-paused flag for the replayed `start`, resets
+the backoff after a valid state snapshot, and never respawns for a normal
+worker command or an in-worker D-Bus failure. Dispose cancels the retry and
+kills the worker.
 
 ## Resource ownership
 
