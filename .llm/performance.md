@@ -236,6 +236,7 @@ samplers keep their normal cadence.
 | Disk | 30 s statvfs on a worker isolate | Paused; one fresh immediate sample on resume; no history; bounded native buffers reused |
 | Network | 1 Hz `/proc/net/dev` + IPv4/IPv6 route tables; sysfs identity cache 10 s; NetworkManager/iwd D-Bus signals | Paused counters; metadata signals stay live; rebaselined on resume; no history; one selected interface, no aggregation; no process spawn |
 | Keyboard layout | Hyprland `j/devices`/`.socket2.sock`, Sway `get_inputs`/`input` events, or niri keyboard events | Event-driven; no idle pause; coalesced re-query; capped reconnect backoff |
+| Brightness | 1 Hz `/sys/class/backlight` | Paused; one fresh sample on resume; preferred firmware/platform/raw device; identical samples deduplicated |
 | GPU / VRAM | 1 Hz sysfs/NVML; usage and memory flags | Paused; in-flight generation dropped; 45-sample histories; one timer and one NVML worker whether either or both modules are configured |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
@@ -487,6 +488,7 @@ same scenario and keep the numbers with their provenance.
 | Worker-exit capture teardown and visualizer restart | Current | `BandAnalyzer.failures`, generation guard, capped `VisualizerBloc` retry |
 | CPU/GPU pause on seat idle | Current | `SeatIdleBloc` + samplers |
 | Battery 5 s async sysfs, not UPower | Current | `battery.dart`; async reads, generation guard, dedup |
+| Brightness 1 Hz sysfs, idle-gated | Current | `BrightnessSampler`; `ModuleScope` gate; preferred device, dedup |
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
 | MPRIS recovery idle gate | Current | `MediaPlayerService.pauseRecovery`/`resumeRecovery` + `SeatIdleBloc`; signals stay live |
 | MPRIS worker crash recovery | Current | `MediaPlayerWorkerProxy`; 1 s→30 s capped single-flight respawn, paused-start replay, unavailable on failure |
