@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/battery.dart';
+import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/theme/accent.dart';
@@ -52,6 +53,74 @@ void main() {
     expect(find.bySemanticsLabel('Battery, Charging 87%'), findsOneWidget);
     await _pump(tester, const BatteryStatus(capacity: 87));
     expect(find.bySemanticsLabel('Battery, Discharging 87%'), findsOneWidget);
+  });
+
+  testWidgets('tooltip and semantics show time to empty', (tester) async {
+    await _pump(
+      tester,
+      const BatteryStatus(
+        capacity: 87,
+        state: BatteryState.discharging,
+        timeToEmpty: Duration(hours: 2, minutes: 14),
+      ),
+    );
+    const label = 'Battery, Discharging 87%, 2h 14m remaining';
+    expect(find.bySemanticsLabel(label), findsOneWidget);
+    expect(tester.widget<PillTooltip>(find.byType(PillTooltip)).label, label);
+  });
+
+  testWidgets('charging shows time to full and full hides it', (tester) async {
+    await _pump(
+      tester,
+      const BatteryStatus(
+        capacity: 40,
+        charging: true,
+        state: BatteryState.charging,
+        timeToFull: Duration(hours: 2, minutes: 14),
+      ),
+    );
+    expect(
+      find.bySemanticsLabel('Battery, Charging 40%, 2h 14m to full'),
+      findsOneWidget,
+    );
+
+    await _pump(
+      tester,
+      const BatteryStatus(
+        capacity: 100,
+        charging: true,
+        state: BatteryState.full,
+      ),
+    );
+    expect(find.bySemanticsLabel('Battery, Full 100%'), findsOneWidget);
+  });
+
+  testWidgets('duration formatting drops zero units', (tester) async {
+    await _pump(
+      tester,
+      const BatteryStatus(
+        capacity: 87,
+        state: BatteryState.discharging,
+        timeToEmpty: Duration(hours: 2),
+      ),
+    );
+    expect(
+      find.bySemanticsLabel('Battery, Discharging 87%, 2h remaining'),
+      findsOneWidget,
+    );
+
+    await _pump(
+      tester,
+      const BatteryStatus(
+        capacity: 87,
+        state: BatteryState.discharging,
+        timeToEmpty: Duration(minutes: 14),
+      ),
+    );
+    expect(
+      find.bySemanticsLabel('Battery, Discharging 87%, 14m remaining'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('low capacity tints the gauge and percent', (tester) async {

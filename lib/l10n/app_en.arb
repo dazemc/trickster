@@ -26,6 +26,68 @@
       }
     }
   },
+  "batteryFull": "Full",
+  "@batteryFull": {
+    "description": "Battery state while connected to power and fully charged."
+  },
+  "batteryNotCharging": "Not charging",
+  "@batteryNotCharging": {
+    "description": "Battery state while connected to power but not charging."
+  },
+  "batteryTimeRemaining": "{duration} remaining",
+  "@batteryTimeRemaining": {
+    "description": "Battery tooltip detail for time until empty.",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "2h 14m"
+      }
+    }
+  },
+  "batteryTimeToFull": "{duration} to full",
+  "@batteryTimeToFull": {
+    "description": "Battery tooltip detail for time until fully charged.",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "2h 14m"
+      }
+    }
+  },
+  "batteryDurationHoursMinutes": "{hours}h {minutes}m",
+  "@batteryDurationHoursMinutes": {
+    "description": "Compact battery duration with hours and minutes.",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "2"
+      },
+      "minutes": {
+        "type": "int",
+        "example": "14"
+      }
+    }
+  },
+  "batteryDurationHours": "{hours}h",
+  "@batteryDurationHours": {
+    "description": "Compact battery duration with whole hours.",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "batteryDurationMinutes": "{minutes}m",
+  "@batteryDurationMinutes": {
+    "description": "Compact battery duration under one hour.",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "14"
+      }
+    }
+  },
   "metricCpu": "CPU",
   "@metricCpu": {
     "description": "Caption for the CPU meter."

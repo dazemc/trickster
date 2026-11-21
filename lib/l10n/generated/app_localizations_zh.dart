@@ -25,6 +25,37 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get batteryFull => '已充满';
+
+  @override
+  String get batteryNotCharging => '未充电';
+
+  @override
+  String batteryTimeRemaining(String duration) {
+    return '剩余 $duration';
+  }
+
+  @override
+  String batteryTimeToFull(String duration) {
+    return '距充满 $duration';
+  }
+
+  @override
+  String batteryDurationHoursMinutes(int hours, int minutes) {
+    return '$hours小时$minutes分';
+  }
+
+  @override
+  String batteryDurationHours(int hours) {
+    return '$hours小时';
+  }
+
+  @override
+  String batteryDurationMinutes(int minutes) {
+    return '$minutes分';
+  }
+
+  @override
   String get metricCpu => 'CPU';
 
   @override

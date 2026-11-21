@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/locale.dart';
@@ -32,9 +33,12 @@ class BatteryPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final capacity = status.capacity ?? 0;
-    final state = status.charging
-        ? l10n.batteryCharging
-        : l10n.batteryDischarging;
+    final state = _stateLabel(l10n, status);
+    final detail = _timeLabel(l10n, status);
+    final label =
+        '${l10n.batteryTitle}, '
+        '${l10n.batteryStateAndPercent(state, capacity)}'
+        '${detail == null ? '' : ', $detail'}';
     final levelColor = status.charging
         ? null
         : capacity <= critical
@@ -44,14 +48,10 @@ class BatteryPill extends StatelessWidget {
         : null;
     return PillTooltip(
       accent: accent,
-      label:
-          '${l10n.batteryTitle}, '
-          '${l10n.batteryStateAndPercent(state, capacity)}',
+      label: label,
       child: TricksterActionCard(
         accent: accent,
-        label:
-            '${l10n.batteryTitle}, '
-            '${l10n.batteryStateAndPercent(state, capacity)}',
+        label: label,
         hint: l10n.batteryHint,
         onPressed: onPressed,
         child: Row(
@@ -77,6 +77,42 @@ class BatteryPill extends StatelessWidget {
       ),
     );
   }
+}
+
+String _stateLabel(AppLocalizations l10n, BatteryStatus status) {
+  return switch (status.state) {
+    BatteryState.charging => l10n.batteryCharging,
+    BatteryState.discharging => l10n.batteryDischarging,
+    BatteryState.full => l10n.batteryFull,
+    BatteryState.notCharging => l10n.batteryNotCharging,
+    BatteryState.unknown =>
+      status.charging ? l10n.batteryCharging : l10n.batteryDischarging,
+  };
+}
+
+String? _timeLabel(AppLocalizations l10n, BatteryStatus status) {
+  final toEmpty = status.timeToEmpty;
+  if (toEmpty != null && toEmpty > Duration.zero) {
+    return l10n.batteryTimeRemaining(_formatDuration(l10n, toEmpty));
+  }
+  final toFull = status.timeToFull;
+  if (toFull != null && toFull > Duration.zero) {
+    return l10n.batteryTimeToFull(_formatDuration(l10n, toFull));
+  }
+  return null;
+}
+
+String _formatDuration(AppLocalizations l10n, Duration duration) {
+  final totalMinutes = (duration.inSeconds + 59) ~/ 60;
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) {
+    return l10n.batteryDurationHoursMinutes(hours, minutes);
+  }
+  if (hours > 0) {
+    return l10n.batteryDurationHours(hours);
+  }
+  return l10n.batteryDurationMinutes(minutes);
 }
 
 class _BatteryPainter extends CustomPainter {

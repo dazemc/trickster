@@ -123,6 +123,48 @@ abstract class AppLocalizations {
   /// **'{state} {percent}%'**
   String batteryStateAndPercent(String state, int percent);
 
+  /// Battery state while connected to power and fully charged.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get batteryFull;
+
+  /// Battery state while connected to power but not charging.
+  ///
+  /// In en, this message translates to:
+  /// **'Not charging'**
+  String get batteryNotCharging;
+
+  /// Battery tooltip detail for time until empty.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} remaining'**
+  String batteryTimeRemaining(String duration);
+
+  /// Battery tooltip detail for time until fully charged.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} to full'**
+  String batteryTimeToFull(String duration);
+
+  /// Compact battery duration with hours and minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h {minutes}m'**
+  String batteryDurationHoursMinutes(int hours, int minutes);
+
+  /// Compact battery duration with whole hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h'**
+  String batteryDurationHours(int hours);
+
+  /// Compact battery duration under one hour.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m'**
+  String batteryDurationMinutes(int minutes);
+
   /// Caption for the CPU meter.
   ///
   /// In en, this message translates to:

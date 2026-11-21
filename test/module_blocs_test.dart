@@ -1099,12 +1099,36 @@ cpu MHz\t\t: 3400.000
     });
 
     test('battery json round-trips', () {
-      const status = BatteryStatus(capacity: 50, charging: false);
+      const status = BatteryStatus(
+        capacity: 50,
+        charging: false,
+        state: BatteryState.discharging,
+        energyNow: 22400000,
+        energyFull: 50000000,
+        powerNow: 10000000,
+        timeToEmpty: Duration(hours: 2, minutes: 14),
+      );
       final decoded = BatteryStatus.fromJson(
         Map<String, dynamic>.from(status.toJson()),
       );
       expect(decoded.capacity, 50);
       expect(decoded.charging, isFalse);
+      expect(decoded.state, BatteryState.discharging);
+      expect(decoded.energyNow, 22400000);
+      expect(decoded.energyFull, 50000000);
+      expect(decoded.powerNow, 10000000);
+      expect(decoded.timeToEmpty, const Duration(hours: 2, minutes: 14));
+      expect(decoded.timeToFull, isNull);
+    });
+
+    test('battery json without a state derives it from charging', () {
+      final decoded = BatteryStatus.fromJson(<String, dynamic>{
+        'capacity': 50,
+        'charging': true,
+      });
+      expect(decoded.state, BatteryState.charging);
+      expect(decoded.timeToEmpty, isNull);
+      expect(decoded.timeToFull, isNull);
     });
   });
 

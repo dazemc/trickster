@@ -26,6 +26,68 @@
       }
     }
   },
+  "batteryFull": "已充满",
+  "@batteryFull": {
+    "description": "Battery state while connected to power and fully charged."
+  },
+  "batteryNotCharging": "未充电",
+  "@batteryNotCharging": {
+    "description": "Battery state while connected to power but not charging."
+  },
+  "batteryTimeRemaining": "剩余 {duration}",
+  "@batteryTimeRemaining": {
+    "description": "Battery tooltip detail for time until empty.",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "2小时14分"
+      }
+    }
+  },
+  "batteryTimeToFull": "距充满 {duration}",
+  "@batteryTimeToFull": {
+    "description": "Battery tooltip detail for time until fully charged.",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "2小时14分"
+      }
+    }
+  },
+  "batteryDurationHoursMinutes": "{hours}小时{minutes}分",
+  "@batteryDurationHoursMinutes": {
+    "description": "Compact battery duration with hours and minutes.",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "2"
+      },
+      "minutes": {
+        "type": "int",
+        "example": "14"
+      }
+    }
+  },
+  "batteryDurationHours": "{hours}小时",
+  "@batteryDurationHours": {
+    "description": "Compact battery duration with whole hours.",
+    "placeholders": {
+      "hours": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+  "batteryDurationMinutes": "{minutes}分",
+  "@batteryDurationMinutes": {
+    "description": "Compact battery duration under one hour.",
+    "placeholders": {
+      "minutes": {
+        "type": "int",
+        "example": "14"
+      }
+    }
+  },
   "metricCpu": "CPU",
   "@metricCpu": {
     "description": "Caption for the CPU meter."

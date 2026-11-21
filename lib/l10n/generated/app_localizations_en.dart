@@ -25,6 +25,37 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get batteryFull => 'Full';
+
+  @override
+  String get batteryNotCharging => 'Not charging';
+
+  @override
+  String batteryTimeRemaining(String duration) {
+    return '$duration remaining';
+  }
+
+  @override
+  String batteryTimeToFull(String duration) {
+    return '$duration to full';
+  }
+
+  @override
+  String batteryDurationHoursMinutes(int hours, int minutes) {
+    return '${hours}h ${minutes}m';
+  }
+
+  @override
+  String batteryDurationHours(int hours) {
+    return '${hours}h';
+  }
+
+  @override
+  String batteryDurationMinutes(int minutes) {
+    return '${minutes}m';
+  }
+
+  @override
   String get metricCpu => 'CPU';
 
   @override
