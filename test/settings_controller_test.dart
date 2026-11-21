@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/bloc.dart';
 
@@ -44,6 +46,62 @@ class _FakeLayerShell extends LayerShell {
 
   @override
   Future<List<LayerOutput>> outputs() async => const <LayerOutput>[];
+}
+
+class _GatedSettingsTransport implements SettingsDocumentTransport {
+  final _read = Completer<SettingsDocument>();
+  var reads = 0;
+
+  @override
+  Future<SettingsDocument> read() {
+    reads += 1;
+    return _read.future;
+  }
+
+  void complete(SettingsDocument document) => _read.complete(document);
+
+  void fail(Object error) => _read.completeError(error);
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async => throw UnimplementedError();
+}
+
+class _GatedOutputsTransport implements OutputsDocumentTransport {
+  final _read = Completer<String>();
+  var reads = 0;
+
+  @override
+  Future<String> read() {
+    reads += 1;
+    return _read.future;
+  }
+
+  void complete(String document) => _read.complete(document);
+
+  void fail(Object error) => _read.completeError(error);
+
+  @override
+  Future<String> write(String document) async => throw UnimplementedError();
+}
+
+class _GatedLayerShell extends LayerShell {
+  _GatedLayerShell() : super(channel: const MethodChannel('test/trickster'));
+
+  final _outputs = Completer<List<LayerOutput>>();
+  var calls = 0;
+
+  @override
+  Future<List<LayerOutput>> outputs() {
+    calls += 1;
+    return _outputs.future;
+  }
+
+  void complete(List<LayerOutput> outputs) => _outputs.complete(outputs);
+
+  void fail(Object error) => _outputs.completeError(error);
 }
 
 /// A fake bar control socket serving the settings document like the real
@@ -126,6 +184,19 @@ class _FakeBar {
     if (directory.existsSync()) {
       await directory.delete(recursive: true);
     }
+  }
+}
+
+Future<void> _waitFor(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 2),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('condition was not met within $timeout');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 5));
   }
 }
 
@@ -214,6 +285,75 @@ void main() {
       expect(bar.document, contains('112233'));
     },
   );
+
+  test('initial document and output reads start together', () async {
+    final settings = _GatedSettingsTransport();
+    final outputs = _GatedOutputsTransport();
+    final layer = _GatedLayerShell();
+    final bloc = SettingsAppBloc(
+      socket: settings,
+      file: FileSettingsTransport(File('/unused/settings.json')),
+      outputsSocket: outputs,
+      outputsFile: FileOutputsTransport(File('/unused/outputs.conf')),
+      layerShell: layer,
+    );
+    addTearDown(bloc.close);
+
+    bloc.add(const SettingsAppLoadRequested());
+    await _waitFor(
+      () => settings.reads == 1 && outputs.reads == 1 && layer.calls == 1,
+    );
+    expect(bloc.loaded, isFalse);
+
+    final loaded = bloc.stream.firstWhere((state) => state.loaded);
+    outputs.complete(const OutputsConfig().encode());
+    layer.complete(const <LayerOutput>[
+      LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(bloc.loaded, isFalse);
+
+    settings.complete(
+      SettingsDocument(
+        revision: 2,
+        json: const BarSettings(revision: 2).encode(),
+      ),
+    );
+    final state = await loaded;
+    expect(state.settings.revision, 2);
+    expect(state.availableOutputs.single.name, 'eDP-1');
+    expect(state.error, isNull);
+    expect(state.outputsError, isNull);
+  });
+
+  test('initial read errors stay per field', () async {
+    final settings = _GatedSettingsTransport();
+    final outputs = _GatedOutputsTransport();
+    final layer = _GatedLayerShell();
+    final bloc = SettingsAppBloc(
+      socket: settings,
+      file: FileSettingsTransport(File('/unused/settings.json')),
+      outputsSocket: outputs,
+      outputsFile: FileOutputsTransport(File('/unused/outputs.conf')),
+      layerShell: layer,
+    );
+    addTearDown(bloc.close);
+
+    bloc.add(const SettingsAppLoadRequested());
+    await _waitFor(
+      () => settings.reads == 1 && outputs.reads == 1 && layer.calls == 1,
+    );
+    final loaded = bloc.stream.firstWhere((state) => state.loaded);
+    settings.fail(StateError('settings down'));
+    outputs.fail(StateError('outputs down'));
+    layer.complete(const <LayerOutput>[]);
+
+    final state = await loaded;
+    expect(state.loaded, isTrue);
+    expect(state.error, contains('settings down'));
+    expect(state.outputsError, contains('outputs down'));
+    expect(state.availableOutputs, isEmpty);
+  });
 
   test('falls back to the file when no bar answers', () async {
     final directory = await Directory.systemTemp.createTemp('trickster-file');

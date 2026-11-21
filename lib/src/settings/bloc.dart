@@ -78,6 +78,17 @@ class SettingsAppOutputsChanged extends SettingsAppEvent {
 
 const _unset = Object();
 
+/// Starts [future] and converts either its value or its error into a record,
+/// so independent startup reads can run together without an unhandled error
+/// from the ones that are awaited later.
+Future<(T?, String?)> _settle<T>(Future<T> future) async {
+  try {
+    return (await future, null);
+  } on Object catch (error) {
+    return (null, '$error');
+  }
+}
+
 /// The settings document, outputs document, and host output list the settings
 /// application edits.
 class SettingsAppState extends Equatable {
@@ -315,35 +326,25 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     emit(state.copyWith(busy: true, error: null));
     final store = NativeSettingsStore(_settingsTransport);
     _store = store;
-    var settings = state.settings;
-    String? error;
-    try {
-      settings = await store.read();
-    } on Object catch (readError) {
-      error = '$readError';
-    }
+    // The documents and the host output list are independent; start all
+    // three before awaiting any so a slow control socket does not add its
+    // latency to the other reads.
+    final settingsRead = _settle(store.read());
+    final outputsRead = _settle(
+      _outputsTransport.read().then(OutputsConfig.parse),
+    );
+    final availableRead = _settle(_layerShell.outputs());
 
-    var outputs = state.outputs;
-    String? outputsError;
-    try {
-      outputs = OutputsConfig.parse(await _outputsTransport.read());
-    } on Object catch (readError) {
-      outputsError = '$readError';
-    }
-
-    List<LayerOutput> available;
-    try {
-      available = await _layerShell.outputs();
-    } on Object {
-      available = const <LayerOutput>[];
-    }
+    final (settingsValue, error) = await settingsRead;
+    final (outputsValue, outputsError) = await outputsRead;
+    final (availableValue, _) = await availableRead;
 
     _outputsDraft = false;
     emit(
       SettingsAppState(
-        settings: settings,
-        outputs: outputs,
-        availableOutputs: available,
+        settings: settingsValue ?? state.settings,
+        outputs: outputsValue ?? state.outputs,
+        availableOutputs: availableValue ?? const <LayerOutput>[],
         busy: false,
         loaded: true,
         error: error,
