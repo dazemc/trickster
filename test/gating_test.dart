@@ -13,12 +13,14 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
+import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
+import 'package:trickster/src/state/tray_bloc.dart';
 
 import 'support/strip_harness.dart';
 
@@ -171,10 +173,15 @@ void main() {
     final lines = <String>[];
     final previous = Bloc.observer;
     Bloc.observer = TricksterObserver(log: lines.add);
+    var trayBuilds = 0;
     try {
       await pumpBarHarness(
         tester,
         settings: const BarSettings(modules: ['clock']),
+        trayBuilder: () {
+          trayBuilds += 1;
+          return TrayBloc(initial: const TrayState());
+        },
         settle: const Duration(milliseconds: 500),
       );
     } finally {
@@ -192,6 +199,7 @@ void main() {
     expect(_created(lines, 'CpuBloc'), isFalse);
     expect(_created(lines, 'GpuBloc'), isFalse);
     expect(_created(lines, 'TrayBloc'), isFalse);
+    expect(trayBuilds, 0);
     expect(_created(lines, 'BatteryBloc'), isFalse);
     expect(_created(lines, 'WorkspacesBloc'), isFalse);
     expect(_created(lines, 'MediaBloc'), isFalse);

@@ -472,6 +472,29 @@ void main() {
     expect(harness.spawns, 0);
   });
 
+  test('TrayBloc spawns the worker only on TrayStarted', () async {
+    final harness = _Harness();
+    final bloc = TrayBloc(service: harness.proxy);
+    addTearDown(bloc.close);
+
+    await pumpEventQueue();
+    expect(harness.spawns, 0);
+
+    bloc.add(const TrayStarted());
+    await pumpEventQueue();
+    final command = await _waitCommand(harness.worker, 0);
+    expect(command[1], StatusNotifierWorkerOperation.start.index);
+    harness.worker.reply(
+      0,
+      result: const StatusNotifierStartResult(
+        isolateName: 'trickster-sni-worker',
+        protocolVersion: StatusNotifierProtocolLimits.protocolVersion,
+      ).toJson(),
+    );
+    await pumpEventQueue();
+    expect(harness.spawns, 1);
+  });
+
   test('the UI proxy source has no D-Bus client or local service', () {
     for (final path in <String>[
       'lib/src/services/status_notifier_worker_proxy.dart',
@@ -487,10 +510,13 @@ void main() {
     }
 
     final blocSource = File('lib/src/state/tray_bloc.dart').readAsStringSync();
-    expect(
-      blocSource,
-      contains('StatusNotifierService(iconFileDecoder: decodeTrayIconFile)'),
-    );
-    expect(blocSource, isNot(contains('StatusNotifierWorkerProxy')));
+    expect(blocSource, contains('StatusNotifierWorkerProxy()'));
+    expect(blocSource, isNot(contains('StatusNotifierService')));
+
+    final scopeSource = File(
+      'lib/src/state/module_scope.dart',
+    ).readAsStringSync();
+    expect(scopeSource, contains("settings.includes('tray')"));
+    expect(scopeSource, contains('TrayBloc()'));
   });
 }
