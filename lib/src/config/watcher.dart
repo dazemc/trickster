@@ -3,6 +3,37 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import 'package:trickster/src/config/paths.dart';
+
+/// A path-aware filter for the two documents both processes edit.
+///
+/// The live paths are compared exactly after [normalizeConfigPath] on both
+/// sides, so a relative override, a `./` spelling, or a `dir/../dir` event
+/// path still names the live document while unrelated files in a watched
+/// directory do not. Atomic writes also create `.tmp` and `.prev` neighbours;
+/// those never equal a live path. The rename destination is the live document
+/// and does pass.
+bool Function(FileSystemEvent) configDocumentFilter({
+  required String settings,
+  required String outputs,
+}) {
+  final liveSettings = normalizeConfigPath(settings);
+  final liveOutputs = normalizeConfigPath(outputs);
+  bool edited(String path) {
+    final normalized = normalizeConfigPath(path);
+    return normalized == liveSettings || normalized == liveOutputs;
+  }
+
+  return (event) {
+    if (edited(event.path)) {
+      return true;
+    }
+    return event is FileSystemMoveEvent &&
+        event.destination != null &&
+        edited(event.destination!);
+  };
+}
+
 /// Watches [directory] and coalesces bursts of changes into one [onChanged].
 ///
 /// A watch stream that errors or closes is replaced with a fresh subscription

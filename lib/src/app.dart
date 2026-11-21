@@ -49,6 +49,27 @@ bool shouldReconcileOutputs({
   required OutputsConfig next,
 }) => firstApply || previous != next;
 
+/// Merges a reload's documents with the last-good bloc state. A document with
+/// a parse error keeps its own last-good state; the other document still
+/// applies from the same reload. A corrupt outputs file whose valid `.prev`
+/// snapshot was recovered has no outputs error, so the snapshot applies.
+@visibleForTesting
+RuntimeConfig mergeReloadedConfig({
+  required RuntimeConfig loaded,
+  required OutputsConfig lastGoodOutputs,
+  required BarSettings lastGoodSettings,
+}) {
+  return RuntimeConfig(
+    paths: loaded.paths,
+    session: loaded.session,
+    outputs: loaded.outputsError == null ? loaded.outputs : lastGoodOutputs,
+    settings: loaded.settingsError == null ? loaded.settings : lastGoodSettings,
+    outputsError: loaded.outputsError,
+    outputsWarning: loaded.outputsWarning,
+    settingsError: loaded.settingsError,
+  );
+}
+
 class TricksterApp extends StatefulWidget {
   const TricksterApp({
     required this.initial,
@@ -74,6 +95,7 @@ class TricksterApp extends StatefulWidget {
   final ConfigWatcher Function({
     required Directory directory,
     required void Function() onChanged,
+    bool Function(FileSystemEvent)? include,
   })?
   watcherBuilder;
   @visibleForTesting
@@ -124,8 +146,13 @@ class AppStartupGate {
 ConfigWatcher _buildConfigWatcher({
   required Directory directory,
   required void Function() onChanged,
+  bool Function(FileSystemEvent)? include,
 }) {
-  return ConfigWatcher(directory: directory, onChanged: onChanged);
+  return ConfigWatcher(
+    directory: directory,
+    onChanged: onChanged,
+    include: include,
+  );
 }
 
 ControlServer _buildControlServer({required ControlHandler handler}) {
@@ -146,7 +173,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final OutputsDocumentTransport _outputsTransport;
   ControlServer? _control;
   BuildContext? _moduleContext;
-  ConfigWatcher? _watcher;
+  List<ConfigWatcher> _watchers = const <ConfigWatcher>[];
   List<LayerOutput>? _outputs;
   final Set<int> _hiddenSurfaces = <int>{};
   Set<int> _lastBarViews = const <int>{};
@@ -236,10 +263,21 @@ class _TricksterAppState extends State<TricksterApp>
         );
       },
       startWatcher: () {
-        _watcher = (widget.watcherBuilder ?? _buildConfigWatcher)(
-          directory: widget.initial.paths.directory,
-          onChanged: _reload,
-        )..start();
+        // Watch the settings root and, when an outputs override lives
+        // elsewhere, that file's parent too. Settings-save writes outside the
+        // root (and hand edits beside an override) still reload the bar.
+        final include = configDocumentFilter(
+          settings: widget.initial.paths.settings,
+          outputs: widget.initial.paths.outputs,
+        );
+        _watchers = <ConfigWatcher>[
+          for (final directory in widget.initial.paths.watchDirectories)
+            (widget.watcherBuilder ?? _buildConfigWatcher)(
+              directory: directory,
+              onChanged: _reload,
+              include: include,
+            )..start(),
+        ];
       },
       startControl: () {
         _control = (widget.controlServerBuilder ?? _buildControlServer)(
@@ -259,7 +297,9 @@ class _TricksterAppState extends State<TricksterApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_watcher?.dispose());
+    for (final watcher in _watchers) {
+      unawaited(watcher.dispose());
+    }
     unawaited(_control?.dispose());
     unawaited(_menuBloc.close());
     unawaited(_barMenuBloc.close());
@@ -310,25 +350,21 @@ class _TricksterAppState extends State<TricksterApp>
   /// clean apply, or the parse error after keeping last-good state.
   String? _reload() {
     try {
-      final loaded = Bootstrap.load(
-        configPath: widget.initial.paths.outputOverride,
-        strict: true,
-      );
+      final loaded = Bootstrap.load(paths: widget.initial.paths, strict: true);
       // A corrupt document keeps only its own last-good bloc state; the other
       // document still applies from the same reload.
-      final merged = RuntimeConfig(
-        paths: loaded.paths,
-        session: loaded.session,
-        outputs: loaded.outputsError == null
-            ? loaded.outputs
-            : context.read<OutputsBloc>().state,
-        settings: loaded.settingsError == null
-            ? loaded.settings
-            : context.read<SettingsBloc>().state,
-        outputsError: loaded.outputsError,
-        settingsError: loaded.settingsError,
+      final merged = mergeReloadedConfig(
+        loaded: loaded,
+        lastGoodOutputs: context.read<OutputsBloc>().state,
+        lastGoodSettings: context.read<SettingsBloc>().state,
       );
       _apply(merged);
+      if (merged.outputsWarning case final warning?) {
+        stderr.writeln(
+          'trickster: outputs.conf invalid ($warning); '
+          'using outputs.conf.prev',
+        );
+      }
       if (!merged.hasErrors) {
         return null;
       }

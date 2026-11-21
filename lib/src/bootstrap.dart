@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/paths.dart';
 import 'package:trickster/src/config/session.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -15,6 +16,7 @@ class RuntimeConfig {
     required this.outputs,
     required this.settings,
     this.outputsError,
+    this.outputsWarning,
     this.settingsError,
   });
 
@@ -27,7 +29,14 @@ class RuntimeConfig {
   final String? outputsError;
   final String? settingsError;
 
+  /// The live outputs document was invalid, but a valid `.prev` snapshot
+  /// supplied [outputs]. The bar applies the recovered placement; a preflight
+  /// still reports the live file as invalid.
+  final String? outputsWarning;
+
   bool get hasErrors => outputsError != null || settingsError != null;
+
+  bool get hasWarnings => outputsWarning != null;
 
   String? get errorSummary {
     final errors = <String>[
@@ -36,21 +45,51 @@ class RuntimeConfig {
     ];
     return errors.isEmpty ? null : errors.join('; ');
   }
+
+  String? get warningSummary =>
+      outputsWarning == null ? null : 'outputs.conf: $outputsWarning';
 }
 
 class Bootstrap {
+  /// Resolves the documents this process reads and writes.
+  ///
+  /// Precedence for the outputs document: the `--config` CLI override, then
+  /// the process `TRICKSTER_OUTPUT_CONFIG`, then the same key in
+  /// `/etc/trickster/session.conf`, then the per-user default under
+  /// `$XDG_CONFIG_HOME/trickster`. An explicitly injected [paths] wins over
+  /// every source so tests and embedded callers keep full control.
+  static ConfigPaths resolvePaths({
+    String? configPath,
+    ConfigPaths? paths,
+    Map<String, String>? environment,
+    String? sessionPath,
+  }) {
+    if (paths != null) {
+      return paths;
+    }
+    final env = environment ?? Platform.environment;
+    final session = _session(path: sessionPath);
+    return ConfigPaths(
+      outputOverride: _firstNonEmpty(<String?>[
+        configPath,
+        env['TRICKSTER_OUTPUT_CONFIG'],
+        session.outputConfig,
+      ]),
+      sessionOverride: sessionPath,
+      environment: env,
+    );
+  }
+
   static RuntimeConfig load({
     String? configPath,
     String? edge,
     bool strict = false,
-    @visibleForTesting ConfigPaths? paths,
+    ConfigPaths? paths,
   }) {
-    final sessionFile = _session();
-    paths ??= ConfigPaths(
-      outputOverride: configPath ?? sessionFile.outputConfig,
-    );
+    paths ??= resolvePaths(configPath: configPath);
+    final sessionFile = _session(path: paths.session);
     _seedUserConfig(paths);
-    final (outputs, outputsError) = _outputs(paths, edge: edge);
+    final (outputs, outputsError, outputsWarning) = _outputs(paths, edge: edge);
     final (settings, settingsError) = _settings(paths, strict: strict);
     return RuntimeConfig(
       paths: paths,
@@ -58,43 +97,89 @@ class Bootstrap {
       outputs: outputs,
       settings: settings,
       outputsError: outputsError,
+      outputsWarning: outputsWarning,
       settingsError: settingsError,
     );
   }
 
-  static SessionConfig _session() {
-    final file = File('/etc/trickster/session.conf');
+  static SessionConfig _session({String? path}) {
+    final file = File(path ?? '/etc/trickster/session.conf');
     if (!file.existsSync()) {
       return const SessionConfig();
     }
     try {
       return SessionConfig.parse(file.readAsStringSync());
-    } on FormatException {
+    } on Object {
       stderr.writeln('trickster: ignoring invalid session.conf');
       return const SessionConfig();
     }
   }
 
-  static (OutputsConfig, String?) _outputs(ConfigPaths paths, {String? edge}) {
+  static String? _firstNonEmpty(Iterable<String?> values) {
+    for (final value in values) {
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  static (OutputsConfig, String?, String?) _outputs(
+    ConfigPaths paths, {
+    String? edge,
+  }) {
     final file = File(paths.outputs);
-    var config = const OutputsConfig();
-    String? error;
+    final transport = FileOutputsTransport(file);
+    OutputsConfig? parsed;
+    String? liveError;
     if (file.existsSync()) {
       try {
-        config = OutputsConfig.parse(file.readAsStringSync());
+        final document = file.readAsStringSync();
+        if (document.trim().isEmpty) {
+          liveError = 'outputs.conf is empty';
+        } else {
+          parsed = OutputsConfig.parse(document);
+        }
       } on Object catch (parseError) {
         stderr.writeln('trickster: $parseError');
-        error = '$parseError';
+        liveError = '$parseError';
+      }
+    }
+    // A valid live document always wins. A missing, unreadable, empty, or
+    // corrupt live file recovers from the same `.prev` snapshot the settings
+    // application reads instead of silently resetting placement to defaults.
+    var config = parsed;
+    String? warning;
+    if (config == null) {
+      final recovered = transport.readDocumentSync();
+      if (recovered != null) {
+        // The snapshot is a usable document. The live file's parse error is
+        // reported separately as a warning: the bar applies the recovered
+        // placement instead of keeping last-good state, while `--check`
+        // still sees that the live document itself is invalid.
+        config = OutputsConfig.parse(recovered);
+        warning = liveError;
+        liveError = null;
+      } else {
+        // Neither the live document nor its snapshot is usable: keep the
+        // live-file error so `--check` and the reload path surface it.
+        config = const OutputsConfig();
       }
     }
     if (edge != null) {
+      final side = SystemBarSideGeometry.parse(edge);
       config = OutputsConfig(
-        side: SystemBarSideGeometry.parse(edge),
-        thickness: config.thickness,
+        side: side,
+        // A hidden document stores thickness 0. A one-shot edge override must
+        // reactivate the strip at the default band instead of leaving a
+        // zero-thickness, inactive bar.
+        thickness: config.thickness > 0
+            ? config.thickness
+            : OutputsConfig.defaultThickness,
         connectors: config.connectors,
       );
     }
-    return (config, error);
+    return (config, liveError, warning);
   }
 
   static (BarSettings, String?) _settings(
@@ -142,16 +227,50 @@ class Bootstrap {
   /// Seeds a session user's config directory on first launch. The per-user
   /// `outputs.conf` is written once from the packaged template and never
   /// overwritten after that.
+  ///
+  /// A valid `outputs.conf.prev` is already a recoverable document: writing
+  /// the default live file over a missing live path would shadow the snapshot
+  /// and discard the user's placement. Seeding is a courtesy and must never
+  /// take the bar down: an unwritable config directory is logged and the bar
+  /// continues with what it can read.
   @visibleForTesting
   static void seedUserConfig(ConfigPaths paths, {String? outputsTemplate}) {
-    paths.directory.createSync(recursive: true);
-    final outputs = File(paths.outputs);
-    if (!outputs.existsSync()) {
-      outputs.writeAsStringSync(_outputsTemplate(outputsTemplate));
+    try {
+      paths.directory.createSync(recursive: true);
+    } on Object catch (error) {
+      stderr.writeln('trickster: cannot create config directory: $error');
     }
-    final settings = File(paths.settings);
-    if (!settings.existsSync() && !File('${settings.path}.prev').existsSync()) {
-      settings.writeAsStringSync(const BarSettings().encode());
+    try {
+      final outputs = File(paths.outputs);
+      if (!outputs.existsSync() && !_hasValidPreviousOutputs(outputs)) {
+        outputs.writeAsStringSync(_outputsTemplate(outputsTemplate));
+      }
+    } on Object catch (error) {
+      stderr.writeln('trickster: cannot seed outputs.conf: $error');
+    }
+    try {
+      final settings = File(paths.settings);
+      if (!settings.existsSync() &&
+          !File('${settings.path}.prev').existsSync()) {
+        settings.writeAsStringSync(const BarSettings().encode());
+      }
+    } on Object catch (error) {
+      stderr.writeln('trickster: cannot seed settings.json: $error');
+    }
+  }
+
+  /// Whether the outputs snapshot beside [file] is a document the transport
+  /// would accept as last-good. A snapshot that cannot decode is no better
+  /// than no snapshot, so the default file is still written then.
+  static bool _hasValidPreviousOutputs(File file) {
+    final previous = File('${file.path}.prev');
+    if (!previous.existsSync()) {
+      return false;
+    }
+    try {
+      return FileOutputsTransport.isValidDocument(previous.readAsStringSync());
+    } on Object {
+      return false;
     }
   }
 

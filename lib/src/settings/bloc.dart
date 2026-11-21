@@ -227,14 +227,19 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     SettingsDocumentTransport? file,
     OutputsDocumentTransport? outputsSocket,
     OutputsDocumentTransport? outputsFile,
+    ConfigPaths? paths,
     LayerShell? layerShell,
   }) : _settingsTransport = FallbackSettingsTransport(
          socket: socket ?? SocketSettingsTransport(),
-         file: file ?? FileSettingsTransport(File(ConfigPaths().settings)),
+         file:
+             file ??
+             FileSettingsTransport(File((paths ?? ConfigPaths()).settings)),
        ),
        _outputsTransport = FallbackOutputsTransport(
          socket: outputsSocket ?? SocketOutputsTransport(),
-         file: outputsFile ?? FileOutputsTransport(File(ConfigPaths().outputs)),
+         file:
+             outputsFile ??
+             FileOutputsTransport(File((paths ?? ConfigPaths()).outputs)),
        ),
        _layerShell = layerShell ?? LayerShell(),
        super(const SettingsAppState()) {

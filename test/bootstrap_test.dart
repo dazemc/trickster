@@ -111,11 +111,95 @@ void main() {
     File(
       '${paths.settings}.prev',
     ).writeAsStringSync(const BarSettings(revision: 7, locale: 'zh').encode());
+    File('${paths.outputs}.prev').writeAsStringSync('system_bar=right,64\n');
+
+    Bootstrap.seedUserConfig(paths, outputsTemplate: null);
+    expect(File(paths.outputs).existsSync(), isFalse);
+    expect(File(paths.settings).existsSync(), isFalse);
 
     final runtime = Bootstrap.load(paths: paths);
     expect(runtime.settings.revision, 7);
     expect(runtime.settings.locale, 'zh');
-    expect(File(paths.settings).existsSync(), isFalse);
+    expect(runtime.outputs.side, SystemBarSide.right);
+    expect(runtime.outputs.thickness, 64);
+    expect(runtime.outputsError, isNull);
+  });
+
+  test('a corrupt live outputs file recovers from a valid .prev', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('system_bar=nonsense,40\n');
+    File(
+      '${paths.outputs}.prev',
+    ).writeAsStringSync('system_bar=bottom,40,eDP-1\n');
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs.side, SystemBarSide.bottom);
+    expect(runtime.outputs.thickness, 40);
+    expect(runtime.outputs.connectors, ['eDP-1']);
+    // The live parse error was logged, but a usable snapshot means reload
+    // must apply it. `--check` still sees the live document as invalid.
+    expect(runtime.outputsError, isNull);
+    expect(runtime.outputsWarning, isNotNull);
+  });
+
+  test('an empty live outputs file recovers from a valid .prev', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('');
+    File('${paths.outputs}.prev').writeAsStringSync('system_bar=left,72\n');
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs.side, SystemBarSide.left);
+    expect(runtime.outputs.thickness, 72);
+    expect(runtime.outputsError, isNull);
+    expect(runtime.outputsWarning, isNotNull);
+  });
+
+  test('a missing live outputs file recovers from a valid .prev', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File('${paths.outputs}.prev').writeAsStringSync('system_bar=bottom,48\n');
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs.side, SystemBarSide.bottom);
+    expect(runtime.outputs.thickness, 48);
+    expect(runtime.outputsError, isNull);
+    expect(runtime.outputsWarning, isNull);
+  });
+
+  test('corrupt live outputs without a usable .prev surfaces the error', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('system_bar=nonsense,40\n');
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs, const OutputsConfig());
+    expect(runtime.outputsError, isNotNull);
+    expect(runtime.outputsWarning, isNull);
+  });
+
+  test('--edge reactivates a hidden outputs document at the default size', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('system_bar=hidden\n');
+
+    final runtime = Bootstrap.load(paths: paths, edge: 'top');
+    expect(runtime.outputs.side, SystemBarSide.top);
+    expect(runtime.outputs.thickness, OutputsConfig.defaultThickness);
+    expect(runtime.outputs.active, isTrue);
+  });
+
+  test('an unwritable config directory never crashes seeding or load', () {
+    final blocker = File('${home.path}/blocked')
+      ..writeAsStringSync('not a directory');
+    final paths = ConfigPaths(configHome: blocker.path);
+
+    expect(() => Bootstrap.seedUserConfig(paths), returnsNormally);
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs, const OutputsConfig());
+    expect(runtime.settings, const BarSettings());
   });
 
   test('a missing template falls back to the built-in header', () {

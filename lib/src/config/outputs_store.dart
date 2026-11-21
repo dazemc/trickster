@@ -36,7 +36,7 @@ class FileOutputsTransport implements OutputsDocumentTransport {
   /// Validates a document before it can be considered readable. An empty or
   /// header-only file parses to defaults, but it is not a usable outputs
   /// document: treating it as valid would hide a torn write.
-  static bool _isValidDocument(String document) {
+  static bool isValidDocument(String document) {
     if (!RegExp(
       r'^[ \t]*system_bar[ \t]*=',
       multiLine: true,
@@ -103,7 +103,7 @@ class FileOutputsTransport implements OutputsDocumentTransport {
     } on Object {
       return;
     }
-    if (!_isValidDocument(previous)) {
+    if (!isValidDocument(previous)) {
       return;
     }
     _writeAtomically(_previous, previous);
@@ -122,7 +122,7 @@ class FileOutputsTransport implements OutputsDocumentTransport {
       } on Object {
         continue;
       }
-      if (_isValidDocument(document)) {
+      if (isValidDocument(document)) {
         return document;
       }
     }
@@ -195,12 +195,21 @@ class FileOutputsTransport implements OutputsDocumentTransport {
     return result.endsWith('\n') ? result : '$result\n';
   }
 
+  /// The first valid document from the live file or its `.prev` snapshot, or
+  /// null when neither exists. Synchronous for bootstrap, which must decide
+  /// placement before the first frame.
+  String? readDocumentSync() => _readValidDocument();
+
+  /// The readable document, falling back to the canonical defaults when the
+  /// live file and its snapshot are both missing or invalid.
+  String readSync() => _readValidDocument() ?? const OutputsConfig().encode();
+
   @override
   Future<String> read() async {
     // The live document wins. A missing, unreadable, empty, or invalid live
     // file falls through to the previous snapshot, so a torn write never
     // silently resets placement to defaults while a good snapshot exists.
-    return _readValidDocument() ?? const OutputsConfig().encode();
+    return readSync();
   }
 
   @override

@@ -35,7 +35,14 @@ Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   installObserver();
   if (cli.settings) {
-    runWidget(const TricksterSettingsApp());
+    // Resolve once here: the settings process must edit the exact outputs
+    // document the bar read, whether that path came from `--config`, the
+    // process environment, or session.conf.
+    runWidget(
+      TricksterSettingsApp(
+        paths: Bootstrap.resolvePaths(configPath: cli.configPath),
+      ),
+    );
     return;
   }
   // Native caches the last idle event; seed the bloc from it so CPU/GPU never
@@ -117,6 +124,11 @@ Future<void> _check(Cli cli) async {
     );
     if (runtime.outputsError case final error?) {
       bad('outputs.conf', error);
+    } else if (runtime.outputsWarning case final warning?) {
+      bad(
+        'outputs.conf',
+        'live document invalid ($warning); recovered from outputs.conf.prev',
+      );
     } else {
       ok(
         'outputs.conf',

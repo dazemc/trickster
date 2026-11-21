@@ -29,9 +29,18 @@ import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
 /// Whether a config-directory event names a document both processes edit.
-/// Atomic writes also create `.tmp` and `.prev` neighbours; those must not
-/// schedule a reload.
-bool isEditedDocumentEvent(FileSystemEvent event) {
+///
+/// With [paths], the comparison is exact: the live settings document and the
+/// resolved outputs document, including a custom outputs filename and a
+/// directory outside the config root. Without [paths], the historical
+/// basename match keeps callers that only have an event path working.
+bool isEditedDocumentEvent(FileSystemEvent event, {ConfigPaths? paths}) {
+  if (paths != null) {
+    return configDocumentFilter(
+      settings: paths.settings,
+      outputs: paths.outputs,
+    )(event);
+  }
   bool edited(String path) {
     final name = path.split(Platform.pathSeparator).last;
     return name == 'settings.json' || name == 'outputs.conf';
@@ -75,7 +84,12 @@ WallpaperAccentEvent? wallpaperAccentEventFor(
 /// The engine hosts one non-implicit view, so like the bar it must build a
 /// [View] per reported view; a bare widget tree would render nothing.
 class TricksterSettingsApp extends StatefulWidget {
-  const TricksterSettingsApp({super.key});
+  const TricksterSettingsApp({this.paths, super.key});
+
+  /// The documents this process loads and saves. Main resolves them from
+  /// `--config`, the process environment, and session.conf before the first
+  /// frame; null keeps the default per-user paths for embedders and tests.
+  final ConfigPaths? paths;
 
   @override
   State<TricksterSettingsApp> createState() => _TricksterSettingsAppState();
@@ -83,29 +97,41 @@ class TricksterSettingsApp extends StatefulWidget {
 
 class _TricksterSettingsAppState extends State<TricksterSettingsApp>
     with WidgetsBindingObserver {
+  late final ConfigPaths _paths;
   late final SettingsAppBloc _bloc;
   late final WallpaperAccentBloc _wallpaperAccent;
   late SettingsAppState _lastAppState;
-  ConfigWatcher? _watcher;
+  late final List<ConfigWatcher> _watchers;
 
   @override
   void initState() {
     super.initState();
-    _bloc = SettingsAppBloc()..add(const SettingsAppLoadRequested());
+    _paths = widget.paths ?? ConfigPaths();
+    _bloc = SettingsAppBloc(paths: _paths)
+      ..add(const SettingsAppLoadRequested());
     _lastAppState = _bloc.state;
-    // The bar may write the document while this window is open (the media
-    // pill's mode cycle); reload so the pages show what the bar shows.
-    _watcher = ConfigWatcher(
-      directory: ConfigPaths().directory,
-      include: isEditedDocumentEvent,
-      onChanged: () {
-        // The watcher reports the directory, not the file. Refresh both
-        // documents; each handler preserves an unsaved local draft.
-        _bloc
-          ..add(const SettingsAppDocumentChanged())
-          ..add(const SettingsAppOutputsChanged());
-      },
-    )..start();
+    // The bar may write either document while this window is open. Watch the
+    // settings root and, when an outputs override lives elsewhere, the
+    // override's parent too. The filter compares the exact live paths so an
+    // unrelated file in either directory never schedules a reload.
+    final include = configDocumentFilter(
+      settings: _paths.settings,
+      outputs: _paths.outputs,
+    );
+    _watchers = <ConfigWatcher>[
+      for (final directory in _paths.watchDirectories)
+        ConfigWatcher(
+          directory: directory,
+          include: include,
+          onChanged: () {
+            // The watcher reports a directory, not the file. Refresh both
+            // documents; each handler preserves an unsaved local draft.
+            _bloc
+              ..add(const SettingsAppDocumentChanged())
+              ..add(const SettingsAppOutputsChanged());
+          },
+        )..start(),
+    ];
     _wallpaperAccent = WallpaperAccentBloc(
       remoteProbe: loadBarWallpaperAccentProbe,
       outputs: () => _bloc.availableOutputs,
@@ -142,7 +168,9 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_watcher?.dispose());
+    for (final watcher in _watchers) {
+      unawaited(watcher.dispose());
+    }
     unawaited(_bloc.close());
     unawaited(_wallpaperAccent.close());
     super.dispose();

@@ -164,10 +164,13 @@ Future<Map<String, Object?>> handleControlRequest({
         return <String, Object?>{'ok': false, 'error': 'document is required'};
       }
       try {
-        return <String, Object?>{
-          'ok': true,
-          'document': await outputs.write(document),
-        };
+        final written = await outputs.write(document);
+        // A settings-app save can land in an outputs override outside the
+        // bar's watched config root. Apply the document now instead of
+        // waiting for a file event the default watcher would never receive;
+        // the outputs watcher still covers file fallback and hand edits.
+        reload();
+        return <String, Object?>{'ok': true, 'document': written};
       } on FormatException catch (error) {
         return <String, Object?>{'ok': false, 'error': error.message};
       } on Object catch (error) {

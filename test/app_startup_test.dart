@@ -72,6 +72,7 @@ void main() {
               ({
                 required Directory directory,
                 required void Function() onChanged,
+                bool Function(FileSystemEvent)? include,
               }) {
                 watcherCalls += 1;
                 throw StateError('watcher created after dispose');
