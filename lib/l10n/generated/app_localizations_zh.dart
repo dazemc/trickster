@@ -513,6 +513,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsOutputsUnavailable => '宿主未报告任何输出。';
 
   @override
+  String get settingsOutputsSaveError => '无法保存显示设置；状态栏仍使用原有位置。';
+
+  @override
+  String get settingsHiddenNote => '隐藏后不显示状态栏；边缘、厚度与输出选择均被忽略。';
+
+  @override
   String get settingsOptionsTitle => '模块选项';
 
   @override

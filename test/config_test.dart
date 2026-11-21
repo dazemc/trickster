@@ -55,6 +55,98 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('rejects non-finite and negative thickness', () {
+      for (final value in const [
+        'NaN',
+        'Infinity',
+        '-Infinity',
+        '1e999',
+        '-1',
+        '0',
+      ]) {
+        expect(
+          () => OutputsConfig.parse('system_bar=top,$value\n'),
+          throwsFormatException,
+          reason: value,
+        );
+      }
+    });
+
+    test('accepts a sane thickness and rejects an oversized one', () {
+      expect(
+        OutputsConfig.parse(
+          'system_bar=top,${OutputsConfig.maxThickness.round()}\n',
+        ).thickness,
+        OutputsConfig.maxThickness,
+      );
+      expect(
+        () => OutputsConfig.parse(
+          'system_bar=top,${OutputsConfig.maxThickness.round() + 1}\n',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => OutputsConfig.parse('system_bar=bottom,100000\n'),
+        throwsFormatException,
+      );
+    });
+
+    test('trims and dedupes connectors but rejects empty names', () {
+      final config = OutputsConfig.parse(
+        'system_bar=top,32, eDP-1 , HDMI-A-1 ,eDP-1\n',
+      );
+      expect(config.connectors, ['eDP-1', 'HDMI-A-1']);
+      expect(config.hosts('eDP-1'), isTrue);
+      expect(config.hosts('HDMI-A-1'), isTrue);
+
+      for (final document in const [
+        'system_bar=top,32,\n',
+        'system_bar=top,32,eDP-1,\n',
+        'system_bar=top,32,eDP-1,,HDMI-A-1\n',
+      ]) {
+        expect(
+          () => OutputsConfig.parse(document),
+          throwsFormatException,
+          reason: document,
+        );
+      }
+    });
+
+    test('encode drops empty and duplicate programmatic connectors', () {
+      expect(
+        const OutputsConfig(
+          connectors: ['', ' eDP-1 ', 'eDP-1', 'HDMI-A-1'],
+        ).encode(),
+        contains('system_bar=top,32,eDP-1,HDMI-A-1\n'),
+      );
+    });
+
+    test('encode never throws for an invalid programmatic thickness', () {
+      expect(
+        const OutputsConfig(thickness: double.nan).encode(),
+        contains('system_bar=top,32'),
+      );
+      expect(
+        const OutputsConfig(thickness: double.infinity).encode(),
+        contains('system_bar=top,32'),
+      );
+      expect(
+        const OutputsConfig(thickness: -4).encode(),
+        contains('system_bar=top,32'),
+      );
+      expect(
+        const OutputsConfig(thickness: 100000).encode(),
+        contains('system_bar=top,${OutputsConfig.maxThickness.round()}'),
+      );
+      // Whatever encode emits must load again.
+      expect(
+        OutputsConfig.parse(
+          const OutputsConfig(thickness: double.nan).encode(),
+        ).thickness,
+        OutputsConfig.defaultThickness,
+      );
+    });
   });
 
   group('SessionConfig', () {

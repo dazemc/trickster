@@ -520,6 +520,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOutputsUnavailable => 'No outputs reported by the host.';
 
   @override
+  String get settingsOutputsSaveError =>
+      'Could not save display settings; the bar keeps its previous placement.';
+
+  @override
+  String get settingsHiddenNote =>
+      'Hidden removes the bar; edge, thickness, and output selection are ignored.';
+
+  @override
   String get settingsOptionsTitle => 'Module options';
 
   @override

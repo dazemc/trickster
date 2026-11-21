@@ -790,6 +790,14 @@
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
   },
+  "settingsOutputsSaveError": "Could not save display settings; the bar keeps its previous placement.",
+  "@settingsOutputsSaveError": {
+    "description": "Inline error banner when an outputs.conf write fails."
+  },
+  "settingsHiddenNote": "Hidden removes the bar; edge, thickness, and output selection are ignored.",
+  "@settingsHiddenNote": {
+    "description": "Shown on the Displays page while the bar is hidden."
+  },
   "settingsOptionsTitle": "Module options",
   "@settingsOptionsTitle": {
     "description": "Title of the module options settings page."

@@ -790,6 +790,14 @@
   "@settingsOutputsUnavailable": {
     "description": "Shown when the host lists no outputs."
   },
+  "settingsOutputsSaveError": "无法保存显示设置；状态栏仍使用原有位置。",
+  "@settingsOutputsSaveError": {
+    "description": "Inline error banner when an outputs.conf write fails."
+  },
+  "settingsHiddenNote": "隐藏后不显示状态栏；边缘、厚度与输出选择均被忽略。",
+  "@settingsHiddenNote": {
+    "description": "Shown on the Displays page while the bar is hidden."
+  },
   "settingsOptionsTitle": "模块选项",
   "@settingsOptionsTitle": {
     "description": "Title of the module options settings page."

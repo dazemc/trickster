@@ -24,19 +24,65 @@ extension SystemBarSideGeometry on SystemBarSide {
 class OutputsConfig extends Equatable {
   const OutputsConfig({
     this.side = SystemBarSide.top,
-    this.thickness = 32,
+    this.thickness = defaultThickness,
     this.connectors = const <String>[],
   });
+
+  /// The band used when no explicit thickness is configured.
+  static const double defaultThickness = 32;
+
+  /// Largest accepted `system_bar=` thickness. No supported strip needs more
+  /// than a few hundred logical pixels; 512 leaves generous room for vertical
+  /// bars with inline captions and media controls, while rejecting a
+  /// hand-edited value large enough to swallow the output.
+  static const double maxThickness = 512;
+
+  /// Makes a programmatic thickness safe for encoding and rendering.
+  ///
+  /// [parse] rejects non-finite and out-of-range values, but the typed
+  /// constructor is public and tests, previews, and JSON round-trips can
+  /// still hand the UI a `NaN`, an infinity, or a stale oversized band.
+  /// Those values fall back to [defaultThickness] or clamp to
+  /// [maxThickness] instead of throwing from `.round()`.
+  static double normalizeThickness(double value) {
+    if (!value.isFinite || value <= 0) {
+      return defaultThickness;
+    }
+    return math.min(value, maxThickness);
+  }
+
+  /// Trims connector names, drops empties, and removes duplicates while
+  /// keeping the first occurrence's order. The `system_bar=` grammar uses an
+  /// empty list for "every output", so an empty name must never survive as a
+  /// phantom connector that matches nothing.
+  static List<String> normalizeConnectors(Iterable<String> connectors) {
+    final normalized = <String>[];
+    final seen = <String>{};
+    for (final connector in connectors) {
+      final name = connector.trim();
+      if (name.isEmpty || !seen.add(name)) {
+        continue;
+      }
+      normalized.add(name);
+    }
+    return List<String>.unmodifiable(normalized);
+  }
 
   final SystemBarSide side;
   final double thickness;
   final List<String> connectors;
 
+  /// [thickness] with non-finite and out-of-range values normalized. Labels,
+  /// sliders, and encoders use this so an invalid programmatic config can
+  /// never reach `.round()` or the `system_bar=` grammar.
+  double get safeThickness => normalizeThickness(thickness);
+
   // Spread: see BarSettings — deep equality over the connector list.
   @override
   List<Object?> get props => [side, thickness, ...connectors];
 
-  bool get active => side != SystemBarSide.hidden && thickness > 0;
+  bool get active =>
+      side != SystemBarSide.hidden && thickness.isFinite && thickness > 0;
 
   Map<String, Object?> toJson() => {
     'side': side.name,
@@ -47,12 +93,12 @@ class OutputsConfig extends Equatable {
   static OutputsConfig fromJson(Map<String, dynamic> json) {
     return OutputsConfig(
       side: SystemBarSideGeometry.parse((json['side'] as String?) ?? 'top'),
-      thickness: ((json['thickness'] as num?) ?? 32).toDouble(),
-      connectors:
-          (json['connectors'] as List?)?.whereType<String>().toList(
-            growable: false,
-          ) ??
-          const <String>[],
+      thickness: normalizeThickness(
+        ((json['thickness'] as num?) ?? defaultThickness).toDouble(),
+      ),
+      connectors: normalizeConnectors(
+        (json['connectors'] as List?)?.whereType<String>() ?? const <String>[],
+      ),
     );
   }
 
@@ -71,6 +117,13 @@ class OutputsConfig extends Equatable {
   bool hosts(String connector) =>
       connectors.isEmpty || connectors.contains(connector);
 
+  /// Geometry of the strip inside [outputRect].
+  ///
+  /// This is preview/test geometry: the running bar currently hands
+  /// [thickness] to layer-shell directly, so the half-output clamp here has
+  /// no production caller yet. [maxThickness] still bounds every thickness
+  /// that arrives through the file, which keeps the raw layer-shell request
+  /// from growing without limit.
   Rect stripWithin(Rect outputRect) {
     if (!active || outputRect.isEmpty) {
       return Rect.zero;
@@ -107,19 +160,26 @@ class OutputsConfig extends Equatable {
           );
   }
 
-  /// The `system_bar=` grammar, with an empty connector list meaning every
-  /// output.
-  String encode() {
-    final buffer = StringBuffer('# Trickster output configuration\n');
+  /// The single `system_bar=` line, without the file header. The file
+  /// transport splices this into the existing document so comments and
+  /// unrelated keys survive a settings write.
+  String encodeLine() {
     if (side == SystemBarSide.hidden) {
-      buffer.write('system_bar=hidden');
-    } else {
-      buffer.write('system_bar=${side.name},${thickness.round()}');
-      for (final connector in connectors) {
-        buffer.write(',$connector');
-      }
+      return 'system_bar=hidden';
     }
-    return '$buffer\n';
+    final buffer = StringBuffer(
+      'system_bar=${side.name},${safeThickness.round()}',
+    );
+    for (final connector in normalizeConnectors(connectors)) {
+      buffer.write(',$connector');
+    }
+    return '$buffer';
+  }
+
+  /// The canonical document written only when no existing file exists. The
+  /// `system_bar=` grammar treats an empty connector list as every output.
+  String encode() {
+    return '# Trickster output configuration\n${encodeLine()}\n';
   }
 
   static OutputsConfig parse(String source) {
@@ -149,13 +209,23 @@ class OutputsConfig extends Equatable {
       }
       side = SystemBarSideGeometry.parse(parts.first);
       if (parts.length > 1) {
-        thickness = double.parse(parts[1]);
-        if (thickness <= 0) {
-          throw FormatException('system_bar thickness must be positive: $line');
+        final parsed = double.parse(parts[1]);
+        if (!parsed.isFinite || parsed <= 0 || parsed > maxThickness) {
+          throw FormatException(
+            'system_bar thickness must be finite, positive, and at most '
+            '${maxThickness.round()}: $line',
+          );
         }
+        thickness = parsed;
       }
       if (parts.length > 2) {
-        connectors = parts.sublist(2);
+        final names = parts.sublist(2);
+        if (names.any((name) => name.isEmpty)) {
+          throw FormatException(
+            'system_bar connector names must not be empty: $line',
+          );
+        }
+        connectors = normalizeConnectors(names);
       }
     }
     return OutputsConfig(

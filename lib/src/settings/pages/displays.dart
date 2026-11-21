@@ -23,6 +23,12 @@ class _DisplaysPageState extends State<DisplaysPage> {
   Timer? _saveTimer;
   SettingsAppBloc? _bloc;
 
+  /// The newest slider value whose debounced save has not been enqueued yet.
+  /// Kept in the page so a direct unmount can still enqueue that exact value:
+  /// [SettingsAppBloc.flushOutputs] only sees a draft after the queued preview
+  /// event has been processed, which may happen after this page is gone.
+  OutputsConfig? _pendingSave;
+
   /// Horizontal and vertical strips keep their own thickness so switching
   /// edges never drags the other orientation's band along. Remembered for
   /// this app session; the file stores only the current one.
@@ -37,28 +43,41 @@ class _DisplaysPageState extends State<DisplaysPage> {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    _saveTimer = null;
+    final pending = _pendingSave;
+    _pendingSave = null;
     final bloc = _bloc;
     if (bloc != null && !bloc.isClosed) {
-      // The shell flushes before navigation; this covers a direct unmount.
-      unawaited(bloc.flushOutputs());
+      if (pending != null) {
+        // The shell usually flushes before navigation, but a direct unmount
+        // can land before the preview event makes `_outputsDraft` true.
+        // Enqueue the value explicitly instead of asking the bloc to flush a
+        // draft it may not have observed yet.
+        bloc.add(SettingsAppOutputsSaveRequested(pending));
+      } else {
+        unawaited(bloc.flushOutputs());
+      }
     }
     super.dispose();
   }
 
   /// Live preview while a control moves, saved once the movement pauses.
   void _apply(SettingsAppBloc bloc, OutputsConfig next) {
+    _pendingSave = next;
     bloc.add(SettingsAppOutputsPreviewed(next));
     _saveTimer?.cancel();
-    _saveTimer = Timer(
-      const Duration(milliseconds: 250),
-      () => bloc.add(SettingsAppOutputsSaveRequested(next)),
-    );
+    _saveTimer = Timer(const Duration(milliseconds: 250), () {
+      _saveTimer = null;
+      _pendingSave = null;
+      bloc.add(SettingsAppOutputsSaveRequested(next));
+    });
   }
 
   /// Discrete choices save immediately.
   void _applyNow(SettingsAppBloc bloc, OutputsConfig next) {
     _saveTimer?.cancel();
     _saveTimer = null;
+    _pendingSave = null;
     bloc.add(SettingsAppOutputsPreviewed(next));
     bloc.add(SettingsAppOutputsSaveRequested(next));
   }
@@ -72,9 +91,13 @@ class _DisplaysPageState extends State<DisplaysPage> {
       (SettingsAppBloc bloc) =>
           (bloc.state.outputs, bloc.state.availableOutputs),
     );
+    final outputsError = context.select(
+      (SettingsAppBloc bloc) => bloc.state.outputsError,
+    );
     final selected = outputs.connectors.isEmpty
         ? available.map((output) => output.name).toSet()
         : outputs.connectors.toSet();
+    final hidden = outputs.side == SystemBarSide.hidden;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -82,6 +105,37 @@ class _DisplaysPageState extends State<DisplaysPage> {
           title: l10n.settingsDisplaysTitle,
           caption: l10n.settingsDisplaysCaption,
         ),
+        if (outputsError != null) ...[
+          const SizedBox(height: 16),
+          // A failed write must not look like a saved one: the page keeps
+          // showing the attempted values, so the banner states plainly that
+          // the bar still uses its previous placement.
+          Semantics(
+            container: true,
+            liveRegion: true,
+            child: SettingsCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.settingsOutputsSaveError,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: ShellTelemetryColors.danger,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    outputsError,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: ShellMediaColors.lightForegroundSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
         SettingsCard(
           child: Column(
@@ -118,6 +172,12 @@ class _DisplaysPageState extends State<DisplaysPage> {
                               outputs.copyWith(
                                 side: side,
                                 thickness: _thicknessForSide(side, outputs),
+                                // Hidden carries no connector selection in
+                                // the grammar; clear it here so switching
+                                // back to an edge starts from all outputs.
+                                connectors: side == SystemBarSide.hidden
+                                    ? const <String>[]
+                                    : outputs.connectors,
                               ),
                             ),
                           ),
@@ -137,11 +197,23 @@ class _DisplaysPageState extends State<DisplaysPage> {
                           SystemBarSide.top,
                           outputs,
                         ),
+                        connectors: hidden
+                            ? const <String>[]
+                            : outputs.connectors,
                       ),
                     ),
                   ),
                 ],
               ),
+              if (hidden) ...[
+                const SizedBox(height: 14),
+                Text(
+                  l10n.settingsHiddenNote,
+                  style: ShellText.systemBarCaption.copyWith(
+                    color: ShellMediaColors.lightForegroundSecondary,
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               Row(
                 children: [
@@ -153,7 +225,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '${outputs.thickness.round()}',
+                    hidden ? '0' : '${outputs.safeThickness.round()}',
                     style: ShellText.systemBarValue,
                   ),
                   const Spacer(),
@@ -163,8 +235,8 @@ class _DisplaysPageState extends State<DisplaysPage> {
                       l10n.settingsThicknessLabel,
                     ),
                     enabled:
-                        outputs.side != SystemBarSide.hidden &&
-                        outputs.thickness.round() !=
+                        !hidden &&
+                        outputs.safeThickness.round() !=
                             _defaultThickness(outputs.side).round(),
                     onPressed: () => _applyNow(
                       controller,
@@ -178,16 +250,21 @@ class _DisplaysPageState extends State<DisplaysPage> {
               const SizedBox(height: 8),
               SettingsSlider(
                 key: const ValueKey<String>('thickness-slider'),
-                value: outputs.thickness.clamp(_minThickness(outputs.side), 80),
+                value: hidden
+                    ? _minThickness(outputs.side)
+                    : outputs.safeThickness.clamp(
+                        _minThickness(outputs.side),
+                        80,
+                      ),
                 min: _minThickness(outputs.side),
                 max: 80,
-                onChanged: outputs.side == SystemBarSide.hidden
+                onChanged: hidden
                     ? null
                     : (value) => _apply(
                         controller,
                         outputs.copyWith(thickness: value.roundToDouble()),
                       ),
-                onChangeEnd: outputs.side == SystemBarSide.hidden
+                onChangeEnd: hidden
                     ? null
                     : (value) => _applyNow(
                         controller,
@@ -195,60 +272,64 @@ class _DisplaysPageState extends State<DisplaysPage> {
                       ),
               ),
               const SizedBox(height: 22),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.settingsOutputsLabel,
-                      style: ShellText.systemBarCaption.copyWith(
-                        color: ShellMediaColors.lightForegroundSecondary,
-                      ),
-                    ),
-                  ),
-                  SettingsResetButton(
-                    key: const ValueKey<String>('reset-outputs'),
-                    label: l10n.settingsResetOption(l10n.settingsOutputsLabel),
-                    enabled: outputs.connectors.isNotEmpty,
-                    onPressed: () => _applyNow(
-                      controller,
-                      outputs.copyWith(connectors: const <String>[]),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              if (available.isEmpty)
-                Text(
-                  l10n.settingsOutputsUnavailable,
-                  style: ShellText.systemBarCaption.copyWith(
-                    color: ShellMediaColors.lightForegroundSecondary,
-                  ),
-                )
-              else
-                Column(
+              if (!hidden) ...[
+                Row(
                   children: [
-                    for (final output in available)
-                      _OutputRow(
-                        key: ValueKey<String>('output-${output.name}'),
-                        output: output,
-                        selected: selected.contains(output.name),
-                        onToggle: () => _toggleOutput(
-                          controller,
-                          outputs,
-                          available,
-                          output.name,
-                        ),
-                      ),
-                    const SizedBox(height: 6),
-                    if (outputs.connectors.isEmpty)
-                      Text(
-                        l10n.settingsOutputAll,
+                    Expanded(
+                      child: Text(
+                        l10n.settingsOutputsLabel,
                         style: ShellText.systemBarCaption.copyWith(
                           color: ShellMediaColors.lightForegroundSecondary,
                         ),
                       ),
+                    ),
+                    SettingsResetButton(
+                      key: const ValueKey<String>('reset-outputs'),
+                      label: l10n.settingsResetOption(
+                        l10n.settingsOutputsLabel,
+                      ),
+                      enabled: outputs.connectors.isNotEmpty,
+                      onPressed: () => _applyNow(
+                        controller,
+                        outputs.copyWith(connectors: const <String>[]),
+                      ),
+                    ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                if (available.isEmpty)
+                  Text(
+                    l10n.settingsOutputsUnavailable,
+                    style: ShellText.systemBarCaption.copyWith(
+                      color: ShellMediaColors.lightForegroundSecondary,
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      for (final output in available)
+                        _OutputRow(
+                          key: ValueKey<String>('output-${output.name}'),
+                          output: output,
+                          selected: selected.contains(output.name),
+                          onToggle: () => _toggleOutput(
+                            controller,
+                            outputs,
+                            available,
+                            output.name,
+                          ),
+                        ),
+                      const SizedBox(height: 6),
+                      if (outputs.connectors.isEmpty)
+                        Text(
+                          l10n.settingsOutputAll,
+                          style: ShellText.systemBarCaption.copyWith(
+                            color: ShellMediaColors.lightForegroundSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
             ],
           ),
         ),
@@ -259,15 +340,26 @@ class _DisplaysPageState extends State<DisplaysPage> {
   /// The thickness a newly selected edge should use: the current band is
   /// remembered for its own orientation, and the target orientation gets
   /// the band it last had (or a safe default).
+  ///
+  /// The hidden grammar carries neither geometry nor connectors, so entering
+  /// hidden forgets the remembered bands and leaving it starts from the
+  /// documented default. This is what makes hidden honest: switching back to
+  /// an edge shows all outputs at the default thickness, not a stale
+  /// selection that the file no longer contains.
   double _thicknessForSide(SystemBarSide side, OutputsConfig outputs) {
     final current = outputs.side;
     if (current.isHorizontal) {
-      _horizontalThickness = outputs.thickness;
+      _horizontalThickness = outputs.safeThickness;
     } else if (current != SystemBarSide.hidden) {
-      _verticalThickness = outputs.thickness;
+      _verticalThickness = outputs.safeThickness;
     }
     if (side == SystemBarSide.hidden) {
-      return outputs.thickness;
+      _horizontalThickness = null;
+      _verticalThickness = null;
+      return 0;
+    }
+    if (current == SystemBarSide.hidden) {
+      return _defaultThickness(side);
     }
     if (side.isHorizontal) {
       final thickness = _horizontalThickness ?? _horizontalDefault;
@@ -327,7 +419,9 @@ class _DisplaysPageState extends State<DisplaysPage> {
 double _defaultThickness(SystemBarSide side) => side.isHorizontal ? 32 : 72;
 
 double _minThickness(SystemBarSide side) {
-  return side.isHorizontal ? 20 : _DisplaysPageState._verticalMinThickness;
+  return side == SystemBarSide.hidden || side.isHorizontal
+      ? 20
+      : _DisplaysPageState._verticalMinThickness;
 }
 
 String _sideLabel(AppLocalizations l10n, SystemBarSide side) {

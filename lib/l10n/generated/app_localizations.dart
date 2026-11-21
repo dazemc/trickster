@@ -1011,6 +1011,18 @@ abstract class AppLocalizations {
   /// **'No outputs reported by the host.'**
   String get settingsOutputsUnavailable;
 
+  /// Inline error banner when an outputs.conf write fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save display settings; the bar keeps its previous placement.'**
+  String get settingsOutputsSaveError;
+
+  /// Shown on the Displays page while the bar is hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden removes the bar; edge, thickness, and output selection are ignored.'**
+  String get settingsHiddenNote;
+
   /// Title of the module options settings page.
   ///
   /// In en, this message translates to:
