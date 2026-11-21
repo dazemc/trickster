@@ -491,7 +491,7 @@ class _MediaControlButtonState extends State<_MediaControlButton> {
               }
             },
             child: AnimatedContainer(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               width: widget.compact ? 16 : 20,
               height: widget.compact ? 16 : 20,
               decoration: BoxDecoration(

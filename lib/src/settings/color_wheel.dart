@@ -119,7 +119,7 @@ class _HsvColorWheelState extends State<HsvColorWheel> {
                   onPanUpdate: (details) =>
                       _select(details.localPosition, size),
                   child: AnimatedContainer(
-                    duration: Motion.pill,
+                    duration: Motion.duration(context, Motion.pill),
                     curve: Motion.standard,
                     width: size.width,
                     height: size.height,

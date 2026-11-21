@@ -168,10 +168,22 @@ class _SystemBarEntranceState extends State<SystemBarEntrance>
     duration: Motion.cardSettle,
   );
   Timer? _delay;
+  var _started = false;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _delay?.cancel();
+      _delay = null;
+      _started = true;
+      _controller.value = 1.0;
+      return;
+    }
+    if (_started) {
+      return;
+    }
+    _started = true;
     _delay = Timer(_stagger * widget.index, () {
       if (mounted) {
         _controller.forward();

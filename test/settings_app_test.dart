@@ -57,6 +57,7 @@ Future<void> _pump(
   VoidCallback? onClose,
   List<ModuleAvailability> Function()? availabilityProbe,
   Future<List<String>> Function()? workspaceNames,
+  bool disableAnimations = false,
 }) {
   return tester.pumpWidget(
     BlocProvider.value(
@@ -65,7 +66,10 @@ Future<void> _pump(
         create: (_) => WallpaperAccentBloc(watch: false),
         child: TricksterLocalizationScope(
           child: MediaQuery(
-            data: const MediaQueryData(size: Size(980, 720)),
+            data: MediaQueryData(
+              size: const Size(980, 720),
+              disableAnimations: disableAnimations,
+            ),
             child: Directionality(
               textDirection: TextDirection.ltr,
               child: Overlay(
@@ -202,6 +206,51 @@ void main() {
     );
     expect(find.bySemanticsLabel('Accent color'), findsOneWidget);
     expect(find.text('#D0BCFF'), findsOneWidget);
+  });
+
+  testWidgets('reduced motion zeroes every settings transition', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, disableAnimations: true);
+
+    final containers = tester.widgetList<AnimatedContainer>(
+      find.byType(AnimatedContainer),
+    );
+    expect(containers, isNotEmpty);
+    for (final container in containers) {
+      expect(container.duration, Duration.zero);
+    }
+    final scales = tester.widgetList<AnimatedScale>(find.byType(AnimatedScale));
+    expect(scales, isNotEmpty);
+    for (final scale in scales) {
+      expect(scale.duration, Duration.zero);
+    }
+    final aligns = tester.widgetList<AnimatedAlign>(find.byType(AnimatedAlign));
+    expect(aligns, isNotEmpty);
+    for (final align in aligns) {
+      expect(align.duration, Duration.zero);
+    }
+
+    // The selected nav entry lands on its first frame: no fill tween.
+    final nav = find
+        .descendant(
+          of: find.byType(SettingsNav),
+          matching: find.byType(AnimatedContainer),
+        )
+        .at(1);
+    Color navFill() {
+      final box = tester.widget<DecoratedBox>(
+        find.descendant(of: nav, matching: find.byType(DecoratedBox)).first,
+      );
+      return (box.decoration as BoxDecoration).color!;
+    }
+
+    expect(navFill(), SettingsColors.surface);
+    await tester.tap(find.bySemanticsLabel('Modules').first);
+    await tester.pump();
+    expect(navFill(), SettingsColors.surfaceHigh);
   });
 
   testWidgets('a preset writes the accent after the debounce', (tester) async {

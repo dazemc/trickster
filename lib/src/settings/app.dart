@@ -87,72 +87,76 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
                 for (final view in views)
                   View(
                     view: view,
-                    child: Shortcuts(
-                      shortcuts: shellShortcuts,
-                      child: Actions(
-                        actions: WidgetsApp.defaultActions,
-                        // Text fields in this window need the platform's
-                        // editing keys (backspace, select all, clipboard)
-                        // that a WidgetsApp would normally install.
-                        child: DefaultTextEditingShortcuts(
-                          child: FocusScope(
-                            autofocus: true,
-                            child: Builder(
-                              builder: (context) {
-                                // Depend on the bloc so a language change
-                                // rebuilds the scope with the new catalog.
-                                final locale = context.select(
-                                  (SettingsAppBloc bloc) =>
-                                      bloc.state.settings.locale,
-                                );
-                                // With the compositor blurring behind the
-                                // toplevel, the shell veils it with
-                                // translucent fills; without the protocol, or
-                                // with the document's blur key off, the
-                                // window stays opaque.
-                                final glass = settingsGlassEnabled(
-                                  hostBlur: context
-                                      .watch<CapabilitiesBloc>()
-                                      .state
-                                      .blur,
-                                  documentBlur: context.select(
+                    child: MediaQuery.fromView(
+                      view: view,
+                      child: Shortcuts(
+                        shortcuts: shellShortcuts,
+                        child: Actions(
+                          actions: WidgetsApp.defaultActions,
+                          // Text fields in this window need the platform's
+                          // editing keys (backspace, select all, clipboard)
+                          // that a WidgetsApp would normally install.
+                          child: DefaultTextEditingShortcuts(
+                            child: FocusScope(
+                              autofocus: true,
+                              child: Builder(
+                                builder: (context) {
+                                  // Depend on the bloc so a language change
+                                  // rebuilds the scope with the new catalog.
+                                  final locale = context.select(
                                     (SettingsAppBloc bloc) =>
-                                        bloc.state.settings.appearance.blur,
-                                  ),
-                                );
-                                return TricksterLocalizationScope(
-                                  locale: localeFromTag(locale),
-                                  child: SettingsGlass(
-                                    enabled: glass,
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            glass
-                                                ? SettingsColors.backgroundTop
-                                                      .withValues(alpha: 0.55)
-                                                : SettingsColors.backgroundTop,
-                                            glass
-                                                ? SettingsColors.background
-                                                      .withValues(alpha: 0.62)
-                                                : SettingsColors.background,
+                                        bloc.state.settings.locale,
+                                  );
+                                  // With the compositor blurring behind the
+                                  // toplevel, the shell veils it with
+                                  // translucent fills; without the protocol, or
+                                  // with the document's blur key off, the
+                                  // window stays opaque.
+                                  final glass = settingsGlassEnabled(
+                                    hostBlur: context
+                                        .watch<CapabilitiesBloc>()
+                                        .state
+                                        .blur,
+                                    documentBlur: context.select(
+                                      (SettingsAppBloc bloc) =>
+                                          bloc.state.settings.appearance.blur,
+                                    ),
+                                  );
+                                  return TricksterLocalizationScope(
+                                    locale: localeFromTag(locale),
+                                    child: SettingsGlass(
+                                      enabled: glass,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              glass
+                                                  ? SettingsColors.backgroundTop
+                                                        .withValues(alpha: 0.55)
+                                                  : SettingsColors
+                                                        .backgroundTop,
+                                              glass
+                                                  ? SettingsColors.background
+                                                        .withValues(alpha: 0.62)
+                                                  : SettingsColors.background,
+                                            ],
+                                          ),
+                                        ),
+                                        child: Overlay(
+                                          initialEntries: [
+                                            OverlayEntry(
+                                              builder: (context) =>
+                                                  const SettingsHome(),
+                                            ),
                                           ],
                                         ),
                                       ),
-                                      child: Overlay(
-                                        initialEntries: [
-                                          OverlayEntry(
-                                            builder: (context) =>
-                                                const SettingsHome(),
-                                          ),
-                                        ],
-                                      ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -371,7 +375,7 @@ class _NavEntry extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: onPressed,
             child: AnimatedContainer(
-              duration: Motion.pill,
+              duration: Motion.duration(context, Motion.pill),
               curve: Motion.standard,
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

@@ -355,6 +355,38 @@ void main() {
     expect(_equalizerPainter(tester).levels, everyElement(0));
   });
 
+  testWidgets('reduced motion zeroes control transitions', (tester) async {
+    final service = _FakeMediaPlayerService();
+    await _pump(
+      tester,
+      _state(),
+      service,
+      mode: MediaMode.full,
+      disableAnimations: true,
+    );
+
+    final next = find.descendant(
+      of: find.bySemanticsLabel('Next track'),
+      matching: find.byType(AnimatedContainer),
+    );
+    expect(tester.widget<AnimatedContainer>(next).duration, Duration.zero);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await tester.pump();
+    await mouse.moveTo(tester.getCenter(next));
+    await tester.pump();
+
+    final painted = tester.widget<DecoratedBox>(
+      find.descendant(of: next, matching: find.byType(DecoratedBox)).first,
+    );
+    expect(
+      (painted.decoration as BoxDecoration).color,
+      _accent.color.withValues(alpha: 0.18),
+    );
+  });
+
   testWidgets('an unavailable capture keeps the static rest', (tester) async {
     final service = _FakeMediaPlayerService();
     final analyzer = FakeBandAnalyzer(startResult: false);
