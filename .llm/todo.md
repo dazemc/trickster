@@ -18,3 +18,13 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Memory modules
+
+- **M — Add the first-class per-GPU VRAM module.** Extend
+  `GpuLoad`/`GpuSampler`/the NVML worker with optional memory bytes and
+  history plus `includeUsage`/`includeMemory` gating, then add `VramOptions`,
+  the `vram` module/pill/options/l10n, and the shared `GpuBloc` provider
+  rules. VRAM rides `state.gpu`; no second worker or timer. Done:
+  sampler/NVML/config/gating/pill/status tests, `flutter analyze`, full
+  `flutter test`, release build, and headless status proof pass.
