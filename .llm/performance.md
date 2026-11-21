@@ -206,6 +206,7 @@ samplers keep their normal cadence.
 | RAM | 1 Hz `/proc/meminfo` | Paused; one fresh immediate sample on resume; 45-sample history; reused 8 KiB buffer |
 | Temperature | 1 Hz `/sys/class/hwmon` | Paused; one fresh immediate sample on resume; 45-sample Celsius history; CPU-sensor priority with hottest fallback |
 | Disk | 30 s statvfs on a worker isolate | Paused; one fresh immediate sample on resume; no history; bounded native buffers reused |
+| Network | 1 Hz `/proc/net/dev` + IPv4/IPv6 route tables; sysfs identity cache 10 s | Paused; counters rebaselined on resume; no history; one selected interface, no aggregation; no D-Bus or process spawn |
 | Keyboard layout | Hyprland `j/devices` + `.socket2.sock` events | Event-driven; no idle pause; coalesced re-query; capped reconnect backoff |
 | GPU / VRAM | 1 Hz sysfs/NVML; usage and memory flags | Paused; in-flight generation dropped; 45-sample histories; one timer and one NVML worker whether either or both modules are configured |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
@@ -224,6 +225,10 @@ Rules that follow from the table:
 - Prefer D-Bus signals and compositor IPC events over polling.
 - `/proc` and sysfs samples are bounded and reuse buffers; do not allocate a
   new string per sample when a reused buffer will do.
+- The network sampler selects exactly one physical interface at a time and
+  divides counter deltas by measured elapsed time. It never aggregates
+  interfaces, never samples a tunnel in auto mode, and reports null rates on
+  the first sample, a counter reset, or an interface/link change.
 - The visualizer capture and FFT isolate exist only while playing and visible.
 - The sink volume is watched over one PipeWire connection, event-driven, never
   through `wpctl` or a poll.
