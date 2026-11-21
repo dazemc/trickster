@@ -72,6 +72,13 @@ so the widgets do not care.
   `j/devices` plus `activelayout` events from `.socket2.sock`. Sway and niri
   backends are not implemented yet. Denial owns input directly; do not
   describe this as Denial parity.
+- **Network.** A user-requested kernel-only pill. Denial's bar has no network
+  module; its NetworkManager/iwd service feeds the quick-settings connectivity
+  surface. Trickster's first slice reads one selected physical interface from
+  `/sys/class/net`, the IPv4/IPv6 default-route tables, and `/proc/net/dev`,
+  and never spawns `nmcli` or `iw`. SSID, signal, band, and connectivity
+  metadata are a later slice, not current behavior. Do not present the
+  kernel-only pill as Denial parity.
 - **Settings application.** Same binary in settings mode, separate process and
   engine, covering exactly the settings the bar owns — never compositor
   controls it does not own.
