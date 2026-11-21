@@ -16,7 +16,6 @@ class SessionConfig extends Equatable {
     this.keyboard = TricksterKeyboard.onDemand,
     this.accent,
     this.outputConfig,
-    this.log,
   });
 
   final TricksterLayer layer;
@@ -24,17 +23,9 @@ class SessionConfig extends Equatable {
   final TricksterKeyboard keyboard;
   final Color? accent;
   final String? outputConfig;
-  final String? log;
 
   @override
-  List<Object?> get props => [
-    layer,
-    namespace,
-    keyboard,
-    accent,
-    outputConfig,
-    log,
-  ];
+  List<Object?> get props => [layer, namespace, keyboard, accent, outputConfig];
 
   Map<String, Object?> toJson() => {
     'layer': layer.name,
@@ -44,7 +35,6 @@ class SessionConfig extends Equatable {
       'accent':
           '#${accent!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
     if (outputConfig != null) 'outputConfig': outputConfig,
-    if (log != null) 'log': log,
   };
 
   static SessionConfig fromJson(Map<String, dynamic> json) {
@@ -54,7 +44,6 @@ class SessionConfig extends Equatable {
       keyboard: _keyboard(json['keyboard'] as String?),
       accent: _color(json['accent'] as String?),
       outputConfig: json['outputConfig'] as String?,
-      log: json['log'] as String?,
     );
   }
 
@@ -66,26 +55,25 @@ class SessionConfig extends Equatable {
       keyboard: _keyboard(document['TRICKSTER_KEYBOARD']),
       accent: _color(document['TRICKSTER_ACCENT']),
       outputConfig: document['TRICKSTER_OUTPUT_CONFIG'],
-      log: document['TRICKSTER_LOG'],
     );
   }
 
   static SessionConfig fromEnvironment({
     SessionConfig defaults = const SessionConfig(),
+    Map<String, String>? environment,
   }) {
-    final layer = Platform.environment['TRICKSTER_LAYER'];
-    final namespace = Platform.environment['TRICKSTER_NAMESPACE'];
-    final keyboard = Platform.environment['TRICKSTER_KEYBOARD'];
-    final accent = Platform.environment['TRICKSTER_ACCENT'];
-    final outputConfig = Platform.environment['TRICKSTER_OUTPUT_CONFIG'];
-    final log = Platform.environment['TRICKSTER_LOG'];
+    final env = environment ?? Platform.environment;
+    final layer = env['TRICKSTER_LAYER'];
+    final namespace = env['TRICKSTER_NAMESPACE'];
+    final keyboard = env['TRICKSTER_KEYBOARD'];
+    final accent = env['TRICKSTER_ACCENT'];
+    final outputConfig = env['TRICKSTER_OUTPUT_CONFIG'];
     return SessionConfig(
       layer: layer == null ? defaults.layer : _layer(layer),
       namespace: namespace ?? defaults.namespace,
       keyboard: keyboard == null ? defaults.keyboard : _keyboard(keyboard),
       accent: accent == null ? defaults.accent : _color(accent),
       outputConfig: outputConfig ?? defaults.outputConfig,
-      log: log ?? defaults.log,
     );
   }
 

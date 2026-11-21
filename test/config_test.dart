@@ -71,6 +71,30 @@ void main() {
       expect(config.accent?.toARGB32(), 0xffff0000);
     });
 
+    test('accepts and ignores the retired TRICKSTER_LOG key', () {
+      const source =
+          'TRICKSTER_NAMESPACE=logless\n'
+          'TRICKSTER_KEYBOARD=exclusive\n'
+          'TRICKSTER_LOG=trickster=debug\n';
+      final config = SessionConfig.parse(source);
+      expect(config.namespace, 'logless');
+      expect(config.keyboard, TricksterKeyboard.exclusive);
+      expect(config.toJson(), isNot(contains('log')));
+      expect(SessionConfig.fromJson(config.toJson()), config);
+
+      final fromEnvironment = SessionConfig.fromEnvironment(
+        defaults: config,
+        environment: const {
+          'TRICKSTER_LAYER': 'overlay',
+          'TRICKSTER_LOG': 'trickster=debug',
+        },
+      );
+      expect(fromEnvironment.layer, TricksterLayer.overlay);
+      expect(fromEnvironment.namespace, 'logless');
+      expect(fromEnvironment.toJson(), isNot(contains('log')));
+      expect(SessionConfig.fromJson(fromEnvironment.toJson()), fromEnvironment);
+    });
+
     test('rejects bad enum values', () {
       expect(
         () => SessionConfig.parse('TRICKSTER_LAYER=sideways\n'),
