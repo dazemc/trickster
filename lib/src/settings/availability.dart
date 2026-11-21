@@ -114,15 +114,16 @@ List<ModuleAvailability> probeModuleAvailability({
   return unavailable;
 }
 
-/// Whether [path] currently resolves to a directory the settings process can
-/// reach. The bar samples statvfs; a missing or unreadable mount is the
-/// actionable settings-side signal.
+/// Whether [path] currently resolves to an existing filesystem entry the
+/// bar's statvfs sample can reach. The sampler accepts a mount directory or
+/// a file inside a mount, so the settings probe must accept both; a relative
+/// or missing path is the actionable settings-side signal.
 bool hasDiskMount(String path) {
   if (path.isEmpty || !path.startsWith('/')) {
     return false;
   }
   try {
-    return Directory(path).existsSync();
+    return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
   } on FileSystemException {
     return false;
   }

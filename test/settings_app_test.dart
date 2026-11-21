@@ -2290,6 +2290,95 @@ void main() {
     _expectNoException(tester);
   });
 
+  testWidgets('a corrected disk path re-probes and re-enables in place', (
+    tester,
+  ) async {
+    final missing = '${directory.path}/missing-mount';
+    file.writeAsStringSync(
+      BarSettings(revision: 2, disk: DiskOptions(path: missing)).encode(),
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(
+      tester,
+      bloc,
+      size: const Size(900, 600),
+      availabilityProbe: () => [
+        if (!hasDiskMount(bloc.settings.disk.path))
+          const ModuleAvailability(
+            module: 'disk',
+            reason: ModuleUnavailableReason.noDisk,
+          ),
+      ],
+    );
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    final unavailableRow = find.byKey(
+      const ValueKey<String>('module-unavailable-disk'),
+    );
+    final toggle = find.byKey(const ValueKey<String>('module-toggle-disk'));
+    await tester.scrollUntilVisible(
+      unavailableRow,
+      160,
+      scrollable: _pageScrollable(),
+    );
+    await tester.pumpAndSettle();
+    expect(unavailableRow, findsOneWidget);
+    expect(toggle, findsOneWidget);
+
+    // The only way to edit an enabled-unavailable module is to disable it.
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, isNot(contains('disk')));
+    expect(unavailableRow, findsNothing);
+
+    await _openOptions(tester, 'disk');
+    final path = find.byKey(const ValueKey<String>('disk-path'));
+    await tester.enterText(path, directory.path);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(bloc.settings.disk.path, directory.path);
+    // The disabled row keeps its gear and inspector while the probe lands.
+    expect(
+      find.byKey(const ValueKey<String>('module-options-panel-disk')),
+      findsOneWidget,
+    );
+    expect(toggle, findsOneWidget);
+    expect(unavailableRow, findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('module-zone-disabled-drop')),
+        matching: toggle,
+      ),
+      findsOneWidget,
+    );
+
+    await _closeOptions(tester);
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+
+    expect(bloc.settings.modules, contains('disk'));
+    expect(toggle, findsOneWidget);
+    expect(unavailableRow, findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('module-zone-unavailable-card')),
+        matching: toggle,
+      ),
+      findsNothing,
+    );
+    // The page owns a debounced edit after re-enabling; finish it the way the
+    // settings shell does on close before letting teardown close the bloc.
+    await DebouncedSaver.flushFor(bloc);
+    await bloc.settled;
+    _expectNoException(tester);
+  });
+
   testWidgets('disabled unavailable rows lay out at real surfaces', (
     tester,
   ) async {
@@ -2570,6 +2659,58 @@ void main() {
     );
     expect(bloc.settings.modules, contains('gpu'));
     expect(bloc.settings.zoneFor('gpu'), ModuleZone.leading);
+  });
+
+  testWidgets('a disabled row dropped on the page header stays disabled', (
+    tester,
+  ) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, isNot(contains('gpu')));
+
+    // The reset button sits in the page header, inside the page target that
+    // accepts every drop. It is not a placement segment.
+    await _dragModuleTo(
+      tester,
+      'gpu',
+      find.byKey(const ValueKey<String>('reset-modules')),
+    );
+    expect(bloc.settings.modules, isNot(contains('gpu')));
+    expect(bloc.settings.zoneFor('gpu'), ModuleZone.trailing);
+    expect(_modulesOf(tester).state.previewZone, isNull);
+    await DebouncedSaver.flushFor(bloc);
+    await bloc.settled;
+  });
+
+  testWidgets('a disabled row dropped inside a zone still enables', (
+    tester,
+  ) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["workspaces", "cpu", "battery"]}',
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, isNot(contains('gpu')));
+
+    await _dragModuleTo(
+      tester,
+      'gpu',
+      find.byKey(const ValueKey<String>('module-zone-leading')),
+    );
+    expect(bloc.settings.modules, contains('gpu'));
+    expect(bloc.settings.zoneFor('gpu'), ModuleZone.leading);
+    expect(_modulesOf(tester).state.previewZone, isNull);
+    await DebouncedSaver.flushFor(bloc);
+    await bloc.settled;
   });
 
   testWidgets('appearance resets restore the accent defaults', (tester) async {

@@ -102,7 +102,7 @@ void main() {
       request: () async => <String, Object?>{
         'ok': true,
         'state': {
-          'keyboard_layout': {'available': true},
+          'keyboard_layout': {'available': true, 'active': 'US'},
         },
       },
     );
@@ -140,7 +140,7 @@ void main() {
         applyBarAvailability(offline, {
           'ok': true,
           'state': {
-            'keyboard_layout': {'available': true},
+            'keyboard_layout': {'available': true, 'active': 'US'},
           },
         }),
       ),
@@ -158,6 +158,32 @@ void main() {
       ['keyboard_layout'],
     );
     expect(applyBarAvailability(const <ModuleAvailability>[], null), isEmpty);
+  });
+
+  test('an available keyboard backend with no active layout stays hidden', () {
+    final result = applyBarAvailability(const <ModuleAvailability>[], {
+      'ok': true,
+      'state': {
+        'keyboard_layout': {'available': true, 'active': null},
+      },
+    });
+    expect(_modules(result), ['keyboard_layout']);
+    expect(
+      result.single.reason,
+      ModuleUnavailableReason.noKeyboardLayoutBackend,
+    );
+
+    expect(
+      _modules(
+        applyBarAvailability(const <ModuleAvailability>[], {
+          'ok': true,
+          'state': {
+            'keyboard_layout': {'available': true, 'active': ''},
+          },
+        }),
+      ),
+      ['keyboard_layout'],
+    );
   });
 
   test('temperature probe reads a hwmon input', () {
@@ -199,6 +225,8 @@ void main() {
     final root = Directory.systemTemp.createTempSync('trickster-disk');
     addTearDown(() => root.deleteSync(recursive: true));
     expect(hasDiskMount(root.path), isTrue);
+    final file = File('${root.path}/inside-mount')..writeAsStringSync('x');
+    expect(hasDiskMount(file.path), isTrue);
     expect(hasDiskMount('${root.path}/missing'), isFalse);
     expect(hasDiskMount('relative'), isFalse);
   });

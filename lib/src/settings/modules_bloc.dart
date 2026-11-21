@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart' show Offset;
@@ -8,6 +10,11 @@ import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/saver.dart';
 
 const _unset = Object();
+
+/// How long an availability-relevant edit settles before the page re-probes.
+/// Short enough to feel immediate, long enough that typing a path does not
+/// probe every keystroke.
+const _availabilityRefreshDelay = Duration(milliseconds: 250);
 
 /// Keeps the options inspector open only while its module still renders a
 /// gear. An enabled module moves to the Unavailable row without one; a
@@ -117,13 +124,21 @@ class ModulesMovedZoneBy extends ModulesEvent {
 }
 
 class ModulesDragStarted extends ModulesEvent {
-  const ModulesDragStarted({required this.module, required this.zone});
+  const ModulesDragStarted({
+    required this.module,
+    required this.zone,
+    this.fromDisabled = false,
+  });
 
   final String module;
   final ModuleZone zone;
 
+  /// True for a row lifted out of the Disabled section. That row has no
+  /// rendered zone slot until the pointer enters a real segment.
+  final bool fromDisabled;
+
   @override
-  List<Object?> get props => [module, zone];
+  List<Object?> get props => [module, zone, fromDisabled];
 }
 
 class ModulesDragPreviewed extends ModulesEvent {
@@ -170,6 +185,7 @@ class ModulesState extends Equatable {
     this.unavailable = const <ModuleAvailability>[],
     this.optionsModule,
     this.dragging,
+    this.draggingFromDisabled = false,
     this.previewZone,
     this.previewIndex = 0,
     this.lastPointer,
@@ -184,6 +200,10 @@ class ModulesState extends Equatable {
 
   /// The module currently lifted by a drag.
   final String? dragging;
+
+  /// Whether the lifted row came from the Disabled section, which has no
+  /// rendered zone slot to preview until a real segment is entered.
+  final bool draggingFromDisabled;
   final ModuleZone? previewZone;
   final int previewIndex;
   final Offset? lastPointer;
@@ -193,6 +213,7 @@ class ModulesState extends Equatable {
     List<ModuleAvailability>? unavailable,
     Object? optionsModule = _unset,
     Object? dragging = _unset,
+    bool? draggingFromDisabled,
     Object? previewZone = _unset,
     int? previewIndex,
     Object? lastPointer = _unset,
@@ -206,6 +227,7 @@ class ModulesState extends Equatable {
       dragging: identical(dragging, _unset)
           ? this.dragging
           : dragging as String?,
+      draggingFromDisabled: draggingFromDisabled ?? this.draggingFromDisabled,
       previewZone: identical(previewZone, _unset)
           ? this.previewZone
           : previewZone as ModuleZone?,
@@ -222,6 +244,7 @@ class ModulesState extends Equatable {
     ...unavailable.map((entry) => Object.hash(entry.module, entry.reason)),
     optionsModule,
     dragging,
+    draggingFromDisabled,
     previewZone,
     previewIndex,
     lastPointer,
@@ -235,6 +258,7 @@ class ModulesState extends Equatable {
     ],
     if (optionsModule != null) 'options_module': optionsModule,
     if (dragging != null) 'dragging': dragging,
+    'dragging_from_disabled': draggingFromDisabled,
     if (previewZone != null) 'preview_zone': previewZone!.wire,
     'preview_index': previewIndex,
     if (lastPointer != null)
@@ -274,6 +298,7 @@ class ModulesState extends Equatable {
           : const <ModuleAvailability>[],
       optionsModule: optionsModule is String ? optionsModule : null,
       dragging: json['dragging'] as String?,
+      draggingFromDisabled: json['dragging_from_disabled'] == true,
       previewZone: previewZone,
       previewIndex: (json['preview_index'] as num?)?.toInt() ?? 0,
       lastPointer: pointer is Map<String, dynamic>
@@ -296,6 +321,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     Future<List<ModuleAvailability>> Function(BarSettings settings)?
     availabilityLoader,
   }) : _settings = settings,
+       _availabilityProbe = availabilityProbe,
        _availabilityLoader = availabilityLoader,
        super(
          ModulesState(
@@ -316,15 +342,46 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     on<ModulesDragEnded>(_onDragEnded);
     on<ModulesDroppedOnDisabled>(_onDroppedOnDisabled);
     on<ModulesReset>(_onReset);
+    // The probe reads the configured disk path and pinned network interface,
+    // so a document edit can invalidate its answer. Track those two inputs
+    // and re-probe once the edit settles; no timer runs while they hold.
+    _observedDiskPath = _document.disk.path;
+    _observedInterface = _document.network.interface;
+    _probedDiskPath = _observedDiskPath;
+    _probedInterface = _observedInterface;
+    _settingsBusy = settings.state.busy;
+    _settingsSubscription = settings.stream.listen(_onSettingsChanged);
     if (availabilityLoader != null) {
       add(const ModulesAvailabilityRequested());
     }
   }
 
   final SettingsAppBloc _settings;
+  final List<ModuleAvailability> Function()? _availabilityProbe;
   final Future<List<ModuleAvailability>> Function(BarSettings settings)?
   _availabilityLoader;
   DebouncedSaver? _saver;
+
+  StreamSubscription<SettingsAppState>? _settingsSubscription;
+  Timer? _availabilityTimer;
+
+  /// The availability inputs the listener has already scheduled (or probed)
+  /// for, so one document value never queues two probes.
+  late String _observedDiskPath;
+  late String? _observedInterface;
+
+  /// The inputs the latest applied availability answer was probed with.
+  late String _probedDiskPath;
+  late String? _probedInterface;
+
+  /// The last settings busy flag; a true-to-false edge is a completed save.
+  var _settingsBusy = false;
+
+  /// Drops a loader answer that belongs to an older document.
+  var _probeGeneration = 0;
+  int? _inFlightGeneration;
+  String? _inFlightDiskPath;
+  String? _inFlightInterface;
 
   /// The latest pointer position. This is deliberately outside
   /// [ModulesState]: a pointer move inside the same preview slot must not
@@ -335,6 +392,70 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   Offset? get lastPointer => _lastPointer;
 
   BarSettings get _document => _settings.settings;
+
+  /// Re-probes availability on demand. Availability-relevant document edits
+  /// call this after their debounce; pages may also call it after a save so
+  /// the Unavailable section cannot keep a stale reason.
+  void refreshAvailability() {
+    if (isClosed) {
+      return;
+    }
+    add(const ModulesAvailabilityRequested());
+  }
+
+  /// Watches the settings document for the inputs the probe reads. Hardware
+  /// availability itself is static; only configured paths and interfaces can
+  /// invalidate a previous answer, so unrelated edits never probe.
+  void _onSettingsChanged(SettingsAppState next) {
+    if (isClosed) {
+      return;
+    }
+    final wasBusy = _settingsBusy;
+    _settingsBusy = next.busy;
+    final settings = next.settings;
+    final diskPath = settings.disk.path;
+    final networkInterface = settings.network.interface;
+    if (diskPath != _observedDiskPath ||
+        networkInterface != _observedInterface) {
+      _observedDiskPath = diskPath;
+      _observedInterface = networkInterface;
+      _scheduleAvailabilityRefresh();
+      return;
+    }
+    // The preview can land after the debounced probe already saw the edit;
+    // when it did not, refresh at save completion so a lagging watcher can
+    // never leave the page stale.
+    if (wasBusy &&
+        !next.busy &&
+        (diskPath != _probedDiskPath || networkInterface != _probedInterface) &&
+        !_inFlightMatches(settings)) {
+      _scheduleAvailabilityRefresh(immediate: true);
+    }
+  }
+
+  void _scheduleAvailabilityRefresh({bool immediate = false}) {
+    _availabilityTimer?.cancel();
+    _availabilityTimer = null;
+    if (immediate) {
+      refreshAvailability();
+      return;
+    }
+    _availabilityTimer = Timer(_availabilityRefreshDelay, () {
+      _availabilityTimer = null;
+      refreshAvailability();
+    });
+  }
+
+  bool _inFlightMatches(BarSettings settings) {
+    return _inFlightGeneration != null &&
+        _inFlightDiskPath == settings.disk.path &&
+        _inFlightInterface == settings.network.interface;
+  }
+
+  void _recordProbed(String diskPath, String? networkInterface) {
+    _probedDiskPath = diskPath;
+    _probedInterface = networkInterface;
+  }
 
   /// Applies [change] as a live preview and saves it after the debounce.
   void _apply(BarSettings Function(BarSettings) change) {
@@ -351,8 +472,19 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   }
 
   void _onToggled(ModulesToggled event, Emitter<ModulesState> emit) {
+    final modules = List<String>.of(_document.modules);
+    if (event.enabled) {
+      if (!modules.contains(event.module)) {
+        modules.add(event.module);
+      }
+    } else {
+      modules.remove(event.module);
+    }
     if (!event.enabled && state.optionsModule == event.module) {
+      // Disabling via the row itself closes its inspector, as before.
       emit(state.copyWith(optionsModule: null));
+    } else {
+      _pruneOptionsFor(_document.copyWith(modules: modules), emit);
     }
     _apply((settings) {
       final modules = List<String>.of(settings.modules);
@@ -365,6 +497,15 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
       }
       return settings.copyWith(modules: modules);
     });
+  }
+
+  /// Closes the inspector when [next] would enable [ModulesState.optionsModule]
+  /// while it is unavailable: that row loses its gear.
+  void _pruneOptionsFor(BarSettings next, Emitter<ModulesState> emit) {
+    final pruned = pruneOptions(state.optionsModule, next, state.unavailable);
+    if (pruned != state.optionsModule) {
+      emit(state.copyWith(optionsModule: pruned));
+    }
   }
 
   void _onOptionsToggled(
@@ -394,31 +535,77 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     ModulesAvailabilityRequested event,
     Emitter<ModulesState> emit,
   ) async {
+    final request = ++_probeGeneration;
+    final document = _document;
+    final diskPath = document.disk.path;
+    final networkInterface = document.network.interface;
     final loader = _availabilityLoader;
     if (loader == null) {
+      final unavailable =
+          _availabilityProbe?.call() ??
+          probeModuleAvailability(settings: document);
+      if (isClosed || request != _probeGeneration) {
+        return;
+      }
+      _recordProbed(diskPath, networkInterface);
+      emit(_availabilityState(unavailable));
       return;
     }
-    final unavailable = await loader(_document);
-    if (isClosed) {
+    _inFlightGeneration = request;
+    _inFlightDiskPath = diskPath;
+    _inFlightInterface = networkInterface;
+    final List<ModuleAvailability> unavailable;
+    try {
+      unavailable = await loader(document);
+    } on Object {
+      // A socket/loader failure is a failed refresh, not a bloc error: keep
+      // the last good answer and let the next edit or explicit refresh retry.
+      if (request == _probeGeneration) {
+        _clearInFlight();
+      }
       return;
     }
-    add(ModulesAvailabilityLoaded(unavailable));
+    if (isClosed || request != _probeGeneration) {
+      return;
+    }
+    if (diskPath != _document.disk.path ||
+        networkInterface != _document.network.interface) {
+      // The document changed while the loader was out. The listener already
+      // has a refresh queued for the new inputs; this answer is stale.
+      _clearInFlight();
+      return;
+    }
+    _clearInFlight();
+    _recordProbed(diskPath, networkInterface);
+    emit(_availabilityState(unavailable));
+  }
+
+  void _clearInFlight() {
+    _inFlightGeneration = null;
+    _inFlightDiskPath = null;
+    _inFlightInterface = null;
+  }
+
+  ModulesState _availabilityState(List<ModuleAvailability> unavailable) {
+    return state.copyWith(
+      unavailable: unavailable,
+      optionsModule: pruneOptions(state.optionsModule, _document, unavailable),
+    );
   }
 
   void _onAvailabilityLoaded(
     ModulesAvailabilityLoaded event,
     Emitter<ModulesState> emit,
   ) {
-    emit(
-      state.copyWith(
-        unavailable: event.unavailable,
-        optionsModule: pruneOptions(
-          state.optionsModule,
-          _document,
-          event.unavailable,
-        ),
-      ),
-    );
+    // A directly applied answer supersedes any loader request still running.
+    _probeGeneration += 1;
+    _clearInFlight();
+    _observeCurrentInputsAsProbed();
+    emit(_availabilityState(event.unavailable));
+  }
+
+  void _observeCurrentInputsAsProbed() {
+    _recordProbed(_document.disk.path, _document.network.interface);
   }
 
   /// Keyboard reorder within a zone: swaps the module with its neighbour.
@@ -507,13 +694,19 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
 
   void _onDragStarted(ModulesDragStarted event, Emitter<ModulesState> emit) {
     final current = _groupsFor(_document)[event.zone] ?? const <String>[];
+    final index = current.indexOf(event.module);
+    // A module lifted from Disabled is not in any zone's rendered list yet.
+    // Starting with no preview keeps the page from lighting a phantom slot
+    // until the pointer actually enters a zone.
+    final present = index >= 0 && !event.fromDisabled;
     _lastPointer = null;
     emit(
       state.copyWith(
         optionsModule: null,
         dragging: event.module,
-        previewZone: event.zone,
-        previewIndex: current.indexOf(event.module).clamp(0, current.length),
+        draggingFromDisabled: event.fromDisabled,
+        previewZone: present ? event.zone : null,
+        previewIndex: present ? index.clamp(0, current.length) : 0,
         lastPointer: null,
         dropHandled: false,
       ),
@@ -546,6 +739,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     emit(
       state.copyWith(
         dragging: null,
+        draggingFromDisabled: false,
         previewZone: null,
         lastPointer: null,
         dropHandled: false,
@@ -554,9 +748,10 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     if (handled || module == null || zone == null) {
       return;
     }
-    // The target usually accepts; fall back to the release position so a
-    // first drag never silently reverts.
-    if (!event.accepted && !event.withinSegment) {
+    // The page target accepts the whole column, so a page-level drop is not
+    // proof of intent. Only a release that entered a zone may move/enable
+    // the row; a header drop must leave it untouched.
+    if (!event.withinSegment) {
       return;
     }
     _dropOn(dragged: module, zone: zone, index: index);
@@ -581,6 +776,13 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   }
 
   void _onReset(ModulesReset event, Emitter<ModulesState> emit) {
+    _pruneOptionsFor(
+      _document.copyWith(
+        modules: BarSettings.knownModules,
+        modulePlacement: const <String, ModuleZone>{},
+      ),
+      emit,
+    );
     _apply(
       (settings) => settings.copyWith(
         modules: BarSettings.knownModules,
@@ -591,7 +793,15 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
 
   @override
   Future<void> close() async {
+    _availabilityTimer?.cancel();
+    _availabilityTimer = null;
+    // Flush the debounced edit before the settings bloc is closed; disposing
+    // the saver adds that save event synchronously, in the same order the
+    // page used before it observed the document.
     _saver?.dispose();
-    return super.close();
+    final closing = super.close();
+    await _settingsSubscription?.cancel();
+    _settingsSubscription = null;
+    return closing;
   }
 }

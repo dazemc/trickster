@@ -45,12 +45,16 @@ List<ModuleAvailability> applyBarAvailability(
   if (keyboard is! Map) {
     return base;
   }
-  final available = keyboard['available'] == true;
+  // Match KeyboardLayoutState.hasLayout, the pill's render rule: an
+  // available backend with no active layout still renders nothing.
+  final active = keyboard['active'];
+  final hasLayout =
+      keyboard['available'] == true && active is String && active.isNotEmpty;
   final next = <ModuleAvailability>[
     for (final entry in base)
       if (entry.module != 'keyboard_layout') entry,
   ];
-  if (!available) {
+  if (!hasLayout) {
     next.add(
       const ModuleAvailability(
         module: 'keyboard_layout',

@@ -77,12 +77,17 @@ class ModulesPage extends StatefulWidget {
 }
 
 class _ModulesPageState extends State<ModulesPage> {
-  /// How far past a zone's card a release still counts, used when the page
-  /// target did not register the drop.
-  static const double _zoneDropReach = 120;
-
   /// Pointer distance from a viewport edge that starts auto-scroll.
   static const double _autoScrollEdge = 64;
+
+  /// How far past a zone's heading or card still counts as entering that
+  /// segment for a disabled-origin drag. Small enough that the page header is
+  /// never mistaken for a drop target.
+  static const double _zoneEntryReach = 16;
+
+  /// How far past a zone's card an enabled-row release still counts, used
+  /// when the page target accepted the whole column rather than a zone.
+  static const double _zoneDropReach = 120;
 
   /// Maximum pixels per auto-scroll tick at the very edge.
   static const double _autoScrollStep = 22;
@@ -91,6 +96,7 @@ class _ModulesPageState extends State<ModulesPage> {
 
   final Map<String, GlobalKey> _rowKeys = <String, GlobalKey>{};
   final Map<ModuleZone, GlobalKey> _zoneKeys = <ModuleZone, GlobalKey>{};
+  final Map<ModuleZone, GlobalKey> _zoneHeadingKeys = <ModuleZone, GlobalKey>{};
   final Map<String, FocusNode> _optionsFocus = <String, FocusNode>{};
   final OverlayPortalController _optionsPortal = OverlayPortalController(
     debugLabel: 'module-options',
@@ -107,6 +113,9 @@ class _ModulesPageState extends State<ModulesPage> {
 
   GlobalKey _zoneKey(ModuleZone zone) =>
       _zoneKeys.putIfAbsent(zone, GlobalKey.new);
+
+  GlobalKey _zoneHeadingKey(ModuleZone zone) =>
+      _zoneHeadingKeys.putIfAbsent(zone, GlobalKey.new);
 
   FocusNode _optionsFocusNode(String module) => _optionsFocus.putIfAbsent(
     module,
@@ -191,7 +200,7 @@ class _ModulesPageState extends State<ModulesPage> {
     }
     position.jumpTo(next);
     // The rows moved under a stationary pointer; refresh the landing gap.
-    _updateDrag(modules, pointer);
+    _updateDrag(modules, pointer, fromAutoScroll: true);
   }
 
   void _toggleOptions(ModulesBloc modules, String module) {
@@ -249,11 +258,17 @@ class _ModulesPageState extends State<ModulesPage> {
   /// Tracks the pointer over the segment geometry so the gap follows the
   /// drag before release.
   ///
-  /// The nearest zone wins wherever the pointer is, so releasing under the
-  /// last row appends there. Hovering the Disabled area leaves the preview
-  /// alone (only the pointer is recorded): that card is the
-  /// drag-to-disable gesture.
-  void _updateDrag(ModulesBloc modules, Offset position) {
+  /// A row lifted from a zone follows the nearest zone wherever the pointer
+  /// is, so releasing under the last row appends there. A row lifted from
+  /// Disabled has no zone slot yet: it previews nothing until the pointer is
+  /// actually inside a segment, and clears its preview when it leaves again.
+  /// Hovering the Disabled area leaves the preview alone (only the pointer is
+  /// recorded): that card is the drag-to-disable gesture.
+  void _updateDrag(
+    ModulesBloc modules,
+    Offset position, {
+    bool fromAutoScroll = false,
+  }) {
     _autoScrollPointer = position;
     final state = modules.state;
     final dragging = state.dragging;
@@ -281,23 +296,49 @@ class _ModulesPageState extends State<ModulesPage> {
       state.unavailable,
       exclude: dragging,
     );
-    ModuleZone? zone;
-    var bestDistance = double.infinity;
-    for (final entry in groups.entries) {
-      final box =
-          _zoneKey(entry.key).currentContext?.findRenderObject() as RenderBox?;
-      if (box == null) {
-        continue;
+    ModuleZone? zone = _zoneAt(position);
+    if (zone == null && state.draggingFromDisabled) {
+      // Scrolling moves the segment under a stationary pointer; keep the
+      // preview the user already entered rather than turning a valid release
+      // into a header drop. A real pointer move that leaves the segments
+      // still clears the preview below.
+      if (fromAutoScroll && state.previewZone != null) {
+        modules.add(
+          ModulesDragPreviewed(
+            zone: state.previewZone,
+            index: state.previewIndex,
+            position: position,
+          ),
+        );
+        return;
       }
-      final rect = box.localToGlobal(Offset.zero) & box.size;
-      final distance = position.dy < rect.top
-          ? rect.top - position.dy
-          : position.dy > rect.bottom
-          ? position.dy - rect.bottom
-          : 0.0;
-      if (zone == null || distance < bestDistance) {
-        bestDistance = distance;
-        zone = entry.key;
+      // Leaving every segment (for example over the page header) must not
+      // leave a phantom preview behind. Only the pointer is recorded until a
+      // real segment is entered.
+      modules.add(
+        ModulesDragPreviewed(zone: null, index: 0, position: position),
+      );
+      return;
+    }
+    if (zone == null) {
+      var bestDistance = double.infinity;
+      for (final entry in groups.entries) {
+        final box =
+            _zoneKey(entry.key).currentContext?.findRenderObject()
+                as RenderBox?;
+        if (box == null) {
+          continue;
+        }
+        final rect = box.localToGlobal(Offset.zero) & box.size;
+        final distance = position.dy < rect.top
+            ? rect.top - position.dy
+            : position.dy > rect.bottom
+            ? position.dy - rect.bottom
+            : 0.0;
+        if (zone == null || distance < bestDistance) {
+          bestDistance = distance;
+          zone = entry.key;
+        }
       }
     }
     if (zone == null) {
@@ -320,8 +361,30 @@ class _ModulesPageState extends State<ModulesPage> {
     );
   }
 
-  /// True when [position] sits inside a placement segment; used when the
-  /// target's acceptance did not register but the release clearly landed.
+  /// The placement segment [position] is inside, if any. A segment owns its
+  /// heading and its card; a disabled-origin drag uses these strict bounds,
+  /// so the page header just above a segment is not a target until the
+  /// pointer is actually in the segment.
+  ModuleZone? _zoneAt(Offset position) {
+    for (final zone in ModuleZone.values) {
+      for (final key in [_zoneHeadingKey(zone), _zoneKey(zone)]) {
+        final box = key.currentContext?.findRenderObject() as RenderBox?;
+        if (box == null) {
+          continue;
+        }
+        final rect = box.localToGlobal(Offset.zero) & box.size;
+        if (rect.inflate(_zoneEntryReach).contains(position)) {
+          return zone;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// True when [position] sits in a placement segment, or just past one for
+  /// an enabled-row drag; used when the page target accepted the whole
+  /// column rather than a zone. A disabled-origin drag uses the preview
+  /// state instead of geometry.
   bool _withinSegment(Offset position) {
     for (final zone in ModuleZone.values) {
       final box =
@@ -432,18 +495,30 @@ class _ModulesPageState extends State<ModulesPage> {
             : null,
         feedbackWidth: feedbackWidth,
         onDragStart: () {
-          modules.add(ModulesDragStarted(module: module, zone: zone));
+          modules.add(
+            ModulesDragStarted(
+              module: module,
+              zone: zone,
+              fromDisabled: draggableOut,
+            ),
+          );
           _startAutoScroll();
         },
         onDragUpdate: (position) => _updateDrag(modules, position),
         onDragEnd: (accepted) {
           _stopAutoScroll();
+          final state = modules.state;
           final pointer = modules.lastPointer;
+          // For a disabled-origin drag the preview is the proof of intent:
+          // it only exists after the pointer entered a real segment, and a
+          // pointer move out of every segment clears it. Geometry alone is
+          // unreliable while edge auto-scroll moves the page under the
+          // pointer.
+          final withinSegment = state.draggingFromDisabled
+              ? state.previewZone != null
+              : pointer != null && _withinSegment(pointer);
           modules.add(
-            ModulesDragEnded(
-              accepted: accepted,
-              withinSegment: pointer != null && _withinSegment(pointer),
-            ),
+            ModulesDragEnded(accepted: accepted, withinSegment: withinSegment),
           );
         },
         onToggle: (value) =>
@@ -523,9 +598,12 @@ class _ModulesPageState extends State<ModulesPage> {
             ),
             const SizedBox(height: 20),
             for (final entry in groups.entries) ...[
-              SettingsHeading(
-                key: ValueKey<String>('module-zone-${entry.key.wire}'),
-                title: _zoneLabel(l10n, entry.key),
+              KeyedSubtree(
+                key: _zoneHeadingKey(entry.key),
+                child: SettingsHeading(
+                  key: ValueKey<String>('module-zone-${entry.key.wire}'),
+                  title: _zoneLabel(l10n, entry.key),
+                ),
               ),
               const SizedBox(height: 10),
               DecoratedBox(
