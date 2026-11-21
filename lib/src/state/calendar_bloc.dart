@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/overlay_coordinator.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 /// One open calendar: the month it shows, where the clock was clicked, and
@@ -63,7 +66,11 @@ class CalendarRequested extends CalendarEvent {
 }
 
 class CalendarDismissed extends CalendarEvent {
-  const CalendarDismissed();
+  const CalendarDismissed({this.done});
+
+  /// Completed after the native surface is closed when the coordinator asks
+  /// for a dismissal; a short timeout bounds a dead surface.
+  final Completer<void>? done;
 }
 
 /// Moves the open calendar by [months], relative to the month on display, so
@@ -155,9 +162,12 @@ const _unset = Object();
 /// bar's output, hands the session to the calendar view, and destroys the
 /// surface on dismissal. The bar's own surface never changes size.
 class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
-  CalendarBloc({required LayerShell layerShell})
-    : _layerShell = layerShell,
-      super(const CalendarState()) {
+  CalendarBloc({
+    required LayerShell layerShell,
+    OverlayCoordinator? coordinator,
+  }) : _layerShell = layerShell,
+       _coordinator = coordinator,
+       super(const CalendarState()) {
     on<CalendarRequested>(_onRequested);
     on<CalendarDismissed>(_onDismissed);
     on<CalendarMonthShifted>((event, emit) {
@@ -183,26 +193,36 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     });
     on<CalendarViewsRetained>((event, emit) {
       final session = state.session;
+      final retained =
+          session != null && event.viewIds.contains(session.viewId);
+      if (session != null && !retained) {
+        _coordinator?.release(OverlayKind.calendar);
+      }
       emit(
         state.copyWith(
-          session: session != null && !event.viewIds.contains(session.viewId)
-              ? null
-              : session,
+          session: retained ? session : null,
           calendarViewIds: state.calendarViewIds
               .where((viewId) => event.viewIds.contains(viewId))
               .toSet(),
         ),
       );
     });
+    _coordinator?.register(OverlayKind.calendar, _dismissFromCoordinator);
   }
 
   final LayerShell _layerShell;
+  final OverlayCoordinator? _coordinator;
   var _generation = 0;
 
   Future<void> _onRequested(
     CalendarRequested event,
     Emitter<CalendarState> emit,
   ) async {
+    final coordinator = _coordinator;
+    if (coordinator != null &&
+        !await coordinator.request(OverlayKind.calendar)) {
+      return;
+    }
     final generation = ++_generation;
     final previous = state.session;
     if (previous != null) {
@@ -216,6 +236,9 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     if (viewId == null || generation != _generation) {
       if (viewId != null) {
         await _layerShell.closeMenuSurface(viewId: viewId);
+      }
+      if (generation == _generation) {
+        coordinator?.release(OverlayKind.calendar);
       }
       return;
     }
@@ -242,14 +265,37 @@ class CalendarBloc extends Bloc<CalendarEvent, CalendarState> {
     final session = state.session;
     emit(state.copyWith(session: null));
     _generation += 1;
-    if (session != null) {
-      await _layerShell.closeMenuSurface(viewId: session.viewId);
+    _coordinator?.release(OverlayKind.calendar);
+    try {
+      if (session != null) {
+        await _layerShell.closeMenuSurface(viewId: session.viewId);
+      }
+    } finally {
+      event.done?.complete();
     }
+  }
+
+  /// The coordinator's generation-safe dismissal: invalidate any in-flight
+  /// open, then close the live surface through the normal event path.
+  Future<void> _dismissFromCoordinator() async {
+    if (isClosed) {
+      return;
+    }
+    _generation += 1;
+    final done = Completer<void>();
+    try {
+      add(CalendarDismissed(done: done));
+    } on StateError {
+      return;
+    }
+    await done.future;
   }
 
   @override
   Future<void> close() async {
     _generation += 1;
+    _coordinator?.release(OverlayKind.calendar);
+    _coordinator?.unregister(OverlayKind.calendar);
     final viewId = state.session?.viewId;
     if (viewId != null) {
       try {

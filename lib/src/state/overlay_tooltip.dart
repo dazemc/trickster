@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/overlay_coordinator.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 /// One visible tray tooltip: the label to paint, where the hovered item sat,
@@ -75,9 +78,13 @@ class OverlayTooltipRequested extends OverlayTooltipEvent {
 /// Dismisses the tooltip. When [itemId] names a different item the request
 /// is ignored, so a stale exit cannot hide a newer tooltip.
 class OverlayTooltipDismissed extends OverlayTooltipEvent {
-  const OverlayTooltipDismissed({this.itemId});
+  const OverlayTooltipDismissed({this.itemId, this.done});
 
   final String? itemId;
+
+  /// Completed after the native surface is closed when the coordinator asks
+  /// for a dismissal; a short timeout bounds a dead surface.
+  final Completer<void>? done;
 
   @override
   List<Object?> get props => [itemId];
@@ -166,33 +173,46 @@ const _unset = Object();
 /// it when the pointer leaves. The strip surface never changes size.
 class OverlayTooltipBloc
     extends Bloc<OverlayTooltipEvent, OverlayTooltipState> {
-  OverlayTooltipBloc({required LayerShell layerShell})
-    : _layerShell = layerShell,
-      super(const OverlayTooltipState()) {
+  OverlayTooltipBloc({
+    required LayerShell layerShell,
+    OverlayCoordinator? coordinator,
+  }) : _layerShell = layerShell,
+       _coordinator = coordinator,
+       super(const OverlayTooltipState()) {
     on<OverlayTooltipRequested>(_onRequested);
     on<OverlayTooltipDismissed>(_onDismissed);
     on<OverlayTooltipViewsRetained>((event, emit) {
       final session = state.session;
+      final retained =
+          session != null && event.viewIds.contains(session.viewId);
+      if (session != null && !retained) {
+        _coordinator?.release(OverlayKind.tooltip);
+      }
       emit(
         state.copyWith(
-          session: session != null && !event.viewIds.contains(session.viewId)
-              ? null
-              : session,
+          session: retained ? session : null,
           tooltipViewIds: state.tooltipViewIds
               .where((viewId) => event.viewIds.contains(viewId))
               .toSet(),
         ),
       );
     });
+    _coordinator?.register(OverlayKind.tooltip, _dismissFromCoordinator);
   }
 
   final LayerShell _layerShell;
+  final OverlayCoordinator? _coordinator;
   var _generation = 0;
 
   Future<void> _onRequested(
     OverlayTooltipRequested event,
     Emitter<OverlayTooltipState> emit,
   ) async {
+    final coordinator = _coordinator;
+    if (coordinator != null &&
+        !await coordinator.request(OverlayKind.tooltip)) {
+      return;
+    }
     final existing = state.session;
     if (existing != null) {
       if (existing.itemId == event.itemId && existing.label == event.label) {
@@ -230,6 +250,9 @@ class OverlayTooltipBloc
       if (viewId != null) {
         await _layerShell.closeTooltipSurface(viewId: viewId);
       }
+      if (generation == _generation) {
+        coordinator?.release(OverlayKind.tooltip);
+      }
       return;
     }
     emit(
@@ -256,16 +279,40 @@ class OverlayTooltipBloc
     final session = state.session;
     if (session == null ||
         (event.itemId != null && session.itemId != event.itemId)) {
+      event.done?.complete();
       return;
     }
     emit(state.copyWith(session: null));
     _generation += 1;
-    await _layerShell.closeTooltipSurface(viewId: session.viewId);
+    _coordinator?.release(OverlayKind.tooltip);
+    try {
+      await _layerShell.closeTooltipSurface(viewId: session.viewId);
+    } finally {
+      event.done?.complete();
+    }
+  }
+
+  /// The coordinator's generation-safe dismissal: invalidate any in-flight
+  /// open, then close the live surface through the normal event path.
+  Future<void> _dismissFromCoordinator() async {
+    if (isClosed) {
+      return;
+    }
+    _generation += 1;
+    final done = Completer<void>();
+    try {
+      add(OverlayTooltipDismissed(done: done));
+    } on StateError {
+      return;
+    }
+    await done.future;
   }
 
   @override
   Future<void> close() async {
     _generation += 1;
+    _coordinator?.release(OverlayKind.tooltip);
+    _coordinator?.unregister(OverlayKind.tooltip);
     final viewId = state.session?.viewId;
     if (viewId != null) {
       try {
