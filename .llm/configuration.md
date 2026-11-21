@@ -71,26 +71,30 @@ The document carries:
   `battery`, `gpu`, `vram`, `media`, `opencode`: nested module options;
 - `locale`: `en` or `zh`; null follows the system.
 
-Every write is revision-checked. A mismatch is a `StateError`; the store
-retries once and never keeps a document history. The settings application
-selects a transport at startup: the control socket when the bar answers,
-otherwise the file transport. It does not switch transports mid-session if the
-bar exits.
+Every write is revision-checked against a fresh read of the live document.
+A mismatch is a `SettingsRevisionConflict`; the store adopts the other
+writer's revision, the editor reloads that document, and the user retries
+deliberately. It never resends a stale whole-document snapshot and never keeps
+a document history. The settings application starts on the control socket when
+the bar answers and otherwise uses the file transport. It flips to the file
+after the first `ControlSocketException`, including a save after the bar
+exits; the fallback is sticky for the session.
 
 **Persistence.** The file transport keeps the current document plus one
 last-good copy. A write snapshots the last document known to decode
 (`_lastGood`) into `.prev` through `.prev.tmp` and an atomic rename, then
 writes the live document through `.tmp` and renames it into place. It never
 copies the possibly corrupt live file into `.prev`. A read tries the live
-document, then `.prev`, then the in-memory last-good copy. This is current +
-last-good + one previous snapshot, not a history.
+document, then `.prev`, then the in-memory last-good copy. An unreadable
+candidate is skipped the same way as an undecodable one. Normal bootstrap uses
+this recovery; `--check` still validates the live document itself. This is
+current + last-good + one previous snapshot, not a history.
 
 **Gaps.**
 
-- The settings application chooses its transport at startup. If the bar exits
-  while the window is open, later saves do not fall back to the file transport.
-- A settings document with an invalid scalar type is an invalid document and
-  falls back to defaults in normal startup; `--check` still fails it.
+- A settings document with an invalid scalar type is an invalid document; if
+  neither the live file nor `.prev` decodes and nothing is remembered, normal
+  startup falls back to defaults; `--check` still fails it.
 
 ## Live reload
 
