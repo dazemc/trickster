@@ -29,13 +29,12 @@ Nothing in this file authorizes performance work.
   for both weights. Audit the package asset set; remove weights the bar never
   selects without breaking dynamic glyph coverage; 4.0.3 is not smaller.
 
-## Lifecycle and ownership
+- **A long preview drag grows `DebouncedSaver._changes` without bound.** Every
+  `apply` appends a closure and restarts the 300 ms timer; a slider held for
+  minutes retains one change per frame and replays them all in
+  `_composedPending`/`rebase`. Collapse same-field changes or cap the batch.
 
-- **3.50 hide/show can leave a black strip.** `#196862`: after
-  `gtk_widget_hide`/`show`, GTK replaces the toplevel `wl_surface` and the
-  subsurface is not recreated. Trickster hides/shows strips for
-  `outputs.conf=hidden` and overlays on map/unmap. Exercise both on 3.50.1;
-  fix by destroy/recreate if it reproduces, never speculatively.
+## Lifecycle and ownership
 
 - **MPRIS controls are dropped while the worker respawns.** The proxy returns
   immediately when no command port exists, so a play/pause/next/previous
@@ -52,13 +51,54 @@ Nothing in this file authorizes performance work.
   is set. Do not patch speculatively: reproduce a stale strip on output
   removal first, then guard the fix for older installed libraries.
 
+- **Settings launches have no single-instance guard and fail silently.**
+  `BarMenuBloc._onSettingsSelected` ignores the `false` from
+  `launchTricksterSettings`, and every selection starts another detached
+  process, so two windows can race the revision line with no feedback on
+  failure. Reuse the running window and surface a failed start.
+
+- **The settings output list only loads at startup.**
+  `SettingsAppBloc._onLoad` reads `_layerShell.outputs()` once and no resume,
+  focus, or metrics path refreshes `availableOutputs`; a monitor plugged in
+  while the window is open gets no displays row or appearance chip until
+  reopen. Probe on focus/resume or expose a refresh.
+
+- **Grim captures have no timeout.** `GrimSampler.available`/`sample` await
+  `Process.run` with no deadline, so a hung `grim` keeps
+  `WallpaperAccentBloc._localSampling` true and blocks every later sample until
+  the child exits. Bound the process and kill it on timeout.
+
+- **The wallpaper cache watcher never resubscribes.**
+  `WallpaperAccentBloc._startWatch` installs `onError: (_) {}` and leaves
+  `_watch` non-null, so a stream error or close stops cache refreshes until the
+  source is toggled. Null the subscription and retry with backoff like
+  `ConfigWatcher`.
+
+- **Overlapping disruptive reloads can recreate surfaces concurrently.**
+  `_apply` starts `unawaited(_recreateSurfaces(loaded))` with no in-flight
+  guard, so two quick edge/thickness/layer reloads can interleave destroy and
+  configure and map the same strip twice. Serialize or coalesce the recreate
+  path like `_reconcileOutputs`.
+
 ## Performance and refresh
 
-- **Settings lifecycle refresh has no widget-level test.** `wallpaperAccentEventFor`
-  and the bloc's refresh paths are covered, but `TricksterSettingsApp`
-  constructs its own blocs, so no test drives `didChangeViewFocus` or app
-  resume into a `status` probe. Add injectable bloc/probe seams (or a binding
-  test) before the persistence/UI tracks edit `settings/app.dart` again.
+- **Enabled-but-unavailable modules still start their blocs and samplers.**
+  `BarSettings` defaults to `knownModules`, and `ModuleScope` gates providers
+  only on `settings.includes`, so battery, GPU, keyboard, and backlight samplers
+  run on machines the settings page marks unavailable. Gate providers on the
+  same predicates or seed only available modules.
+
+- **A settings-app save reloads both documents.** The watcher always adds
+  `SettingsAppDocumentChanged` and `SettingsAppOutputsChanged`, so each save
+  re-reads the other document over the socket; with a settings draft open, an
+  outputs-only event also raises the false "settings changed elsewhere" banner.
+  Dispatch by the event path.
+
+- **`ModuleAvailability` still has no value equality.**
+  `ModulesState.unavailable` compares lists element-by-element, so a probe that
+  returns the same answers rebuilds the modules page; `LayerOutput` already
+  implements `==`/`hashCode` for the same reason. Add both to
+  `ModuleAvailability`.
 
 - **StatusNotifier offload is justified by measured frame-scale stalls.** One
   conforming 128² pixmap parse costs ~5.3 ms p50 on the UI isolate (256²
@@ -75,9 +115,10 @@ Nothing in this file authorizes performance work.
   the page now reflows at 900×600, but the initial toplevel does not. Size from
   the monitor work area or add a bounded minimum before smaller displays ship.
 
-- **Keyboard availability refreshes only when the modules page opens.**
-  `ModulesBloc` asks the bar once at creation; a Hyprland session that starts
-  later leaves the row unavailable until the page is reopened. Refresh on a
+- **Keyboard availability refreshes on config edits, not on a late backend.**
+  `ModulesBloc` now re-probes after `disk.path`/`network.interface` edits and
+  saves, but a bar-side keyboard backend that appears after the page opens
+  still leaves the row unavailable until the page is reopened. Refresh on a
   control-status change or expose a retry.
 
 - **Equatable 3.0 still compares `runtimeType` at the top level;**
@@ -99,6 +140,39 @@ Nothing in this file authorizes performance work.
   launch frame while Dart timers stayed live; eight settled-compositor restarts
   did not reproduce it. Kill only the process and relaunch; capture frame
   timings if it recurs.
+
+- **GPU is the only module with a render predicate but no availability row.**
+  `probeModuleAvailability` covers `vram` via `hasGpuMemorySource`, while the
+  bar hides `gpu` unless some `GpuLoad.usage != null`; RAM/CPU null samples are
+  transient reads, not hardware rows. Add a usage-source predicate and reason.
+
+- **The outputs watcher cannot match another symlink spelling.**
+  `normalizeConfigPath` deliberately leaves links unresolved, so a custom
+  outputs parent reported under a different spelling never equals
+  `configDocumentFilter`'s live path; file edits and the file fallback miss
+  reloads (socket saves still call `reload()`). Compare canonical parents.
+
+- **`seedUserConfig` does not create a custom outputs parent.** It creates only
+  `ConfigPaths.directory`; when an override's parent is missing, the seed write
+  logs and the bar runs defaults until a watcher or settings save creates it.
+  Create the outputs parent before seeding.
+
+- **Malformed media and OpenCode scalars silently default.**
+  `MediaOptions.fromJson` replaces a non-numeric `bars`/`volume_step` with its
+  default and `OpencodeOptions.fromJson` does the same for a non-bool
+  `show_cost`, while sibling options reject wrong types. Throw
+  `FormatException` so bootstrap and `--check` agree.
+
+- **Settings-app state and outputs reads hide malformed input.**
+  `SettingsAppState.fromJson` hard-casts `error`/`outputs_error`, throwing on a
+  non-string, while `FileOutputsTransport.read` returns default placement when
+  live and `.prev` are unusable without setting `outputsError`. Decode strings
+  defensively and surface the outputs parse error.
+
+- **The control server writes to a client that may be gone.**
+  `ControlServer._onConnection` awaits the handler and then writes/flushes with
+  no guard; a client that hit `controlRequest`'s 2 s timeout has closed, so the
+  reply write can throw an unhandled socket error. Guard the write and drain.
 
 ## Constitution alignment
 
