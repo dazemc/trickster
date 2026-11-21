@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -352,6 +353,74 @@ void main() {
     await tester.pump();
     expect(file.readAsStringSync(), contains('8ab4ff'));
     expect(bloc.error, isNull);
+  });
+
+  testWidgets('a pending edit is flushed by a section switch', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-preset-#8AB4FF')),
+    );
+    await tester.pump();
+    expect(bloc.settings.accent, const Color(0xff8ab4ff));
+    expect(file.readAsStringSync(), isNot(contains('8ab4ff')));
+
+    await tester.tap(find.bySemanticsLabel('Language'));
+    await tester.pumpAndSettle();
+    expect(file.readAsStringSync(), contains('8ab4ff'));
+    expect(bloc.error, isNull);
+  });
+
+  testWidgets('a pending edit is flushed when its options panel collapses', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final gear = find.byKey(const ValueKey<String>('module-options-clock'));
+    await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
+    await tester.pump();
+    expect(bloc.settings.clock.format, ClockFormat.hour24);
+    expect(
+      BarSettings.decode(file.readAsStringSync()).clock.format,
+      isNot(ClockFormat.hour24),
+    );
+
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    expect(
+      BarSettings.decode(file.readAsStringSync()).clock.format,
+      ClockFormat.hour24,
+    );
+  });
+
+  testWidgets('closing flushes the pending edit before onClose', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    var closed = 0;
+    await _pump(tester, bloc, onClose: () => closed++);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-preset-#8AB4FF')),
+    );
+    await tester.pump();
+    expect(file.readAsStringSync(), isNot(contains('8ab4ff')));
+
+    await tester.tap(find.byType(SettingsCloseButton));
+    await tester.pumpAndSettle();
+    expect(closed, 1);
+    expect(file.readAsStringSync(), contains('8ab4ff'));
   });
 
   testWidgets('reset clears the accent', (tester) async {
@@ -1162,8 +1231,10 @@ void main() {
       await tester.ensureVisible(slider);
       await tester.pumpAndSettle();
       final rect = tester.getRect(slider);
+      // Drive the endpoint itself, not a point safely inside it. This is the
+      // boundary that used to collapse warn == critical.
       await tester.tapAt(
-        Offset(right ? rect.right - 0.25 : rect.left + 0.25, rect.center.dy),
+        Offset(right ? rect.right - 0.001 : rect.left + 0.001, rect.center.dy),
       );
       await tester.pump();
       await settle();
@@ -1178,10 +1249,22 @@ void main() {
       await settle();
     }
 
-    for (final module in ['ram', 'vram', 'temperature']) {
+    for (final module in [
+      'cpu',
+      'gpu',
+      'disk',
+      'ram',
+      'vram',
+      'temperature',
+      'battery',
+    ]) {
       bool ordered(BarSettings decoded) => switch (module) {
+        'cpu' => decoded.cpu.warn < decoded.cpu.critical,
+        'gpu' => decoded.gpu.warn < decoded.gpu.critical,
+        'disk' => decoded.disk.warn < decoded.disk.critical,
         'ram' => decoded.ram.warn < decoded.ram.critical,
         'vram' => decoded.vram.warn < decoded.vram.critical,
+        'battery' => decoded.battery.warn > decoded.battery.critical,
         _ => decoded.temperature.warn < decoded.temperature.critical,
       };
 
@@ -1189,6 +1272,15 @@ void main() {
       await tapEdge('options-$module-warn', right: true);
       var decoded = BarSettings.decode(file.readAsStringSync());
       switch (module) {
+        case 'cpu':
+          expect(decoded.cpu.warn, closeTo(0.99, 1e-9));
+          expect(decoded.cpu.critical, closeTo(1.0, 1e-9));
+        case 'gpu':
+          expect(decoded.gpu.warn, closeTo(0.99, 1e-9));
+          expect(decoded.gpu.critical, closeTo(1.0, 1e-9));
+        case 'disk':
+          expect(decoded.disk.warn, closeTo(0.99, 1e-9));
+          expect(decoded.disk.critical, closeTo(1.0, 1e-9));
         case 'ram':
           expect(decoded.ram.warn, closeTo(0.99, 1e-9));
           expect(decoded.ram.critical, closeTo(1.0, 1e-9));
@@ -1198,6 +1290,9 @@ void main() {
         case 'temperature':
           expect(decoded.temperature.warn, 149);
           expect(decoded.temperature.critical, 150);
+        case 'battery':
+          expect(decoded.battery.warn, 100);
+          expect(decoded.battery.critical, 10);
       }
       expect(ordered(decoded), isTrue);
 
@@ -1209,6 +1304,15 @@ void main() {
       await tapEdge('options-$module-critical', right: false);
       decoded = BarSettings.decode(file.readAsStringSync());
       switch (module) {
+        case 'cpu':
+          expect(decoded.cpu.warn, 0);
+          expect(decoded.cpu.critical, closeTo(0.01, 1e-9));
+        case 'gpu':
+          expect(decoded.gpu.warn, 0);
+          expect(decoded.gpu.critical, closeTo(0.01, 1e-9));
+        case 'disk':
+          expect(decoded.disk.warn, 0);
+          expect(decoded.disk.critical, closeTo(0.01, 1e-9));
         case 'ram':
           expect(decoded.ram.warn, 0);
           expect(decoded.ram.critical, closeTo(0.01, 1e-9));
@@ -1218,6 +1322,9 @@ void main() {
         case 'temperature':
           expect(decoded.temperature.warn, 0);
           expect(decoded.temperature.critical, 1);
+        case 'battery':
+          expect(decoded.battery.warn, 100);
+          expect(decoded.battery.critical, 1);
       }
       expect(ordered(decoded), isTrue);
 
@@ -2191,8 +2298,9 @@ void main() {
     expect(states, 2);
     expect(bloc.settings.accent, const Color(0xff040506));
 
-    // Cancel the pending save so the test leaves no timer behind.
-    saver.dispose();
+    // This test owns only the coalescing behavior; dedicated tests cover the
+    // dispose flush. Drop the pending save so it leaves no timer behind.
+    saver.dispose(flush: false);
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {
@@ -2366,6 +2474,35 @@ void main() {
     expect(settingsGlassEnabled(hostBlur: true, documentBlur: false), isFalse);
     expect(settingsGlassEnabled(hostBlur: false, documentBlur: true), isFalse);
     expect(settingsGlassEnabled(hostBlur: false, documentBlur: false), isFalse);
+  });
+
+  test('settings app state round-trips output geometry', () {
+    const state = SettingsAppState(
+      availableOutputs: [
+        LayerOutput(
+          name: 'HDMI-A-1',
+          viewId: 7,
+          x: 1920,
+          y: 0,
+          width: 2560,
+          height: 1440,
+          scale: 2,
+        ),
+      ],
+      usingSocket: true,
+      loaded: true,
+    );
+    final json = jsonDecode(jsonEncode(state.toJson())) as Map<String, dynamic>;
+    final decoded = SettingsAppState.fromJson(json);
+    final output = decoded.availableOutputs.single;
+    expect(output.name, 'HDMI-A-1');
+    expect(output.viewId, 7);
+    expect(output.x, 1920);
+    expect(output.y, 0);
+    expect(output.width, 2560);
+    expect(output.height, 1440);
+    expect(output.scale, 2);
+    expect(decoded.usingSocket, isTrue);
   });
 
   test('an external document change reloads the settings', () async {

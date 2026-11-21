@@ -152,41 +152,57 @@ void main() {
     expect(bar.document, contains('d0bcff'));
   });
 
-  test('absorbs one revision conflict without losing data', () async {
-    final bar = await _FakeBar.start();
-    addTearDown(bar.dispose);
-    final bloc = _bloc(
-      socket: SocketSettingsTransport(socketPath: bar.path),
-      directory: Directory.systemTemp,
-    );
-    addTearDown(bloc.close);
+  test(
+    'surfaces a revision conflict and keeps the latest disk document',
+    () async {
+      final bar = await _FakeBar.start();
+      addTearDown(bar.dispose);
+      final bloc = _bloc(
+        socket: SocketSettingsTransport(socketPath: bar.path),
+        directory: Directory.systemTemp,
+      );
+      addTearDown(bloc.close);
 
-    await _load(bloc);
-    bar.conflicts = 1;
-    await _save(bloc, bloc.settings.copyWith(accent: accent));
+      await _load(bloc);
+      bar.conflicts = 1;
+      await _save(bloc, bloc.settings.copyWith(accent: accent));
 
-    expect(bloc.error, isNull);
-    expect(bloc.settings.accent, accent);
-    expect(bar.revision, 5);
-    expect(bar.document, contains('d0bcff'));
-  });
+      expect(bloc.error, contains('changed elsewhere'));
+      expect(bloc.settings.accent, const Color(0xff00ff00));
+      expect(bloc.settings.revision, 4);
+      expect(bar.revision, 4);
+      expect(bar.document, contains('00ff00'));
+      expect(bar.document, isNot(contains('d0bcff')));
+    },
+  );
 
-  test('surfaces a conflict that outlives the retry', () async {
-    final bar = await _FakeBar.start();
-    addTearDown(bar.dispose);
-    final bloc = _bloc(
-      socket: SocketSettingsTransport(socketPath: bar.path),
-      directory: Directory.systemTemp,
-    );
-    addTearDown(bloc.close);
+  test(
+    'a save after a conflict writes against the reloaded revision',
+    () async {
+      final bar = await _FakeBar.start();
+      addTearDown(bar.dispose);
+      final bloc = _bloc(
+        socket: SocketSettingsTransport(socketPath: bar.path),
+        directory: Directory.systemTemp,
+      );
+      addTearDown(bloc.close);
 
-    await _load(bloc);
-    bar.conflicts = 2;
-    await _save(bloc, bloc.settings.copyWith(accent: accent));
+      await _load(bloc);
+      bar.conflicts = 1;
+      await _save(bloc, bloc.settings.copyWith(accent: accent));
+      expect(bloc.error, contains('changed elsewhere'));
 
-    expect(bloc.error, contains('revision'));
-    expect(bar.document, contains('00ff00'));
-  });
+      // The user retries after seeing the loaded document; this is a fresh
+      // snapshot at the adopted revision, not a silent resend.
+      await _save(
+        bloc,
+        bloc.settings.copyWith(accent: const Color(0xff112233)),
+      );
+      expect(bloc.error, isNull);
+      expect(bar.revision, 5);
+      expect(bar.document, contains('112233'));
+    },
+  );
 
   test('falls back to the file when no bar answers', () async {
     final directory = await Directory.systemTemp.createTemp('trickster-file');

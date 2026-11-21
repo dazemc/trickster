@@ -21,6 +21,7 @@ class DisplaysPage extends StatefulWidget {
 
 class _DisplaysPageState extends State<DisplaysPage> {
   Timer? _saveTimer;
+  SettingsAppBloc? _bloc;
 
   /// Horizontal and vertical strips keep their own thickness so switching
   /// edges never drags the other orientation's band along. Remembered for
@@ -36,6 +37,11 @@ class _DisplaysPageState extends State<DisplaysPage> {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    final bloc = _bloc;
+    if (bloc != null && !bloc.isClosed) {
+      // The shell flushes before navigation; this covers a direct unmount.
+      unawaited(bloc.flushOutputs());
+    }
     super.dispose();
   }
 
@@ -61,6 +67,7 @@ class _DisplaysPageState extends State<DisplaysPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final controller = context.read<SettingsAppBloc>();
+    _bloc = controller;
     final (outputs, available) = context.select(
       (SettingsAppBloc bloc) =>
           (bloc.state.outputs, bloc.state.availableOutputs),

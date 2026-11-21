@@ -18,6 +18,7 @@ import 'package:trickster/src/settings/pages/appearance.dart';
 import 'package:trickster/src/settings/pages/displays.dart';
 import 'package:trickster/src/settings/pages/language.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
+import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
@@ -49,7 +50,13 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
     // pill's mode cycle); reload so the pages show what the bar shows.
     _watcher = ConfigWatcher(
       directory: ConfigPaths().directory,
-      onChanged: () => _bloc.add(const SettingsAppDocumentChanged()),
+      onChanged: () {
+        // The watcher reports the directory, not the file. Refresh both
+        // documents; each handler preserves an unsaved local draft.
+        _bloc
+          ..add(const SettingsAppDocumentChanged())
+          ..add(const SettingsAppOutputsChanged());
+      },
     )..start();
     _wallpaperAccent = WallpaperAccentBloc(
       outputs: () => _bloc.availableOutputs,
@@ -217,7 +224,35 @@ class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
   final ScrollController _pageScroll = ScrollController();
 
-  void _select(SettingsSection section) => setState(() => _section = section);
+  Future<void> _flushDocuments() async {
+    final bloc = context.read<SettingsAppBloc>();
+    await DebouncedSaver.flushFor(bloc);
+    await bloc.settled;
+    await bloc.flushOutputs();
+    await bloc.settled;
+  }
+
+  Future<void> _select(SettingsSection section) async {
+    // A debounced edit belongs to the document, not to the page that happens
+    // to be mounted when the user navigates away.
+    await _flushDocuments();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _section = section);
+  }
+
+  Future<void> _close() async {
+    await _flushDocuments();
+    if (!mounted) {
+      return;
+    }
+    if (widget.onClose != null) {
+      widget.onClose!();
+      return;
+    }
+    await LayerShell().closeSettingsWindow();
+  }
 
   @override
   void dispose() {
@@ -266,11 +301,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                   ],
                 ),
               ),
-              SettingsCloseButton(
-                onPressed:
-                    widget.onClose ??
-                    () => unawaited(LayerShell().closeSettingsWindow()),
-              ),
+              SettingsCloseButton(onPressed: () => unawaited(_close())),
             ],
           ),
           if (error != null) ...[

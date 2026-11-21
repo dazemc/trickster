@@ -474,10 +474,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.cpu.warn != const CpuOptions().warn,
             onChanged: (value) {
-              final warn = value;
+              // Leave one step between the thresholds at the slider end.
+              final warn = value.clamp(0.0, 0.99);
               _apply(controller, (settings) {
                 final critical = settings.cpu.critical <= warn
-                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    ? math.min(1.0, warn + 0.01)
                     : settings.cpu.critical;
                 return settings.copyWith(
                   cpu: settings.cpu.copyWith(warn: warn, critical: critical),
@@ -525,10 +526,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled: settings.cpu.critical != const CpuOptions().critical,
             onChanged: (value) {
-              final critical = value;
+              final critical = value.clamp(0.01, 1.0);
               _apply(controller, (settings) {
                 final warn = settings.cpu.warn >= critical
-                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    ? math.max(0.0, critical - 0.01)
                     : settings.cpu.warn;
                 return settings.copyWith(
                   cpu: settings.cpu.copyWith(warn: warn, critical: critical),
@@ -539,8 +540,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final critical = math
                   .max(const CpuOptions().critical, settings.cpu.warn + 0.01)
                   .clamp(0.01, 1.0);
+              final warn = math
+                  .min(settings.cpu.warn, critical - 0.01)
+                  .clamp(0.0, 0.99);
               return settings.copyWith(
-                cpu: settings.cpu.copyWith(critical: critical),
+                cpu: settings.cpu.copyWith(warn: warn, critical: critical),
               );
             }),
           ),
@@ -926,10 +930,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.disk.warn != const DiskOptions().warn,
             onChanged: (value) {
-              final warn = value;
+              // Leave one step between the thresholds at the slider end.
+              final warn = value.clamp(0.0, 0.99);
               _apply(controller, (settings) {
                 final critical = settings.disk.critical <= warn
-                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    ? math.min(1.0, warn + 0.01)
                     : settings.disk.critical;
                 return settings.copyWith(
                   disk: settings.disk.copyWith(warn: warn, critical: critical),
@@ -980,10 +985,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetEnabled:
                 settings.disk.critical != const DiskOptions().critical,
             onChanged: (value) {
-              final critical = value;
+              final critical = value.clamp(0.01, 1.0);
               _apply(controller, (settings) {
                 final warn = settings.disk.warn >= critical
-                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    ? math.max(0.0, critical - 0.01)
                     : settings.disk.warn;
                 return settings.copyWith(
                   disk: settings.disk.copyWith(warn: warn, critical: critical),
@@ -994,8 +999,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final critical = math
                   .max(const DiskOptions().critical, settings.disk.warn + 0.01)
                   .clamp(0.01, 1.0);
+              final warn = math
+                  .min(settings.disk.warn, critical - 0.01)
+                  .clamp(0.0, 0.99);
               return settings.copyWith(
-                disk: settings.disk.copyWith(critical: critical),
+                disk: settings.disk.copyWith(warn: warn, critical: critical),
               );
             }),
           ),
@@ -1110,7 +1118,9 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             sliderKey: const ValueKey<String>('options-battery-warn'),
             label: l10n.settingsWarnLabel,
             value: settings.battery.warn.toDouble(),
-            min: 1,
+            // Critical must stay strictly below warning; both values stay in
+            // the document's 1..100 range.
+            min: 2,
             max: 100,
             display: '${settings.battery.warn}%',
             semanticsValueBuilder: (value) => '${value.round()}%',
@@ -1118,7 +1128,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.battery.warn != const BatteryOptions().warn,
             onChanged: (value) {
-              final warn = value.round();
+              final warn = value.round().clamp(2, 100);
               _apply(controller, (settings) {
                 final critical = settings.battery.critical >= warn
                     ? warn - 1
@@ -1134,7 +1144,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                     const BatteryOptions().warn,
                     settings.battery.critical + 1,
                   )
-                  .clamp(1, 99);
+                  .clamp(2, 100);
               return settings.copyWith(
                 battery: BatteryOptions(
                   warn: warn,
@@ -1149,7 +1159,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             label: l10n.settingsCriticalLabel,
             value: settings.battery.critical.toDouble(),
             min: 1,
-            max: 100,
+            max: 99,
             display: '${settings.battery.critical}%',
             semanticsValueBuilder: (value) => '${value.round()}%',
             resetKey: const ValueKey<String>('reset-battery-critical'),
@@ -1157,7 +1167,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetEnabled:
                 settings.battery.critical != const BatteryOptions().critical,
             onChanged: (value) {
-              final critical = value.round();
+              final critical = value.round().clamp(1, 99);
               _apply(controller, (settings) {
                 final warn = settings.battery.warn <= critical
                     ? critical + 1
@@ -1200,10 +1210,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.gpu.warn != const GpuOptions().warn,
             onChanged: (value) {
-              final warn = value;
+              // Leave one step between the thresholds at the slider end.
+              final warn = value.clamp(0.0, 0.99);
               _apply(controller, (settings) {
                 final critical = settings.gpu.critical <= warn
-                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    ? math.min(1.0, warn + 0.01)
                     : settings.gpu.critical;
                 return settings.copyWith(
                   gpu: settings.gpu.copyWith(warn: warn, critical: critical),
@@ -1251,10 +1262,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled: settings.gpu.critical != const GpuOptions().critical,
             onChanged: (value) {
-              final critical = value;
+              final critical = value.clamp(0.01, 1.0);
               _apply(controller, (settings) {
                 final warn = settings.gpu.warn >= critical
-                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    ? math.max(0.0, critical - 0.01)
                     : settings.gpu.warn;
                 return settings.copyWith(
                   gpu: settings.gpu.copyWith(warn: warn, critical: critical),
@@ -1265,8 +1276,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final critical = math
                   .max(const GpuOptions().critical, settings.gpu.warn + 0.01)
                   .clamp(0.01, 1.0);
+              final warn = math
+                  .min(settings.gpu.warn, critical - 0.01)
+                  .clamp(0.0, 0.99);
               return settings.copyWith(
-                gpu: settings.gpu.copyWith(critical: critical),
+                gpu: settings.gpu.copyWith(warn: warn, critical: critical),
               );
             }),
           ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bloc/bloc.dart';
@@ -32,9 +33,13 @@ class SettingsAppPreviewed extends SettingsAppEvent {
 }
 
 class SettingsAppSaveRequested extends SettingsAppEvent {
-  const SettingsAppSaveRequested(this.settings);
+  const SettingsAppSaveRequested(this.settings, {this.completion});
 
   final BarSettings settings;
+
+  /// Completed when this save (success or surfaced error) leaves the bloc.
+  /// Flush waits on it so close cannot outrun the write.
+  final Completer<void>? completion;
 
   @override
   List<Object?> get props => [settings];
@@ -50,9 +55,10 @@ class SettingsAppOutputsPreviewed extends SettingsAppEvent {
 }
 
 class SettingsAppOutputsSaveRequested extends SettingsAppEvent {
-  const SettingsAppOutputsSaveRequested(this.outputs);
+  const SettingsAppOutputsSaveRequested(this.outputs, {this.completion});
 
   final OutputsConfig outputs;
+  final Completer<void>? completion;
 
   @override
   List<Object?> get props => [outputs];
@@ -62,6 +68,12 @@ class SettingsAppOutputsSaveRequested extends SettingsAppEvent {
 /// it); re-read it so an open window reflects bar-side edits.
 class SettingsAppDocumentChanged extends SettingsAppEvent {
   const SettingsAppDocumentChanged();
+}
+
+/// The outputs document changed underneath the application; refresh the
+/// displays page unless it owns an unsaved preview.
+class SettingsAppOutputsChanged extends SettingsAppEvent {
+  const SettingsAppOutputsChanged();
 }
 
 const _unset = Object();
@@ -138,6 +150,9 @@ class SettingsAppState extends Equatable {
       for (final output in availableOutputs)
         {
           'name': output.name,
+          'view_id': output.viewId,
+          'x': output.x,
+          'y': output.y,
           'width': output.width,
           'height': output.height,
           'scale': output.scale,
@@ -170,8 +185,12 @@ class SettingsAppState extends Equatable {
                 if (output is Map<String, dynamic>)
                   LayerOutput(
                     name: '${output['name']}',
+                    viewId: (output['view_id'] as num?)?.toInt() ?? -1,
+                    x: (output['x'] as num?)?.toInt() ?? 0,
+                    y: (output['y'] as num?)?.toInt() ?? 0,
                     width: (output['width'] as num?)?.toInt() ?? 0,
                     height: (output['height'] as num?)?.toInt() ?? 0,
+                    scale: (output['scale'] as num?)?.toInt().clamp(1, 8) ?? 1,
                   ),
             ]
           : const <LayerOutput>[],
@@ -189,8 +208,8 @@ class SettingsAppState extends Equatable {
 ///
 /// The running bar owns the document and serves it over the control socket;
 /// when no bar answers, the app falls back to the file transport. Both paths
-/// ride [NativeSettingsStore], so revision check-and-retry behaves the same
-/// whether the bar is up or down.
+/// ride [NativeSettingsStore], so a revision conflict keeps the latest disk
+/// document and surfaces an explicit error whether the bar is up or down.
 class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
   SettingsAppBloc({
     SettingsDocumentTransport? socket,
@@ -208,16 +227,32 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
        ),
        _layerShell = layerShell ?? LayerShell(),
        super(const SettingsAppState()) {
-    on<SettingsAppLoadRequested>(_onLoad);
+    on<SettingsAppLoadRequested>(
+      (event, emit) => _serial(() => _onLoad(event, emit)),
+    );
     on<SettingsAppPreviewed>(
-      (event, emit) => emit(state.copyWith(settings: event.settings)),
+      (event, emit) => _serial(() async {
+        emit(state.copyWith(settings: event.settings));
+      }),
     );
-    on<SettingsAppSaveRequested>(_onSave);
+    on<SettingsAppSaveRequested>(
+      (event, emit) => _serial(() => _onSave(event, emit)),
+    );
     on<SettingsAppOutputsPreviewed>(
-      (event, emit) => emit(state.copyWith(outputs: event.outputs)),
+      (event, emit) => _serial(() async {
+        _outputsDraft = true;
+        emit(state.copyWith(outputs: event.outputs));
+      }),
     );
-    on<SettingsAppOutputsSaveRequested>(_onSaveOutputs);
-    on<SettingsAppDocumentChanged>(_onDocumentChanged);
+    on<SettingsAppOutputsSaveRequested>(
+      (event, emit) => _serial(() => _onSaveOutputs(event, emit)),
+    );
+    on<SettingsAppDocumentChanged>(
+      (event, emit) => _serial(() => _onDocumentChanged(event, emit)),
+    );
+    on<SettingsAppOutputsChanged>(
+      (event, emit) => _serial(() => _onOutputsChanged(event, emit)),
+    );
   }
 
   final FallbackSettingsTransport _settingsTransport;
@@ -225,6 +260,44 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
   final LayerShell _layerShell;
 
   NativeSettingsStore? _store;
+
+  /// Serializes load/save/reload/preview emissions. Bloc handlers are
+  /// concurrent by default; without this a slow socket write could emit an
+  /// older document after a newer preview or watcher reload.
+  Future<void> _queue = Future<void>.value();
+  var _outputsDraft = false;
+
+  Future<void> _serial(Future<void> Function() action) {
+    final next = _queue.then((_) async {
+      if (!isClosed) {
+        await action();
+      }
+    });
+    _queue = next.catchError((Object _) {});
+    return next;
+  }
+
+  /// Completes when every event queued so far has run. Close waits on this
+  /// after flushing the debounced edit.
+  Future<void> get settled => _queue;
+
+  /// Writes [settings] through the serialized save path; used by the flush
+  /// hook before the window closes.
+  Future<void> saveNow(BarSettings settings) {
+    final completion = Completer<void>();
+    add(SettingsAppSaveRequested(settings, completion: completion));
+    return completion.future;
+  }
+
+  /// Writes the previewed outputs now, if the page has an unsaved draft.
+  Future<void> flushOutputs() {
+    if (!_outputsDraft) {
+      return settled;
+    }
+    final completion = Completer<void>();
+    add(SettingsAppOutputsSaveRequested(state.outputs, completion: completion));
+    return completion.future;
+  }
 
   BarSettings get settings => state.settings;
   OutputsConfig get outputs => state.outputs;
@@ -265,6 +338,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       available = const <LayerOutput>[];
     }
 
+    _outputsDraft = false;
     emit(
       SettingsAppState(
         settings: settings,
@@ -285,6 +359,7 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
   ) async {
     final store = _store;
     if (store == null) {
+      event.completion?.complete();
       return;
     }
     emit(state.copyWith(busy: true, error: null));
@@ -299,6 +374,23 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
           usingSocket: _settingsTransport.usingSocket,
         ),
       );
+    } on SettingsRevisionConflict catch (conflict) {
+      // Keep the other writer's document. The edit stays unapplied; the user
+      // can see the current values and retry deliberately.
+      var latest = state.settings;
+      try {
+        latest = await store.read();
+      } on Object {
+        // Keep the in-memory editor if even the reload fails.
+      }
+      emit(
+        state.copyWith(
+          settings: latest,
+          busy: false,
+          error: '${conflict.message}; reloaded the latest settings',
+          usingSocket: _settingsTransport.usingSocket,
+        ),
+      );
     } on Object catch (writeError) {
       emit(
         state.copyWith(
@@ -307,6 +399,8 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
           usingSocket: _settingsTransport.usingSocket,
         ),
       );
+    } finally {
+      event.completion?.complete();
     }
   }
 
@@ -319,9 +413,13 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       final outputs = OutputsConfig.parse(
         await _outputsTransport.write(event.outputs.encode()),
       );
+      _outputsDraft = false;
       emit(state.copyWith(outputs: outputs, busy: false, outputsError: null));
     } on Object catch (writeError) {
+      _outputsDraft = true;
       emit(state.copyWith(busy: false, outputsError: '$writeError'));
+    } finally {
+      event.completion?.complete();
     }
   }
 
@@ -344,6 +442,23 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
       );
     } on Object {
       // Transient read failure: keep the editor on the current document.
+    }
+  }
+
+  /// A file event may be the bar or a hand edit. An unsaved preview owns the
+  /// page until its debounce lands; do not overwrite it from disk.
+  Future<void> _onOutputsChanged(
+    SettingsAppOutputsChanged event,
+    Emitter<SettingsAppState> emit,
+  ) async {
+    if (_outputsDraft) {
+      return;
+    }
+    try {
+      final outputs = OutputsConfig.parse(await _outputsTransport.read());
+      emit(state.copyWith(outputs: outputs, outputsError: null));
+    } on Object {
+      // Transient read failure: keep the current outputs.
     }
   }
 }

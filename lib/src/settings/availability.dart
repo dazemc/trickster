@@ -40,7 +40,7 @@ List<ModuleAvailability> probeModuleAvailability({
   bool Function()? hasHyprland,
 }) {
   final unavailable = <ModuleAvailability>[];
-  if (!(hasBattery?.call() ?? _hasBattery())) {
+  if (!_available(hasBattery, _hasBattery)) {
     unavailable.add(
       const ModuleAvailability(
         module: 'battery',
@@ -48,7 +48,7 @@ List<ModuleAvailability> probeModuleAvailability({
       ),
     );
   }
-  if (!(hasVram?.call() ?? hasGpuMemorySource())) {
+  if (!_available(hasVram, hasGpuMemorySource)) {
     unavailable.add(
       const ModuleAvailability(
         module: 'vram',
@@ -56,7 +56,7 @@ List<ModuleAvailability> probeModuleAvailability({
       ),
     );
   }
-  if (!(hasTemperature?.call() ?? TemperatureSampler.hasReadableSensor())) {
+  if (!_available(hasTemperature, TemperatureSampler.hasReadableSensor)) {
     unavailable.add(
       const ModuleAvailability(
         module: 'temperature',
@@ -64,7 +64,7 @@ List<ModuleAvailability> probeModuleAvailability({
       ),
     );
   }
-  if (!(hasDisk?.call() ?? hasDiskMount(settings.disk.path))) {
+  if (!_available(hasDisk, () => hasDiskMount(settings.disk.path))) {
     unavailable.add(
       const ModuleAvailability(
         module: 'disk',
@@ -72,8 +72,10 @@ List<ModuleAvailability> probeModuleAvailability({
       ),
     );
   }
-  if (!(hasNetwork?.call() ??
-      hasNetworkInterface(pinned: settings.network.interface))) {
+  if (!_available(
+    hasNetwork,
+    () => hasNetworkInterface(pinned: settings.network.interface),
+  )) {
     unavailable.add(
       const ModuleAvailability(
         module: 'network',
@@ -81,7 +83,7 @@ List<ModuleAvailability> probeModuleAvailability({
       ),
     );
   }
-  if (!(hasHyprland?.call() ?? _hasHyprland())) {
+  if (!_available(hasHyprland, _hasHyprland)) {
     unavailable.add(
       const ModuleAvailability(
         module: 'keyboard_layout',
@@ -111,18 +113,32 @@ bool hasDiskMount(String path) {
   }
 }
 
+/// A hardware probe is advisory: a transient sysfs/read failure means "not
+/// available", never a settings-page build error.
+bool _available(bool Function()? override, bool Function() fallback) {
+  try {
+    return (override ?? fallback)();
+  } on Object {
+    return false;
+  }
+}
+
 bool _hasHyprland() {
   return Platform.environment['HYPRLAND_INSTANCE_SIGNATURE'] != null &&
       Platform.environment['XDG_RUNTIME_DIR'] != null;
 }
 
 bool _hasBattery() {
-  final directory = Directory('/sys/class/power_supply');
-  if (!directory.existsSync()) {
+  try {
+    final directory = Directory('/sys/class/power_supply');
+    if (!directory.existsSync()) {
+      return false;
+    }
+    return directory.listSync().any((entry) {
+      final name = entry.path.split('/').last;
+      return name.startsWith('BAT');
+    });
+  } on FileSystemException {
     return false;
   }
-  return directory.listSync().any((entry) {
-    final name = entry.path.split('/').last;
-    return name.startsWith('BAT');
-  });
 }
