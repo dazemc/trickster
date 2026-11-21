@@ -71,6 +71,22 @@ temporary rebuild and pointer counters):
 This is a regression reference, not a current-host measurement. Re-measure
 before quoting it for a new Flutter or output.
 
+**Settings wallpaper preference (2026-11, headless A/B).** A release settings
+process under headless gamescope at 1280×720, with a fake bar control socket,
+the host's 268,902,170-byte GIF cache present, and `accent_source=wallpaper`:
+
+- before (`0f1cb80`): 210,792 kB RSS / 136,905 kB PSS; commands
+  `settings.read`, `outputs.read`; two `magick` decodes and a `grim` probe plus
+  capture;
+- after (`168275a`): 203,904 kB RSS / 132,525 kB PSS; commands
+  `settings.read`, `outputs.read`, `status`; no decoder, grim, or wallpaper
+  cache open.
+
+The RSS difference is one observation, not a budget. The reproducible claim is
+the command/exec trace: a usable `status.state.wallpaper` replaces local
+decode. The settings process still falls back to its own sampler when the bar
+is unreachable or returns no usable state.
+
 **StatusNotifier parse cost (2026-11, headless benchmark).** The real
 `StatusNotifierService`/`DBusClient` path was driven by a fake-bus exporter
 isolate under `flutter test`, one `PropertiesChanged` per update carrying
@@ -227,7 +243,7 @@ samplers keep their normal cadence.
 | StatusNotifier | Worker isolate; UI icon decode; 45 ms coalesce | Worker starts with the configured tray module; event-driven |
 | Workspaces | Sway/Hyprland/niri events | Event-driven; Hyprland 32 ms debounce |
 | Clock | minute-aligned / 1 Hz | Continues |
-| Wallpaper accent | wall-clock cache change, 300 ms debounce | Only when source is wallpaper |
+| Wallpaper accent | wall-clock cache change, 300 ms debounce | Only when source is wallpaper; settings asks the bar first, local sampler fallback |
 | Visualizer | 33 ms PipeWire pump | Only playing and visible |
 | Sink volume | PipeWire watch | While the media module is configured |
 
@@ -313,6 +329,15 @@ view set changes.
 
 `--check` is a cold-process preflight; a warm run measured about 372 ms. It is
 not a startup benchmark for the bar.
+
+**Settings startup and save.** `SettingsAppBloc._onLoad` starts the settings
+read, outputs read, and native output enumeration together, so a slow control
+socket costs the slowest read rather than their sum; errors stay per field.
+A save emits the document returned by `NativeSettingsStore.write` instead of
+reading it back. `NativeSettingsStore.read` waits for an in-flight write, and
+the settings config watcher accepts only `settings.json`/`outputs.conf` paths
+or an atomic-replace destination, so `.tmp`/`.prev` events do not schedule a
+reload.
 
 Flutter 3.50.1 emits a cursor-theme warning and `Timed out waiting for
 subsurface frame` lines at startup. They are upstream and benign; the 2×2
@@ -469,6 +494,11 @@ same scenario and keep the numbers with their provenance.
 | Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster, known-property retention, digest equality | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties`, `SystemTrayIconPixmap` |
 | Wallpaper caps plus external 64 px thumbnail for oversized sources | Current | `readWallpaperSource`, `WallpaperSourceLimits`, `ProcessWallpaperThumbnailer`; 269 MB GIF → `#636ea6`, VmHWM 167,452 kB |
+| Settings prefers the bar's wallpaper state | Current | `loadBarWallpaperAccent`, `WallpaperAccentBloc(remote:)`; headless A/B removes decoder/grim execs |
+| Settings initial reads are concurrent | Current | `_settle` in `SettingsAppBloc._onLoad`; gated transport test |
+| Settings save reuses the write response | Current | `NativeSettingsStore.write` returns `SettingsDocument` |
+| Settings watcher ignores temp/prev events | Current | `isEditedDocumentEvent`; atomic-replace destination accepted |
+| Same-slot drag previews do not emit | Current | `ModulesBloc.lastPointer` outside reactive state |
 | Connector lookup cached per monitor | Current | `connector_cache`; add/remove invalidation, dispose free |
 | Bundle ~28.4 MiB, fonts as measured | Current | Current release bundle |
 | Unused Lucide weight fonts | Gap | Six variable fonts, 3,160,400 B |
