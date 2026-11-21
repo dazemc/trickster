@@ -18,3 +18,13 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Telemetry modules
+
+- **M — Add the first-class disk module.** Add `DiskSample`/`DiskSampler`
+  over one configured mount with statvfs in a worker isolate, `DiskBloc`,
+  `DiskOptions`, the `disk` pill/options/l10n/status, and the ModuleScope
+  idle gate. The module is default-on and hides when the mount is missing or
+  unreadable. Done: statvfs math/real `/` read/sampler/pill/config/gating/
+  status/l10n tests, `flutter analyze`, full `flutter test`, and a release
+  build pass; headless status proof replaces the screen-off visual check.
