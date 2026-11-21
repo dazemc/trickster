@@ -11,6 +11,7 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
@@ -23,6 +24,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
@@ -151,6 +153,7 @@ Future<void> pumpBarHarness(
   RamBloc Function()? ramBuilder,
   TemperatureBloc Function()? temperatureBuilder,
   DiskBloc Function()? diskBuilder,
+  KeyboardLayoutBloc Function()? keyboardLayoutBuilder,
   GpuBloc Function()? gpuBuilder,
   GpuState gpuInitial = const GpuState(),
   CpuSampler Function()? cpuSamplerBuilder,
@@ -231,6 +234,17 @@ Future<void> pumpBarHarness(
                         ),
                       )
                     : null),
+            keyboardLayoutBuilder:
+                keyboardLayoutBuilder ??
+                () => KeyboardLayoutBloc(
+                  initial: const KeyboardLayoutState(
+                    available: true,
+                    backend: 'hyprland',
+                    active: 'US',
+                    index: 0,
+                    names: ['us'],
+                  ),
+                ),
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null

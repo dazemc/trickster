@@ -26,6 +26,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
     'ram' => l10n.moduleRam,
     'temperature' => l10n.moduleTemperature,
     'disk' => l10n.moduleDisk,
+    'keyboard_layout' => l10n.moduleKeyboardLayout,
     'battery' => l10n.moduleBattery,
     'clock' => l10n.moduleClock,
     'opencode' => l10n.moduleOpencode,
@@ -37,6 +38,7 @@ String _reasonLabel(AppLocalizations l10n, ModuleUnavailableReason reason) {
   return switch (reason) {
     ModuleUnavailableReason.noBattery => l10n.settingsUnavailableNoBattery,
     ModuleUnavailableReason.noVram => l10n.settingsUnavailableNoVram,
+    ModuleUnavailableReason.noHyprland => l10n.settingsUnavailableNoHyprland,
   };
 }
 

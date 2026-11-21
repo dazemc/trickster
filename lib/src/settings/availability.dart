@@ -11,7 +11,7 @@ class ModuleAvailability {
 }
 
 /// Why a module cannot run here; the settings page maps this to a caption.
-enum ModuleUnavailableReason { noBattery, noVram }
+enum ModuleUnavailableReason { noBattery, noVram, noHyprland }
 
 /// Probes the machine for hardware the bar might not find. The settings page
 /// takes this as a parameter so tests (and future remote transports) can
@@ -34,7 +34,20 @@ List<ModuleAvailability> probeModuleAvailability() {
       ),
     );
   }
+  if (!_hasHyprland()) {
+    unavailable.add(
+      const ModuleAvailability(
+        module: 'keyboard_layout',
+        reason: ModuleUnavailableReason.noHyprland,
+      ),
+    );
+  }
   return unavailable;
+}
+
+bool _hasHyprland() {
+  return Platform.environment['HYPRLAND_INSTANCE_SIGNATURE'] != null &&
+      Platform.environment['XDG_RUNTIME_DIR'] != null;
 }
 
 bool _hasBattery() {

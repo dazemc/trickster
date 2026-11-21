@@ -147,6 +147,18 @@ abstract class AppLocalizations {
   /// **'DISK'**
   String get metricDisk;
 
+  /// Caption for the keyboard-layout pill.
+  ///
+  /// In en, this message translates to:
+  /// **'KB'**
+  String get metricKeyboardLayout;
+
+  /// Keyboard-layout tooltip listing the available layouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Layouts: {layouts}'**
+  String keyboardLayoutNames(String layouts);
+
   /// Disk tooltip detail with IEC byte values.
   ///
   /// In en, this message translates to:
@@ -423,6 +435,12 @@ abstract class AppLocalizations {
   /// **'No dedicated GPU memory detected'**
   String get settingsUnavailableNoVram;
 
+  /// Reason shown when the Hyprland keyboard backend is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Hyprland session not detected'**
+  String get settingsUnavailableNoHyprland;
+
   /// Gear label revealing one module's typed options.
   ///
   /// In en, this message translates to:
@@ -638,6 +656,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Disk'**
   String get moduleDisk;
+
+  /// Display name of the keyboard layout module.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard layout'**
+  String get moduleKeyboardLayout;
 
   /// Display name of the GPU module.
   ///

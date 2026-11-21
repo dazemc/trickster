@@ -389,6 +389,7 @@ void main() {
     expect(find.text('Video memory'), findsOneWidget);
     expect(find.text('Temperature'), findsOneWidget);
     expect(find.text('Disk'), findsOneWidget);
+    expect(find.text('Keyboard layout'), findsOneWidget);
 
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
@@ -765,6 +766,10 @@ void main() {
           module: 'vram',
           reason: ModuleUnavailableReason.noVram,
         ),
+        ModuleAvailability(
+          module: 'keyboard_layout',
+          reason: ModuleUnavailableReason.noHyprland,
+        ),
       ],
     );
     await tester.tap(find.bySemanticsLabel('Modules'));
@@ -784,6 +789,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('No dedicated GPU memory detected'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('module-unavailable-keyboard_layout')),
+      findsOneWidget,
+    );
+    expect(find.text('Hyprland session not detected'), findsOneWidget);
     // The battery is not offered as a toggle in a zone segment.
     expect(
       find.byKey(const ValueKey<String>('module-toggle-battery')),

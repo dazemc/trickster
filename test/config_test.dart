@@ -425,6 +425,12 @@ void main() {
         bare.modules.indexOf('temperature') + 1,
         reason: 'disk follows temperature in the default order',
       );
+      expect(bare.modules, contains('keyboard_layout'));
+      expect(
+        bare.modules.indexOf('keyboard_layout'),
+        bare.modules.indexOf('disk') + 1,
+        reason: 'keyboard_layout follows disk in the default order',
+      );
       expect(bare.modules, contains('ram'));
       expect(bare.modules, contains('temperature'));
       expect(

@@ -11,6 +11,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
@@ -86,6 +87,8 @@ Future<Map<String, Object?>> handleControlRequest({
             'temperature': bloc.state.toJson(),
           if (_read<DiskBloc>(context) case final bloc?)
             'disk': bloc.state.toJson(),
+          if (_read<KeyboardLayoutBloc>(context) case final bloc?)
+            'keyboard_layout': bloc.state.toJson(),
           if (_read<GpuBloc>(context) case final bloc?)
             'gpu': bloc.state.toJson(),
           if (_read<BatteryBloc>(context) case final bloc?)

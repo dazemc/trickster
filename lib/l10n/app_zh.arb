@@ -42,6 +42,20 @@
   "@metricDisk": {
     "description": "Caption for the disk meter."
   },
+  "metricKeyboardLayout": "KB",
+  "@metricKeyboardLayout": {
+    "description": "Caption for the keyboard-layout pill."
+  },
+  "keyboardLayoutNames": "布局：{layouts}",
+  "@keyboardLayoutNames": {
+    "description": "Keyboard-layout tooltip listing the available layouts.",
+    "placeholders": {
+      "layouts": {
+        "type": "String",
+        "example": "US / RU"
+      }
+    }
+  },
   "diskUsageDetail": "{used} 已用 · {total} 总计 · {free} 可用",
   "@diskUsageDetail": {
     "description": "Disk tooltip detail with IEC byte values.",
@@ -257,6 +271,10 @@
   "@settingsUnavailableNoVram": {
     "description": "Reason shown when no dedicated GPU memory source is detected."
   },
+  "settingsUnavailableNoHyprland": "未检测到 Hyprland 会话",
+  "@settingsUnavailableNoHyprland": {
+    "description": "Reason shown when the Hyprland keyboard backend is unavailable."
+  },
   "settingsModuleOptions": "{module} 选项",
   "@settingsModuleOptions": {
     "description": "Gear label revealing one module's options.",
@@ -405,6 +423,10 @@
   "moduleDisk": "磁盘",
   "@moduleDisk": {
     "description": "Display name of the disk module."
+  },
+  "moduleKeyboardLayout": "键盘布局",
+  "@moduleKeyboardLayout": {
+    "description": "Display name of the keyboard layout module."
   },
   "moduleGpu": "GPU",
   "@moduleGpu": {

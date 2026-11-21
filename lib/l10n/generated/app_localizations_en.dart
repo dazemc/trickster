@@ -37,6 +37,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get metricDisk => 'DISK';
 
   @override
+  String get metricKeyboardLayout => 'KB';
+
+  @override
+  String keyboardLayoutNames(String layouts) {
+    return 'Layouts: $layouts';
+  }
+
+  @override
   String diskUsageDetail(String used, String total, String free) {
     return '$used used · $total total · $free free';
   }
@@ -187,6 +195,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUnavailableNoVram => 'No dedicated GPU memory detected';
 
   @override
+  String get settingsUnavailableNoHyprland => 'Hyprland session not detected';
+
+  @override
   String settingsModuleOptions(String module) {
     return '$module options';
   }
@@ -295,6 +306,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moduleDisk => 'Disk';
+
+  @override
+  String get moduleKeyboardLayout => 'Keyboard layout';
 
   @override
   String get moduleGpu => 'GPU';

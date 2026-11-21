@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/keyboard_layout.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/vram.dart';
@@ -27,6 +28,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -716,6 +718,37 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(builds, 2);
+  });
+
+  testWidgets('disabled keyboard layout builds no bloc or pill', (
+    tester,
+  ) async {
+    var builds = 0;
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      keyboardLayoutBuilder: () {
+        builds += 1;
+        return KeyboardLayoutBloc();
+      },
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(builds, 0);
+    expect(find.byType(KeyboardLayoutPill), findsNothing);
+  });
+
+  testWidgets('keyboard layout renders from the seeded provider', (
+    tester,
+  ) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(KeyboardLayoutPill), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-keyboard-layout')),
+      findsOneWidget,
+    );
+    expect(find.text('KB'), findsOneWidget);
+    expect(find.text('US'), findsOneWidget);
   });
 
   testWidgets('ram-only idle dispatches only the ram events', (tester) async {

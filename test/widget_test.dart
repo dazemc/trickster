@@ -10,6 +10,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/keyboard_layout.dart';
 import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/ram.dart';
@@ -22,6 +23,7 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
@@ -30,6 +32,7 @@ import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -253,6 +256,39 @@ void main() {
     disk.add(const DiskSampled(DiskSample()));
     await tester.pump();
     expect(find.byType(DiskPill), findsNothing);
+  });
+
+  testWidgets('keyboard layout pill follows the block state', (tester) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(KeyboardLayoutPill), findsOneWidget);
+    expect(find.text('KB'), findsOneWidget);
+    expect(find.text('US'), findsOneWidget);
+
+    final keyboard = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<KeyboardLayoutBloc>();
+    keyboard.add(
+      const KeyboardLayoutChanged(
+        KeyboardLayoutState(
+          available: true,
+          backend: 'hyprland',
+          active: 'RU',
+          index: 1,
+          names: ['us', 'ru'],
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('RU'), findsOneWidget);
+
+    keyboard.add(
+      const KeyboardLayoutChanged(
+        KeyboardLayoutState(available: false, backend: 'hyprland'),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(KeyboardLayoutPill), findsNothing);
   });
 
   testWidgets('gpu cards follow the service list', (tester) async {

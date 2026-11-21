@@ -14,6 +14,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
@@ -46,6 +47,7 @@ class ModuleScope extends StatelessWidget {
     this.ramBuilder,
     this.temperatureBuilder,
     this.diskBuilder,
+    this.keyboardLayoutBuilder,
     this.gpuBuilder,
     this.cpuSamplerBuilder,
     this.ramSamplerBuilder,
@@ -71,6 +73,7 @@ class ModuleScope extends StatelessWidget {
   final RamBloc Function()? ramBuilder;
   final TemperatureBloc Function()? temperatureBuilder;
   final DiskBloc Function()? diskBuilder;
+  final KeyboardLayoutBloc Function()? keyboardLayoutBuilder;
   final GpuBloc Function()? gpuBuilder;
 
   /// Sampler factories for tests that need the production paused-start wiring
@@ -151,6 +154,12 @@ class ModuleScope extends StatelessWidget {
                 )..add(
                   DiskStarted(paused: context.read<SeatIdleBloc>().state.idle),
                 )),
+          ),
+        if (settings.includes('keyboard_layout'))
+          BlocProvider<KeyboardLayoutBloc>(
+            create: (_) =>
+                keyboardLayoutBuilder?.call() ??
+                (KeyboardLayoutBloc()..add(const KeyboardLayoutStarted())),
           ),
         if (settings.includes('gpu') || settings.includes('vram'))
           BlocProvider<GpuBloc>(

@@ -1334,6 +1334,7 @@ class BarSettings extends Equatable {
     'ram',
     'temperature',
     'disk',
+    'keyboard_layout',
     'battery',
     'clock',
     'opencode',

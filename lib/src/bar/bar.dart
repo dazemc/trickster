@@ -9,6 +9,7 @@ import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/flow.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/keyboard_layout.dart';
 import 'package:trickster/src/bar/media.dart';
 import 'package:trickster/src/bar/opencode.dart';
 import 'package:trickster/src/bar/pill.dart';
@@ -26,6 +27,7 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -35,6 +37,7 @@ import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
@@ -433,6 +436,35 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
           );
         },
       ),
+      'keyboard_layout': (position) =>
+          BlocBuilder<KeyboardLayoutBloc, KeyboardLayoutState>(
+            builder: (context, state) {
+              if (!state.hasLayout) {
+                return const SizedBox.shrink();
+              }
+              return SystemBarEntrance(
+                key: const ValueKey<String>('system-bar-keyboard-layout'),
+                index: position,
+                horizontal: horizontal,
+                child: Padding(
+                  padding: vertical
+                      ? const EdgeInsets.only(
+                          bottom: TricksterBarStrip._cardGap,
+                        )
+                      : const EdgeInsets.only(
+                          right: TricksterBarStrip._cardGap,
+                        ),
+                  child: RepaintBoundary(
+                    child: KeyboardLayoutPill(
+                      accent: accent,
+                      state: state,
+                      vertical: vertical,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
       'battery': (position) => BlocBuilder<BatteryBloc, BatteryStatus>(
         builder: (context, status) {
           if (status.capacity == null) {

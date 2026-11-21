@@ -37,6 +37,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get metricDisk => 'DISK';
 
   @override
+  String get metricKeyboardLayout => 'KB';
+
+  @override
+  String keyboardLayoutNames(String layouts) {
+    return '布局：$layouts';
+  }
+
+  @override
   String diskUsageDetail(String used, String total, String free) {
     return '$used 已用 · $total 总计 · $free 可用';
   }
@@ -183,6 +191,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoVram => '未检测到独立显存';
 
   @override
+  String get settingsUnavailableNoHyprland => '未检测到 Hyprland 会话';
+
+  @override
   String settingsModuleOptions(String module) {
     return '$module 选项';
   }
@@ -291,6 +302,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get moduleDisk => '磁盘';
+
+  @override
+  String get moduleKeyboardLayout => '键盘布局';
 
   @override
   String get moduleGpu => 'GPU';

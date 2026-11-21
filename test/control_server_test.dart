@@ -14,10 +14,12 @@ import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
+import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
@@ -621,6 +623,59 @@ void main() {
       'fraction': 0.6,
     });
     expect(state['seat_idle'], {'idle': false});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status exposes the keyboard layout state', (tester) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) =>
+                SettingsBloc(const BarSettings(modules: ['keyboard_layout'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<KeyboardLayoutBloc>(
+            create: (_) => KeyboardLayoutBloc(
+              initial: const KeyboardLayoutState(
+                available: true,
+                backend: 'hyprland',
+                active: 'US',
+                index: 0,
+                names: ['us', 'ru'],
+              ),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['keyboard_layout'], {
+      'available': true,
+      'backend': 'hyprland',
+      'active': 'US',
+      'index': 0,
+      'names': ['us', 'ru'],
+    });
     expect(jsonEncode(reply), isA<String>());
   });
 
