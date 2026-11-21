@@ -10,6 +10,7 @@ import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/keyboard_layout.dart';
+import 'package:trickster/src/bar/network.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/vram.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -29,6 +31,7 @@ import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -164,6 +167,50 @@ class _RecordingDiskSampler extends DiskSampler {
 
 class _RecordingGpuSampler extends GpuSampler {
   _RecordingGpuSampler({super.includeUsage, super.includeMemory});
+
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+}
+
+class _NoNetworkReader implements NetworkReader {
+  @override
+  NetworkKernelReading read({String? selectedName, String? pinnedName}) {
+    return NetworkKernelReading(
+      counters: const {},
+      interfaces: const {},
+      defaultRouteInterfaces: const {},
+    );
+  }
+
+  @override
+  void dispose() {}
+}
+
+class _RecordingNetworkSampler extends NetworkSampler {
+  _RecordingNetworkSampler()
+    : super(
+        interval: const Duration(days: 1),
+        reader: _NoNetworkReader(),
+        log: (_) {},
+      );
 
   var starts = 0;
   var pauses = 0;
@@ -784,6 +831,90 @@ void main() {
         BarSettings(
           modules: ['clock', 'disk'],
           disk: DiskOptions(path: '/data'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(builds, 2);
+  });
+
+  testWidgets('network-only idle dispatches only its own events', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final network = _RecordingNetworkSampler();
+    final cpu = _RecordingCpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'network']),
+      seatIdleChanges: changes.stream,
+      networkSamplerBuilder: () => network,
+      cpuSamplerBuilder: () => cpu,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(network.pauses, 1);
+    expect(network.resumes, 1);
+    expect(cpu.pauses, 0);
+    expect(cpu.resumes, 0);
+  });
+
+  testWidgets('disabled network builds no bloc or sampler', (tester) async {
+    final network = _RecordingNetworkSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      networkSamplerBuilder: () => network,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(network.starts, 0);
+    expect(find.byType(NetworkPill), findsNothing);
+  });
+
+  testWidgets('a network module created while idle starts paused', (
+    tester,
+  ) async {
+    final network = _RecordingNetworkSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'network']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      networkSamplerBuilder: () => network,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(network.starts, 1);
+    expect(network.startedPaused, isTrue);
+  });
+
+  testWidgets('a network interface change replaces the provider', (
+    tester,
+  ) async {
+    var builds = 0;
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'network']),
+      networkBuilder: () {
+        builds += 1;
+        return NetworkBloc(initial: harnessNetworkSample);
+      },
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(builds, 1);
+
+    final settingsBloc = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<SettingsBloc>();
+    settingsBloc.add(
+      const SettingsLoaded(
+        BarSettings(
+          modules: ['clock', 'network'],
+          network: NetworkOptions(interface: 'wlan0'),
         ),
       ),
     );

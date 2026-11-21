@@ -28,6 +28,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
     'disk' => l10n.moduleDisk,
     'keyboard_layout' => l10n.moduleKeyboardLayout,
     'battery' => l10n.moduleBattery,
+    'network' => l10n.moduleNetwork,
     'clock' => l10n.moduleClock,
     'opencode' => l10n.moduleOpencode,
     _ => module,

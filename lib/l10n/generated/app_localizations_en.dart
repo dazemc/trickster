@@ -50,6 +50,64 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get networkWifi => 'Wi-Fi';
+
+  @override
+  String get networkEthernet => 'Ethernet';
+
+  @override
+  String get networkConnected => 'Connected';
+
+  @override
+  String get networkLinked => 'Linked';
+
+  @override
+  String get networkLocal => 'Local';
+
+  @override
+  String get networkLimited => 'Limited';
+
+  @override
+  String get networkDisconnected => 'Disconnected';
+
+  @override
+  String get networkDisabled => 'Off';
+
+  @override
+  String networkRatesCompact(String rx, String tx) {
+    return '↓$rx ↑$tx';
+  }
+
+  @override
+  String networkLinkDetail(String state) {
+    return 'link $state';
+  }
+
+  @override
+  String get networkLinkUp => 'up';
+
+  @override
+  String get networkLinkDown => 'down';
+
+  @override
+  String get networkLinkUnknown => 'unknown';
+
+  @override
+  String networkSpeedDetail(String speed) {
+    return 'speed $speed';
+  }
+
+  @override
+  String networkRateDetail(String rx, String tx) {
+    return 'received $rx · sent $tx';
+  }
+
+  @override
+  String networkTotalsDetail(String rx, String tx) {
+    return '$rx received · $tx sent';
+  }
+
+  @override
   String temperatureCelsius(String value) {
     return '$value°C';
   }
@@ -320,6 +378,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moduleBattery => 'Battery';
 
   @override
+  String get moduleNetwork => 'Network';
+
+  @override
   String get moduleClock => 'Clock';
 
   @override
@@ -421,6 +482,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDiskPath => 'Mount path';
+
+  @override
+  String get settingsNetworkInterface => 'Interface';
+
+  @override
+  String get settingsNetworkInterfaceHint => 'auto';
+
+  @override
+  String get settingsNetworkShowRates => 'Show rates';
 
   @override
   String get settingsMeterSection => 'Meter captions';

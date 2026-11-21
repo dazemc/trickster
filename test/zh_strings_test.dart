@@ -138,6 +138,16 @@ void main() {
       l10n.diskUsageDetail('620 GiB', '1 TiB', '404 GiB'),
       '620 GiB 已用 · 1 TiB 总计 · 404 GiB 可用',
     );
+    expect(l10n.moduleNetwork, '网络');
+    expect(l10n.networkEthernet, '以太网');
+    expect(l10n.networkDisconnected, '未连接');
+    expect(l10n.networkRatesCompact('1.2M/s', '80K/s'), '↓1.2M/s ↑80K/s');
+    expect(l10n.networkLinkDetail('已连通'), '链路 已连通');
+    expect(
+      l10n.networkTotalsDetail('1 GiB', '2 GiB'),
+      '累计接收 1 GiB · 累计发送 2 GiB',
+    );
+    expect(l10n.settingsNetworkShowRates, '显示速率');
     expect(l10n.metricKeyboardLayout, 'KB');
     expect(l10n.moduleKeyboardLayout, '键盘布局');
     expect(l10n.keyboardLayoutNames('US / RU'), '布局：US / RU');

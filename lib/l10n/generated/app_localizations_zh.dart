@@ -50,6 +50,64 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get networkWifi => 'Wi-Fi';
+
+  @override
+  String get networkEthernet => '以太网';
+
+  @override
+  String get networkConnected => '已连接';
+
+  @override
+  String get networkLinked => '已连线';
+
+  @override
+  String get networkLocal => '本地';
+
+  @override
+  String get networkLimited => '受限';
+
+  @override
+  String get networkDisconnected => '未连接';
+
+  @override
+  String get networkDisabled => '已关闭';
+
+  @override
+  String networkRatesCompact(String rx, String tx) {
+    return '↓$rx ↑$tx';
+  }
+
+  @override
+  String networkLinkDetail(String state) {
+    return '链路 $state';
+  }
+
+  @override
+  String get networkLinkUp => '已连通';
+
+  @override
+  String get networkLinkDown => '未连通';
+
+  @override
+  String get networkLinkUnknown => '未知';
+
+  @override
+  String networkSpeedDetail(String speed) {
+    return '速率 $speed';
+  }
+
+  @override
+  String networkRateDetail(String rx, String tx) {
+    return '接收 $rx · 发送 $tx';
+  }
+
+  @override
+  String networkTotalsDetail(String rx, String tx) {
+    return '累计接收 $rx · 累计发送 $tx';
+  }
+
+  @override
   String temperatureCelsius(String value) {
     return '$value°C';
   }
@@ -316,6 +374,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get moduleBattery => '电池';
 
   @override
+  String get moduleNetwork => '网络';
+
+  @override
   String get moduleClock => '时钟';
 
   @override
@@ -416,6 +477,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDiskPath => '挂载路径';
+
+  @override
+  String get settingsNetworkInterface => '网络接口';
+
+  @override
+  String get settingsNetworkInterfaceHint => '自动';
+
+  @override
+  String get settingsNetworkShowRates => '显示速率';
 
   @override
   String get settingsMeterSection => '仪表标签';

@@ -390,6 +390,7 @@ void main() {
     expect(find.text('Temperature'), findsOneWidget);
     expect(find.text('Disk'), findsOneWidget);
     expect(find.text('Keyboard layout'), findsOneWidget);
+    expect(find.text('Network'), findsOneWidget);
 
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
@@ -503,6 +504,32 @@ void main() {
     await reset('reset-disk-critical');
     expect(bloc.settings.disk.critical, const DiskOptions().critical);
 
+    await openOptions('network');
+    final interfaceField = find.byKey(
+      const ValueKey<String>('network-interface'),
+    );
+    await tester.ensureVisible(interfaceField);
+    await tester.pumpAndSettle();
+    await tester.enterText(interfaceField, 'wlan0');
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.network.interface, 'wlan0');
+    final ratesToggle = find.byKey(
+      const ValueKey<String>('network-show-rates'),
+    );
+    await tester.ensureVisible(ratesToggle);
+    await tester.pumpAndSettle();
+    await tester.tap(ratesToggle);
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.network.showRates, isFalse);
+    await reset('reset-network-show-rates');
+    expect(bloc.settings.network.showRates, isTrue);
+    await tester.enterText(interfaceField, '');
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.network.interface, isNull);
+
     await openOptions('vram');
     await nudgeToMax('options-vram-warn');
     await reset('reset-vram-warn');
@@ -554,6 +581,8 @@ void main() {
     expect(decoded.disk.path, '/data');
     expect(decoded.disk.warn, const DiskOptions().warn);
     expect(decoded.disk.critical, const DiskOptions().critical);
+    expect(decoded.network.interface, isNull);
+    expect(decoded.network.showRates, isTrue);
     expect(decoded.vram.warn, const VramOptions().warn);
     expect(decoded.vram.critical, const VramOptions().critical);
     expect(decoded.battery.warn, const BatteryOptions().warn);

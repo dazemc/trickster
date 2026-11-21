@@ -13,6 +13,7 @@ import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/keyboard_layout.dart';
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -27,6 +28,7 @@ import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
@@ -114,6 +116,20 @@ const harnessWorkspaces = [
   Workspace(id: '2', name: '2', output: 'HDMI-A-1', urgent: true),
 ];
 
+/// One connected Ethernet sample so the default strip never reads procfs.
+const harnessNetworkSample = NetworkSample(
+  interface: 'enp42s0',
+  medium: NetworkMedium.ethernet,
+  link: NetworkLink.up,
+  adminUp: true,
+  defaultRoute: true,
+  ethernetSpeedMbps: 1000,
+  rxBytesPerSecond: 1250000,
+  txBytesPerSecond: 80000,
+  rxBytesTotal: 12400000000,
+  txBytesTotal: 1100000000,
+);
+
 /// OpenCode Go state every harnessed strip renders without a live server.
 const harnessOpencodeUsage = OpencodeUsage(
   available: true,
@@ -154,13 +170,16 @@ Future<void> pumpBarHarness(
   TemperatureBloc Function()? temperatureBuilder,
   DiskBloc Function()? diskBuilder,
   KeyboardLayoutBloc Function()? keyboardLayoutBuilder,
+  NetworkBloc Function()? networkBuilder,
   GpuBloc Function({required bool includeUsage, required bool includeMemory})?
   gpuBuilder,
   GpuState gpuInitial = const GpuState(),
+  NetworkSample networkInitial = harnessNetworkSample,
   CpuSampler Function()? cpuSamplerBuilder,
   RamSampler Function()? ramSamplerBuilder,
   TemperatureSampler Function()? temperatureSamplerBuilder,
   DiskSampler Function()? diskSamplerBuilder,
+  NetworkSampler Function()? networkSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
   BatterySampler Function()? batterySamplerBuilder,
   OpencodeSampler Function()? opencodeSamplerBuilder,
@@ -246,6 +265,11 @@ Future<void> pumpBarHarness(
                     names: ['us'],
                   ),
                 ),
+            networkBuilder:
+                networkBuilder ??
+                (networkSamplerBuilder == null
+                    ? () => NetworkBloc(initial: networkInitial)
+                    : null),
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null
@@ -262,6 +286,7 @@ Future<void> pumpBarHarness(
             ramSamplerBuilder: ramSamplerBuilder,
             temperatureSamplerBuilder: temperatureSamplerBuilder,
             diskSamplerBuilder: diskSamplerBuilder,
+            networkSamplerBuilder: networkSamplerBuilder,
             gpuSamplerBuilder: gpuSamplerBuilder,
             trayBuilder:
                 trayBuilder ?? () => TrayBloc(initial: const TrayState()),

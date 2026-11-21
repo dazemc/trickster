@@ -11,6 +11,7 @@ import 'package:trickster/src/bar/flow.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/keyboard_layout.dart';
 import 'package:trickster/src/bar/media.dart';
+import 'package:trickster/src/bar/network.dart';
 import 'package:trickster/src/bar/opencode.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
@@ -28,6 +29,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/keyboard_layout.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -39,6 +41,7 @@ import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/session_bloc.dart';
@@ -484,6 +487,31 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                   onPressed: onOpenPowerSettings,
                   warn: settings.battery.warn,
                   critical: settings.battery.critical,
+                  vertical: vertical,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      'network': (position) => BlocBuilder<NetworkBloc, NetworkSample>(
+        builder: (context, sample) {
+          if (!sample.visible) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            key: const ValueKey<String>('system-bar-network'),
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
+              child: RepaintBoundary(
+                child: NetworkPill(
+                  accent: accent,
+                  sample: sample,
+                  showRates: settings.network.showRates,
                   vertical: vertical,
                 ),
               ),

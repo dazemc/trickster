@@ -74,6 +74,112 @@
       }
     }
   },
+  "networkWifi": "Wi-Fi",
+  "@networkWifi": {
+    "description": "Network pill label for a connected Wi-Fi link."
+  },
+  "networkEthernet": "Ethernet",
+  "@networkEthernet": {
+    "description": "Network pill label for a connected Ethernet link."
+  },
+  "networkConnected": "Connected",
+  "@networkConnected": {
+    "description": "Network pill label when the medium is unknown."
+  },
+  "networkLinked": "Linked",
+  "@networkLinked": {
+    "description": "Network pill label when the link is up without a default route."
+  },
+  "networkLocal": "Local",
+  "@networkLocal": {
+    "description": "Network pill label reserved for local-only connectivity metadata."
+  },
+  "networkLimited": "Limited",
+  "@networkLimited": {
+    "description": "Network pill label reserved for limited connectivity metadata."
+  },
+  "networkDisconnected": "Disconnected",
+  "@networkDisconnected": {
+    "description": "Network pill label when the selected link is down."
+  },
+  "networkDisabled": "Off",
+  "@networkDisabled": {
+    "description": "Network pill label when the selected interface is administratively down."
+  },
+  "networkRatesCompact": "↓{rx} ↑{tx}",
+  "@networkRatesCompact": {
+    "description": "Compact receive and transmit rates for the network pill.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "1.2M/s"
+      },
+      "tx": {
+        "type": "String",
+        "example": "80K/s"
+      }
+    }
+  },
+  "networkLinkDetail": "link {state}",
+  "@networkLinkDetail": {
+    "description": "Network tooltip link state.",
+    "placeholders": {
+      "state": {
+        "type": "String",
+        "example": "up"
+      }
+    }
+  },
+  "networkLinkUp": "up",
+  "@networkLinkUp": {
+    "description": "Network link state when the carrier is up."
+  },
+  "networkLinkDown": "down",
+  "@networkLinkDown": {
+    "description": "Network link state when the carrier is down."
+  },
+  "networkLinkUnknown": "unknown",
+  "@networkLinkUnknown": {
+    "description": "Network link state when the kernel publishes no carrier or operstate."
+  },
+  "networkSpeedDetail": "speed {speed}",
+  "@networkSpeedDetail": {
+    "description": "Network tooltip Ethernet link speed.",
+    "placeholders": {
+      "speed": {
+        "type": "String",
+        "example": "1 Gb/s"
+      }
+    }
+  },
+  "networkRateDetail": "received {rx} · sent {tx}",
+  "@networkRateDetail": {
+    "description": "Network tooltip current rates.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "1.2M/s"
+      },
+      "tx": {
+        "type": "String",
+        "example": "80K/s"
+      }
+    }
+  },
+  "networkTotalsDetail": "{rx} received · {tx} sent",
+  "@networkTotalsDetail": {
+    "description": "Network tooltip interface lifetime totals.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "12.4 GiB"
+      },
+      "tx": {
+        "type": "String",
+        "example": "1.1 GiB"
+      }
+    }
+  },
   "temperatureCelsius": "{value}°C",
   "@temperatureCelsius": {
     "description": "Temperature value with its Celsius unit.",
@@ -440,6 +546,10 @@
   "@moduleBattery": {
     "description": "Display name of the battery module."
   },
+  "moduleNetwork": "Network",
+  "@moduleNetwork": {
+    "description": "Display name of the network module."
+  },
   "moduleClock": "Clock",
   "@moduleClock": {
     "description": "Display name of the clock module."
@@ -575,6 +685,18 @@
   "settingsDiskPath": "Mount path",
   "@settingsDiskPath": {
     "description": "Label for the disk module's mount path option."
+  },
+  "settingsNetworkInterface": "Interface",
+  "@settingsNetworkInterface": {
+    "description": "Label for the network module's interface name option."
+  },
+  "settingsNetworkInterfaceHint": "auto",
+  "@settingsNetworkInterfaceHint": {
+    "description": "Placeholder for the automatic network interface choice."
+  },
+  "settingsNetworkShowRates": "Show rates",
+  "@settingsNetworkShowRates": {
+    "description": "Toggle for compact receive and transmit rates on the network pill."
   },
   "settingsMeterSection": "Meter captions",
   "@settingsMeterSection": {

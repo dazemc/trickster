@@ -165,6 +165,102 @@ abstract class AppLocalizations {
   /// **'{used} used · {total} total · {free} free'**
   String diskUsageDetail(String used, String total, String free);
 
+  /// Network pill label for a connected Wi-Fi link.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi-Fi'**
+  String get networkWifi;
+
+  /// Network pill label for a connected Ethernet link.
+  ///
+  /// In en, this message translates to:
+  /// **'Ethernet'**
+  String get networkEthernet;
+
+  /// Network pill label when the medium is unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get networkConnected;
+
+  /// Network pill label when the link is up without a default route.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked'**
+  String get networkLinked;
+
+  /// Network pill label reserved for local-only connectivity metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Local'**
+  String get networkLocal;
+
+  /// Network pill label reserved for limited connectivity metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited'**
+  String get networkLimited;
+
+  /// Network pill label when the selected link is down.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnected'**
+  String get networkDisconnected;
+
+  /// Network pill label when the selected interface is administratively down.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get networkDisabled;
+
+  /// Compact receive and transmit rates for the network pill.
+  ///
+  /// In en, this message translates to:
+  /// **'↓{rx} ↑{tx}'**
+  String networkRatesCompact(String rx, String tx);
+
+  /// Network tooltip link state.
+  ///
+  /// In en, this message translates to:
+  /// **'link {state}'**
+  String networkLinkDetail(String state);
+
+  /// Network link state when the carrier is up.
+  ///
+  /// In en, this message translates to:
+  /// **'up'**
+  String get networkLinkUp;
+
+  /// Network link state when the carrier is down.
+  ///
+  /// In en, this message translates to:
+  /// **'down'**
+  String get networkLinkDown;
+
+  /// Network link state when the kernel publishes no carrier or operstate.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown'**
+  String get networkLinkUnknown;
+
+  /// Network tooltip Ethernet link speed.
+  ///
+  /// In en, this message translates to:
+  /// **'speed {speed}'**
+  String networkSpeedDetail(String speed);
+
+  /// Network tooltip current rates.
+  ///
+  /// In en, this message translates to:
+  /// **'received {rx} · sent {tx}'**
+  String networkRateDetail(String rx, String tx);
+
+  /// Network tooltip interface lifetime totals.
+  ///
+  /// In en, this message translates to:
+  /// **'{rx} received · {tx} sent'**
+  String networkTotalsDetail(String rx, String tx);
+
   /// Temperature value with its Celsius unit.
   ///
   /// In en, this message translates to:
@@ -681,6 +777,12 @@ abstract class AppLocalizations {
   /// **'Battery'**
   String get moduleBattery;
 
+  /// Display name of the network module.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get moduleNetwork;
+
   /// Display name of the clock module.
   ///
   /// In en, this message translates to:
@@ -884,6 +986,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mount path'**
   String get settingsDiskPath;
+
+  /// Label for the network module's interface name option.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface'**
+  String get settingsNetworkInterface;
+
+  /// Placeholder for the automatic network interface choice.
+  ///
+  /// In en, this message translates to:
+  /// **'auto'**
+  String get settingsNetworkInterfaceHint;
+
+  /// Toggle for compact receive and transmit rates on the network pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Show rates'**
+  String get settingsNetworkShowRates;
 
   /// Section heading for meter caption options.
   ///

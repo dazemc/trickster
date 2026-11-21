@@ -548,6 +548,74 @@ class DiskOptions extends Equatable {
   }
 }
 
+/// Typed options for the network pill. `interface` null means auto: the
+/// active physical interface. A pinned name may be virtual (a bond, bridge, or
+/// tunnel) because pinning is explicit.
+class NetworkOptions extends Equatable {
+  const NetworkOptions({this.interface, this.showRates = true});
+
+  /// Linux imposes IFNAMSIZ (16) including the terminating NUL.
+  static const int maxInterfaceLength = 15;
+  static final RegExp _interfacePattern = RegExp(r'^[A-Za-z0-9_.@-]+$');
+
+  static bool isValidInterface(String value) {
+    return value.isNotEmpty &&
+        value.length <= maxInterfaceLength &&
+        value != '.' &&
+        value != '..' &&
+        _interfacePattern.hasMatch(value);
+  }
+
+  final String? interface;
+  final bool showRates;
+
+  @override
+  List<Object?> get props => [interface, showRates];
+
+  Map<String, Object?> toJson() => {
+    if (interface != null) 'interface': interface,
+    'show_rates': showRates,
+  };
+
+  NetworkOptions copyWith({Object? interface = _unset, bool? showRates}) {
+    return NetworkOptions(
+      interface: identical(interface, _unset)
+          ? this.interface
+          : interface as String?,
+      showRates: showRates ?? this.showRates,
+    );
+  }
+
+  static NetworkOptions fromJson(Object? json) {
+    if (json == null) {
+      return const NetworkOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.network must be an object');
+    }
+    final interface = json['interface'];
+    if (interface != null && interface is! String) {
+      throw const FormatException(
+        'settings.network.interface must be an interface name',
+      );
+    }
+    final name = interface is String ? interface.trim() : null;
+    if (name != null && name.isNotEmpty && !isValidInterface(name)) {
+      throw const FormatException(
+        'settings.network.interface must be a Linux interface name',
+      );
+    }
+    final showRates = json['show_rates'];
+    if (showRates != null && showRates is! bool) {
+      throw const FormatException('settings.network.show_rates must be a bool');
+    }
+    return NetworkOptions(
+      interface: name == null || name.isEmpty ? null : name,
+      showRates: showRates as bool? ?? true,
+    );
+  }
+}
+
 /// Typed options for the GPU meter; the same shape as the CPU's meter keys.
 class GpuOptions extends Equatable {
   const GpuOptions({
@@ -1336,6 +1404,7 @@ class BarSettings extends Equatable {
     'disk',
     'keyboard_layout',
     'battery',
+    'network',
     'clock',
     'opencode',
   ];
@@ -1357,6 +1426,7 @@ class BarSettings extends Equatable {
     this.disk = const DiskOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
+    this.network = const NetworkOptions(),
     this.gpu = const GpuOptions(),
     this.vram = const VramOptions(),
     this.media = const MediaOptions(),
@@ -1394,6 +1464,7 @@ class BarSettings extends Equatable {
   final DiskOptions disk;
   final ClockOptions clock;
   final BatteryOptions battery;
+  final NetworkOptions network;
   final GpuOptions gpu;
   final VramOptions vram;
   final MediaOptions media;
@@ -1423,6 +1494,7 @@ class BarSettings extends Equatable {
     disk,
     clock,
     battery,
+    network,
     gpu,
     vram,
     media,
@@ -1480,6 +1552,7 @@ class BarSettings extends Equatable {
     'disk': disk.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
+    'network': network.toJson(),
     'gpu': gpu.toJson(),
     'vram': vram.toJson(),
     'media': media.toJson(),
@@ -1511,6 +1584,7 @@ class BarSettings extends Equatable {
       disk: disk,
       clock: clock,
       battery: battery,
+      network: network,
       gpu: gpu,
       vram: vram,
       media: media,
@@ -1538,6 +1612,7 @@ class BarSettings extends Equatable {
       disk: disk,
       clock: clock,
       battery: battery,
+      network: network,
       gpu: gpu,
       vram: vram,
       media: media,
@@ -1565,6 +1640,7 @@ class BarSettings extends Equatable {
       disk: disk,
       clock: clock,
       battery: battery,
+      network: network,
       gpu: gpu,
       vram: vram,
       media: media,
@@ -1583,6 +1659,7 @@ class BarSettings extends Equatable {
     DiskOptions? disk,
     ClockOptions? clock,
     BatteryOptions? battery,
+    NetworkOptions? network,
     GpuOptions? gpu,
     VramOptions? vram,
     MediaOptions? media,
@@ -1612,6 +1689,7 @@ class BarSettings extends Equatable {
       disk: disk ?? this.disk,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
+      network: network ?? this.network,
       gpu: gpu ?? this.gpu,
       vram: vram ?? this.vram,
       media: media ?? this.media,
@@ -1661,6 +1739,7 @@ class BarSettings extends Equatable {
       disk: DiskOptions.fromJson(decoded['disk']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
+      network: NetworkOptions.fromJson(decoded['network']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),
       vram: VramOptions.fromJson(decoded['vram']),
       media: MediaOptions.fromJson(decoded['media']),

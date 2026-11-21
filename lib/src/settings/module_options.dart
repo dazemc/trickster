@@ -38,6 +38,7 @@ bool moduleHasOptions(String module) {
     'ram' ||
     'temperature' ||
     'disk' ||
+    'network' ||
     'gpu' ||
     'vram' ||
     'battery' ||
@@ -1015,6 +1016,60 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               ),
             ),
             onSparkline: (settings, value) => settings,
+          ),
+        ],
+      ),
+      'network' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _OptionTextField(
+            fieldKey: const ValueKey<String>('network-interface'),
+            label: l10n.settingsNetworkInterface,
+            hint: l10n.settingsNetworkInterfaceHint,
+            value: settings.network.interface ?? '',
+            onChanged: (value) {
+              final name = value.trim();
+              if (name.isEmpty) {
+                _apply(
+                  controller,
+                  (settings) => settings.copyWith(
+                    network: settings.network.copyWith(interface: null),
+                  ),
+                );
+                return;
+              }
+              if (!NetworkOptions.isValidInterface(name)) {
+                return;
+              }
+              _apply(
+                controller,
+                (settings) => settings.copyWith(
+                  network: settings.network.copyWith(interface: name),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('network-show-rates'),
+            label: l10n.settingsNetworkShowRates,
+            value: settings.network.showRates,
+            resetKey: const ValueKey<String>('reset-network-show-rates'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsNetworkShowRates),
+            resetEnabled:
+                settings.network.showRates != const NetworkOptions().showRates,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                network: settings.network.copyWith(showRates: value),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                network: settings.network.copyWith(showRates: true),
+              ),
+            ),
           ),
         ],
       ),
