@@ -18,3 +18,12 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## StatusNotifier offload
+
+- **S — Flip the StatusNotifier default to the worker proxy.** Make
+  `TrayBloc` default to `StatusNotifierWorkerProxy`, keep the injected
+  `StatusNotifierClient` seam and local service for tests, and prove disabled
+  tray constructs no bloc or worker. Done: source/gating tests, `flutter
+  analyze`, full tests, and a release build pass; live runtime proof stays
+  deferred while the screen is off.
