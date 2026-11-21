@@ -128,7 +128,8 @@ own blocs under the same rule.
 States that cross a process, control-socket, or diagnostic boundary are
 JSON-shaped. The convention lives on the state's model type
 (`BatteryStatus`, `CpuSample`, `RamSample`, `TemperatureSample`, `DiskSample`,
-`GpuState`, `WorkspacesState`, and peers), not on every bloc class.
+`KeyboardLayoutState`, `GpuState`, `WorkspacesState`, and peers), not on every
+bloc class.
 
 Debug and profile builds trace every bloc event, transition, error, and
 lifecycle to stderr through `TricksterObserver`; release stays silent. Read
