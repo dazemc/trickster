@@ -18,11 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Current
-
-- **Slice B — Meter boundaries and terminal samplers.** Keep `warn < critical`
-  at RAM/VRAM/temperature slider ends and resets; make `start()` after
-  `dispose()` terminal for RAM, temperature, and GPU. Done: boundary and
-  start-after-dispose tests actually reach the ends and pass; analyze clean;
-  release build.
