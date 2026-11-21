@@ -39,7 +39,7 @@ Denial's `system_bar=` grammar, verbatim. Template copied on first launch, never
 # system_bar=hidden
 ```
 
-The third field and beyond select connectors; with no connectors the bar lands on every output. Thickness is clamped so a misconfigured value can never swallow an output, and it becomes the layer-shell exclusive zone.
+The third field and beyond select connectors; with no connectors the bar lands on every output. Thickness is a positive logical-pixel band up to 512; the parser rejects a non-finite, zero, negative, or oversized value, so the bar keeps its last-good file instead of accepting a band that could swallow an output. A settings save rewrites only the `system_bar=` line: comments and unrelated keys stay byte-for-byte, the write is atomic (unique temp file plus rename), and the live document is snapshotted to `outputs.conf.prev` for recovery from a torn write. `hidden` forces thickness 0 and releases the exclusive zone; the settings page clears the connector selection when hidden is chosen, so returning to an edge starts from every output at the default thickness. A failed save is reported on the displays page while the bar keeps its previous placement; a control-socket rejection stays on the socket rather than silently rewriting the file, and only genuine transport loss falls back to the file.
 
 ### Settings — `~/.config/trickster/settings.json`
 
@@ -58,6 +58,12 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 The `modules` list enables the modules and sets their order inside each
 placement zone; `module_placement` decides the zone, defaulting to the tray
 leading, the workspace rail centered, and the rest trailing.
+
+`modules` must be a list of strings. A missing key enables the default module
+set; an explicit empty list stays empty. A non-list value or a non-string entry
+rejects the document at decode, so the bar keeps last-good settings instead of
+silently enabling every module. Duplicate names keep their first occurrence,
+and unknown names stay in the document but render nothing.
 
 Each module reads typed options from the same document. Invalid values are
 rejected at decode, so a live reload keeps the last-good settings.
