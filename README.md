@@ -58,8 +58,8 @@ The Denial set, in Denial's visual language:
   to the hottest readable sensor (user-requested addition).
 - Disk: a 30 s statvfs meter for one configured mount, with IEC used/total/free
   detail on hover (user-requested addition).
-- Keyboard layout: a Hyprland-only event-driven KB pill with the full layout
-  set on hover (user-requested addition).
+- Keyboard layout: an event-driven KB pill for Hyprland, Sway, and niri, with
+  the full layout set on hover (user-requested addition).
 - Network: a kernel-only interface pill showing the selected link's state and
   compact receive/transmit rates, with interface, link, Ethernet speed, and
   lifetime totals on hover. It samples exactly one physical interface, never
