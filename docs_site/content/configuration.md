@@ -78,8 +78,12 @@ back to the settings process environment.
   to a `grim` capture of the strip band when an output has no cache image;
   the bar starts no sampler unless this source asks for one. The settings
   window asks a running bar's control status for its already-computed
-  candidates and only samples locally when the bar is unreachable or returns
-  no usable state.
+  candidates and re-asks when the window regains focus, the app resumes, a
+  settings save lands, or the wallpaper cache changes — never on a timer. It
+  falls back to its own sample immediately when no bar answers, and after a
+  bounded retry when a reachable bar has not produced candidates yet. A
+  wallpaper change invalidates the cached strip capture; a geometry-only
+  refresh may reuse it.
 - `accent_wallpaper_pick` (`#RRGGBB`, optional) — with the wallpaper
   source, the extracted candidate closest in hue; the dominant candidate
   applies when absent. The settings application lists the palette with
