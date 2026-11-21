@@ -12,6 +12,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `clock` | Date caption + time; optional seconds (1 Hz while shown) and date styles; clicking opens a month calendar on an overlay | Local time, minute-aligned timer (per second with seconds shown) | Always renders |
 | `cpu` | CPU caption + sparkline + percent | `/proc/stat`, 1 Hz shared sampler, reused read buffer; pauses while the seat idles | Hidden if unreadable |
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler; pauses while the seat idles | Hidden with no reading |
+| `ram` | RAM caption + sparkline + percent | `/proc/meminfo` (`MemTotal`/`MemAvailable`, with the `MemFree + Buffers + Cached + SReclaimable - Shmem` fallback), 1 Hz sampler with a reused 8 KiB buffer; pauses while the seat idles | Hidden if unreadable |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
 | `media` | Live equalizer mark (band levels from the sink monitor; bar count configurable), now-playing text, transport keys, and the sink volume readout (level glyph, accent while muted, wheel to step, click for a slider) in full/semi/compact modes; left-click controls, right-click cycles and saves | MPRIS (`org.mpris.MediaPlayer2.*`) and the default sink (monitor and volume), event-driven | Hidden with no playing or paused player |
@@ -24,6 +25,11 @@ app is not installed, the click opens the workspace's OpenCode console URL
 instead.
 
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
+
+<Info>
+The `ram` module is a user-requested addition. Denial has no memory module, so
+do not describe it as Denial parity.
+</Info>
 
 <Info>
 Tray is StatusNotifier only. Denial's XEmbed merge came from owning Xwayland, which a guest cannot borrow.
