@@ -64,7 +64,7 @@ class ModuleScope extends StatelessWidget {
   final GpuSampler Function()? gpuSamplerBuilder;
   final BatterySampler Function()? batterySamplerBuilder;
   final OpencodeSampler Function()? opencodeSamplerBuilder;
-  final MediaPlayerService Function()? mediaServiceBuilder;
+  final MediaPlayerClient Function()? mediaServiceBuilder;
 
   final TrayBloc Function()? trayBuilder;
   final BatteryBloc Function()? batteryBuilder;

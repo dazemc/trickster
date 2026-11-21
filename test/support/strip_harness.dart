@@ -151,7 +151,7 @@ Future<void> pumpBarHarness(
   BatteryBloc Function()? batteryBuilder,
   WorkspacesBloc Function()? workspacesBuilder,
   MediaBloc Function()? mediaBuilder,
-  MediaPlayerService Function()? mediaServiceBuilder,
+  MediaPlayerClient Function()? mediaServiceBuilder,
   VisualizerBloc Function()? visualizerBuilder,
   SinkVolumeBloc Function()? volumeBuilder,
   OpencodeBloc Function()? opencodeBuilder,

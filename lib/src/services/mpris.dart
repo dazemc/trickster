@@ -145,7 +145,31 @@ class MprisPlaybackState extends Equatable {
   ];
 }
 
-class MediaPlayerService {
+/// The MPRIS surface shared by the in-worker service and the UI proxy.
+///
+/// Implementations expose cached snapshots, current state, recovery control,
+/// and player controls. The UI implementation never constructs a DBusClient.
+abstract interface class MediaPlayerClient {
+  Stream<MprisPlaybackState> get snapshots;
+
+  MprisPlaybackState get current;
+
+  Future<void> start({bool paused = false});
+
+  void pauseRecovery();
+
+  Future<void> resumeRecovery();
+
+  Future<void> playPause();
+
+  Future<void> next();
+
+  Future<void> previous();
+
+  Future<void> dispose();
+}
+
+class MediaPlayerService implements MediaPlayerClient {
   MediaPlayerService({
     DBusClient? client,
     DBusClient Function()? clientFactory,
@@ -219,10 +243,13 @@ class MediaPlayerService {
     return client;
   }
 
+  @override
   Stream<MprisPlaybackState> get snapshots => _snapshots.stream;
 
+  @override
   MprisPlaybackState get current => _current;
 
+  @override
   Future<void> start({bool paused = false}) async {
     if (_started || _disposed) {
       return;
@@ -246,6 +273,7 @@ class MediaPlayerService {
 
   /// Stops only the periodic recovery scan. The owner and player signal
   /// subscriptions, the active player, and the current state stay live.
+  @override
   void pauseRecovery() {
     if (_disposed || _recoveryPaused) {
       return;
@@ -258,6 +286,7 @@ class MediaPlayerService {
 
   /// Runs one recovery scan, then restarts the idle recovery cadence. A pause
   /// or dispose during the scan wins: the timer is not rearmed.
+  @override
   Future<void> resumeRecovery() async {
     if (_disposed || !_started || !_recoveryPaused) {
       return;
@@ -492,10 +521,13 @@ class MediaPlayerService {
     }
   }
 
+  @override
   Future<void> previous() => _invoke('Previous', _current.canGoPrevious);
 
+  @override
   Future<void> next() => _invoke('Next', _current.canGoNext);
 
+  @override
   Future<void> playPause() => _invoke(
     'PlayPause',
     _current.playing ? _current.canPause : _current.canPlay,
@@ -685,6 +717,7 @@ class MediaPlayerService {
     }
   }
 
+  @override
   Future<void> dispose() async {
     if (_disposed) {
       return;
