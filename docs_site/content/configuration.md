@@ -74,13 +74,17 @@ rejected at decode, so a live reload keeps the last-good settings.
 
 The settings application probes the machine before it offers a module: no
 battery, no dedicated GPU memory, no readable hwmon temperature sensor, a
-missing configured disk mount, no physical or pinned network interface, no
-supported keyboard-layout backend, and no readable backlight each move an
-enabled row into an Unavailable section with a reason and a disable toggle.
-Turning it off moves it to Disabled with the same reason and its options gear;
-turning it back on returns it to Unavailable. A module never appears in both
-sections. Keyboard layout prefers the running bar's control status and falls
-back to the settings process environment.
+missing configured disk path (a mount directory or a file inside the mount),
+no physical or pinned network interface, no supported keyboard-layout backend
+or no active layout, and no readable backlight each move an enabled row into
+an Unavailable section with a reason and a disable toggle. Turning it off
+moves it to Disabled with the same reason and its options gear; turning it
+back on returns it to Unavailable. A module never appears in both sections.
+The probe re-runs when `disk.path` or `network.interface` settles after an
+edit and once more when the save completes, so a corrected path or interface
+clears its row without reopening the page; a failed probe keeps the last good
+answer. Keyboard layout prefers the running bar's control status (a backend
+with an active layout) and falls back to the settings process environment.
 
 - `accent_source` (`custom` or `wallpaper`, default `custom`) — where the
   accent comes from. `wallpaper` samples the host wallpaper's dominant
@@ -109,11 +113,15 @@ back to the settings process environment.
   application exposes the same choice per module.
 - The settings modules page groups rows by zone, drags them between zones
   with edge auto-scroll, and supports `Ctrl+Arrow` reorder plus
-  `Ctrl+Shift+Arrow` zone moves from the drag handle. A disabled row keeps
-  its options gear; opening it shows a right-edge inspector over a modal
-  scrim, and the module page keeps its scroll position and width. The page
-  caps its content width at 1120 logical pixels and paints a scrollbar at
-  900×600 and other window sizes; the inspector scrolls independently.
+  `Ctrl+Shift+Arrow` zone moves from the drag handle. An enabled row follows
+  the nearest zone while it is dragged. A disabled row enables and moves only
+  when released inside a zone's heading or card; releasing over the page
+  header, outside every zone, or back on the Disabled card leaves it disabled
+  where it was. A disabled row keeps its options gear; opening it shows a
+  right-edge inspector over a modal scrim, and the module page keeps its
+  scroll position and width. The page caps its content width at 1120 logical
+  pixels and paints a scrollbar at 900×600 and other window sizes; the
+  inspector scrolls independently.
 - Every settings control is keyboard-operable: Tab moves focus, Enter or
   Space activates buttons, chips, toggles, and navigation rows, and sliders
   step along their scale with the arrow keys. A focused control paints the
