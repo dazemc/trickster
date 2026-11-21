@@ -68,6 +68,10 @@ so the widgets do not care.
   with a CPU-sensor preference; disk reads one configured mount over
   statvfs. All four are default-on. Do not present them as Denial parity or
   infer them from Denial's CPU/GPU status shapes.
+- **Keyboard layout.** A user-requested Hyprland-only module reading
+  `j/devices` plus `activelayout` events from `.socket2.sock`. Sway and niri
+  backends are not implemented yet. Denial owns input directly; do not
+  describe this as Denial parity.
 - **Settings application.** Same binary in settings mode, separate process and
   engine, covering exactly the settings the bar owns — never compositor
   controls it does not own.
