@@ -62,6 +62,14 @@ leading, the workspace rail centered, and the rest trailing.
 Each module reads typed options from the same document. Invalid values are
 rejected at decode, so a live reload keeps the last-good settings.
 
+The settings application probes the machine before it offers a module: no
+battery, no dedicated GPU memory, no readable hwmon temperature sensor, a
+missing configured disk mount, no physical or pinned network interface, and
+no Hyprland keyboard backend each move the row into an Unavailable section
+with a reason. Keyboard layout prefers the running bar's control status and
+falls back to the settings process environment. Unavailable rows stay in the
+document but cannot be toggled or resolved from the page.
+
 - `accent_source` (`custom` or `wallpaper`, default `custom`) — where the
   accent comes from. `wallpaper` samples the host wallpaper's dominant
   color from the awww/swww cache and follows wallpaper changes, falling back
@@ -80,6 +88,12 @@ rejected at decode, so a live reload keeps the last-good settings.
   main axis: `leading`, `center`, or `trailing`. Defaults: the tray leads,
   the workspace rail centers, and every other module trails. The settings
   application exposes the same choice per module.
+- The settings modules page groups rows by zone, drags them between zones
+  with edge auto-scroll, and supports `Ctrl+Arrow` reorder plus
+  `Ctrl+Shift+Arrow` zone moves from the drag handle. A disabled row keeps
+  its options gear; opening a panel scrolls it into view. The page caps its
+  content width at 1120 logical pixels and paints a scrollbar at 900×600 and
+  other window sizes.
 - The workspace rail mirrors the compositor: each strip shows the numbered
   workspaces the compositor places on its output, in id order, and pressing
   a pip focuses it. Placement, persistence, and the main display belong to
@@ -145,7 +159,9 @@ rejected at decode, so a live reload keeps the last-good settings.
 - `temperature` is enabled in the default module list and hides when no hwmon
   sensor is readable.
 - `disk.path` (absolute mount path, default `/`) — the mount sampled with
-  `statvfs` every 30 s on a worker isolate.
+  `statvfs` every 30 s on a worker isolate. The settings field accepts
+  absolute paths only, reverts invalid or empty text when it loses focus, and
+  its reset control restores `/`.
 - `disk.warn` / `disk.critical` (number 0–1, defaults `0.80` / `0.95`) — tint
   the used fraction when it crosses each level; `warn` must stay below
   `critical`.
@@ -164,9 +180,11 @@ rejected at decode, so a live reload keeps the last-good settings.
   including a virtual one, instead of auto-selecting the active physical
   interface. Auto mode ignores loopback and interfaces without a
   `/sys/class/net/<if>/device` link, so tunnels and container veths are never
-  sampled or summed. `network.show_rates` (bool, default `true`) — show the
-  compact receive/transmit rates on the pill; the hover tooltip always keeps
-  them. `network` is enabled in the default module list and hides only when no
+  sampled or summed. The settings field rejects an invalid Linux name while
+  typing, reverts it on focus loss, and its reset control restores auto.
+  `network.show_rates` (bool, default `true`) — show the compact
+  receive/transmit rates on the pill; the hover tooltip always keeps them.
+  `network` is enabled in the default module list and hides only when no
   physical or pinned interface exists. Its first slice is kernel-only: no
   SSID, signal, band, or D-Bus metadata yet.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —

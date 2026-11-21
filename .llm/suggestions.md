@@ -64,6 +64,16 @@ Nothing in this file authorizes performance work.
 
 ## Correctness and verification
 
+- **The settings window still opens at 980×720.** `gtk_window_set_default_size`
+  requests a size larger than a 900×600 work area and there is no minimum size;
+  the page now reflows at 900×600, but the initial toplevel does not. Size from
+  the monitor work area or add a bounded minimum before smaller displays ship.
+
+- **Keyboard availability refreshes only when the modules page opens.**
+  `ModulesBloc` asks the bar once at creation; a Hyprland session that starts
+  later leaves the row unavailable until the page is reopened. Refresh on a
+  control-status change or expose a retry.
+
 - **Equatable 3.0 still compares `runtimeType` at the top level;**
   single-state-per-bloc architecture makes cross-class collisions inert.
 

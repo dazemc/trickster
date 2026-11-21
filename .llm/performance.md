@@ -139,6 +139,18 @@ strips on another.
   `RepaintBoundary`; the cached pill is composited rather than repainted, but
   the animation still schedules frames for its full duration.
 
+## Settings application
+
+**Current.** The settings window is a separate process and engine; its page
+work never rebuilds a strip. The modules page caps content at 1120 logical
+pixels, paints one `Scrollbar`, and scrolls a single `SingleChildScrollView`.
+Dragging a module starts a 16 ms edge-scroll timer that jumps the page only
+while a drag session exists; the timer is cancelled on drop, drag end, and
+dispose. Opening an options panel runs one 180 ms `Scrollable.ensureVisible`,
+and option panels are pruned when their module is disabled or becomes
+unavailable. None of these timers or animations run while the modules page is
+idle.
+
 ## Motion inventory
 
 **Current.** Motion is finite and one-shot. There are no spring simulations

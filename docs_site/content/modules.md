@@ -31,6 +31,8 @@ instead.
 
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 
+The settings application keeps this same zone order and lists hardware it cannot run in an Unavailable section: no battery, no dedicated GPU memory, no readable temperature sensor, a missing configured disk mount, no physical or pinned network interface, or no Hyprland keyboard backend. A running bar's control status answers keyboard availability first; the settings process environment is only the fallback. Unavailable modules stay in `settings.json` but cannot be toggled from the page. Disabled modules keep their options gear, so disk path and network interface can be configured before enabling them.
+
 <Info>
 The `ram`, `vram`, `temperature`, `disk`, `keyboard_layout`, and `network`
 modules are user-requested additions. Denial has no memory, temperature, disk,
