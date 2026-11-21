@@ -60,6 +60,9 @@ The Denial set, in Denial's visual language:
   detail on hover (user-requested addition).
 - Keyboard layout: an event-driven KB pill for Hyprland, Sway, and niri, with
   the full layout set on hover (user-requested addition).
+- Brightness: a read-only backlight meter from the preferred
+  `/sys/class/backlight` device, with the driver percentage and device name on
+  hover (user-requested addition).
 - Network: an interface pill showing the selected link's state and compact
   receive/transmit rates, enriched by NetworkManager or iwd SSID, signal,
   band, and connectivity metadata when available, with a kernel-only fallback.
