@@ -1409,6 +1409,8 @@ class BarSettings extends Equatable {
     'opencode',
   ];
 
+  static final Set<String> _knownModuleSet = knownModules.toSet();
+
   const BarSettings({
     this.revision = 1,
     this.accent,
@@ -1761,13 +1763,13 @@ class BarSettings extends Equatable {
 
   /// Known modules in [modules], deduplicated first occurrence. Unknown names
   /// stay in the document for forward compatibility but render nowhere.
-  static List<String> renderableModules(Iterable<String> modules) {
-    final known = knownModules.toSet();
+  static Iterable<String> renderableModules(Iterable<String> modules) sync* {
     final seen = <String>{};
-    return [
-      for (final module in modules)
-        if (known.contains(module) && seen.add(module)) module,
-    ];
+    for (final module in modules) {
+      if (_knownModuleSet.contains(module) && seen.add(module)) {
+        yield module;
+      }
+    }
   }
 
   static Map<String, ModuleZone> _modulePlacement(Object? value) {
