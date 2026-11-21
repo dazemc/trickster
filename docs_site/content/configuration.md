@@ -191,8 +191,9 @@ document but cannot be toggled or resolved from the page.
   `network.show_rates` (bool, default `true`) — show the compact
   receive/transmit rates on the pill; the hover tooltip always keeps them.
   `network` is enabled in the default module list and hides only when no
-  physical or pinned interface exists. Its first slice is kernel-only: no
-  SSID, signal, band, or D-Bus metadata yet.
+  physical or pinned interface exists. When NetworkManager or iwd owns the
+  system bus, its identity and connectivity metadata enriches the pill and
+  tooltip; otherwise the kernel link/route reading remains the fallback.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
