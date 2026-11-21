@@ -54,6 +54,10 @@ system_bar=hidden
   unmapped and the grammar carries no connector selection. The settings page
   clears its connector selection on entering hidden, and leaving hidden starts
   from the default thickness with every output selected.
+- The settings page cannot express "no outputs": when exactly one selected
+  connector matches a reported output, its row locks on, the toggle and
+  semantics action are disabled, and a localized note explains why. The
+  all-outputs reset and hidden behavior are unchanged.
 - Unknown keys are ignored. A malformed line, including a non-finite,
   non-positive, oversized, or empty-connector value, is a `FormatException`.
 - The per-user file is seeded once from `/etc/trickster/outputs.conf` (or the
@@ -91,7 +95,10 @@ The document carries:
   unknown names stay in the document but render and start nothing.
 - `module_placement`: leading/center/trailing zone per module;
 - `accent`, `accent_source`, `accent_wallpaper_pick`;
-- `display_appearance`: per-connector appearance overrides;
+- `display_appearance`: per-connector appearance overrides; an unplugged
+  connector that still owns one keeps its own chip beside the live outputs, so
+  the stale entry stays selectable and resettable without the monitor
+  attached;
 - `appearance`, `workspaces`, `cpu`, `ram`, `temperature`, `disk`, `clock`,
   `battery`, `gpu`, `vram`, `media`, `opencode`: nested module options;
 - `locale`: `en` or `zh`; null follows the system.
@@ -152,7 +159,10 @@ selected chips and enabled toggles switch to a contrasting ring so the accent
 fill cannot swallow it. The options inspector is modal to pointer input,
 keyboard focus, and the semantics tree (a scrim, its own `FocusScope` and
 traversal group, and a `BlockSemantics` barrier), closes on Escape or its close
-control, and restores focus to the gear that opened it. A left or right strip
+control, and restores focus to the gear that opened it. An output row is one
+button in that order: Enter or Space toggles it, the accent ring shows focus,
+and its semantics report button, toggled, and enabled state, with the lock note
+as the hint when it is the last selected output. A left or right strip
 hides the clock date and seconds, so the inspector disables both toggles and
 notes why. Switching sections resets the page scroll to the top. These are
 window-local behavior; documents, revisions, and persistence are unchanged.
