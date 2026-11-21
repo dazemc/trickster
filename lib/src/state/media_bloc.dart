@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/mpris_worker_proxy.dart';
 
 sealed class MediaEvent extends Equatable {
   const MediaEvent();
@@ -45,8 +46,8 @@ class MediaSampled extends MediaEvent {
 }
 
 class MediaBloc extends Bloc<MediaEvent, MprisPlaybackState> {
-  MediaBloc({MediaPlayerService? service, MprisPlaybackState? initial})
-    : _service = service ?? MediaPlayerService(),
+  MediaBloc({MediaPlayerClient? service, MprisPlaybackState? initial})
+    : _service = service ?? MediaPlayerWorkerProxy(),
       super(initial ?? MprisPlaybackState.unavailable()) {
     on<MediaStarted>(_onStarted);
     on<MediaStopped>(_onStopped);
@@ -54,7 +55,7 @@ class MediaBloc extends Bloc<MediaEvent, MprisPlaybackState> {
     on<MediaSampled>((event, emit) => emit(event.playback));
   }
 
-  final MediaPlayerService _service;
+  final MediaPlayerClient _service;
   StreamSubscription<MprisPlaybackState>? _subscription;
 
   Future<void> playPause() => _service.playPause();
