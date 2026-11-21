@@ -74,7 +74,10 @@ document but cannot be toggled or resolved from the page.
   accent comes from. `wallpaper` samples the host wallpaper's dominant
   color from the awww/swww cache and follows wallpaper changes, falling back
   to a `grim` capture of the strip band when an output has no cache image;
-  the bar starts no sampler unless this source asks for one.
+  the bar starts no sampler unless this source asks for one. The settings
+  window asks a running bar's control status for its already-computed
+  candidates and only samples locally when the bar is unreachable or returns
+  no usable state.
 - `accent_wallpaper_pick` (`#RRGGBB`, optional) — with the wallpaper
   source, the extracted candidate closest in hue; the dominant candidate
   applies when absent. The settings application lists the palette with
