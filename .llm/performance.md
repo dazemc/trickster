@@ -173,7 +173,7 @@ samplers keep their normal cadence. Multi-seat compositors are a gap.
 | GPU | 1 Hz sysfs/NVML | Paused; in-flight generation dropped; 45-sample history |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
-| MPRIS | D-Bus signals + 60 s recovery | Recovery poll is deliberate; 16-player cap |
+| MPRIS | D-Bus signals + 60 s recovery | Recovery scan paused; signals and current state stay live; one scan on resume; 16-player cap |
 | StatusNotifier | D-Bus signals; 45 ms coalesce | Event-driven |
 | Workspaces | Sway/Hyprland/niri events | Event-driven; Hyprland 32 ms debounce |
 | Clock | minute-aligned / 1 Hz | Continues |
@@ -194,6 +194,9 @@ Rules that follow from the table:
   paused with the seat, with overlapping/post-pause reads generation-guarded
   and equal status deduplicated; the UPower migration is an open
   port/performance gap.
+- MPRIS keeps its D-Bus signal subscriptions and selected player while the
+  seat is idle; only the 60 s recovery scan stops, and resume runs one scan
+  before restoring the cadence.
 
 ## Event-driven service contracts
 
@@ -219,9 +222,10 @@ signal bursts, not parse cost. SNI caps 64 items, 256 icon paths, 64 decoded
 icons, 512 px D-Bus pixmap input, 64 px output, 8 MiB per icon file, 4096 px
 raster file dimension, and 4,194,304 raster file pixels. Raster decode targets
 clamp both axes to a 24 px longest side; the SVG path stays vector-based. MPRIS
-caps 16 players and keeps a 60 s recovery refresh. Both services currently
-open their D-Bus clients on the UI isolate; moving proxy work to the existing
-`background_worker.dart` pattern is a performance gap.
+caps 16 players and keeps a 60 s recovery refresh, paused with the seat while
+signals stay live. Both services currently open their D-Bus clients on the UI
+isolate; moving proxy work to the existing `background_worker.dart` pattern is
+a performance gap.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
 event-driven. All three dedup snapshots against the last emission; niri's
@@ -401,6 +405,7 @@ same scenario and keep the numbers with their provenance.
 | CPU/GPU pause on seat idle | Current | `SeatIdleBloc` + samplers |
 | Battery 5 s async sysfs, not UPower | Current | `battery.dart`; async reads, generation guard, dedup |
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
+| MPRIS recovery idle gate | Current | `MediaPlayerService.pauseRecovery`/`resumeRecovery` + `SeatIdleBloc`; signals stay live |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster, known-property retention, digest equality | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties`, `SystemTrayIconPixmap` |
