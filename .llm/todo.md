@@ -18,3 +18,18 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- M: Recover the MPRIS worker after isolate death. `MediaPlayerWorkerProxy`
+  respawns only while started, with 1 s→30 s bounded backoff, a single-flight
+  spawn, and no respawn before start or after dispose. Preserve the
+  recovery-paused flag so a respawn resends `start(paused: true)` when the
+  seat was idle-paused; later pause/resume still forward. On isolate
+  error/exit or startup failure: fail pending requests, cancel the old
+  event/error/exit subscriptions, kill and close the dead connection, emit
+  unavailable, then retry. Never respawn for a normal worker command error or
+  an in-worker D-Bus failure. Reset the backoff after a valid state snapshot.
+  Done when tests prove exit→unavailable→respawn→state and controls, preserved
+  paused state, bounded retries, dispose cancelling the retry, no pre-start
+  spawn, and analyze/full tests/release build are green.
