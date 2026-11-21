@@ -55,9 +55,11 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **D-Bus parsing runs on the UI isolate.** StatusNotifier and MPRIS create
-  session clients on the UI isolate; signal coalescing bounds frequency, not
-  parse cost. Move proxy work to the existing `background_worker.dart` pattern.
+- **StatusNotifier parsing runs on the UI isolate.** MPRIS now does its
+  parsing, discovery, and method calls in a worker isolate, but StatusNotifier
+  still creates its session client on the UI isolate; signal coalescing bounds
+  frequency, not parse cost. Moving it needs a proxy design because it exports
+  bus objects.
 
 ## Idle and sampling
 
