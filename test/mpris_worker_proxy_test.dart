@@ -67,17 +67,31 @@ class _FakeWorker {
 }
 
 class _Harness {
-  late final MediaPlayerWorkerProxy proxy = MediaPlayerWorkerProxy(
-    spawner: _spawn,
-    requestTimeout: const Duration(milliseconds: 500),
-  );
-  late _FakeWorker worker;
+  _Harness({
+    this.retryDelay = const Duration(milliseconds: 20),
+    this.retryDelayMax = const Duration(milliseconds: 80),
+  }) {
+    proxy = MediaPlayerWorkerProxy(
+      spawner: _spawn,
+      requestTimeout: const Duration(milliseconds: 500),
+      retryDelay: retryDelay,
+      retryDelayMax: retryDelayMax,
+    );
+  }
+
+  final Duration retryDelay;
+  final Duration retryDelayMax;
+  late final MediaPlayerWorkerProxy proxy;
+  final List<_FakeWorker> workers = <_FakeWorker>[];
   var spawns = 0;
+
+  _FakeWorker get worker => workers.last;
 
   Future<MediaPlayerWorkerConnection> _spawn() async {
     spawns += 1;
-    worker = _FakeWorker();
-    return worker.connection;
+    final next = _FakeWorker();
+    workers.add(next);
+    return next.connection;
   }
 
   Future<void> start({bool paused = false}) async {
@@ -114,6 +128,16 @@ Future<void> _reply(
     ok ? null : error,
     if (!ok) 'remote stack',
   ]);
+}
+
+Future<void> _waitUntil(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 2));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('condition was not met before the timeout');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+  }
 }
 
 void main() {
@@ -207,32 +231,196 @@ void main() {
     await started;
 
     expect(harness.proxy.current, MprisPlaybackState.unavailable());
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(harness.spawns, 1);
   });
 
-  test(
-    'a worker error marks playback unavailable and stops controls',
-    () async {
-      final harness = _Harness();
-      addTearDown(harness.proxy.dispose);
-      await harness.start();
+  test('an in-worker error does not respawn the worker', () async {
+    final harness = _Harness();
+    addTearDown(harness.proxy.dispose);
+    await harness.start();
 
-      final seen = <MprisPlaybackState>[];
-      final subscription = harness.proxy.snapshots.listen(seen.add);
-      addTearDown(subscription.cancel);
-      harness.worker._events.add(<Object?>['state', _playing().toJson()]);
-      await pumpEventQueue();
-      expect(harness.proxy.current.available, isTrue);
+    final seen = <MprisPlaybackState>[];
+    final subscription = harness.proxy.snapshots.listen(seen.add);
+    addTearDown(subscription.cancel);
+    harness.worker._events.add(<Object?>['state', _playing().toJson()]);
+    await pumpEventQueue();
+    expect(harness.proxy.current.available, isTrue);
 
-      harness.worker._errors.add(<Object?>['worker crashed', 'remote stack']);
-      await pumpEventQueue();
+    harness.worker._events.add(<Object?>['error', 'D-Bus failed in worker']);
+    await pumpEventQueue();
 
-      expect(harness.proxy.current, MprisPlaybackState.unavailable());
-      expect(seen.last, MprisPlaybackState.unavailable());
-      final commands = harness.worker.sent.length;
-      await harness.proxy.playPause();
-      expect(harness.worker.sent.length, commands);
-    },
-  );
+    expect(harness.proxy.current, MprisPlaybackState.unavailable());
+    expect(seen.last, MprisPlaybackState.unavailable());
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(harness.spawns, 1);
+  });
+
+  test('an exited worker respawns and controls work again', () async {
+    final harness = _Harness(
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 40),
+    );
+    addTearDown(harness.proxy.dispose);
+    await harness.start();
+    final first = harness.worker;
+    final seen = <MprisPlaybackState>[];
+    final subscription = harness.proxy.snapshots.listen(seen.add);
+    addTearDown(subscription.cancel);
+    first._events.add(<Object?>['state', _playing().toJson()]);
+    await pumpEventQueue();
+    expect(harness.proxy.current.available, isTrue);
+
+    first._exits.add(<Object?>[0, 'exit']);
+    await _waitUntil(() => harness.spawns == 2);
+    final second = harness.worker;
+
+    expect(second, isNot(same(first)));
+    expect(first.killed, isTrue);
+    expect(first.closed, isTrue);
+    expect(harness.proxy.current, MprisPlaybackState.unavailable());
+    expect(seen.last, MprisPlaybackState.unavailable());
+
+    final start = await _waitCommand(second, 0);
+    expect(start[1], MediaPlayerWorkerOperation.start.index);
+    expect(start[2], <String, Object?>{'paused': false});
+    second._events.add(<Object?>[start[0], true, null]);
+    await pumpEventQueue();
+    second._events.add(<Object?>['state', _playing().toJson()]);
+    await pumpEventQueue();
+    expect(harness.proxy.current, _playing());
+
+    final controlled = harness.proxy.next();
+    final command = await _waitCommand(second, 1);
+    expect(command[1], MediaPlayerWorkerOperation.next.index);
+    second._events.add(<Object?>[command[0], true, null]);
+    await controlled;
+  });
+
+  test('a paused start is preserved across respawn', () async {
+    final harness = _Harness(
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 40),
+    );
+    addTearDown(harness.proxy.dispose);
+    await harness.start(paused: true);
+
+    harness.worker._exits.add(<Object?>[0, 'exit']);
+    await _waitUntil(() => harness.spawns == 2);
+    final start = await _waitCommand(harness.worker, 0);
+
+    expect(start[1], MediaPlayerWorkerOperation.start.index);
+    expect(start[2], <String, Object?>{'paused': true});
+    harness.worker._events.add(<Object?>[start[0], true, null]);
+  });
+
+  test('a later recovery pause is preserved across respawn', () async {
+    final harness = _Harness(
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 40),
+    );
+    addTearDown(harness.proxy.dispose);
+    await harness.start();
+
+    harness.proxy.pauseRecovery();
+    final paused = await _waitCommand(harness.worker, 1);
+    expect(paused[1], MediaPlayerWorkerOperation.pauseRecovery.index);
+    harness.worker._events.add(<Object?>[paused[0], true, null]);
+
+    harness.worker._exits.add(<Object?>[0, 'exit']);
+    await _waitUntil(() => harness.spawns == 2);
+    final start = await _waitCommand(harness.worker, 0);
+    expect(start[2], <String, Object?>{'paused': true});
+    harness.worker._events.add(<Object?>[start[0], true, null]);
+  });
+
+  test('a valid state snapshot resets the retry backoff', () async {
+    final harness = _Harness(
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 40),
+    );
+    addTearDown(harness.proxy.dispose);
+    await harness.start();
+
+    harness.worker._exits.add(<Object?>[0, 'exit']);
+    await _waitUntil(() => harness.spawns == 2);
+    final second = harness.worker;
+    final start = await _waitCommand(second, 0);
+    second._events.add(<Object?>[start[0], true, null]);
+    await pumpEventQueue();
+    expect(
+      harness.proxy.nextRetryDelay,
+      greaterThan(harness.retryDelay),
+      reason: 'the first failure should have doubled the delay',
+    );
+
+    second._events.add(<Object?>['state', _playing().toJson()]);
+    await pumpEventQueue();
+
+    expect(harness.proxy.nextRetryDelay, harness.retryDelay);
+  });
+
+  test('repeated startup failures back off', () async {
+    final spawnTimes = <DateTime>[];
+    final proxy = MediaPlayerWorkerProxy(
+      spawner: () async {
+        spawnTimes.add(DateTime.now());
+        throw StateError('worker failed to start');
+      },
+      retryDelay: const Duration(milliseconds: 20),
+      retryDelayMax: const Duration(milliseconds: 80),
+    );
+    addTearDown(proxy.dispose);
+    await proxy.start();
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+
+    expect(spawnTimes.length, 3);
+    expect(
+      spawnTimes[1].difference(spawnTimes[0]).inMilliseconds,
+      greaterThanOrEqualTo(15),
+    );
+    expect(
+      spawnTimes[2].difference(spawnTimes[1]).inMilliseconds,
+      greaterThanOrEqualTo(35),
+    );
+  });
+
+  test('dispose cancels a pending respawn', () async {
+    var spawns = 0;
+    final proxy = MediaPlayerWorkerProxy(
+      spawner: () async {
+        spawns += 1;
+        throw StateError('worker failed to start');
+      },
+      retryDelay: const Duration(milliseconds: 50),
+      retryDelayMax: const Duration(milliseconds: 50),
+    );
+    addTearDown(proxy.dispose);
+    await proxy.start();
+    expect(spawns, 1);
+
+    await proxy.dispose();
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+
+    expect(spawns, 1);
+  });
+
+  test('the worker is not spawned before start', () async {
+    var spawns = 0;
+    final proxy = MediaPlayerWorkerProxy(
+      spawner: () async {
+        spawns += 1;
+        throw StateError('worker failed to start');
+      },
+      retryDelay: const Duration(milliseconds: 10),
+      retryDelayMax: const Duration(milliseconds: 20),
+    );
+    addTearDown(proxy.dispose);
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(spawns, 0);
+  });
 
   test(
     'dispose kills the worker, closes the stream, and never revives',

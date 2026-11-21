@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/mpris_worker.dart';
 
@@ -11,16 +12,26 @@ typedef MediaPlayerWorkerSpawner =
 /// UI-isolate facade over the MPRIS worker isolate.
 ///
 /// The proxy owns no D-Bus objects and never constructs [MediaPlayerService].
-/// It spawns the worker only when [start] runs, forwards states decoded from
-/// JSON-compatible snapshots, and kills the worker on dispose.
+/// It spawns the worker only when [start] runs, respawns it after isolate
+/// death with capped backoff, forwards states decoded from JSON-compatible
+/// snapshots, and kills the worker on dispose without reviving it.
 class MediaPlayerWorkerProxy implements MediaPlayerClient {
   MediaPlayerWorkerProxy({
     MediaPlayerWorkerSpawner? spawner,
     this.requestTimeout = const Duration(seconds: 4),
-  }) : _spawner = spawner ?? spawnMediaPlayerWorker;
+    this.retryDelay = const Duration(seconds: 1),
+    this.retryDelayMax = const Duration(seconds: 30),
+  }) : _spawner = spawner ?? spawnMediaPlayerWorker,
+       _nextRetryDelay = retryDelay;
 
   final MediaPlayerWorkerSpawner _spawner;
   final Duration requestTimeout;
+
+  /// Delay before the first respawn after an isolate failure.
+  final Duration retryDelay;
+
+  /// Upper bound for the exponential respawn delay.
+  final Duration retryDelayMax;
 
   final StreamController<MprisPlaybackState> _snapshots =
       StreamController<MprisPlaybackState>.broadcast(sync: true);
@@ -31,11 +42,15 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
   StreamSubscription<Object?>? _events;
   StreamSubscription<Object?>? _errors;
   StreamSubscription<Object?>? _exits;
+  Future<MediaPlayerWorkerConnection>? _spawning;
   MprisPlaybackState _current = MprisPlaybackState.unavailable();
   Future<void>? _disposeFuture;
+  Timer? _retryTimer;
+  Duration _nextRetryDelay;
   var _nextRequestId = 1;
+  var _connectionGeneration = 0;
   var _started = false;
-  var _failed = false;
+  var _paused = false;
   var _disposed = false;
 
   @override
@@ -44,63 +59,114 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
   @override
   MprisPlaybackState get current => _current;
 
+  /// The delay the next isolate failure would use.
+  @visibleForTesting
+  Duration get nextRetryDelay => _nextRetryDelay;
+
   @override
   Future<void> start({bool paused = false}) async {
     if (_disposed || _started) {
       return;
     }
     _started = true;
+    _paused = paused;
+    await _startWorker();
+  }
+
+  Future<void> _startWorker() async {
+    if (_disposed || !_started) {
+      return;
+    }
     try {
-      await _ensureStarted();
-      if (_disposed || _failed) {
-        return;
-      }
+      await _ensureConnection();
+    } on Object {
+      // The startup path already published unavailable and scheduled a retry.
+      return;
+    }
+    if (_disposed || !_started || _commands == null) {
+      return;
+    }
+    try {
       await _request(MediaPlayerWorkerOperation.start, <String, Object?>{
-        'paused': paused,
+        'paused': _paused,
       });
     } on Object {
+      // A normal command or D-Bus failure stays inside the worker; it must
+      // not trigger a respawn.
       if (!_disposed) {
         _markUnavailable();
       }
     }
   }
 
-  Future<void> _ensureStarted() async {
-    if (_commands != null) {
-      return;
+  /// One spawn at a time. A retry that races an in-flight startup joins it.
+  Future<MediaPlayerWorkerConnection> _ensureConnection() {
+    final connection = _connection;
+    if (connection != null && _commands != null) {
+      return Future<MediaPlayerWorkerConnection>.value(connection);
     }
-    final connection = await _spawner();
-    if (_disposed) {
+    final pending = _spawning;
+    if (pending != null) {
+      return pending;
+    }
+    late final Future<MediaPlayerWorkerConnection> tracked;
+    tracked = _spawnAndAttach().whenComplete(() {
+      if (identical(_spawning, tracked)) {
+        _spawning = null;
+      }
+    });
+    _spawning = tracked;
+    return tracked;
+  }
+
+  Future<MediaPlayerWorkerConnection> _spawnAndAttach() async {
+    final MediaPlayerWorkerConnection connection;
+    try {
+      connection = await _spawner();
+    } on Object {
+      if (!_disposed && _started) {
+        _markUnavailable();
+        _scheduleRetry();
+      }
+      rethrow;
+    }
+    if (_disposed || !_started) {
       connection.kill();
       connection.close();
-      return;
+      throw StateError('MPRIS worker start was cancelled');
     }
+    final generation = ++_connectionGeneration;
     _connection = connection;
     _events = connection.events.listen(
-      _onEvent,
-      onError: (Object? error) => _onWorkerFailure('$error'),
+      (message) => _onEvent(generation, message),
+      onError: (Object? error) => _onWorkerFailure(generation, '$error'),
     );
     _errors = connection.errors.listen(
-      (Object? error) => _onWorkerFailure('$error'),
+      (Object? error) => _onWorkerFailure(generation, '$error'),
     );
     _exits = connection.exits.listen(
-      (_) => _onWorkerFailure('MPRIS worker exited'),
+      (_) => _onWorkerFailure(generation, 'MPRIS worker exited'),
     );
     try {
       final commands = await connection.commands.timeout(requestTimeout);
-      if (_disposed) {
-        return;
+      if (_disposed || !_started || generation != _connectionGeneration) {
+        throw StateError('MPRIS worker start was superseded');
       }
       _commands = commands;
-    } on Object {
-      _onWorkerFailure('MPRIS worker did not publish a command port');
+      return connection;
+    } on Object catch (error) {
+      _onWorkerFailure(generation, error);
       rethrow;
     }
   }
 
   @override
   void pauseRecovery() {
-    if (!_started || _disposed || _failed) {
+    if (!_started || _disposed) {
+      return;
+    }
+    _paused = true;
+    if (_commands == null) {
       return;
     }
     unawaited(
@@ -111,8 +177,13 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
   }
 
   @override
-  Future<void> resumeRecovery() =>
-      _control(MediaPlayerWorkerOperation.resumeRecovery);
+  Future<void> resumeRecovery() async {
+    if (!_started || _disposed) {
+      return;
+    }
+    _paused = false;
+    await _control(MediaPlayerWorkerOperation.resumeRecovery);
+  }
 
   @override
   Future<void> playPause() => _control(MediaPlayerWorkerOperation.playPause);
@@ -124,7 +195,7 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
   Future<void> previous() => _control(MediaPlayerWorkerOperation.previous);
 
   Future<void> _control(MediaPlayerWorkerOperation operation) async {
-    if (!_started || _disposed || _failed) {
+    if (!_started || _disposed || _commands == null) {
       return;
     }
     try {
@@ -140,7 +211,7 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
     Object? payload,
   ]) async {
     final commands = _commands;
-    if (_disposed || _failed || commands == null) {
+    if (_disposed || commands == null) {
       throw StateError('MPRIS worker is not running');
     }
     final requestId = _nextRequestId++;
@@ -154,8 +225,11 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
     }
   }
 
-  void _onEvent(Object? message) {
-    if (_disposed || message is! List<Object?> || message.isEmpty) {
+  void _onEvent(int generation, Object? message) {
+    if (_disposed ||
+        generation != _connectionGeneration ||
+        message is! List<Object?> ||
+        message.isEmpty) {
       return;
     }
     final kind = message[0];
@@ -167,6 +241,9 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
         _current = MprisPlaybackState.fromJson(
           Map<String, dynamic>.from(message[1]! as Map),
         );
+        // A live snapshot proves the current worker is healthy; the next
+        // isolate failure starts again from the base delay.
+        _nextRetryDelay = retryDelay;
         _snapshots.add(_current);
       } on Object {
         _markUnavailable();
@@ -174,6 +251,8 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
       return;
     }
     if (kind == 'error') {
+      // The worker caught a D-Bus/snapshot failure and stayed alive; never
+      // treat this as an isolate death.
       _markUnavailable();
       return;
     }
@@ -198,19 +277,78 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
     );
   }
 
-  void _onWorkerFailure(Object failure) {
+  /// Handles only isolate death or a failed startup, exactly once per
+  /// connection. Worker command errors and in-worker D-Bus failures never
+  /// reach this path.
+  void _onWorkerFailure(int generation, Object failure) {
+    if (_disposed || generation != _connectionGeneration) {
+      return;
+    }
+    _connectionGeneration += 1;
+    final connection = _connection;
+    _connection = null;
+    _commands = null;
+    final events = _events;
+    _events = null;
+    final errors = _errors;
+    _errors = null;
+    final exits = _exits;
+    _exits = null;
+    _failPending(StateError('MPRIS worker failed: $failure'));
+    unawaited(
+      _retireConnection(
+        connection: connection,
+        events: events,
+        errors: errors,
+        exits: exits,
+      ),
+    );
+  }
+
+  Future<void> _retireConnection({
+    required MediaPlayerWorkerConnection? connection,
+    required StreamSubscription<Object?>? events,
+    required StreamSubscription<Object?>? errors,
+    required StreamSubscription<Object?>? exits,
+  }) async {
+    await events?.cancel();
+    await errors?.cancel();
+    await exits?.cancel();
+    connection?.kill();
+    connection?.close();
     if (_disposed) {
       return;
     }
-    _failed = true;
-    _commands = null;
+    _markUnavailable();
+    if (!_started) {
+      return;
+    }
+    _scheduleRetry();
+  }
+
+  void _scheduleRetry() {
+    if (_disposed || !_started || _retryTimer != null) {
+      return;
+    }
+    final delay = _nextRetryDelay;
+    final doubled = delay * 2;
+    _nextRetryDelay = doubled > retryDelayMax ? retryDelayMax : doubled;
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      if (_disposed || !_started) {
+        return;
+      }
+      unawaited(_startWorker());
+    });
+  }
+
+  void _failPending(Object failure) {
     for (final completer in _pending.values) {
       if (!completer.isCompleted) {
-        completer.completeError(StateError('MPRIS worker failed: $failure'));
+        completer.completeError(failure);
       }
     }
     _pending.clear();
-    _markUnavailable();
   }
 
   void _markUnavailable() {
@@ -226,12 +364,10 @@ class MediaPlayerWorkerProxy implements MediaPlayerClient {
   Future<void> _dispose() async {
     _disposed = true;
     _started = false;
-    for (final completer in _pending.values) {
-      if (!completer.isCompleted) {
-        completer.completeError(StateError('MPRIS worker disposed'));
-      }
-    }
-    _pending.clear();
+    _connectionGeneration += 1;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _failPending(StateError('MPRIS worker disposed'));
     _commands = null;
     final connection = _connection;
     _connection = null;
