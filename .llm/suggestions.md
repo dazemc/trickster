@@ -42,12 +42,6 @@ Nothing in this file authorizes performance work.
   pressed during the 1–30 s backoff is lost. Consider a bounded one-shot
   retry or disabling the controls while unavailable.
 
-- **Stopped modules cancel subscriptions but keep services alive.**
-  `CpuStopped`, `GpuStopped`, `BatteryStopped`, `MediaStopped`, `TrayStopped`,
-  and `WorkspacesStopped` do not dispose the underlying sampler/service, while
-  `close()` does. No production path emits `Stopped` yet; make the two paths
-  equivalent before enabling runtime module toggles.
-
 - **`pickImageFile` runs a nested GTK main loop.** `gtk_dialog_run` makes the
   settings process re-entrant while the chooser is open. Keep it modal and
   preview-free; move to `GtkFileChooserNative`/portal with a callback if
