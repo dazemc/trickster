@@ -23,6 +23,9 @@ class MediaStarted extends MediaEvent {
   List<Object?> get props => [paused];
 }
 
+/// Terminal for this bloc: the player client/worker is disposed, later
+/// lifecycle or sample events are ignored, and `close()` remains safe without
+/// disposing twice.
 class MediaStopped extends MediaEvent {
   const MediaStopped();
 }
@@ -52,11 +55,16 @@ class MediaBloc extends Bloc<MediaEvent, MprisPlaybackState> {
     on<MediaStarted>(_onStarted);
     on<MediaStopped>(_onStopped);
     on<MediaIdleChanged>(_onIdleChanged);
-    on<MediaSampled>((event, emit) => emit(event.playback));
+    on<MediaSampled>((event, emit) {
+      if (!_stopped) {
+        emit(event.playback);
+      }
+    });
   }
 
   final MediaPlayerClient _service;
   StreamSubscription<MprisPlaybackState>? _subscription;
+  var _stopped = false;
 
   Future<void> playPause() => _service.playPause();
 
@@ -68,6 +76,9 @@ class MediaBloc extends Bloc<MediaEvent, MprisPlaybackState> {
     MediaStarted event,
     Emitter<MprisPlaybackState> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _service.snapshots.listen(
       (playback) => add(MediaSampled(playback)),
     );
@@ -78,6 +89,9 @@ class MediaBloc extends Bloc<MediaEvent, MprisPlaybackState> {
     MediaIdleChanged event,
     Emitter<MprisPlaybackState> emit,
   ) {
+    if (_stopped) {
+      return;
+    }
     if (event.idle) {
       _service.pauseRecovery();
     } else {
@@ -91,15 +105,24 @@ class MediaBloc extends Bloc<MediaEvent, MprisPlaybackState> {
     MediaStopped event,
     Emitter<MprisPlaybackState> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    await _service.dispose();
   }
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    await _service.dispose();
+    if (!wasStopped) {
+      await _service.dispose();
+    }
     return super.close();
   }
 }

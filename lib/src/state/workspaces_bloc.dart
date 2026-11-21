@@ -17,6 +17,9 @@ class WorkspacesStarted extends WorkspacesEvent {
   const WorkspacesStarted();
 }
 
+/// Terminal for this bloc: the monitor/backend is disposed, later lifecycle,
+/// sample, and focus events are ignored, and `close()` remains safe without
+/// disposing twice.
 class WorkspacesStopped extends WorkspacesEvent {
   const WorkspacesStopped();
 }
@@ -49,21 +52,26 @@ class WorkspacesBloc extends Bloc<WorkspacesEvent, WorkspacesState> {
        super(initial) {
     on<WorkspacesStarted>(_onStarted);
     on<WorkspacesStopped>(_onStopped);
-    on<WorkspacesSampled>(
-      (event, emit) =>
-          emit(WorkspacesState(sortedWorkspaces(event.workspaces))),
-    );
+    on<WorkspacesSampled>((event, emit) {
+      if (!_stopped) {
+        emit(WorkspacesState(sortedWorkspaces(event.workspaces)));
+      }
+    });
     on<WorkspacesFocusRequested>(_onFocusRequested);
   }
 
   final WorkspaceMonitor _monitor;
   final void Function(String message) _log;
   StreamSubscription<List<Workspace>>? _subscription;
+  var _stopped = false;
 
   Future<void> _onStarted(
     WorkspacesStarted event,
     Emitter<WorkspacesState> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _monitor.snapshots.listen(
       (workspaces) => add(WorkspacesSampled(workspaces)),
     );
@@ -74,14 +82,22 @@ class WorkspacesBloc extends Bloc<WorkspacesEvent, WorkspacesState> {
     WorkspacesStopped event,
     Emitter<WorkspacesState> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    await _monitor.dispose();
   }
 
   Future<void> _onFocusRequested(
     WorkspacesFocusRequested event,
     Emitter<WorkspacesState> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
     final focused = await _monitor.focusWorkspace(event.workspace);
     if (!focused) {
       _log('trickster: could not focus workspace ${event.workspace.name}');
@@ -90,9 +106,13 @@ class WorkspacesBloc extends Bloc<WorkspacesEvent, WorkspacesState> {
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    await _monitor.dispose();
+    if (!wasStopped) {
+      await _monitor.dispose();
+    }
     return super.close();
   }
 }

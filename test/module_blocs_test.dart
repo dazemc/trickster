@@ -7,6 +7,7 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
@@ -15,6 +16,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
 import 'package:trickster/src/state/workspaces_bloc.dart';
@@ -25,6 +27,7 @@ class FakeCpuSampler extends CpuSampler {
   final controller = StreamController<CpuSample>.broadcast();
 
   var disposed = false;
+  var disposes = 0;
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -52,6 +55,7 @@ class FakeCpuSampler extends CpuSampler {
   @override
   void dispose() {
     disposed = true;
+    disposes += 1;
     controller.close();
   }
 }
@@ -60,16 +64,35 @@ class FakeBatterySampler extends BatterySampler {
   final controller = StreamController<BatteryStatus>.broadcast();
 
   var disposed = false;
+  var disposes = 0;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
 
   @override
   Stream<BatteryStatus> get snapshots => controller.stream;
 
   @override
-  void start({bool paused = false}) {}
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
 
   @override
   void dispose() {
     disposed = true;
+    disposes += 1;
     controller.close();
   }
 }
@@ -78,6 +101,7 @@ class FakeGpuSampler extends GpuSampler {
   final controller = StreamController<List<GpuLoad>>.broadcast();
 
   var disposed = false;
+  var disposes = 0;
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -105,6 +129,7 @@ class FakeGpuSampler extends GpuSampler {
   @override
   Future<void> dispose() async {
     disposed = true;
+    disposes += 1;
     await controller.close();
   }
 }
@@ -113,6 +138,8 @@ class FakeMonitor extends WorkspaceMonitor {
   final controller = StreamController<List<Workspace>>.broadcast();
 
   var disposed = false;
+  var disposes = 0;
+  var starts = 0;
   var focusResult = true;
   final focused = <Workspace>[];
 
@@ -120,11 +147,14 @@ class FakeMonitor extends WorkspaceMonitor {
   Stream<List<Workspace>> get snapshots => controller.stream;
 
   @override
-  Future<void> start() async {}
+  Future<void> start() async {
+    starts += 1;
+  }
 
   @override
   Future<void> dispose() async {
     disposed = true;
+    disposes += 1;
     await controller.close();
   }
 
@@ -139,6 +169,8 @@ class FakeStatusNotifierService extends StatusNotifierService {
   final controller = StreamController<List<SystemTrayItem>>.broadcast();
 
   var disposed = false;
+  var disposes = 0;
+  var starts = 0;
   var activateResult = true;
   final activations = <(SystemTrayItem, Offset)>[];
   List<SystemTrayMenuEntry>? menuEntries;
@@ -148,11 +180,14 @@ class FakeStatusNotifierService extends StatusNotifierService {
   Stream<List<SystemTrayItem>> get snapshots => controller.stream;
 
   @override
-  Future<void> start() async {}
+  Future<void> start() async {
+    starts += 1;
+  }
 
   @override
   Future<void> dispose() async {
     disposed = true;
+    disposes += 1;
     await controller.close();
   }
 
@@ -181,6 +216,7 @@ class FakeMediaPlayerService extends MediaPlayerService {
   final controller = StreamController<MprisPlaybackState>.broadcast();
 
   var disposed = false;
+  var disposes = 0;
   var starts = 0;
   var recoveryPauses = 0;
   var recoveryResumes = 0;
@@ -209,6 +245,7 @@ class FakeMediaPlayerService extends MediaPlayerService {
   @override
   Future<void> dispose() async {
     disposed = true;
+    disposes += 1;
     await controller.close();
   }
 
@@ -220,6 +257,51 @@ class FakeMediaPlayerService extends MediaPlayerService {
 
   @override
   Future<void> previous() async => calls.add('previous');
+}
+
+class FakeOpencodeSampler extends OpencodeSampler {
+  FakeOpencodeSampler() : super(statePath: '/nonexistent/trickster-oc.json');
+
+  final controller = StreamController<OpencodeUsage>.broadcast();
+
+  var disposed = false;
+  var disposes = 0;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  var refreshes = 0;
+  bool? startedPaused;
+
+  @override
+  Stream<OpencodeUsage> get snapshots => controller.stream;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+
+  @override
+  Future<void> refresh() async {
+    refreshes += 1;
+  }
+
+  @override
+  void dispose() {
+    disposed = true;
+    disposes += 1;
+    controller.close();
+  }
 }
 
 void main() {
@@ -240,23 +322,36 @@ void main() {
       expect: () => const [CpuSample(0.5)],
     );
 
-    blocTest<CpuBloc, CpuSample>(
-      'stopped drops later samples',
-      build: () {
-        fake = FakeCpuSampler();
-        return CpuBloc(sampler: fake);
-      },
-      act: (bloc) async {
-        bloc.add(const CpuStarted());
-        await pumpEventQueue();
-        bloc.add(const CpuStopped());
-        await pumpEventQueue();
-        fake.controller.add(const CpuSample(0.9));
-        await pumpEventQueue();
-      },
-      expect: () => const <CpuSample>[],
-      verify: (_) => expect(fake.disposed, isTrue),
-    );
+    test('stopped is terminal and close does not dispose twice', () async {
+      final fake = FakeCpuSampler();
+      final bloc = CpuBloc(sampler: fake);
+      final seen = <CpuSample>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const CpuStarted());
+      await pumpEventQueue();
+      bloc.add(const CpuStopped());
+      await pumpEventQueue();
+
+      expect(fake.disposes, 1);
+      expect(fake.controller.isClosed, isTrue);
+
+      bloc.add(const CpuSampled(CpuSample(0.9)));
+      bloc.add(const CpuStarted(paused: true));
+      bloc.add(const CpuPaused());
+      bloc.add(const CpuResumed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(fake.starts, 1);
+      expect(fake.pauses, 0);
+      expect(fake.resumes, 0);
+      expect(fake.disposes, 1);
+
+      await bloc.close();
+      expect(fake.disposes, 1);
+      await subscription.cancel();
+    });
 
     blocTest<CpuBloc, CpuSample>(
       'seat pauses and resumes the sampler without emitting',
@@ -365,6 +460,37 @@ cpu MHz\t\t: 3400.000
       expect(sampler.disposed, isTrue);
     });
 
+    test('stopped is terminal and close does not dispose twice', () async {
+      final sampler = FakeBatterySampler();
+      final bloc = BatteryBloc(sampler: sampler);
+      final seen = <BatteryStatus>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const BatteryStarted());
+      await pumpEventQueue();
+      bloc.add(const BatteryStopped());
+      await pumpEventQueue();
+
+      expect(sampler.disposes, 1);
+      expect(sampler.controller.isClosed, isTrue);
+
+      bloc.add(const BatterySampled(BatteryStatus(capacity: 90)));
+      bloc.add(const BatteryStarted(paused: true));
+      bloc.add(const BatteryPaused());
+      bloc.add(const BatteryResumed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(sampler.starts, 1);
+      expect(sampler.pauses, 0);
+      expect(sampler.resumes, 0);
+      expect(sampler.disposes, 1);
+
+      await bloc.close();
+      expect(sampler.disposes, 1);
+      await subscription.cancel();
+    });
+
     test('battery json round-trips', () {
       const status = BatteryStatus(capacity: 50, charging: false);
       final decoded = BatteryStatus.fromJson(
@@ -409,6 +535,37 @@ cpu MHz\t\t: 3400.000
       }
     });
 
+    test('stopped is terminal and close does not dispose twice', () async {
+      final sampler = FakeGpuSampler();
+      final bloc = GpuBloc(sampler: sampler);
+      final seen = <GpuState>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const GpuStarted());
+      await pumpEventQueue();
+      bloc.add(const GpuStopped());
+      await pumpEventQueue();
+
+      expect(sampler.disposes, 1);
+      expect(sampler.controller.isClosed, isTrue);
+
+      bloc.add(const GpuSampled(<GpuLoad>[load]));
+      bloc.add(const GpuStarted(paused: true));
+      bloc.add(const GpuPaused());
+      bloc.add(const GpuResumed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(sampler.starts, 1);
+      expect(sampler.pauses, 0);
+      expect(sampler.resumes, 0);
+      expect(sampler.disposes, 1);
+
+      await bloc.close();
+      expect(sampler.disposes, 1);
+      await subscription.cancel();
+    });
+
     test('gpu state json round-trips', () {
       final state = GpuState([
         const GpuLoad(id: 'card0', label: 'AMD0').append(0.4).append(0.5),
@@ -439,6 +596,35 @@ cpu MHz\t\t: 3400.000
         await bloc.close();
       }
       expect(monitor.disposed, isTrue);
+    });
+
+    test('stopped is terminal and close does not dispose twice', () async {
+      final monitor = FakeMonitor();
+      final bloc = WorkspacesBloc(monitor: monitor);
+      final seen = <WorkspacesState>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const WorkspacesStarted());
+      await pumpEventQueue();
+      bloc.add(const WorkspacesStopped());
+      await pumpEventQueue();
+
+      expect(monitor.disposes, 1);
+      expect(monitor.controller.isClosed, isTrue);
+
+      bloc.add(const WorkspacesSampled(<Workspace>[first]));
+      bloc.add(const WorkspacesStarted());
+      bloc.add(const WorkspacesFocusRequested(Workspace(id: '2', name: 'web')));
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(monitor.starts, 1);
+      expect(monitor.focused, isEmpty);
+      expect(monitor.disposes, 1);
+
+      await bloc.close();
+      expect(monitor.disposes, 1);
+      await subscription.cancel();
     });
 
     test('workspaces sort numerically, then by name', () {
@@ -556,6 +742,33 @@ cpu MHz\t\t: 3400.000
       expect(service.disposed, isTrue);
     });
 
+    test('stopped is terminal and close does not dispose twice', () async {
+      final service = FakeStatusNotifierService();
+      final bloc = TrayBloc(service: service);
+      final seen = <TrayState>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const TrayStarted());
+      await pumpEventQueue();
+      bloc.add(const TrayStopped());
+      await pumpEventQueue();
+
+      expect(service.disposes, 1);
+      expect(service.controller.isClosed, isTrue);
+
+      bloc.add(const TraySampled(<SystemTrayItem>[item]));
+      bloc.add(const TrayStarted());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(service.starts, 1);
+      expect(service.disposes, 1);
+
+      await bloc.close();
+      expect(service.disposes, 1);
+      await subscription.cancel();
+    });
+
     test('activation forwards the item and pointer position', () async {
       final service = FakeStatusNotifierService();
       final bloc = TrayBloc(service: service);
@@ -671,6 +884,36 @@ cpu MHz\t\t: 3400.000
       expect(service.disposed, isTrue);
     });
 
+    test('stopped is terminal and close does not dispose twice', () async {
+      final service = FakeMediaPlayerService();
+      final bloc = MediaBloc(service: service);
+      final seen = <MprisPlaybackState>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const MediaStarted());
+      await pumpEventQueue();
+      bloc.add(const MediaStopped());
+      await pumpEventQueue();
+
+      expect(service.disposes, 1);
+      expect(service.controller.isClosed, isTrue);
+
+      bloc.add(MediaSampled(playback));
+      bloc.add(const MediaStarted(paused: true));
+      bloc.add(const MediaIdleChanged(false));
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(service.starts, 1);
+      expect(service.recoveryResumes, 0);
+      expect(service.recoveryPauses, 0);
+      expect(service.disposes, 1);
+
+      await bloc.close();
+      expect(service.disposes, 1);
+      await subscription.cancel();
+    });
+
     test('idle changes gate recovery without stopping snapshots', () async {
       final service = FakeMediaPlayerService();
       final bloc = MediaBloc(service: service);
@@ -708,6 +951,41 @@ cpu MHz\t\t: 3400.000
       } finally {
         await bloc.close();
       }
+    });
+  });
+
+  group('OpencodeBloc', () {
+    test('stopped is terminal and close does not dispose twice', () async {
+      final sampler = FakeOpencodeSampler();
+      final bloc = OpencodeBloc(sampler: sampler);
+      final seen = <OpencodeUsage>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const OpencodeStarted());
+      await pumpEventQueue();
+      bloc.add(const OpencodeStopped());
+      await pumpEventQueue();
+
+      expect(sampler.disposes, 1);
+      expect(sampler.controller.isClosed, isTrue);
+
+      bloc.add(const OpencodeSampled(OpencodeUsage(available: true)));
+      bloc.add(const OpencodeStarted(paused: true));
+      bloc.add(const OpencodePaused());
+      bloc.add(const OpencodeResumed());
+      bloc.add(const OpencodeRefreshed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(sampler.starts, 1);
+      expect(sampler.pauses, 0);
+      expect(sampler.resumes, 0);
+      expect(sampler.refreshes, 0);
+      expect(sampler.disposes, 1);
+
+      await bloc.close();
+      expect(sampler.disposes, 1);
+      await subscription.cancel();
     });
   });
 

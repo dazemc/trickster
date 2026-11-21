@@ -30,6 +30,8 @@ class GpuResumed extends GpuEvent {
   const GpuResumed();
 }
 
+/// Terminal for this bloc: the sampler is disposed, later lifecycle or sample
+/// events are ignored, and `close()` remains safe without disposing twice.
 class GpuStopped extends GpuEvent {
   const GpuStopped();
 }
@@ -51,13 +53,21 @@ class GpuBloc extends Bloc<GpuEvent, GpuState> {
     on<GpuPaused>(_onPaused);
     on<GpuResumed>(_onResumed);
     on<GpuStopped>(_onStopped);
-    on<GpuSampled>((event, emit) => emit(GpuState(event.loads)));
+    on<GpuSampled>((event, emit) {
+      if (!_stopped) {
+        emit(GpuState(event.loads));
+      }
+    });
   }
 
   final GpuSampler _sampler;
   StreamSubscription<List<GpuLoad>>? _subscription;
+  var _stopped = false;
 
   void _onStarted(GpuStarted event, Emitter<GpuState> emit) {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _sampler.snapshots.listen(
       (loads) => add(GpuSampled(loads)),
     );
@@ -65,23 +75,38 @@ class GpuBloc extends Bloc<GpuEvent, GpuState> {
   }
 
   void _onPaused(GpuPaused event, Emitter<GpuState> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.pause();
   }
 
   void _onResumed(GpuResumed event, Emitter<GpuState> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.resume();
   }
 
   Future<void> _onStopped(GpuStopped event, Emitter<GpuState> emit) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    await _sampler.dispose();
   }
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    await _sampler.dispose();
+    if (!wasStopped) {
+      await _sampler.dispose();
+    }
     return super.close();
   }
 }

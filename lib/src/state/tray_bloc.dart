@@ -18,6 +18,9 @@ class TrayStarted extends TrayEvent {
   const TrayStarted();
 }
 
+/// Terminal for this bloc: the StatusNotifier service is disposed, later
+/// lifecycle or sample events are ignored, and `close()` remains safe without
+/// disposing twice.
 class TrayStopped extends TrayEvent {
   const TrayStopped();
 }
@@ -41,12 +44,17 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
        super(initial) {
     on<TrayStarted>(_onStarted);
     on<TrayStopped>(_onStopped);
-    on<TraySampled>((event, emit) => emit(TrayState(event.items)));
+    on<TraySampled>((event, emit) {
+      if (!_stopped) {
+        emit(TrayState(event.items));
+      }
+    });
   }
 
   final StatusNotifierService _service;
   final void Function(String message) _log;
   StreamSubscription<List<SystemTrayItem>>? _subscription;
+  var _stopped = false;
 
   /// Invokes an item method with the pointer position; false when the item
   /// refused every interface.
@@ -71,6 +79,9 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
       _service.activateMenuEntry(item, entryId);
 
   Future<void> _onStarted(TrayStarted event, Emitter<TrayState> emit) async {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _service.snapshots.listen(
       (items) => add(TraySampled(items)),
     );
@@ -82,15 +93,24 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
   }
 
   Future<void> _onStopped(TrayStopped event, Emitter<TrayState> emit) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    await _service.dispose();
   }
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    await _service.dispose();
+    if (!wasStopped) {
+      await _service.dispose();
+    }
     return super.close();
   }
 }

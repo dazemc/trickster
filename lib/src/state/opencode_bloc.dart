@@ -30,6 +30,9 @@ class OpencodeResumed extends OpencodeEvent {
   const OpencodeResumed();
 }
 
+/// Terminal for this bloc: the sampler is disposed, later lifecycle, sample,
+/// and refresh events are ignored, and `close()` remains safe without
+/// disposing twice.
 class OpencodeStopped extends OpencodeEvent {
   const OpencodeStopped();
 }
@@ -57,14 +60,26 @@ class OpencodeBloc extends Bloc<OpencodeEvent, OpencodeUsage> {
     on<OpencodePaused>(_onPaused);
     on<OpencodeResumed>(_onResumed);
     on<OpencodeStopped>(_onStopped);
-    on<OpencodeSampled>((event, emit) => emit(event.usage));
-    on<OpencodeRefreshed>((event, emit) => _sampler.refresh());
+    on<OpencodeSampled>((event, emit) {
+      if (!_stopped) {
+        emit(event.usage);
+      }
+    });
+    on<OpencodeRefreshed>((event, emit) {
+      if (!_stopped) {
+        _sampler.refresh();
+      }
+    });
   }
 
   final OpencodeSampler _sampler;
   StreamSubscription<OpencodeUsage>? _subscription;
+  var _stopped = false;
 
   void _onStarted(OpencodeStarted event, Emitter<OpencodeUsage> emit) {
+    if (_stopped) {
+      return;
+    }
     _subscription ??= _sampler.snapshots.listen(
       (usage) => add(OpencodeSampled(usage)),
     );
@@ -72,10 +87,16 @@ class OpencodeBloc extends Bloc<OpencodeEvent, OpencodeUsage> {
   }
 
   void _onPaused(OpencodePaused event, Emitter<OpencodeUsage> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.pause();
   }
 
   void _onResumed(OpencodeResumed event, Emitter<OpencodeUsage> emit) {
+    if (_stopped) {
+      return;
+    }
     _sampler.resume();
   }
 
@@ -83,15 +104,24 @@ class OpencodeBloc extends Bloc<OpencodeEvent, OpencodeUsage> {
     OpencodeStopped event,
     Emitter<OpencodeUsage> emit,
   ) async {
+    if (_stopped) {
+      return;
+    }
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
+    _sampler.dispose();
   }
 
   @override
   Future<void> close() async {
+    final wasStopped = _stopped;
+    _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    _sampler.dispose();
+    if (!wasStopped) {
+      _sampler.dispose();
+    }
     return super.close();
   }
 }
