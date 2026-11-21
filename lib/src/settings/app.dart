@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show FileSystemEvent, FileSystemMoveEvent, Platform;
+import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -46,6 +47,28 @@ bool isEditedDocumentEvent(FileSystemEvent event) {
       edited(event.destination!);
 }
 
+/// The wallpaper event a settings state transition needs, if any.
+///
+/// A source transition enables or disables the sampler. A revision change
+/// while the wallpaper is active means a save (or an external write) landed;
+/// the bar may only now be reloading the document that enables its sampler, so
+/// refresh rather than waiting for a reopen. Busy/preview emissions keep the
+/// revision and do no work.
+WallpaperAccentEvent? wallpaperAccentEventFor(
+  SettingsAppState previous,
+  SettingsAppState next,
+) {
+  final wasWallpaper = previous.settings.usesWallpaperAccent;
+  final isWallpaper = next.settings.usesWallpaperAccent;
+  if (wasWallpaper != isWallpaper) {
+    return WallpaperAccentEnabled(enabled: isWallpaper);
+  }
+  if (isWallpaper && previous.settings.revision != next.settings.revision) {
+    return const WallpaperAccentRefreshRequested();
+  }
+  return null;
+}
+
 /// Root of the settings application: the same binary in settings mode, its
 /// own process and engine, one plain window, no strip surfaces, no bar blocs.
 ///
@@ -58,15 +81,18 @@ class TricksterSettingsApp extends StatefulWidget {
   State<TricksterSettingsApp> createState() => _TricksterSettingsAppState();
 }
 
-class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
+class _TricksterSettingsAppState extends State<TricksterSettingsApp>
+    with WidgetsBindingObserver {
   late final SettingsAppBloc _bloc;
   late final WallpaperAccentBloc _wallpaperAccent;
+  late SettingsAppState _lastAppState;
   ConfigWatcher? _watcher;
 
   @override
   void initState() {
     super.initState();
     _bloc = SettingsAppBloc()..add(const SettingsAppLoadRequested());
+    _lastAppState = _bloc.state;
     // The bar may write the document while this window is open (the media
     // pill's mode cycle); reload so the pages show what the bar shows.
     _watcher = ConfigWatcher(
@@ -81,15 +107,41 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
       },
     )..start();
     _wallpaperAccent = WallpaperAccentBloc(
-      remote: loadBarWallpaperAccent,
+      remoteProbe: loadBarWallpaperAccentProbe,
       outputs: () => _bloc.availableOutputs,
       strip: () =>
           (side: _bloc.outputs.side, thickness: _bloc.outputs.thickness),
     );
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Re-reads the bar's candidates when the window regains platform focus or
+  /// the app resumes. No timer and no poll: the event only runs while the
+  /// wallpaper source is enabled.
+  void _refreshWallpaper() {
+    if (!mounted || _wallpaperAccent.isClosed) {
+      return;
+    }
+    _wallpaperAccent.add(const WallpaperAccentRefreshRequested());
+  }
+
+  @override
+  void didChangeViewFocus(ViewFocusEvent event) {
+    if (event.state == ViewFocusState.focused) {
+      _refreshWallpaper();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshWallpaper();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_watcher?.dispose());
     unawaited(_bloc.close());
     unawaited(_wallpaperAccent.close());
@@ -103,13 +155,15 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
       value: _bloc,
       child: BlocListener<SettingsAppBloc, SettingsAppState>(
         // Prefer the bar's already-sampled wallpaper state; the local
-        // sampler remains the fallback when no bar answers.
-        listenWhen: (previous, next) =>
-            previous.settings.usesWallpaperAccent !=
-            next.settings.usesWallpaperAccent,
-        listener: (context, state) => _wallpaperAccent.add(
-          WallpaperAccentEnabled(enabled: state.settings.usesWallpaperAccent),
-        ),
+        // sampler remains the fallback when no bar answers. A save revision
+        // refresh lets the bar catch up after this process wrote the source.
+        listener: (context, state) {
+          final event = wallpaperAccentEventFor(_lastAppState, state);
+          _lastAppState = state;
+          if (event != null) {
+            _wallpaperAccent.add(event);
+          }
+        },
         child: BlocProvider.value(
           value: _wallpaperAccent,
           child: BlocProvider<CapabilitiesBloc>(

@@ -203,11 +203,12 @@ void main() {
       cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
 
       final captures = <List<String>>[];
+      var secondOutputWidth = 2560;
       final controller = WallpaperAccentBloc(
         cache: WallpaperCache(root: cacheFile.parent),
-        outputs: () => const [
-          LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
-          LayerOutput(name: 'HDMI-A-2', width: 2560, height: 1440),
+        outputs: () => [
+          const LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+          LayerOutput(name: 'HDMI-A-2', width: secondOutputWidth, height: 1440),
         ],
         strip: () => (side: SystemBarSide.top, thickness: 32),
         grim: GrimSampler(
@@ -228,12 +229,72 @@ void main() {
       expect(captures.single, <String>['-g', '0,32 2560x32', '-t', 'png', '-']);
       expect(controller.state.candidatesFor('HDMI-A-1'), isNotEmpty);
 
-      // A later sample reuses the capture; only the display set re-captures.
+      // A later sample reuses the capture; only the display geometry
+      // re-captures.
       controller.add(const WallpaperAccentSampleRequested());
       await _waitFor(
         () => controller.state.candidatesFor('HDMI-A-2').isNotEmpty,
       );
       expect(captures, hasLength(1));
+
+      // Geometry-only display change: the key changes and grim runs again.
+      secondOutputWidth = 1920;
+      controller.add(const WallpaperAccentSampleRequested());
+      await _waitFor(() => captures.length == 2);
+      expect(captures.last, <String>['-g', '0,32 1920x32', '-t', 'png', '-']);
+    },
+  );
+
+  test(
+    'a wallpaper change recaptures grim even when geometry is unchanged',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('trickster-wall');
+      addTearDown(() => directory.delete(recursive: true));
+      final root = Directory('${directory.path}/awww')..createSync();
+      final cacheFile = File('${root.path}/OTHER')
+        ..writeAsStringSync('${directory.path}/wall.png');
+      var captureColor = const Color(0xffe03040);
+      var grimRuns = 0;
+      final controller = WallpaperAccentBloc(
+        cache: WallpaperCache(root: root),
+        outputs: () => const [
+          LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+        ],
+        strip: () => (side: SystemBarSide.top, thickness: 32),
+        grim: GrimSampler(
+          available: true,
+          run: (_) async {
+            grimRuns += 1;
+            return base64Decode(_redPng);
+          },
+          extract: (_) async => <Color>[captureColor],
+        ),
+      );
+      addTearDown(controller.close);
+
+      controller.add(const WallpaperAccentEnabled(enabled: true));
+      await _waitFor(
+        () => controller.state.candidatesFor('HDMI-A-1').isNotEmpty,
+      );
+      expect(
+        controller.state.candidatesFor('HDMI-A-1').first,
+        const Color(0xffe03040),
+      );
+      expect(grimRuns, 1);
+
+      // The daemon writes the cache file; the wallpaper behind the strip is
+      // now blue. The capture key is unchanged, so only a wallpaper-aware
+      // invalidation recaptures it.
+      captureColor = const Color(0xff2050e0);
+      cacheFile.writeAsStringSync('${directory.path}/wall2.png');
+      await _waitFor(
+        () =>
+            controller.state.candidatesFor('HDMI-A-1').isNotEmpty &&
+            controller.state.candidatesFor('HDMI-A-1').first ==
+                const Color(0xff2050e0),
+      );
+
+      expect(grimRuns, 2);
     },
   );
 
@@ -385,6 +446,322 @@ void main() {
       ..add(const WallpaperAccentEnabled(enabled: true));
     await _waitFor(() => controller.state.hasCandidates);
     expect(calls, 1);
+  });
+
+  test(
+    'a reachable empty bar is retried until its sampler is usable',
+    () async {
+      var remoteCalls = 0;
+      var localSamples = 0;
+      final controller = WallpaperAccentBloc(
+        remoteProbe: () async {
+          remoteCalls += 1;
+          // The bar has received the saved source but has not enabled its
+          // sampler yet on the first request.
+          if (remoteCalls == 1) {
+            return const WallpaperAccentRemoteResult.unusable();
+          }
+          return const WallpaperAccentRemoteResult.usable(
+            WallpaperAccentState(
+              enabled: true,
+              color: Color(0xffe03040),
+              candidates: <String, List<Color>>{
+                'HDMI-A-1': <Color>[Color(0xffe03040)],
+              },
+            ),
+          );
+        },
+        remoteSettleDelays: const <Duration>[
+          Duration(milliseconds: 10),
+          Duration(milliseconds: 10),
+        ],
+        sampleCandidates: (_) async {
+          localSamples += 1;
+          return const <Color>[Color(0xffe03040)];
+        },
+        watch: false,
+      );
+      addTearDown(controller.close);
+
+      controller.add(const WallpaperAccentEnabled(enabled: true));
+      await _waitFor(() => controller.state.hasCandidates);
+
+      expect(remoteCalls, 2);
+      expect(localSamples, 0);
+      expect(controller.state.candidatesFor('HDMI-A-1'), const <Color>[
+        Color(0xffe03040),
+      ]);
+    },
+  );
+
+  test('an unreachable bar falls back to local sampling immediately', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final root = Directory('${directory.path}/awww')..createSync();
+    File(
+      '${root.path}/HDMI-A-1',
+    ).writeAsStringSync('${directory.path}/wall.png');
+    var remoteCalls = 0;
+    var localSamples = 0;
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: root),
+      remoteProbe: () async {
+        remoteCalls += 1;
+        return const WallpaperAccentRemoteResult.unreachable();
+      },
+      sampleCandidates: (_) async {
+        localSamples += 1;
+        return const <Color>[Color(0xffe03040)];
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => localSamples == 1 && controller.state.hasCandidates);
+
+    expect(remoteCalls, 1);
+    expect(controller.state.enabled, isTrue);
+  });
+
+  test(
+    'a focus or save refresh replaces remote candidates without local work',
+    () async {
+      var remoteCalls = 0;
+      var localSamples = 0;
+      final controller = WallpaperAccentBloc(
+        remoteProbe: () async {
+          remoteCalls += 1;
+          return WallpaperAccentRemoteResult.usable(
+            WallpaperAccentState(
+              enabled: true,
+              color: Color(remoteCalls == 1 ? 0xffe03040 : 0xff2050e0),
+              candidates: <String, List<Color>>{
+                'HDMI-A-1': <Color>[
+                  Color(remoteCalls == 1 ? 0xffe03040 : 0xff2050e0),
+                ],
+              },
+            ),
+          );
+        },
+        sampleCandidates: (_) async {
+          localSamples += 1;
+          return const <Color>[Color(0xffe03040)];
+        },
+        watch: false,
+      );
+      addTearDown(controller.close);
+
+      controller.add(const WallpaperAccentEnabled(enabled: true));
+      await _waitFor(() {
+        final values = controller.state.candidatesFor('HDMI-A-1');
+        return values.isNotEmpty && values.first == const Color(0xffe03040);
+      });
+      controller.add(const WallpaperAccentRefreshRequested());
+      await _waitFor(() {
+        final values = controller.state.candidatesFor('HDMI-A-1');
+        return values.isNotEmpty && values.first == const Color(0xff2050e0);
+      });
+
+      expect(remoteCalls, 2);
+      expect(localSamples, 0);
+    },
+  );
+
+  test('a wallpaper cache event refreshes remote candidates', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final root = Directory('${directory.path}/awww')..createSync();
+    final cacheFile = File('${root.path}/HDMI-A-1')
+      ..writeAsStringSync('/tmp/red.png');
+    var remoteCalls = 0;
+    var localSamples = 0;
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: root),
+      remoteProbe: () async {
+        remoteCalls += 1;
+        return WallpaperAccentRemoteResult.usable(
+          WallpaperAccentState(
+            enabled: true,
+            color: Color(remoteCalls == 1 ? 0xffe03040 : 0xff2050e0),
+            candidates: <String, List<Color>>{
+              'HDMI-A-1': <Color>[
+                Color(remoteCalls == 1 ? 0xffe03040 : 0xff2050e0),
+              ],
+            },
+          ),
+        );
+      },
+      sampleCandidates: (_) async {
+        localSamples += 1;
+        return const <Color>[Color(0xffe03040)];
+      },
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() {
+      final values = controller.state.candidatesFor('HDMI-A-1');
+      return values.isNotEmpty && values.first == const Color(0xffe03040);
+    });
+
+    // The daemon writing the cache file is the only signal; no interval poll.
+    cacheFile.writeAsStringSync('/tmp/blue.png');
+    await _waitFor(() {
+      final values = controller.state.candidatesFor('HDMI-A-1');
+      return values.isNotEmpty && values.first == const Color(0xff2050e0);
+    });
+
+    expect(remoteCalls, 2);
+    expect(localSamples, 0);
+  });
+
+  test('overlapping local sample requests never decode concurrently', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final root = Directory('${directory.path}/awww')..createSync();
+    File(
+      '${root.path}/HDMI-A-1',
+    ).writeAsStringSync('${directory.path}/wall.png');
+    var calls = 0;
+    var active = 0;
+    var maxActive = 0;
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: root),
+      remoteProbe: () async => const WallpaperAccentRemoteResult.unreachable(),
+      sampleCandidates: (_) async {
+        calls += 1;
+        active += 1;
+        if (active > maxActive) {
+          maxActive = active;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        active -= 1;
+        return const <Color>[Color(0xffe03040)];
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => active == 1);
+    controller
+      ..add(const WallpaperAccentSampleRequested())
+      ..add(const WallpaperAccentSampleRequested());
+    await _waitFor(() => calls == 2 && active == 0);
+
+    expect(maxActive, 1);
+    expect(calls, 2);
+  });
+
+  test('disabling stops an in-flight multi-entry local sample', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final root = Directory('${directory.path}/awww')..createSync();
+    for (var index = 0; index < 3; index += 1) {
+      File(
+        '${root.path}/OUT-$index',
+      ).writeAsStringSync('${directory.path}/wall.png');
+    }
+    File('${directory.path}/wall.png').writeAsBytesSync(<int>[1]);
+    var samples = 0;
+    final controller = WallpaperAccentBloc(
+      cache: WallpaperCache(root: root),
+      remoteProbe: () async => const WallpaperAccentRemoteResult.unreachable(),
+      sampleCandidates: (_) async {
+        samples += 1;
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        return const <Color>[Color(0xffe03040)];
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => samples == 1);
+    controller.add(const WallpaperAccentEnabled(enabled: false));
+    await _waitFor(() => !controller.state.enabled);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
+    expect(samples, 1);
+    expect(controller.state.enabled, isFalse);
+  });
+
+  test('remote status requests single-flight during a refresh', () async {
+    var remoteCalls = 0;
+    final controller = WallpaperAccentBloc(
+      remoteProbe: () async {
+        remoteCalls += 1;
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        return const WallpaperAccentRemoteResult.usable(
+          WallpaperAccentState(
+            enabled: true,
+            color: Color(0xffe03040),
+            candidates: <String, List<Color>>{
+              'HDMI-A-1': <Color>[Color(0xffe03040)],
+            },
+          ),
+        );
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    controller
+      ..add(const WallpaperAccentRefreshRequested())
+      ..add(const WallpaperAccentRefreshRequested());
+    await _waitFor(() => controller.state.hasCandidates);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(remoteCalls, 1);
+  });
+
+  test('a usable remote state never starts local decode or grim', () async {
+    var localSamples = 0;
+    var grimRuns = 0;
+    final thumbnailer = _FakeThumbnailer(null);
+    final controller = WallpaperAccentBloc(
+      remoteProbe: () async => const WallpaperAccentRemoteResult.usable(
+        WallpaperAccentState(
+          enabled: true,
+          color: Color(0xffe03040),
+          candidates: <String, List<Color>>{
+            'HDMI-A-1': <Color>[Color(0xffe03040)],
+          },
+        ),
+      ),
+      sampleCandidates: (_) async {
+        localSamples += 1;
+        return const <Color>[Color(0xffe03040)];
+      },
+      thumbnailer: thumbnailer,
+      grim: GrimSampler(
+        available: true,
+        run: (_) async {
+          grimRuns += 1;
+          return base64Decode(_redPng);
+        },
+      ),
+      outputs: () => const [
+        LayerOutput(name: 'HDMI-A-1', width: 1920, height: 1080),
+      ],
+      strip: () => (side: SystemBarSide.top, thickness: 32),
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.hasCandidates);
+    controller
+      ..add(const WallpaperAccentRefreshRequested())
+      ..add(const WallpaperAccentSampleRequested());
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+
+    expect(localSamples, 0);
+    expect(thumbnailer.calls, 0);
+    expect(grimRuns, 0);
   });
 
   test('source limits accept 8K and reject extreme sizes', () {

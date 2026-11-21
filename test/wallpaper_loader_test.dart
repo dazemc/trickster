@@ -63,6 +63,43 @@ void main() {
     );
   });
 
+  test('the probe distinguishes unusable from unreachable', () {
+    final usable = wallpaperAccentProbeFromStatus(<String, Object?>{
+      'ok': true,
+      'state': <String, Object?>{'wallpaper': wallpaper.toJson()},
+    });
+    expect(usable.status, WallpaperAccentRemoteStatus.usable);
+    expect(usable.state, isNotNull);
+
+    final empty = wallpaperAccentProbeFromStatus(<String, Object?>{
+      'ok': true,
+      'state': <String, Object?>{
+        'wallpaper': const WallpaperAccentState(enabled: true).toJson(),
+      },
+    });
+    expect(empty.status, WallpaperAccentRemoteStatus.unusable);
+    expect(empty.state, isNotNull);
+
+    final malformed = wallpaperAccentProbeFromStatus(<String, Object?>{
+      'ok': true,
+      'state': <String, Object?>{'wallpaper': 1},
+    });
+    expect(malformed.status, WallpaperAccentRemoteStatus.unusable);
+
+    final error = wallpaperAccentProbeFromStatus(<String, Object?>{
+      'ok': false,
+      'error': 'shutting down',
+    });
+    expect(error.status, WallpaperAccentRemoteStatus.unreachable);
+  });
+
+  test('the probe reports a missing bar as unreachable', () async {
+    final result = await loadBarWallpaperAccentProbe(
+      request: () async => throw StateError('no bar'),
+    );
+    expect(result.status, WallpaperAccentRemoteStatus.unreachable);
+  });
+
   test('an unreachable bar resolves to null for the local fallback', () async {
     expect(
       await loadBarWallpaperAccent(

@@ -8,34 +8,58 @@ import 'package:trickster/src/state/wallpaper_accent.dart';
 /// that is disabled, empty, or malformed is not a substitute for the local
 /// sampler; the caller falls back to it.
 WallpaperAccentState? wallpaperAccentFromStatus(Object? reply) {
-  if (reply is! Map || reply['ok'] != true) {
-    return null;
+  final result = wallpaperAccentProbeFromStatus(reply);
+  return result.usable ? result.state : null;
+}
+
+/// The same reply parser, but keeps the reason: an explicit bar error is
+/// [WallpaperAccentRemoteResult.unreachable] (do not wait), while a live bar
+/// with no wallpaper state yet is [WallpaperAccentRemoteResult.unusable]
+/// (bounded settle before the local fallback).
+WallpaperAccentRemoteResult wallpaperAccentProbeFromStatus(Object? reply) {
+  if (reply is! Map) {
+    return const WallpaperAccentRemoteResult.unusable();
+  }
+  if (reply['ok'] != true) {
+    return const WallpaperAccentRemoteResult.unreachable();
   }
   final state = reply['state'];
   if (state is! Map) {
-    return null;
+    return const WallpaperAccentRemoteResult.unusable();
   }
   final wallpaper = state['wallpaper'];
   if (wallpaper is! Map) {
-    return null;
+    return const WallpaperAccentRemoteResult.unusable();
   }
   try {
     final parsed = WallpaperAccentState.fromJson(
       Map<String, dynamic>.from(wallpaper),
     );
-    return parsed.usable ? parsed : null;
+    return parsed.usable
+        ? WallpaperAccentRemoteResult.usable(parsed)
+        : WallpaperAccentRemoteResult.unusable(parsed);
   } on Object {
-    return null;
+    return const WallpaperAccentRemoteResult.unusable();
   }
 }
 
 /// Asks the running bar for its already-computed wallpaper accent. The
 /// settings process uses this so a wallpaper-using window does not run a
-/// second decode, thumbnailer, screencopy, or cache watcher.
+/// second decode, thumbnailer, or screencopy.
 ///
-/// A missing bar, malformed reply, or unusable state returns null; the caller
-/// starts the local sampler as the fallback.
+/// A missing bar, malformed reply, or unusable state returns null. The caller
+/// treats the null as the local-fallback signal.
 Future<WallpaperAccentState?> loadBarWallpaperAccent({
+  Future<Map<String, Object?>> Function()? request,
+}) async {
+  final result = await loadBarWallpaperAccentProbe(request: request);
+  return result.usable ? result.state : null;
+}
+
+/// [loadBarWallpaperAccent] with the reachability reason intact. Settings uses
+/// this so a bar that is still opening its wallpaper sampler gets a bounded
+/// settle instead of triggering a second decoder immediately.
+Future<WallpaperAccentRemoteResult> loadBarWallpaperAccentProbe({
   Future<Map<String, Object?>> Function()? request,
 }) async {
   try {
@@ -43,8 +67,8 @@ Future<WallpaperAccentState?> loadBarWallpaperAccent({
         await (request ??
             () =>
                 controlRequest(const <String, Object?>{'command': 'status'}))();
-    return wallpaperAccentFromStatus(reply);
+    return wallpaperAccentProbeFromStatus(reply);
   } on Object {
-    return null;
+    return const WallpaperAccentRemoteResult.unreachable();
   }
 }
