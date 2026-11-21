@@ -29,11 +29,8 @@ The settings document path is always
 | `TRICKSTER_KEYBOARD` | `none`, `exclusive`, `on_demand` | `on_demand` |
 | `TRICKSTER_ACCENT` | `#RRGGBB` machine accent override | unset |
 | `TRICKSTER_OUTPUT_CONFIG` | path to an `outputs.conf` | XDG default |
-| `TRICKSTER_LOG` | log filter | unset |
 
 An invalid `session.conf` is ignored with a log line and defaults are used.
-`TRICKSTER_LOG` is parsed into `SessionConfig` but never applied to a logger;
-that is a **gap**, not a working filter.
 
 ## `$XDG_CONFIG_HOME/trickster/outputs.conf`
 
