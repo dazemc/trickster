@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "keyboard_layout", "battery", "network", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "vram", "ram", "temperature", "disk", "keyboard_layout", "brightness", "battery", "network", "clock"]
 }
 ```
 
@@ -64,9 +64,9 @@ rejected at decode, so a live reload keeps the last-good settings.
 
 The settings application probes the machine before it offers a module: no
 battery, no dedicated GPU memory, no readable hwmon temperature sensor, a
-missing configured disk mount, no physical or pinned network interface, and
-no supported keyboard-layout backend each move the row into an Unavailable
-section with a reason. Keyboard layout prefers the running bar's control status and
+missing configured disk mount, no physical or pinned network interface, no
+supported keyboard-layout backend, and no readable backlight each move the row
+into an Unavailable section with a reason. Keyboard layout prefers the running bar's control status and
 falls back to the settings process environment. Unavailable rows stay in the
 document but cannot be toggled or resolved from the page.
 
@@ -182,6 +182,9 @@ document but cannot be toggled or resolved from the page.
   reads the main or first keyboard through that compositor's input listing,
   follows its layout events without polling, and hides without a supported
   backend. It is enabled in the default module list.
+- `brightness` has no options. It reads the preferred readable
+  `/sys/class/backlight` device at 1 Hz, pauses with the seat, and hides when
+  no backlight is readable. It is enabled in the default module list.
 - `network.interface` (Linux interface name, optional) — pin one interface,
   including a virtual one, instead of auto-selecting the active physical
   interface. Auto mode ignores loopback and interfaces without a
