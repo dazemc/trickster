@@ -139,9 +139,9 @@ Resemble Denial at every seam that does not require compositor ownership:
 File style is Denial-style `KEY=VALUE` with `#` comments.
 
 - `/etc/trickster/session.conf` (`TRICKSTER_*`): machine env — config-path
-  override, layer, namespace, keyboard interactivity, accent override, log
-  filter. Packaged template, `backup=`-preserved. Parsed by the Dart
-  bootstrap at startup.
+  override, layer, namespace, keyboard interactivity, accent override.
+  Packaged template, `backup=`-preserved. Parsed by the Dart bootstrap at
+  startup.
 - `$XDG_CONFIG_HOME/trickster/outputs.conf`: bar placement with Denial's
   `system_bar=` grammar verbatim (`top,32`; `bottom,40,eDP-1`; `hidden`).
   Template copied to the user config on first launch, never overwritten.
