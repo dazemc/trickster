@@ -119,9 +119,11 @@ socket can observe are forbidden. Only per-frame widget-local details
 (animation controllers, hover and press flags) stay in `State`.
 
 `ModuleScope` builds one provider per configured module and nothing for a
-disabled one. Shared services — settings document, wallpaper accent, tray
-menus, tooltips, calendar, volume slider — are blocs too. The settings
-application carries its own blocs under the same rule.
+disabled one. GPU and VRAM are the exception: they share one `GpuBloc`, with
+the sampler reading only the fields the configured modules need. Shared
+services — settings document, wallpaper accent, tray menus, tooltips,
+calendar, volume slider — are blocs too. The settings application carries its
+own blocs under the same rule.
 
 States that cross a process, control-socket, or diagnostic boundary are
 JSON-shaped. The convention lives on the state's model type
