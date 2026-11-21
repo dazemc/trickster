@@ -13,6 +13,8 @@ Trickster takes Denial's system bar — the floating pills, the accent, the moti
 - Denial-parity modules: clock, battery, media, tray, CPU/GPU, workspaces.
 - OpenCode usage: the local server's Go allowance windows and the newest
   session's tokens and cost.
+- RAM: a 1 Hz `/proc/meminfo` meter with thresholds, captions, and a
+  sparkline (user-requested addition, not Denial parity).
 - Denial-style files-on-disk config with live reload and a `--check` preflight.
 - Sway, Hyprland, niri, river, and COSMIC targets.
 
