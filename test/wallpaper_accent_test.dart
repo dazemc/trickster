@@ -266,6 +266,127 @@ void main() {
     },
   );
 
+  test('a usable bar state replaces local sampling entirely', () async {
+    const red = Color(0xffe03040);
+    const remote = WallpaperAccentState(
+      enabled: true,
+      color: red,
+      accents: <String, Color?>{'HDMI-A-1': red},
+      candidates: <String, List<Color>>{
+        'HDMI-A-1': <Color>[red],
+      },
+    );
+    var localSamples = 0;
+    var grimRuns = 0;
+    final thumbnailer = _FakeThumbnailer(null);
+    final controller = WallpaperAccentBloc(
+      remote: () async => remote,
+      sampleCandidates: (_) async {
+        localSamples += 1;
+        return const <Color>[red];
+      },
+      thumbnailer: thumbnailer,
+      grim: GrimSampler(
+        available: true,
+        run: (_) async {
+          grimRuns += 1;
+          return base64Decode(_redPng);
+        },
+      ),
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.hasCandidates);
+
+    expect(controller.state.candidatesFor('HDMI-A-1'), const <Color>[red]);
+    expect(localSamples, 0);
+    expect(thumbnailer.calls, 0);
+    expect(grimRuns, 0);
+  });
+
+  test('an unavailable remote falls back to local sampling', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final red = File('${directory.path}/red.png')
+      ..writeAsBytesSync(base64Decode(_redPng));
+    final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
+
+    var localSamples = 0;
+    final controller = WallpaperAccentBloc(
+      remote: () async => null,
+      cache: WallpaperCache(root: cacheFile.parent),
+      sampleCandidates: (_) async {
+        localSamples += 1;
+        return const <Color>[Color(0xffe03040)];
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.hasCandidates);
+
+    expect(localSamples, 1);
+    expect(controller.state.enabled, isTrue);
+  });
+
+  test('an empty remote state falls back to local sampling', () async {
+    final directory = await Directory.systemTemp.createTemp('trickster-wall');
+    addTearDown(() => directory.delete(recursive: true));
+    final red = File('${directory.path}/red.png')
+      ..writeAsBytesSync(base64Decode(_redPng));
+    final cacheFile = File('${directory.path}/awww/HDMI-A-1');
+    cacheFile.parent.createSync(recursive: true);
+    cacheFile.writeAsStringSync('\u0000crop\u0000${red.path}');
+
+    var localSamples = 0;
+    final controller = WallpaperAccentBloc(
+      remote: () async => const WallpaperAccentState(enabled: true),
+      cache: WallpaperCache(root: cacheFile.parent),
+      sampleCandidates: (_) async {
+        localSamples += 1;
+        return const <Color>[Color(0xffe03040)];
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller.add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.hasCandidates);
+
+    expect(localSamples, 1);
+  });
+
+  test('repeated enable events single-flight the remote request', () async {
+    const red = Color(0xffe03040);
+    var calls = 0;
+    final controller = WallpaperAccentBloc(
+      remote: () async {
+        calls += 1;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        return const WallpaperAccentState(
+          enabled: true,
+          color: red,
+          candidates: <String, List<Color>>{
+            'HDMI-A-1': <Color>[red],
+          },
+        );
+      },
+      watch: false,
+    );
+    addTearDown(controller.close);
+
+    controller
+      ..add(const WallpaperAccentEnabled(enabled: true))
+      ..add(const WallpaperAccentEnabled(enabled: true));
+    await _waitFor(() => controller.state.hasCandidates);
+    expect(calls, 1);
+  });
+
   test('source limits accept 8K and reject extreme sizes', () {
     const limits = WallpaperSourceLimits();
     expect(limits.allowsSource(7680, 4320), isTrue);

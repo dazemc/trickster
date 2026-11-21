@@ -76,6 +76,10 @@ Future<Uint8List?> readWallpaperSource(
   }
 }
 
+/// Asks another process (the running bar) for its current wallpaper accent
+/// state. Settings uses this so it does not decode the same wallpaper twice.
+typedef WallpaperAccentRemoteLoader = Future<WallpaperAccentState?> Function();
+
 /// The sampled wallpaper accent per output, plus each output's candidate
 /// list, strongest first.
 class WallpaperAccentState extends Equatable {
@@ -96,6 +100,14 @@ class WallpaperAccentState extends Equatable {
 
   /// Every potential accent per output, strongest first.
   final Map<String, List<Color>> candidates;
+
+  /// Whether at least one output published a candidate. A remote bar state
+  /// with the sampler enabled but no candidates is still pending or
+  /// monochrome and is not a substitute for a local fallback.
+  bool get hasCandidates => candidates.values.any((list) => list.isNotEmpty);
+
+  /// Whether a remote reply can replace local sampling.
+  bool get usable => enabled && hasCandidates;
 
   /// The sampled accent for [output], falling back to the first sampled
   /// output when the cache does not name it (a display that shares the
@@ -188,6 +200,7 @@ class WallpaperAccentBloc
     GrimSampler? grim,
     List<LayerOutput> Function()? outputs,
     ({SystemBarSide side, double thickness}) Function()? strip,
+    WallpaperAccentRemoteLoader? remote,
     bool watch = true,
     WallpaperAccentState initial = const WallpaperAccentState(),
   }) : _cache = cache ?? WallpaperCache(),
@@ -197,6 +210,7 @@ class WallpaperAccentBloc
        _grim = grim ?? GrimSampler(),
        _outputs = outputs,
        _strip = strip,
+       _remote = remote,
        _watchEnabled = watch,
        super(initial) {
     on<WallpaperAccentEnabled>(_onEnabled);
@@ -214,6 +228,7 @@ class WallpaperAccentBloc
   final GrimSampler _grim;
   final List<LayerOutput> Function()? _outputs;
   final ({SystemBarSide side, double thickness}) Function()? _strip;
+  final WallpaperAccentRemoteLoader? _remote;
   final bool _watchEnabled;
 
   /// Screencopy candidates per output, keyed by what the capture depended
@@ -232,8 +247,11 @@ class WallpaperAccentBloc
     if (event.enabled == state.enabled) {
       return;
     }
+    // A new enable/disable owns the generation; a remote reply from an older
+    // request must never overwrite the state that replaced it.
+    _stop();
+    final generation = _generation;
     if (!event.enabled) {
-      _stop();
       emit(const WallpaperAccentState());
       return;
     }
@@ -245,6 +263,31 @@ class WallpaperAccentBloc
         candidates: state.candidates,
       ),
     );
+
+    final remote = _remote;
+    if (remote == null) {
+      _startLocal();
+      return;
+    }
+    WallpaperAccentState? remoteState;
+    try {
+      remoteState = await remote();
+    } on Object {
+      remoteState = null;
+    }
+    if (generation != _generation || !state.enabled) {
+      return;
+    }
+    if (remoteState != null && remoteState.usable) {
+      emit(remoteState);
+      return;
+    }
+    _startLocal();
+  }
+
+  /// The fallback path: a bar-less settings app (or a bar with no usable
+  /// wallpaper state) owns the decode, thumbnailer, screencopy, and watcher.
+  void _startLocal() {
     _startWatch();
     _schedule();
   }

@@ -20,6 +20,7 @@ import 'package:trickster/src/settings/pages/language.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/settings/wallpaper_loader.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
@@ -59,6 +60,7 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
       },
     )..start();
     _wallpaperAccent = WallpaperAccentBloc(
+      remote: loadBarWallpaperAccent,
       outputs: () => _bloc.availableOutputs,
       strip: () =>
           (side: _bloc.outputs.side, thickness: _bloc.outputs.thickness),
@@ -79,8 +81,8 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
     return BlocProvider.value(
       value: _bloc,
       child: BlocListener<SettingsAppBloc, SettingsAppState>(
-        // The settings process samples the wallpaper itself, so the
-        // appearance page can list the accents the bar is choosing from.
+        // Prefer the bar's already-sampled wallpaper state; the local
+        // sampler remains the fallback when no bar answers.
         listenWhen: (previous, next) =>
             previous.settings.usesWallpaperAccent !=
             next.settings.usesWallpaperAccent,
