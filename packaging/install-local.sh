@@ -9,7 +9,9 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bundle="$root/build/linux/x64/release/bundle"
 
 if [[ "${EUID}" -ne 0 ]]; then
-  exec sudo --preserve-env=PREFIX -- "$0" "$@"
+  # -S reads the password from stdin as well as an interactive terminal, so
+  # `make release` works both when run by a person and from a password pipe.
+  exec sudo -S --preserve-env=PREFIX -- "$0" "$@"
 fi
 
 for required in \
