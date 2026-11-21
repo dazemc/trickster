@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/services.dart';
@@ -26,10 +27,13 @@ import 'package:trickster/src/settings/color_wheel.dart';
 import 'package:trickster/src/settings/module_options.dart';
 import 'package:trickster/src/settings/modules_bloc.dart';
 import 'package:trickster/src/settings/pages/about.dart';
+import 'package:trickster/src/settings/pages/appearance.dart';
+import 'package:trickster/src/settings/pages/displays.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
+import 'package:trickster/src/theme/tokens.dart';
 
 class _FakeLayerShell extends LayerShell {
   _FakeLayerShell({
@@ -43,19 +47,48 @@ class _FakeLayerShell extends LayerShell {
   final List<LayerOutput> reported;
 
   @override
-  Future<List<LayerOutput>> outputs() async => reported;
+  Future<List<LayerOutput>> outputs() async => List<LayerOutput>.of(reported);
+}
+
+/// Holds a settings write open so a test can inspect the busy frame without
+/// the revision changing underneath it.
+class _GatedSettingsTransport implements SettingsDocumentTransport {
+  _GatedSettingsTransport(this.inner);
+
+  final SettingsDocumentTransport inner;
+  Completer<void> _gate = Completer<void>();
+
+  void release() {
+    if (!_gate.isCompleted) {
+      _gate.complete();
+    }
+    _gate = Completer<void>();
+  }
+
+  @override
+  Future<SettingsDocument> read() => inner.read();
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    await _gate.future;
+    return inner.write(expectedRevision: expectedRevision, document: document);
+  }
 }
 
 Future<SettingsAppBloc> _bloc(
   File file, {
   LayerShell? layerShell,
   SettingsDocumentTransport? settingsFile,
+  SettingsDocumentTransport? settingsTransport,
 }) async {
   final directory = file.parent;
   final bloc = SettingsAppBloc(
-    socket: SocketSettingsTransport(
-      socketPath: '${directory.path}/no-bar.sock',
-    ),
+    socket:
+        settingsTransport ??
+        SocketSettingsTransport(socketPath: '${directory.path}/no-bar.sock'),
     file: settingsFile ?? FileSettingsTransport(file, asyncLock: false),
     outputsSocket: SocketOutputsTransport(
       socketPath: '${directory.path}/no-bar.sock',
@@ -80,6 +113,7 @@ Future<void> _pump(
   Size size = const Size(980, 720),
   double textScale = 1.0,
   Locale? locale,
+  WallpaperAccentState wallpaper = const WallpaperAccentState(),
 }) {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -89,7 +123,7 @@ Future<void> _pump(
     BlocProvider.value(
       value: bloc,
       child: BlocProvider<WallpaperAccentBloc>(
-        create: (_) => WallpaperAccentBloc(watch: false),
+        create: (_) => WallpaperAccentBloc(watch: false, initial: wallpaper),
         child: TricksterLocalizationScope(
           locale: locale,
           child: MediaQuery(
@@ -3276,7 +3310,7 @@ void main() {
     final next = bloc.settings
         .copyWith(media: bloc.settings.media.copyWith(mode: MediaMode.compact))
         .copyWith(revision: bloc.settings.revision + 1);
-    final writer = FileSettingsTransport(file);
+    final writer = FileSettingsTransport(file, asyncLock: false);
     await writer.read();
     await writer.write(
       expectedRevision: bloc.settings.revision,
@@ -3307,7 +3341,7 @@ void main() {
       final external = committed
           .copyWith(media: committed.media.copyWith(mode: MediaMode.compact))
           .copyWith(revision: committed.revision + 1);
-      final writer = FileSettingsTransport(file);
+      final writer = FileSettingsTransport(file, asyncLock: false);
       await writer.read();
       await writer.write(
         expectedRevision: committed.revision,
@@ -3345,7 +3379,7 @@ void main() {
     final external = committed
         .copyWith(media: committed.media.copyWith(mode: MediaMode.compact))
         .copyWith(revision: committed.revision + 1);
-    final writer = FileSettingsTransport(file);
+    final writer = FileSettingsTransport(file, asyncLock: false);
     await writer.read();
     await writer.write(
       expectedRevision: committed.revision,
@@ -3378,7 +3412,7 @@ void main() {
     final external = committed
         .copyWith(media: committed.media.copyWith(mode: MediaMode.compact))
         .copyWith(revision: committed.revision + 1);
-    final writer = FileSettingsTransport(file);
+    final writer = FileSettingsTransport(file, asyncLock: false);
     await writer.read();
     await writer.write(
       expectedRevision: committed.revision,
@@ -3589,4 +3623,632 @@ void main() {
     await tester.pump();
     expect(closed, 1);
   });
+
+  testWidgets('close, nav, chips, and resets activate from the keyboard', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    var closed = 0;
+    final semantics = tester.ensureSemantics();
+    _useKeyboardHighlight();
+    await _pump(
+      tester,
+      bloc,
+      size: const Size(900, 600),
+      textScale: 2,
+      onClose: () => closed++,
+    );
+    await tester.pumpAndSettle();
+
+    // The close control is reachable, paints a focus ring, and fires on both
+    // activation keys.
+    final close = find.byType(SettingsCloseButton);
+    _controlFocus(tester, close).requestFocus();
+    await tester.pumpAndSettle();
+    final closeBox = tester.widget<AnimatedContainer>(
+      find.descendant(of: close, matching: find.byType(AnimatedContainer)),
+    );
+    expect(
+      (closeBox.decoration! as BoxDecoration).border!.top.color,
+      ShellBrandColors.defaultAccent,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(closed, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(closed, 2);
+
+    // Nav entries focus, ring, and switch pages with Enter and Space.
+    Finder navEntry(String label) => find
+        .ancestor(
+          of: find.descendant(
+            of: find.byType(SettingsNav),
+            matching: find.text(label),
+          ),
+          matching: find.byType(FocusableActionDetector),
+        )
+        .first;
+
+    final modulesEntry = navEntry('Modules');
+    tester
+        .widget<FocusableActionDetector>(modulesEntry)
+        .focusNode!
+        .requestFocus();
+    await tester.pumpAndSettle();
+    final modulesBox = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: modulesEntry,
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect(modulesBox.foregroundDecoration, isNotNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(ModulesPage), findsOneWidget);
+
+    final displaysEntry = navEntry('Displays');
+    tester
+        .widget<FocusableActionDetector>(displaysEntry)
+        .focusNode!
+        .requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(find.byType(DisplaysPage), findsOneWidget);
+
+    final appearanceEntry = navEntry('Appearance');
+    tester
+        .widget<FocusableActionDetector>(appearanceEntry)
+        .focusNode!
+        .requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    // Choice chips keep their selected semantics and activate from the
+    // keyboard with a ring.
+    final wallpaperChip = find.byKey(
+      const ValueKey<String>('accent-source-wallpaper'),
+    );
+    await tester.ensureVisible(wallpaperChip);
+    await tester.pumpAndSettle();
+    _controlFocus(tester, wallpaperChip).requestFocus();
+    await tester.pumpAndSettle();
+    final chipBox = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: wallpaperChip,
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect(
+      (chipBox.decoration! as BoxDecoration).border!.top.color,
+      ShellBrandColors.defaultAccent,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.accentSource, AccentSource.wallpaper);
+
+    final customChip = find.byKey(
+      const ValueKey<String>('accent-source-custom'),
+    );
+    _controlFocus(tester, customChip).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.accentSource, AccentSource.custom);
+    expect(
+      tester.getSemantics(customChip).flagsCollection.isSelected,
+      ui.Tristate.isTrue,
+    );
+
+    // Reset buttons ring and fire from the keyboard. Give the accent a value
+    // first so the reset is enabled.
+    final preset = find.byKey(const ValueKey<String>('accent-preset-#8AB4FF'));
+    await tester.ensureVisible(preset);
+    await tester.pumpAndSettle();
+    await tester.tap(preset);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.accent, const Color(0xff8ab4ff));
+
+    final reset = find.byKey(const ValueKey<String>('reset-accent'));
+    await tester.ensureVisible(reset);
+    await tester.pumpAndSettle();
+    _controlFocus(tester, reset).requestFocus();
+    await tester.pumpAndSettle();
+    final resetBox = tester.widget<DecoratedBox>(
+      find.descendant(of: reset, matching: find.byType(DecoratedBox)).first,
+    );
+    expect(
+      (resetBox.decoration as BoxDecoration).border!.top.color,
+      ShellBrandColors.defaultAccent,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.accent, isNull);
+    semantics.dispose();
+  });
+
+  testWidgets('an open inspector traps focus off the header and nav', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    await _openOptions(tester, 'clock');
+
+    bool focusesInside(Finder finder) {
+      final target = tester.element(finder);
+      final focusContext = FocusManager.instance.primaryFocus?.context;
+      if (focusContext == null) {
+        return false;
+      }
+      if (identical(focusContext, target)) {
+        return true;
+      }
+      var inside = false;
+      focusContext.visitAncestorElements((element) {
+        if (identical(element, target)) {
+          inside = true;
+          return false;
+        }
+        return true;
+      });
+      return inside;
+    }
+
+    final inspector = _optionsInspector();
+    final close = find.byType(SettingsCloseButton);
+    final nav = find.byType(SettingsNav);
+    expect(focusesInside(inspector), isTrue);
+
+    for (var i = 0; i < 24; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(focusesInside(inspector), isTrue, reason: 'tab $i escaped');
+      expect(focusesInside(close), isFalse, reason: 'tab $i hit close');
+      expect(focusesInside(nav), isFalse, reason: 'tab $i hit nav');
+    }
+    for (var i = 0; i < 24; i++) {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(focusesInside(inspector), isTrue, reason: 'shift+tab $i escaped');
+      expect(focusesInside(close), isFalse, reason: 'shift+tab $i hit close');
+      expect(focusesInside(nav), isFalse, reason: 'shift+tab $i hit nav');
+    }
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(_optionsInspector(), findsNothing);
+  });
+
+  testWidgets('about page asks the bar once across rebuilds and locales', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    var loads = 0;
+    Future<Map<String, Object?>> loader() async {
+      loads++;
+      return const <String, Object?>{
+        'ok': true,
+        'version': '9.9.9',
+        'protocol': 3,
+      };
+    }
+
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Future<void> pumpAbout(Locale locale) {
+      return tester.pumpWidget(
+        BlocProvider.value(
+          value: bloc,
+          child: TricksterLocalizationScope(
+            locale: locale,
+            child: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(900, 600),
+                textScaler: TextScaler.linear(2),
+              ),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: AboutPage(versionLoader: loader),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pumpAbout(const Locale('en'));
+    await tester.pumpAndSettle();
+    expect(loads, 1);
+    expect(find.text('9.9.9'), findsOneWidget);
+
+    await pumpAbout(const Locale('en'));
+    await tester.pumpAndSettle();
+    expect(loads, 1);
+
+    await pumpAbout(const Locale('zh'));
+    await tester.pumpAndSettle();
+    expect(loads, 1);
+    expect(find.text('9.9.9'), findsOneWidget);
+  });
+
+  testWidgets('about page degrades when the version loader fails', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: bloc,
+        child: TricksterLocalizationScope(
+          locale: const Locale('en'),
+          child: const MediaQuery(
+            data: MediaQueryData(
+              size: Size(900, 600),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: AboutPage(versionLoader: _failingVersionLoader),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Not running'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a vanished appearance target falls back to all displays', (
+    tester,
+  ) async {
+    final reported = <LayerOutput>[
+      const LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+      const LayerOutput(name: 'HDMI-A-1', width: 2560, height: 1440),
+    ];
+    final bloc = await _bloc(
+      file,
+      layerShell: _FakeLayerShell(reported: reported),
+    );
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await tester.pumpAndSettle();
+
+    final target = find.byKey(
+      const ValueKey<String>('appearance-target-HDMI-A-1'),
+    );
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+    await tester.tap(target);
+    await tester.pump();
+    expect(tester.widget<SettingsChoiceChip>(target).selected, isTrue);
+
+    reported.removeWhere((output) => output.name == 'HDMI-A-1');
+    bloc.add(const SettingsAppLoadRequested());
+    await bloc.stream.firstWhere(
+      (state) => state.loaded && state.availableOutputs.length == 1,
+    );
+    await tester.pumpAndSettle();
+
+    expect(target, findsNothing);
+    final all = find.byKey(const ValueKey<String>('appearance-target-all'));
+    expect(tester.widget<SettingsChoiceChip>(all).selected, isTrue);
+
+    // The next edit is global, not an invisible connector override.
+    final preset = find.byKey(const ValueKey<String>('accent-preset-#8AB4FF'));
+    await tester.ensureVisible(preset);
+    await tester.pumpAndSettle();
+    await tester.tap(preset);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.accent, const Color(0xff8ab4ff));
+    expect(bloc.settings.displayAppearance, isEmpty);
+  });
+
+  testWidgets('an unplugged override keeps its connector chip selected', (
+    tester,
+  ) async {
+    file.writeAsStringSync(
+      const BarSettings(
+        revision: 2,
+        displayAppearance: {
+          'HDMI-A-1': DisplayAppearance(accent: Color(0xff8ab4ff)),
+        },
+      ).encode(),
+    );
+    final reported = <LayerOutput>[
+      const LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+      const LayerOutput(name: 'HDMI-A-1', width: 2560, height: 1440),
+    ];
+    final bloc = await _bloc(
+      file,
+      layerShell: _FakeLayerShell(reported: reported),
+    );
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await tester.pumpAndSettle();
+
+    final target = find.byKey(
+      const ValueKey<String>('appearance-target-HDMI-A-1'),
+    );
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+    await tester.tap(target);
+    await tester.pump();
+
+    reported.removeWhere((output) => output.name == 'HDMI-A-1');
+    bloc.add(const SettingsAppLoadRequested());
+    await bloc.stream.firstWhere(
+      (state) => state.loaded && state.availableOutputs.length == 1,
+    );
+    await tester.pumpAndSettle();
+
+    final orph = find.byKey(
+      const ValueKey<String>('appearance-target-HDMI-A-1'),
+    );
+    expect(orph, findsOneWidget);
+    final chip = tester.widget<SettingsChoiceChip>(orph);
+    expect(chip.selected, isTrue);
+    expect(chip.label, 'HDMI-A-1');
+
+    // Edits still belong to the unplugged connector's override.
+    final preset = find.byKey(const ValueKey<String>('accent-preset-#FF6B6B'));
+    await tester.ensureVisible(preset);
+    await tester.pumpAndSettle();
+    await tester.tap(preset);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.accent, isNull);
+    expect(
+      bloc.settings.displayAppearance['HDMI-A-1']?.accent,
+      const Color(0xffff6b6b),
+    );
+
+    // Clearing the override drops the orphan chip and falls back to all.
+    final reset = find.byKey(
+      const ValueKey<String>('reset-appearance-HDMI-A-1'),
+    );
+    await tester.ensureVisible(reset);
+    await tester.pumpAndSettle();
+    await tester.tap(reset);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.displayAppearance, isEmpty);
+    expect(orph, findsNothing);
+    expect(
+      tester
+          .widget<SettingsChoiceChip>(
+            find.byKey(const ValueKey<String>('appearance-target-all')),
+          )
+          .selected,
+      isTrue,
+    );
+  });
+
+  testWidgets('switching sections resets the page scroll', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    _pageScroll(tester).position.jumpTo(200);
+    await tester.pump();
+    expect(_pageScroll(tester).position.pixels, 200);
+
+    await tester.tap(find.bySemanticsLabel('Appearance'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppearancePage), findsOneWidget);
+    expect(_pageScroll(tester).position.pixels, 0);
+  });
+
+  testWidgets('a busy save does not rebuild modules or the inspector', (
+    tester,
+  ) async {
+    final transport = _GatedSettingsTransport(
+      FileSettingsTransport(file, asyncLock: false),
+    );
+    addTearDown(transport.release);
+    final bloc = await _bloc(file, settingsTransport: transport);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    expect(_dirtyTreeCount(tester, find.byType(ModulesPage)), 0);
+
+    // Hold the write open so busy is observable without a revision change.
+    final document = bloc.settings;
+    final busy = bloc.stream.firstWhere((state) => state.busy);
+    bloc.add(SettingsAppSaveRequested(document));
+    await busy;
+    expect(bloc.settings, document);
+    expect(tester.element(find.byType(ModulesPage)).dirty, isFalse);
+    expect(_dirtyTreeCount(tester, find.byType(ModulesPage)), 0);
+    expect(
+      await _countRebuildsUnder(
+        tester,
+        tester.element(find.byType(ModulesPage)),
+      ),
+      0,
+    );
+    transport.release();
+    await bloc.stream.firstWhere((state) => !state.busy);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('module-clock')), findsOneWidget);
+
+    // The open inspector paints only the document too.
+    await _openOptions(tester, 'clock');
+    await tester.pumpAndSettle();
+    expect(_dirtyTreeCount(tester, find.byType(ModulesPage)), 0);
+
+    final busyAgain = bloc.stream.firstWhere((state) => state.busy);
+    bloc.add(SettingsAppSaveRequested(bloc.settings));
+    await busyAgain;
+    expect(tester.element(find.byType(ModuleOptionsPanel)).dirty, isFalse);
+    expect(_dirtyTreeCount(tester, find.byType(ModuleOptionsPanel)), 0);
+    expect(
+      await _countRebuildsUnder(
+        tester,
+        tester.element(find.byType(ModuleOptionsPanel)),
+      ),
+      0,
+    );
+    transport.release();
+    await bloc.stream.firstWhere((state) => !state.busy);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('module-options-panel-clock')),
+      findsOneWidget,
+    );
+    _expectNoException(tester);
+  });
+
+  testWidgets('wallpaper swatches activate from the keyboard', (tester) async {
+    file.writeAsStringSync(
+      const BarSettings(
+        revision: 2,
+        accentSource: AccentSource.wallpaper,
+      ).encode(),
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    _useKeyboardHighlight();
+    await _pump(
+      tester,
+      bloc,
+      size: const Size(900, 600),
+      textScale: 2,
+      wallpaper: const WallpaperAccentState(
+        enabled: true,
+        color: Color(0xff2050e0),
+        accents: {'eDP-1': Color(0xff2050e0)},
+        candidates: {
+          'eDP-1': [Color(0xff2050e0), Color(0xff00aa88)],
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(
+      const ValueKey<String>('wallpaper-accent-#2050E0'),
+    );
+    await tester.ensureVisible(first);
+    await tester.pumpAndSettle();
+    _controlFocus(tester, first).requestFocus();
+    await tester.pumpAndSettle();
+    final cares = tester.widgetList<AnimatedContainer>(
+      find.descendant(of: first, matching: find.byType(AnimatedContainer)),
+    );
+    expect(
+      cares.any(
+        (box) =>
+            (box.decoration as BoxDecoration?)?.border?.top.color ==
+            ShellBrandColors.defaultAccent,
+      ),
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.accentWallpaperPick, '#2050E0');
+
+    final second = find.byKey(
+      const ValueKey<String>('wallpaper-accent-#00AA88'),
+    );
+    _controlFocus(tester, second).requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(bloc.settings.accentWallpaperPick, '#00AA88');
+    _expectNoException(tester);
+  });
+}
+
+Future<Map<String, Object?>> _failingVersionLoader() async {
+  throw StateError('no bar');
+}
+
+FocusNode _controlFocus(WidgetTester tester, Finder control) {
+  return tester
+      .widget<FocusableActionDetector>(
+        find.descendant(
+          of: control,
+          matching: find.byType(FocusableActionDetector),
+        ),
+      )
+      .focusNode!;
+}
+
+/// Counting all dirty elements includes the provider scope that the bloc
+/// event wakes; the page and its rows are what must stay quiet.
+int _dirtyTreeCount(WidgetTester tester, Finder root) {
+  var count = 0;
+  void visit(Element element) {
+    if (element.dirty) {
+      count += 1;
+    }
+    element.visitChildren(visit);
+  }
+
+  visit(tester.element(root));
+  return count;
+}
+
+bool _isElementUnder(Element element, Element root) {
+  if (identical(element, root)) {
+    return true;
+  }
+  var inside = false;
+  element.visitAncestorElements((ancestor) {
+    if (identical(ancestor, root)) {
+      inside = true;
+      return false;
+    }
+    return true;
+  });
+  return inside;
+}
+
+/// Counts real rebuilds in [root]'s subtree for one frame. The provider
+/// scope itself may rebuild on every bloc event; the page below it must not.
+Future<int> _countRebuildsUnder(WidgetTester tester, Element root) async {
+  var count = 0;
+  final saved = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtBefore) {
+    if (_isElementUnder(element, root)) {
+      count += 1;
+    }
+  };
+  try {
+    await tester.pump();
+  } finally {
+    debugOnRebuildDirtyWidget = saved;
+  }
+  return count;
+}
+
+void _useKeyboardHighlight() {
+  final previous = FocusManager.instance.highlightStrategy;
+  FocusManager.instance.highlightStrategy =
+      FocusHighlightStrategy.alwaysTraditional;
+  addTearDown(() => FocusManager.instance.highlightStrategy = previous);
 }

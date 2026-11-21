@@ -10,21 +10,46 @@ import 'package:trickster/src/theme/tokens.dart';
 /// About page: the binary version, the running bar's version and control
 /// protocol, and the repository link. Versions degrade to "not running"
 /// when no bar answers.
-class AboutPage extends StatelessWidget {
+class AboutPage extends StatefulWidget {
   const AboutPage({this.versionLoader, super.key});
 
   /// Test seam; production asks the bar's control socket.
   final Future<Map<String, Object?>> Function()? versionLoader;
 
-  Future<Map<String, Object?>> _load() async {
-    if (versionLoader != null) {
-      return versionLoader!();
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends State<AboutPage> {
+  late Future<Map<String, Object?>> _versions;
+
+  @override
+  void initState() {
+    super.initState();
+    _versions = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AboutPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.versionLoader != widget.versionLoader) {
+      _versions = _load();
     }
+  }
+
+  Future<Map<String, Object?>> _load() async {
     try {
+      if (widget.versionLoader != null) {
+        return await widget.versionLoader!();
+      }
       return await controlRequest(const <String, Object?>{
         'command': 'version',
       });
     } on ControlSocketException {
+      return const <String, Object?>{'ok': false};
+    } on Object {
+      // A host that cannot answer, or a malformed reply, reads as not
+      // running instead of surfacing an unhandled future.
       return const <String, Object?>{'ok': false};
     }
   }
@@ -45,7 +70,7 @@ class AboutPage extends StatelessWidget {
         const SizedBox(height: 20),
         SettingsCard(
           child: FutureBuilder<Map<String, Object?>>(
-            future: _load(),
+            future: _versions,
             builder: (context, snapshot) {
               final reply = snapshot.data ?? const <String, Object?>{};
               final bar = reply['ok'] == true && reply['version'] is String

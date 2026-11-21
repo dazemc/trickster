@@ -145,6 +145,27 @@ class _AppearancePageState extends State<AppearancePage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final target = _target;
+    if (target == null) {
+      return;
+    }
+    final bloc = context.read<SettingsAppBloc>();
+    final available = bloc.state.availableOutputs.any(
+      (output) => output.name == target,
+    );
+    // A connector that unplugged without an override leaves nothing to
+    // edit; fall back to the all-displays target. An unplugged connector
+    // that still owns an override keeps its selection so the page can show
+    // and clear it.
+    if (!available &&
+        !bloc.state.settings.displayAppearance.containsKey(target)) {
+      _target = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final controller = context.read<SettingsAppBloc>();
@@ -183,7 +204,7 @@ class _AppearancePageState extends State<AppearancePage> {
           caption: l10n.settingsAppearanceCaption,
         ),
         const SizedBox(height: 20),
-        if (outputs.isNotEmpty) ...[
+        if (outputs.isNotEmpty || target != null) ...[
           SettingsCard(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
@@ -227,6 +248,17 @@ class _AppearancePageState extends State<AppearancePage> {
                         label: output.name,
                         selected: target == output.name,
                         onPressed: () => setState(() => _target = output.name),
+                      ),
+                    // The connector unplugged but still owns an override;
+                    // keep it visible and selected rather than editing an
+                    // invisible target with no chip highlighted.
+                    if (target != null &&
+                        !outputs.any((output) => output.name == target))
+                      SettingsChoiceChip(
+                        key: ValueKey<String>('appearance-target-$target'),
+                        label: target,
+                        selected: true,
+                        onPressed: () => setState(() => _target = target),
                       ),
                   ],
                 ),
@@ -509,18 +541,18 @@ class _CopyHexButtonState extends State<_CopyHexButton> {
       label: l10n.settingsCopyHex(widget.hex),
       onTap: _copy,
       child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _copy,
-            child: Text(
-              _copied ? l10n.settingsCopied : widget.hex,
-              style: ShellText.systemBarValue.copyWith(
-                color: _copied
-                    ? ShellTelemetryColors.nominal
-                    : ShellMediaColors.lightForegroundSecondary,
-              ),
+        child: SettingsActivatable(
+          onPressed: _copy,
+          builder: (context, focus) => Text(
+            _copied ? l10n.settingsCopied : widget.hex,
+            style: ShellText.systemBarValue.copyWith(
+              color: _copied
+                  ? ShellTelemetryColors.nominal
+                  : focus.focused
+                  ? ShellBrandColors.defaultAccent
+                  : ShellMediaColors.lightForegroundSecondary,
+              decoration: focus.focused ? TextDecoration.underline : null,
+              decorationColor: ShellBrandColors.defaultAccent,
             ),
           ),
         ),
@@ -529,7 +561,7 @@ class _CopyHexButtonState extends State<_CopyHexButton> {
   }
 }
 
-class _SwatchButton extends StatefulWidget {
+class _SwatchButton extends StatelessWidget {
   const _SwatchButton({
     required this.color,
     required this.selected,
@@ -542,44 +574,43 @@ class _SwatchButton extends StatefulWidget {
   final VoidCallback onPressed;
 
   @override
-  State<_SwatchButton> createState() => _SwatchButtonState();
-}
-
-class _SwatchButtonState extends State<_SwatchButton> {
-  var _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final scale = _hovered ? 1.12 : 1.0;
     return Semantics(
       button: true,
-      selected: widget.selected,
-      label: formatOpaqueColorHex(widget.color),
-      onTap: widget.onPressed,
+      selected: selected,
+      label: formatOpaqueColorHex(color),
+      onTap: onPressed,
       child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onPressed,
-            child: AnimatedScale(
+        child: SettingsActivatable(
+          onPressed: onPressed,
+          builder: (context, focus) => AnimatedScale(
+            duration: Motion.duration(context, Motion.pill),
+            curve: Motion.standard,
+            scale: focus.hovered ? 1.12 : 1.0,
+            child: AnimatedContainer(
               duration: Motion.duration(context, Motion.pill),
-              curve: Motion.standard,
-              scale: scale,
+              width: 40,
+              height: 40,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: focus.focused
+                      ? ShellBrandColors.defaultAccent
+                      : ShellMediaColors.transparentDark,
+                  width: 1.5,
+                ),
+              ),
               child: AnimatedContainer(
                 duration: Motion.duration(context, Motion.pill),
-                width: 34,
-                height: 34,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.color,
+                  color: color,
                   border: Border.all(
-                    color: widget.selected
+                    color: selected
                         ? ShellMediaColors.lightForeground
                         : SettingsColors.outline,
-                    width: widget.selected ? 2.0 : 1.0,
+                    width: selected ? 2.0 : 1.0,
                   ),
                 ),
               ),

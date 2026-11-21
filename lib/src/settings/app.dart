@@ -326,7 +326,11 @@ class _SettingsHomeState extends State<SettingsHome> {
     if (!mounted) {
       return;
     }
+    final changed = section != _section;
     setState(() => _section = section);
+    if (changed && _pageScroll.hasClients) {
+      _pageScroll.jumpTo(0);
+    }
   }
 
   Future<void> _close() async {
@@ -580,29 +584,36 @@ class _NavEntry extends StatelessWidget {
       label: label,
       onTap: onPressed,
       child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPressed,
-            child: AnimatedContainer(
-              duration: Motion.duration(context, Motion.pill),
-              curve: Motion.standard,
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
+        child: SettingsActivatable(
+          onPressed: onPressed,
+          builder: (context, focus) => AnimatedContainer(
+            duration: Motion.duration(context, Motion.pill),
+            curve: Motion.standard,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            foregroundDecoration: focus.focused
+                ? const BoxDecoration(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    border: Border.fromBorderSide(
+                      BorderSide(
+                        color: ShellBrandColors.defaultAccent,
+                        width: 1.5,
+                      ),
+                    ),
+                  )
+                : null,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              color: selected
+                  ? SettingsColors.surfaceHigh
+                  : SettingsColors.surface,
+            ),
+            child: Text(
+              label,
+              style: ShellText.systemBarValue.copyWith(
                 color: selected
-                    ? SettingsColors.surfaceHigh
-                    : SettingsColors.surface,
-              ),
-              child: Text(
-                label,
-                style: ShellText.systemBarValue.copyWith(
-                  color: selected
-                      ? ShellMediaColors.lightForeground
-                      : ShellMediaColors.lightForegroundSecondary,
-                ),
+                    ? ShellMediaColors.lightForeground
+                    : ShellMediaColors.lightForegroundSecondary,
               ),
             ),
           ),

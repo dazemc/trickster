@@ -388,7 +388,9 @@ class _ModulesPageState extends State<ModulesPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final settings = context.watch<SettingsAppBloc>().settings;
+    final settings = context.select(
+      (SettingsAppBloc bloc) => bloc.state.settings,
+    );
     final modules = context.watch<ModulesBloc>();
     final state = modules.state;
     // The dragged row stays in the tree (its Draggable collapses it to a

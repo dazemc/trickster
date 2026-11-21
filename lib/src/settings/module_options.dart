@@ -87,8 +87,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final controller = context.watch<SettingsAppBloc>();
-    final settings = controller.settings;
+    final controller = context.read<SettingsAppBloc>();
+    final settings = context.select(
+      (SettingsAppBloc bloc) => bloc.state.settings,
+    );
     return switch (widget.module) {
       'media' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
