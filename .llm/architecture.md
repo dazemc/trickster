@@ -205,8 +205,12 @@ media pill's mode cycle). A revision mismatch is a retryable `StateError`;
 the store retries once and never keeps a document history.
 
 **D-Bus tray.** The StatusNotifier service owns one session client per
-connection and still runs on the UI isolate. A transport failure discards
-that client, recreates the watcher endpoint and signal subscriptions,
+connection and still runs on the UI isolate. Its UI boundary is
+`StatusNotifierClient`: tray models live in `status_notifier_models.dart`,
+icon-file/SVG decoding lives in `tray_icon_decoder.dart`, and the service keeps
+D-Bus pixmap decoding and icon-path resolution. `TrayBloc` depends on the
+interface while the local service remains the default. A transport failure
+discards that client, recreates the watcher endpoint and signal subscriptions,
 re-registers the preserved item addresses, and clears stale items and pending
 refreshes. A cheap `GetId` heartbeat detects a silent bus drop.
 
