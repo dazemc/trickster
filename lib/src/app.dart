@@ -22,6 +22,7 @@ import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/platform/power_settings.dart';
+import 'package:trickster/src/services/overlay_coordinator.dart';
 import 'package:trickster/src/services/status_notifier.dart'
     show SystemTrayAction;
 import 'package:trickster/src/state/calendar_bloc.dart';
@@ -133,6 +134,7 @@ ControlServer _buildControlServer({required ControlHandler handler}) {
 class _TricksterAppState extends State<TricksterApp>
     with WidgetsBindingObserver {
   late final LayerShell _layerShell;
+  late final OverlayCoordinator _overlayCoordinator;
   late final TrayMenuBloc _menuBloc;
   late final CalendarBloc _calendarBloc;
   late final VolumeSliderBloc _volumeSliderBloc;
@@ -157,8 +159,10 @@ class _TricksterAppState extends State<TricksterApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _layerShell = widget.layerShell ?? LayerShell();
+    _overlayCoordinator = OverlayCoordinator();
     _menuBloc = TrayMenuBloc(
       layerShell: _layerShell,
+      coordinator: _overlayCoordinator,
       onUnavailable: (item, position) {
         final context = _moduleContext;
         if (context == null) {
@@ -173,9 +177,18 @@ class _TricksterAppState extends State<TricksterApp>
         );
       },
     );
-    _tooltipBloc = OverlayTooltipBloc(layerShell: _layerShell);
-    _calendarBloc = CalendarBloc(layerShell: _layerShell);
-    _volumeSliderBloc = VolumeSliderBloc(layerShell: _layerShell);
+    _tooltipBloc = OverlayTooltipBloc(
+      layerShell: _layerShell,
+      coordinator: _overlayCoordinator,
+    );
+    _calendarBloc = CalendarBloc(
+      layerShell: _layerShell,
+      coordinator: _overlayCoordinator,
+    );
+    _volumeSliderBloc = VolumeSliderBloc(
+      layerShell: _layerShell,
+      coordinator: _overlayCoordinator,
+    );
     _wallpaperAccent = WallpaperAccentBloc(
       outputs: () => _outputs ?? const <LayerOutput>[],
       strip: () => (side: _lastOutputs.side, thickness: _lastOutputs.thickness),
@@ -243,6 +256,7 @@ class _TricksterAppState extends State<TricksterApp>
     unawaited(_calendarBloc.close());
     unawaited(_volumeSliderBloc.close());
     unawaited(_tooltipBloc.close());
+    _overlayCoordinator.dispose();
     unawaited(_wallpaperAccent.close());
     super.dispose();
   }

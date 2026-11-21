@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/overlay_coordinator.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/theme/accent.dart';
 
@@ -74,7 +77,11 @@ class TrayMenuRequested extends TrayMenuEvent {
 }
 
 class TrayMenuDismissed extends TrayMenuEvent {
-  const TrayMenuDismissed();
+  const TrayMenuDismissed({this.done});
+
+  /// Completed after the native surface is closed when the coordinator asks
+  /// for a dismissal; a short timeout bounds a dead surface.
+  final Completer<void>? done;
 }
 
 /// Drops remembered surfaces that no longer exist on the engine.
@@ -157,24 +164,30 @@ class TrayMenuBloc extends Bloc<TrayMenuEvent, TrayMenuState> {
   TrayMenuBloc({
     required LayerShell layerShell,
     void Function(SystemTrayItem item, Offset position)? onUnavailable,
+    OverlayCoordinator? coordinator,
   }) : _layerShell = layerShell,
        _onUnavailable = onUnavailable,
+       _coordinator = coordinator,
        super(const TrayMenuState()) {
     on<TrayMenuRequested>(_onRequested);
     on<TrayMenuDismissed>(_onDismissed);
     on<TrayMenuViewsRetained>((event, emit) {
       final session = state.session;
+      final retained =
+          session != null && event.viewIds.contains(session.viewId);
+      if (session != null && !retained) {
+        _coordinator?.release(OverlayKind.trayMenu);
+      }
       emit(
         state.copyWith(
-          session: session != null && !event.viewIds.contains(session.viewId)
-              ? null
-              : session,
+          session: retained ? session : null,
           menuViewIds: state.menuViewIds
               .where((viewId) => event.viewIds.contains(viewId))
               .toSet(),
         ),
       );
     });
+    _coordinator?.register(OverlayKind.trayMenu, _dismissFromCoordinator);
   }
 
   final LayerShell _layerShell;
@@ -183,12 +196,19 @@ class TrayMenuBloc extends Bloc<TrayMenuEvent, TrayMenuState> {
   /// fall back to its own D-Bus context menu.
   final void Function(SystemTrayItem item, Offset position)? _onUnavailable;
 
+  final OverlayCoordinator? _coordinator;
+
   var _generation = 0;
 
   Future<void> _onRequested(
     TrayMenuRequested event,
     Emitter<TrayMenuState> emit,
   ) async {
+    final coordinator = _coordinator;
+    if (coordinator != null &&
+        !await coordinator.request(OverlayKind.trayMenu)) {
+      return;
+    }
     final generation = ++_generation;
     final previous = state.session;
     if (previous != null) {
@@ -203,7 +223,12 @@ class TrayMenuBloc extends Bloc<TrayMenuEvent, TrayMenuState> {
       if (viewId != null) {
         await _layerShell.closeMenuSurface(viewId: viewId);
       }
-      _onUnavailable?.call(event.item, event.click);
+      if (generation == _generation) {
+        coordinator?.release(OverlayKind.trayMenu);
+        if (viewId == null) {
+          _onUnavailable?.call(event.item, event.click);
+        }
+      }
       return;
     }
     emit(
@@ -230,14 +255,37 @@ class TrayMenuBloc extends Bloc<TrayMenuEvent, TrayMenuState> {
     final session = state.session;
     emit(state.copyWith(session: null));
     _generation += 1;
-    if (session != null) {
-      await _layerShell.closeMenuSurface(viewId: session.viewId);
+    _coordinator?.release(OverlayKind.trayMenu);
+    try {
+      if (session != null) {
+        await _layerShell.closeMenuSurface(viewId: session.viewId);
+      }
+    } finally {
+      event.done?.complete();
     }
+  }
+
+  /// The coordinator's generation-safe dismissal: invalidate any in-flight
+  /// open, then close the live surface through the normal event path.
+  Future<void> _dismissFromCoordinator() async {
+    if (isClosed) {
+      return;
+    }
+    _generation += 1;
+    final done = Completer<void>();
+    try {
+      add(TrayMenuDismissed(done: done));
+    } on StateError {
+      return;
+    }
+    await done.future;
   }
 
   @override
   Future<void> close() async {
     _generation += 1;
+    _coordinator?.release(OverlayKind.trayMenu);
+    _coordinator?.unregister(OverlayKind.trayMenu);
     final viewId = state.session?.viewId;
     if (viewId != null) {
       try {

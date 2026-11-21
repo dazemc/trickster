@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
+import 'package:trickster/src/services/overlay_coordinator.dart';
 import 'package:trickster/src/theme/accent.dart';
 
 /// One open volume slider: where the readout was clicked and the overlay
@@ -57,7 +60,11 @@ class VolumeSliderRequested extends VolumeSliderEvent {
 }
 
 class VolumeSliderDismissed extends VolumeSliderEvent {
-  const VolumeSliderDismissed();
+  const VolumeSliderDismissed({this.done});
+
+  /// Completed after the native surface is closed when the coordinator asks
+  /// for a dismissal; a short timeout bounds a dead surface.
+  final Completer<void>? done;
 }
 
 /// Drops remembered surfaces that no longer exist on the engine.
@@ -137,33 +144,46 @@ const _unset = Object();
 /// the bar's output, hands the session to the slider view, and destroys the
 /// surface on dismissal. The bar's own surface never changes size.
 class VolumeSliderBloc extends Bloc<VolumeSliderEvent, VolumeSliderState> {
-  VolumeSliderBloc({required LayerShell layerShell})
-    : _layerShell = layerShell,
-      super(const VolumeSliderState()) {
+  VolumeSliderBloc({
+    required LayerShell layerShell,
+    OverlayCoordinator? coordinator,
+  }) : _layerShell = layerShell,
+       _coordinator = coordinator,
+       super(const VolumeSliderState()) {
     on<VolumeSliderRequested>(_onRequested);
     on<VolumeSliderDismissed>(_onDismissed);
     on<VolumeSliderViewsRetained>((event, emit) {
       final session = state.session;
+      final retained =
+          session != null && event.viewIds.contains(session.viewId);
+      if (session != null && !retained) {
+        _coordinator?.release(OverlayKind.volumeSlider);
+      }
       emit(
         state.copyWith(
-          session: session != null && !event.viewIds.contains(session.viewId)
-              ? null
-              : session,
+          session: retained ? session : null,
           sliderViewIds: state.sliderViewIds
               .where((viewId) => event.viewIds.contains(viewId))
               .toSet(),
         ),
       );
     });
+    _coordinator?.register(OverlayKind.volumeSlider, _dismissFromCoordinator);
   }
 
   final LayerShell _layerShell;
+  final OverlayCoordinator? _coordinator;
   var _generation = 0;
 
   Future<void> _onRequested(
     VolumeSliderRequested event,
     Emitter<VolumeSliderState> emit,
   ) async {
+    final coordinator = _coordinator;
+    if (coordinator != null &&
+        !await coordinator.request(OverlayKind.volumeSlider)) {
+      return;
+    }
     final generation = ++_generation;
     final previous = state.session;
     if (previous != null) {
@@ -177,6 +197,9 @@ class VolumeSliderBloc extends Bloc<VolumeSliderEvent, VolumeSliderState> {
     if (viewId == null || generation != _generation) {
       if (viewId != null) {
         await _layerShell.closeMenuSurface(viewId: viewId);
+      }
+      if (generation == _generation) {
+        coordinator?.release(OverlayKind.volumeSlider);
       }
       return;
     }
@@ -202,14 +225,37 @@ class VolumeSliderBloc extends Bloc<VolumeSliderEvent, VolumeSliderState> {
     final session = state.session;
     emit(state.copyWith(session: null));
     _generation += 1;
-    if (session != null) {
-      await _layerShell.closeMenuSurface(viewId: session.viewId);
+    _coordinator?.release(OverlayKind.volumeSlider);
+    try {
+      if (session != null) {
+        await _layerShell.closeMenuSurface(viewId: session.viewId);
+      }
+    } finally {
+      event.done?.complete();
     }
+  }
+
+  /// The coordinator's generation-safe dismissal: invalidate any in-flight
+  /// open, then close the live surface through the normal event path.
+  Future<void> _dismissFromCoordinator() async {
+    if (isClosed) {
+      return;
+    }
+    _generation += 1;
+    final done = Completer<void>();
+    try {
+      add(VolumeSliderDismissed(done: done));
+    } on StateError {
+      return;
+    }
+    await done.future;
   }
 
   @override
   Future<void> close() async {
     _generation += 1;
+    _coordinator?.release(OverlayKind.volumeSlider);
+    _coordinator?.unregister(OverlayKind.volumeSlider);
     final viewId = state.session?.viewId;
     if (viewId != null) {
       try {
