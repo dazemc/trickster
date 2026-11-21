@@ -62,6 +62,10 @@ so the widgets do not care.
 - **OpenCode module.** A non-Denial addition for the local OpenCode usage
   windows and newest session's tokens/cost. It reads OpenCode's local server
   and is not part of bar parity.
+- **RAM and VRAM modules.** User-requested additions; Denial has no memory
+  module. RAM reads `/proc/meminfo` at 1 Hz and is default-on; VRAM remains a
+  later slice and is not authorized here. Do not present either as Denial
+  parity or infer them from Denial's CPU/GPU status shapes.
 - **Settings application.** Same binary in settings mode, separate process and
   engine, covering exactly the settings the bar owns — never compositor
   controls it does not own.
