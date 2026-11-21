@@ -165,7 +165,7 @@ class FakeMonitor extends WorkspaceMonitor {
   }
 }
 
-class FakeStatusNotifierService extends StatusNotifierService {
+class FakeStatusNotifierService implements StatusNotifierClient {
   final controller = StreamController<List<SystemTrayItem>>.broadcast();
 
   var disposed = false;
@@ -178,6 +178,9 @@ class FakeStatusNotifierService extends StatusNotifierService {
 
   @override
   Stream<List<SystemTrayItem>> get snapshots => controller.stream;
+
+  @override
+  List<SystemTrayItem> get current => const <SystemTrayItem>[];
 
   @override
   Future<void> start() async {

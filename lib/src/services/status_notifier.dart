@@ -1,224 +1,19 @@
 import 'dart:async';
-import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:ui'
-    as ui
-    show
-        Canvas,
-        Codec,
-        Image,
-        ImageDescriptor,
-        ImmutableBuffer,
-        Picture,
-        PictureRecorder;
-import 'dart:ui' show ImageByteFormat, Offset;
+import 'dart:ui' show Offset;
 
 import 'package:dbus/dbus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-/// StatusNotifier item status, in ascending attention order.
-enum SystemTrayStatus { passive, active, needsAttention }
+import 'package:trickster/src/services/status_notifier_client.dart';
+import 'package:trickster/src/services/status_notifier_models.dart';
+import 'package:trickster/src/services/tray_icon_decoder.dart';
 
-/// Item interactions the host can invoke.
-enum SystemTrayAction { activate, secondaryActivate, contextMenu }
-
-/// How a menu entry toggles, mirroring `com.canonical.dbusmenu`.
-enum SystemTrayMenuToggleType { none, checkmark, radio }
-
-/// One parsed `com.canonical.dbusmenu` layout entry.
-@immutable
-class SystemTrayMenuEntry {
-  const SystemTrayMenuEntry({
-    required this.id,
-    required this.label,
-    required this.enabled,
-    required this.visible,
-    required this.separator,
-    required this.toggleType,
-    required this.toggleState,
-    required this.destructive,
-    required this.children,
-  });
-
-  final int id;
-  final String label;
-  final bool enabled;
-  final bool visible;
-  final bool separator;
-  final SystemTrayMenuToggleType toggleType;
-  final int toggleState;
-  final bool destructive;
-  final List<SystemTrayMenuEntry> children;
-
-  @override
-  bool operator ==(Object other) {
-    return other is SystemTrayMenuEntry &&
-        other.id == id &&
-        other.label == label &&
-        other.enabled == enabled &&
-        other.visible == visible &&
-        other.separator == separator &&
-        other.toggleType == toggleType &&
-        other.toggleState == toggleState &&
-        other.destructive == destructive &&
-        listEquals(other.children, children);
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    label,
-    enabled,
-    visible,
-    separator,
-    toggleType,
-    toggleState,
-    destructive,
-    Object.hashAll(children),
-  );
-}
-
-/// A decoded, premultiplied RGBA icon at display size.
-@immutable
-class SystemTrayIconPixmap {
-  // The digest is derived from the bytes, so this cannot be const.
-  // ignore: prefer_const_constructors_in_immutables
-  SystemTrayIconPixmap({
-    required this.width,
-    required this.height,
-    required this.rgba,
-  }) : digest = _digestBytes(rgba);
-
-  /// Test seam for forcing a digest collision.
-  @visibleForTesting
-  const SystemTrayIconPixmap.withDigest({
-    required this.width,
-    required this.height,
-    required this.rgba,
-    required this.digest,
-  });
-
-  final int width;
-  final int height;
-
-  /// Premultiplied RGBA8888 pixels in row-major order.
-  final Uint8List rgba;
-
-  /// 32-bit FNV-1a digest computed once, so an unchanged icon's equality
-  /// check does not rescan its pixels.
-  final int digest;
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    if (other is! SystemTrayIconPixmap ||
-        other.width != width ||
-        other.height != height ||
-        other.rgba.lengthInBytes != rgba.lengthInBytes) {
-      return false;
-    }
-    if (other.digest != digest) {
-      return false;
-    }
-    // A digest match is only a candidate; collisions still compare bytes.
-    return listEquals(other.rgba, rgba);
-  }
-
-  @override
-  int get hashCode => Object.hash(width, height, digest);
-
-  static int _digestBytes(Uint8List bytes) {
-    var hash = 0x811c9dc5;
-    for (var index = 0; index < bytes.length; index++) {
-      hash ^= bytes[index];
-      hash = (hash * 0x01000193) & 0xffffffff;
-    }
-    return hash;
-  }
-}
-
-/// One StatusNotifier item tracked by the host.
-@immutable
-class SystemTrayItem {
-  const SystemTrayItem({
-    required this.id,
-    required this.title,
-    required this.status,
-    required this.iconName,
-    required this.iconThemePath,
-    required this.iconPixmap,
-    required this.menuAvailable,
-    required this.primaryOpensMenu,
-    this.menuPath = '',
-  });
-
-  final String id;
-  final String title;
-  final SystemTrayStatus status;
-  final String iconName;
-  final String iconThemePath;
-  final SystemTrayIconPixmap? iconPixmap;
-  final bool menuAvailable;
-  final bool primaryOpensMenu;
-  final String menuPath;
-
-  @override
-  bool operator ==(Object other) {
-    return other is SystemTrayItem &&
-        other.id == id &&
-        other.title == title &&
-        other.status == status &&
-        other.iconName == iconName &&
-        other.iconThemePath == iconThemePath &&
-        other.iconPixmap == iconPixmap &&
-        other.menuAvailable == menuAvailable &&
-        other.primaryOpensMenu == primaryOpensMenu &&
-        other.menuPath == menuPath;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    title,
-    status,
-    iconName,
-    iconThemePath,
-    iconPixmap,
-    menuAvailable,
-    primaryOpensMenu,
-    menuPath,
-  );
-
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'title': title,
-    'status': status.name,
-    'iconName': iconName,
-    'iconThemePath': iconThemePath,
-    'menuAvailable': menuAvailable,
-    'primaryOpensMenu': primaryOpensMenu,
-    'menuPath': menuPath,
-  };
-
-  /// Icon pixmap bytes are presentational and not serialized.
-  static SystemTrayItem fromJson(Map<String, dynamic> json) => SystemTrayItem(
-    id: '${json['id']}',
-    title: '${json['title']}',
-    status: _statusFromName('${json['status']}'),
-    iconName: '${json['iconName']}',
-    iconThemePath: '${json['iconThemePath']}',
-    iconPixmap: null,
-    menuAvailable: (json['menuAvailable'] as bool?) ?? false,
-    primaryOpensMenu: (json['primaryOpensMenu'] as bool?) ?? false,
-    menuPath: '${json['menuPath']}',
-  );
-}
+export 'status_notifier_client.dart' show StatusNotifierClient;
+export 'status_notifier_models.dart';
 
 /// Bloc state for the tray item list. A bare `List` compares by identity, so
 /// the wrapper exists to give the bloc value semantics — and a JSON shape for
@@ -252,7 +47,7 @@ class TrayState extends Equatable {
 ///
 /// XEmbed tray icons stay dropped: embedding them needs an owned Xwayland,
 /// which a guest bar cannot borrow.
-class StatusNotifierService {
+class StatusNotifierService implements StatusNotifierClient {
   StatusNotifierService({
     DBusClient? client,
     DBusClient Function()? clientFactory,
@@ -343,10 +138,13 @@ class StatusNotifierService {
     return client;
   }
 
+  @override
   Stream<List<SystemTrayItem>> get snapshots => _snapshots.stream;
 
+  @override
   List<SystemTrayItem> get current => _orderedItems();
 
+  @override
   Future<void> start() async {
     if (_started || _disposed) {
       return;
@@ -1066,7 +864,7 @@ class StatusNotifierService {
     try {
       final path = await _iconPath(iconName, themePath);
       if (path != null) {
-        pixmap = await _decodeIconFile(path);
+        pixmap = await decodeTrayIconFile(path);
       }
     } on Object {
       pixmap = null;
@@ -1116,6 +914,7 @@ class StatusNotifierService {
 
   /// Invokes an item method with the bar-relative pointer position. Returns
   /// false when no interface accepts the call.
+  @override
   Future<bool> invoke(
     SystemTrayItem item,
     SystemTrayAction action,
@@ -1158,6 +957,7 @@ class StatusNotifierService {
 
   /// Reads the item's `com.canonical.dbusmenu` layout, or null when the item
   /// exposes no usable menu.
+  @override
   Future<List<SystemTrayMenuEntry>?> loadMenu(SystemTrayItem item) async {
     final registration = _registrations[item.id];
     if (registration == null ||
@@ -1234,6 +1034,7 @@ class StatusNotifierService {
   }
 
   /// Sends a `clicked` event for [entryId] to the item's menu.
+  @override
   Future<bool> activateMenuEntry(SystemTrayItem item, int entryId) async {
     final registration = _registrations[item.id];
     if (registration == null ||
@@ -1295,6 +1096,7 @@ class StatusNotifierService {
     }
   }
 
+  @override
   Future<void> dispose() async {
     if (_disposed) {
       return;
@@ -1698,15 +1500,6 @@ SystemTrayStatus _status(String value) => switch (value.toLowerCase()) {
   _ => SystemTrayStatus.active,
 };
 
-SystemTrayStatus _statusFromName(String value) {
-  for (final status in SystemTrayStatus.values) {
-    if (status.name == value) {
-      return status;
-    }
-  }
-  return SystemTrayStatus.active;
-}
-
 int _statusPriority(SystemTrayStatus status) => switch (status) {
   SystemTrayStatus.needsAttention => 0,
   SystemTrayStatus.active => 1,
@@ -1821,16 +1614,14 @@ int _premultiplyChannel(int channel, int alpha) {
 }
 
 abstract final class _StatusNotifierLimits {
-  static const int preferredIconDimension = 24;
+  static const int preferredIconDimension =
+      TrayIconLimits.preferredIconDimension;
   static const int maxInputDimension = 512;
   static const int maxInputIconBytes =
       maxInputDimension * maxInputDimension * 4;
-  static const int maxOutputDimension = 64;
+  static const int maxOutputDimension = TrayIconLimits.maxOutputDimension;
   static const int maxIconPaths = 256;
   static const int maxDecodedIcons = 64;
-  static const int maxIconFileBytes = 8 * 1024 * 1024;
-  static const int maxIconFileDimension = 4096;
-  static const int maxIconFilePixels = 4 * 1024 * 1024;
 }
 
 /// Resolves `IconName`/`IconThemePath` the way a freedesktop host does.
@@ -1840,88 +1631,6 @@ String? resolveStatusNotifierIconForTesting(
   String iconName,
   String iconThemePath,
 ) => _resolveTrayIconPath(iconName, iconThemePath);
-
-/// Decodes an icon file exactly as the service does. Exposed for tests.
-@visibleForTesting
-Future<SystemTrayIconPixmap?> decodeStatusNotifierIconForTesting(String path) =>
-    _decodeIconFile(path);
-
-bool _looksLikeSvg(String path, List<int> bytes) {
-  if (path.toLowerCase().endsWith('.svg')) {
-    return true;
-  }
-  final head = utf8.decode(bytes.take(256).toList(), allowMalformed: true);
-  return head.contains('<svg');
-}
-
-/// Rasterizes an SVG icon at the strip's display size. The vector compiler
-/// runs on its own worker isolate inside flutter_svg; the picture is
-/// rendered and flattened here so the rest of the pipeline stays pixel-based.
-Future<SystemTrayIconPixmap?> _decodeSvgIcon(List<int> bytes) async {
-  final info = await vg.loadPicture(
-    SvgStringLoader(utf8.decode(bytes, allowMalformed: true)),
-    null,
-  );
-  try {
-    final size = info.size;
-    if (size.width <= 0 || size.height <= 0) {
-      return null;
-    }
-    final longest = size.width > size.height ? size.width : size.height;
-    final scale = _StatusNotifierLimits.preferredIconDimension / longest;
-    final width = (size.width * scale).round();
-    final height = (size.height * scale).round();
-    if (width <= 0 ||
-        height <= 0 ||
-        width > _StatusNotifierLimits.maxOutputDimension ||
-        height > _StatusNotifierLimits.maxOutputDimension) {
-      return null;
-    }
-    final image = await _scaledPicture(info.picture, width, height, scale);
-    if (image == null) {
-      return null;
-    }
-    try {
-      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
-      if (data == null) {
-        return null;
-      }
-      return SystemTrayIconPixmap(
-        width: image.width,
-        height: image.height,
-        rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-      );
-    } finally {
-      image.dispose();
-    }
-  } finally {
-    info.picture.dispose();
-  }
-}
-
-/// `Picture.toImage` rasterizes at the picture's own coordinates, so the
-/// drawing is scaled through a recorder; without this, icons whose artwork
-/// is larger than the pixmap lose everything past the top-left corner.
-Future<ui.Image?> _scaledPicture(
-  ui.Picture picture,
-  int width,
-  int height,
-  double scale,
-) async {
-  ui.PictureRecorder? recorder;
-  ui.Picture? scaled;
-  try {
-    recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder)..scale(scale, scale);
-    canvas.drawPicture(picture);
-    scaled = recorder.endRecording();
-    return await scaled.toImage(width, height);
-  } on Object {
-    return null;
-  } finally {
-    scaled?.dispose();
-  }
-}
 
 const List<String> _trayIconExtensions = <String>['png', 'webp', 'jpg', 'jpeg'];
 const List<String> _trayIconSizes = <String>[
@@ -2000,7 +1709,7 @@ bool _isSafeIconFile(String path) {
     final stat = File(path).statSync();
     return stat.type == FileSystemEntityType.file &&
         stat.size > 0 &&
-        stat.size <= _StatusNotifierLimits.maxIconFileBytes;
+        stat.size <= TrayIconLimits.maxIconFileBytes;
   } on FileSystemException {
     return false;
   }
@@ -2179,67 +1888,6 @@ bool _isSafeRelativeIconDirectory(String value) {
     }
   }
   return true;
-}
-
-/// Decodes an icon file at the strip's display size. [ImageByteFormat.rawRgba]
-/// is premultiplied, matching [SystemTrayIconPixmap].
-Future<SystemTrayIconPixmap?> _decodeIconFile(String path) async {
-  try {
-    final stat = await File(path).stat();
-    if (stat.type != FileSystemEntityType.file ||
-        stat.size <= 0 ||
-        stat.size > _StatusNotifierLimits.maxIconFileBytes) {
-      return null;
-    }
-    final bytes = await File(path).readAsBytes();
-    if (_looksLikeSvg(path, bytes)) {
-      return await _decodeSvgIcon(bytes);
-    }
-    ui.ImmutableBuffer? buffer;
-    ui.ImageDescriptor? descriptor;
-    ui.Codec? codec;
-    ui.Image? image;
-    try {
-      buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-      descriptor = await ui.ImageDescriptor.encoded(buffer);
-      final width = descriptor.width;
-      final height = descriptor.height;
-      if (width <= 0 ||
-          height <= 0 ||
-          width > _StatusNotifierLimits.maxIconFileDimension ||
-          height > _StatusNotifierLimits.maxIconFileDimension ||
-          width * height > _StatusNotifierLimits.maxIconFilePixels) {
-        return null;
-      }
-      final longest = math.max(width, height);
-      final scale = _StatusNotifierLimits.preferredIconDimension / longest;
-      codec = await descriptor.instantiateCodec(
-        targetWidth: math.max(1, (width * scale).round()),
-        targetHeight: math.max(1, (height * scale).round()),
-      );
-      image = (await codec.getNextFrame()).image;
-      final longestOutput = math.max(image.width, image.height);
-      if (longestOutput > _StatusNotifierLimits.maxOutputDimension) {
-        return null;
-      }
-      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
-      if (data == null) {
-        return null;
-      }
-      return SystemTrayIconPixmap(
-        width: image.width,
-        height: image.height,
-        rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-      );
-    } finally {
-      image?.dispose();
-      codec?.dispose();
-      descriptor?.dispose();
-      buffer?.dispose();
-    }
-  } on Object {
-    return null;
-  }
 }
 
 @visibleForTesting

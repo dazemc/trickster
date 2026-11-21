@@ -36,7 +36,7 @@ class TraySampled extends TrayEvent {
 
 class TrayBloc extends Bloc<TrayEvent, TrayState> {
   TrayBloc({
-    StatusNotifierService? service,
+    StatusNotifierClient? service,
     TrayState initial = const TrayState(),
     void Function(String message)? log,
   }) : _service = service ?? StatusNotifierService(),
@@ -51,7 +51,7 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
     });
   }
 
-  final StatusNotifierService _service;
+  final StatusNotifierClient _service;
   final void Function(String message) _log;
   StreamSubscription<List<SystemTrayItem>>? _subscription;
   var _stopped = false;
