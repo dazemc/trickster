@@ -766,4 +766,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsOpencodeShowCost => 'Session cost';
+
+  @override
+  String get barMenuSettings => 'Trickster Settings';
 }

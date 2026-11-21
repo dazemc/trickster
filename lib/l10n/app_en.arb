@@ -1153,5 +1153,9 @@
   "settingsOpencodeShowCost": "Session cost",
   "@settingsOpencodeShowCost": {
     "description": "Toggle that appends the newest OpenCode session's cost to the pill."
+  },
+  "barMenuSettings": "Trickster Settings",
+  "@barMenuSettings": {
+    "description": "Entry in the empty-bar context menu that opens the settings application."
   }
 }

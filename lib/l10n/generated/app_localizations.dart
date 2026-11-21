@@ -1472,6 +1472,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Session cost'**
   String get settingsOpencodeShowCost;
+
+  /// Entry in the empty-bar context menu that opens the settings application.
+  ///
+  /// In en, this message translates to:
+  /// **'Trickster Settings'**
+  String get barMenuSettings;
 }
 
 class _AppLocalizationsDelegate

@@ -25,6 +25,7 @@ import 'package:trickster/src/platform/power_settings.dart';
 import 'package:trickster/src/services/overlay_coordinator.dart';
 import 'package:trickster/src/services/status_notifier.dart'
     show SystemTrayAction;
+import 'package:trickster/src/state/bar_menu_bloc.dart';
 import 'package:trickster/src/state/calendar_bloc.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
@@ -136,6 +137,7 @@ class _TricksterAppState extends State<TricksterApp>
   late final LayerShell _layerShell;
   late final OverlayCoordinator _overlayCoordinator;
   late final TrayMenuBloc _menuBloc;
+  late final BarMenuBloc _barMenuBloc;
   late final CalendarBloc _calendarBloc;
   late final VolumeSliderBloc _volumeSliderBloc;
   late final OverlayTooltipBloc _tooltipBloc;
@@ -180,6 +182,13 @@ class _TricksterAppState extends State<TricksterApp>
     _tooltipBloc = OverlayTooltipBloc(
       layerShell: _layerShell,
       coordinator: _overlayCoordinator,
+    );
+    _barMenuBloc = BarMenuBloc(
+      layerShell: _layerShell,
+      coordinator: _overlayCoordinator,
+      // Forward the bar's effective outputs override so the settings
+      // application edits the same document this process read.
+      configPath: widget.initial.paths.outputOverride,
     );
     _calendarBloc = CalendarBloc(
       layerShell: _layerShell,
@@ -253,6 +262,7 @@ class _TricksterAppState extends State<TricksterApp>
     unawaited(_watcher?.dispose());
     unawaited(_control?.dispose());
     unawaited(_menuBloc.close());
+    unawaited(_barMenuBloc.close());
     unawaited(_calendarBloc.close());
     unawaited(_volumeSliderBloc.close());
     unawaited(_tooltipBloc.close());
@@ -276,6 +286,7 @@ class _TricksterAppState extends State<TricksterApp>
         .map((view) => view.viewId)
         .toSet();
     _menuBloc.add(TrayMenuViewsRetained(liveViewIds));
+    _barMenuBloc.add(BarMenuViewsRetained(liveViewIds));
     _calendarBloc.add(CalendarViewsRetained(liveViewIds));
     _volumeSliderBloc.add(VolumeSliderViewsRetained(liveViewIds));
     _tooltipBloc.add(OverlayTooltipViewsRetained(liveViewIds));
@@ -283,6 +294,7 @@ class _TricksterAppState extends State<TricksterApp>
         .where(
           (viewId) =>
               !_menuBloc.state.isMenuView(viewId) &&
+              !_barMenuBloc.state.isBarMenuView(viewId) &&
               !_calendarBloc.state.isCalendarView(viewId) &&
               !_volumeSliderBloc.state.isSliderView(viewId) &&
               !_tooltipBloc.state.isTooltipView(viewId),
@@ -450,6 +462,7 @@ class _TricksterAppState extends State<TricksterApp>
                         output.viewId,
                       for (final view in views)
                         if (_menuBloc.state.isMenuView(view.viewId) ||
+                            _barMenuBloc.state.isBarMenuView(view.viewId) ||
                             _calendarBloc.state.isCalendarView(view.viewId) ||
                             _volumeSliderBloc.state.isSliderView(view.viewId) ||
                             _tooltipBloc.state.isTooltipView(view.viewId))
@@ -461,35 +474,40 @@ class _TricksterAppState extends State<TricksterApp>
               };
               return BlocProvider<TrayMenuBloc>.value(
                 value: _menuBloc,
-                child: BlocProvider<CalendarBloc>.value(
-                  value: _calendarBloc,
-                  child: BlocProvider<VolumeSliderBloc>.value(
-                    value: _volumeSliderBloc,
-                    child: BlocProvider<OverlayTooltipBloc>.value(
-                      value: _tooltipBloc,
-                      child: ModuleScope(
-                        // The control status handler needs a context below the
-                        // module providers to read their states.
-                        child: Builder(
-                          builder: (context) {
-                            _moduleContext = context;
-                            return ViewCollection(
-                              views: outputs.active
-                                  ? <Widget>[
-                                      for (final view in views)
-                                        if (hostedViewIds == null ||
-                                            hostedViewIds.contains(view.viewId))
-                                          _ViewSurface(
-                                            key: ValueKey<int>(view.viewId),
-                                            view: view,
-                                            layerShell: _layerShell,
-                                            blur: blur,
-                                            output: viewOutputs[view.viewId],
-                                          ),
-                                    ]
-                                  : const <Widget>[],
-                            );
-                          },
+                child: BlocProvider<BarMenuBloc>.value(
+                  value: _barMenuBloc,
+                  child: BlocProvider<CalendarBloc>.value(
+                    value: _calendarBloc,
+                    child: BlocProvider<VolumeSliderBloc>.value(
+                      value: _volumeSliderBloc,
+                      child: BlocProvider<OverlayTooltipBloc>.value(
+                        value: _tooltipBloc,
+                        child: ModuleScope(
+                          // The control status handler needs a context below the
+                          // module providers to read their states.
+                          child: Builder(
+                            builder: (context) {
+                              _moduleContext = context;
+                              return ViewCollection(
+                                views: outputs.active
+                                    ? <Widget>[
+                                        for (final view in views)
+                                          if (hostedViewIds == null ||
+                                              hostedViewIds.contains(
+                                                view.viewId,
+                                              ))
+                                            _ViewSurface(
+                                              key: ValueKey<int>(view.viewId),
+                                              view: view,
+                                              layerShell: _layerShell,
+                                              blur: blur,
+                                              output: viewOutputs[view.viewId],
+                                            ),
+                                      ]
+                                    : const <Widget>[],
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -544,6 +562,7 @@ class _ViewSurfaceState extends State<_ViewSurface> {
   /// Whether this surface hosts an overlay instead of the strip.
   bool get _isOverlayView {
     return context.read<TrayMenuBloc>().state.isMenuView(widget.view.viewId) ||
+        context.read<BarMenuBloc>().state.isBarMenuView(widget.view.viewId) ||
         context.read<CalendarBloc>().state.isCalendarView(widget.view.viewId) ||
         context.read<VolumeSliderBloc>().state.isSliderView(
           widget.view.viewId,

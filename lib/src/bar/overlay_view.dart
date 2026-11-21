@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:trickster/src/bar/bar_menu.dart';
 import 'package:trickster/src/bar/calendar.dart';
 import 'package:trickster/src/bar/overlay_tooltip.dart';
 import 'package:trickster/src/bar/tray_menu.dart';
 import 'package:trickster/src/bar/volume_slider.dart';
+import 'package:trickster/src/state/bar_menu_bloc.dart';
 import 'package:trickster/src/state/calendar_bloc.dart';
 import 'package:trickster/src/state/overlay_tooltip.dart';
 import 'package:trickster/src/state/tray_menu.dart';
@@ -22,11 +24,7 @@ typedef _ViewSession<T> = ({bool owns, T? session});
 /// overlay. Every selector is keyed by [viewId], so an overlay on another
 /// output cannot rebuild this strip.
 class OverlayViewSlot extends StatelessWidget {
-  const OverlayViewSlot({
-    required this.viewId,
-    required this.strip,
-    super.key,
-  });
+  const OverlayViewSlot({required this.viewId, required this.strip, super.key});
 
   /// The Flutter view whose overlays this slot paints.
   final int viewId;
@@ -48,74 +46,101 @@ class OverlayViewSlot extends StatelessWidget {
           session: session != null && session.viewId == viewId ? session : null,
         );
       },
-      builder: (context, menu) => BlocSelector<
-        CalendarBloc,
-        CalendarState,
-        _ViewSession<CalendarSession>
-      >(
-        selector: (state) {
-          final session = state.session;
-          return (
-            owns: state.isCalendarView(viewId),
-            session: session != null && session.viewId == viewId ? session : null,
-          );
-        },
-        builder: (context, calendar) => BlocSelector<
-          VolumeSliderBloc,
-          VolumeSliderState,
-          _ViewSession<VolumeSliderSession>
-        >(
-          selector: (state) {
-            final session = state.session;
-            return (
-              owns: state.isSliderView(viewId),
-              session:
-                  session != null && session.viewId == viewId ? session : null,
-            );
-          },
-          builder: (context, slider) => BlocSelector<
-            OverlayTooltipBloc,
-            OverlayTooltipState,
-            _ViewSession<OverlayTooltipSession>
-          >(
+      builder: (context, menu) =>
+          BlocSelector<BarMenuBloc, BarMenuState, _ViewSession<BarMenuSession>>(
             selector: (state) {
               final session = state.session;
               return (
-                owns: state.isTooltipView(viewId),
-                session:
-                    session != null && session.viewId == viewId ? session : null,
+                owns: state.isBarMenuView(viewId),
+                session: session != null && session.viewId == viewId
+                    ? session
+                    : null,
               );
             },
-            builder: (context, tooltip) {
-              if (menu.owns) {
-                final session = menu.session;
-                return session == null
-                    ? const SizedBox.shrink()
-                    : TrayMenuSurface(session: session);
-              }
-              if (calendar.owns) {
-                final session = calendar.session;
-                return session == null
-                    ? const SizedBox.shrink()
-                    : CalendarSurface(session: session);
-              }
-              if (slider.owns) {
-                final session = slider.session;
-                return session == null
-                    ? const SizedBox.shrink()
-                    : VolumeSliderSurface(session: session);
-              }
-              if (tooltip.owns) {
-                final session = tooltip.session;
-                return session == null
-                    ? const SizedBox.shrink()
-                    : OverlayTooltipSurface(session: session);
-              }
-              return strip(context);
-            },
+            builder: (context, barMenu) =>
+                BlocSelector<
+                  CalendarBloc,
+                  CalendarState,
+                  _ViewSession<CalendarSession>
+                >(
+                  selector: (state) {
+                    final session = state.session;
+                    return (
+                      owns: state.isCalendarView(viewId),
+                      session: session != null && session.viewId == viewId
+                          ? session
+                          : null,
+                    );
+                  },
+                  builder: (context, calendar) =>
+                      BlocSelector<
+                        VolumeSliderBloc,
+                        VolumeSliderState,
+                        _ViewSession<VolumeSliderSession>
+                      >(
+                        selector: (state) {
+                          final session = state.session;
+                          return (
+                            owns: state.isSliderView(viewId),
+                            session: session != null && session.viewId == viewId
+                                ? session
+                                : null,
+                          );
+                        },
+                        builder: (context, slider) =>
+                            BlocSelector<
+                              OverlayTooltipBloc,
+                              OverlayTooltipState,
+                              _ViewSession<OverlayTooltipSession>
+                            >(
+                              selector: (state) {
+                                final session = state.session;
+                                return (
+                                  owns: state.isTooltipView(viewId),
+                                  session:
+                                      session != null &&
+                                          session.viewId == viewId
+                                      ? session
+                                      : null,
+                                );
+                              },
+                              builder: (context, tooltip) {
+                                if (menu.owns) {
+                                  final session = menu.session;
+                                  return session == null
+                                      ? const SizedBox.shrink()
+                                      : TrayMenuSurface(session: session);
+                                }
+                                if (barMenu.owns) {
+                                  final session = barMenu.session;
+                                  return session == null
+                                      ? const SizedBox.shrink()
+                                      : BarMenuSurface(session: session);
+                                }
+                                if (calendar.owns) {
+                                  final session = calendar.session;
+                                  return session == null
+                                      ? const SizedBox.shrink()
+                                      : CalendarSurface(session: session);
+                                }
+                                if (slider.owns) {
+                                  final session = slider.session;
+                                  return session == null
+                                      ? const SizedBox.shrink()
+                                      : VolumeSliderSurface(session: session);
+                                }
+                                if (tooltip.owns) {
+                                  final session = tooltip.session;
+                                  return session == null
+                                      ? const SizedBox.shrink()
+                                      : OverlayTooltipSurface(session: session);
+                                }
+                                return strip(context);
+                              },
+                            ),
+                      ),
+                ),
           ),
-        ),
-      ),
     );
   }
 }

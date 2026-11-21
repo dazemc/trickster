@@ -757,4 +757,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsOpencodeShowCost => '会话费用';
+
+  @override
+  String get barMenuSettings => 'Trickster 设置';
 }

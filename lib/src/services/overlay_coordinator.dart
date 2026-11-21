@@ -1,13 +1,13 @@
 /// The transient surfaces the bar can show at once.
-enum OverlayKind { trayMenu, calendar, volumeSlider, tooltip }
+enum OverlayKind { trayMenu, barMenu, calendar, volumeSlider, tooltip }
 
 /// App-owned mutual exclusion for the bar's overlay blocs.
 ///
-/// The tray menu, calendar, and volume slider are modal: at most one is open,
-/// and an open modal excludes tooltips. A tooltip is non-modal relative to
-/// another tooltip and retargets in place. The coordinator owns only claims
-/// and dismissal order; every overlay bloc keeps its own surface lifecycle
-/// and generation guard.
+/// The tray menu, bar menu, calendar, and volume slider are modal: at most one
+/// is open, and an open modal excludes tooltips. A tooltip is non-modal
+/// relative to another tooltip and retargets in place. The coordinator owns
+/// only claims and dismissal order; every overlay bloc keeps its own surface
+/// lifecycle and generation guard.
 class OverlayCoordinator {
   OverlayCoordinator({this.dismissTimeout = const Duration(milliseconds: 500)});
 

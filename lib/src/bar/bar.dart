@@ -3,6 +3,7 @@ import 'dart:math' show max;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:trickster/src/bar/bar_menu.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/brightness.dart';
 import 'package:trickster/src/bar/clock.dart';
@@ -607,66 +608,88 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
         return StripGeometry(
           side: side,
           thickness: _surfaceCross ?? thickness,
-          child: Padding(
-            padding: horizontal
-                ? const EdgeInsets.symmetric(
-                    horizontal: TricksterBarStrip._edgePadding,
-                    vertical: TricksterBarStrip._cardMargin,
-                  )
-                : const EdgeInsets.symmetric(
-                    horizontal: TricksterBarStrip._cardMargin,
-                    vertical: TricksterBarStrip._edgePadding,
-                  ),
-            child: CustomMultiChildLayout(
-              delegate: _StripZoneLayout(
-                horizontal: horizontal,
-                onNeeded: _requestThickness,
+          // The empty-area detector sits behind the zone layout: a
+          // right-click that lands on a module is claimed by that module
+          // (its tray menu, calendar, slider, ...), and only presses that
+          // miss every pill reach the bar menu.
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                key: const ValueKey<String>('strip-empty-area'),
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                onSecondaryTapUp: (details) => openBarMenu(
+                  context: context,
+                  accent: accent,
+                  click: details.globalPosition,
+                  side: side,
+                  thickness: widget.thickness,
+                ),
+                child: const SizedBox.expand(),
               ),
-              children: [
-                LayoutId(
-                  id: _StripZoneLayout.leadingId,
-                  child: _zoneWrap(
-                    key: const ValueKey<String>('strip-zone-leading'),
+              Padding(
+                padding: horizontal
+                    ? const EdgeInsets.symmetric(
+                        horizontal: TricksterBarStrip._edgePadding,
+                        vertical: TricksterBarStrip._cardMargin,
+                      )
+                    : const EdgeInsets.symmetric(
+                        horizontal: TricksterBarStrip._cardMargin,
+                        vertical: TricksterBarStrip._edgePadding,
+                      ),
+                child: CustomMultiChildLayout(
+                  delegate: _StripZoneLayout(
                     horizontal: horizontal,
-                    child: _moduleZone(
-                      settings: settings,
-                      builders: builders,
-                      zone: ModuleZone.leading,
-                      horizontal: horizontal,
-                      bandCross: bandCross,
-                    ),
+                    onNeeded: _requestThickness,
                   ),
-                ),
-                LayoutId(
-                  id: _StripZoneLayout.centerId,
-                  child: _zoneWrap(
-                    key: const ValueKey<String>('strip-zone-center'),
-                    horizontal: horizontal,
-                    child: _moduleZone(
-                      settings: settings,
-                      builders: builders,
-                      zone: ModuleZone.center,
-                      horizontal: horizontal,
-                      bandCross: bandCross,
+                  children: [
+                    LayoutId(
+                      id: _StripZoneLayout.leadingId,
+                      child: _zoneWrap(
+                        key: const ValueKey<String>('strip-zone-leading'),
+                        horizontal: horizontal,
+                        child: _moduleZone(
+                          settings: settings,
+                          builders: builders,
+                          zone: ModuleZone.leading,
+                          horizontal: horizontal,
+                          bandCross: bandCross,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                LayoutId(
-                  id: _StripZoneLayout.trailingId,
-                  child: _zoneWrap(
-                    key: const ValueKey<String>('strip-zone-trailing'),
-                    horizontal: horizontal,
-                    child: _moduleZone(
-                      settings: settings,
-                      builders: builders,
-                      zone: ModuleZone.trailing,
-                      horizontal: horizontal,
-                      bandCross: bandCross,
+                    LayoutId(
+                      id: _StripZoneLayout.centerId,
+                      child: _zoneWrap(
+                        key: const ValueKey<String>('strip-zone-center'),
+                        horizontal: horizontal,
+                        child: _moduleZone(
+                          settings: settings,
+                          builders: builders,
+                          zone: ModuleZone.center,
+                          horizontal: horizontal,
+                          bandCross: bandCross,
+                        ),
+                      ),
                     ),
-                  ),
+                    LayoutId(
+                      id: _StripZoneLayout.trailingId,
+                      child: _zoneWrap(
+                        key: const ValueKey<String>('strip-zone-trailing'),
+                        horizontal: horizontal,
+                        child: _moduleZone(
+                          settings: settings,
+                          builders: builders,
+                          zone: ModuleZone.trailing,
+                          horizontal: horizontal,
+                          bandCross: bandCross,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -702,12 +725,19 @@ Widget _moduleZone({
 }
 
 /// The zone's box: marked for tests, sized by the layout delegate.
+///
+/// The listener claims every pointer inside the zone's bounds, including the
+/// gaps between pills, so a secondary click on a module can never fall
+/// through to the empty-strip bar menu.
 Widget _zoneWrap({
   required Key key,
   required Widget child,
   required bool horizontal,
 }) {
-  return KeyedSubtree(key: key, child: child);
+  return KeyedSubtree(
+    key: key,
+    child: Listener(behavior: HitTestBehavior.opaque, child: child),
+  );
 }
 
 /// Places the three zones without overlap: the center keeps its natural size

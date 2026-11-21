@@ -1153,5 +1153,9 @@
   "settingsOpencodeShowCost": "会话费用",
   "@settingsOpencodeShowCost": {
     "description": "Toggle that appends the newest OpenCode session's cost to the pill."
+  },
+  "barMenuSettings": "Trickster 设置",
+  "@barMenuSettings": {
+    "description": "Entry in the empty-bar context menu that opens the settings application."
   }
 }
