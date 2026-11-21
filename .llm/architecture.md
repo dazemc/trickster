@@ -180,8 +180,10 @@ IPv4/IPv6 default routes come from `/proc/net/route` and
 The sampler runs at 1 Hz, pauses with the seat, rebaselines on resume, and
 reports null rates on the first sample, a counter reset, or an interface/link
 change. It never aggregates interfaces and never spawns `nmcli`/`iw`.
-NetworkManager/iwd SSID, signal, band, and connectivity metadata are not part
-of this slice.
+NetworkManager (preferred) or iwd is read directly over the system D-Bus when
+it owns the bus, adding SSID, signal, band, and connectivity state; owner
+changes rebuild or clear that metadata plane, and the kernel reading remains
+the fallback when neither service is present.
 
 ## Workspaces
 
