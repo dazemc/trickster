@@ -6,6 +6,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/tray_icon_decoder.dart';
 
 sealed class TrayEvent extends Equatable {
   const TrayEvent();
@@ -39,7 +40,9 @@ class TrayBloc extends Bloc<TrayEvent, TrayState> {
     StatusNotifierClient? service,
     TrayState initial = const TrayState(),
     void Function(String message)? log,
-  }) : _service = service ?? StatusNotifierService(),
+  }) : _service =
+           service ??
+           StatusNotifierService(iconFileDecoder: decodeTrayIconFile),
        _log = log ?? _stderrLog,
        super(initial) {
     on<TrayStarted>(_onStarted);

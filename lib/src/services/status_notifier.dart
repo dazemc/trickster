@@ -10,7 +10,6 @@ import 'package:flutter/foundation.dart';
 
 import 'package:trickster/src/services/status_notifier_client.dart';
 import 'package:trickster/src/services/status_notifier_models.dart';
-import 'package:trickster/src/services/tray_icon_decoder.dart';
 
 export 'status_notifier_client.dart' show StatusNotifierClient;
 export 'status_notifier_models.dart';
@@ -51,6 +50,7 @@ class StatusNotifierService implements StatusNotifierClient {
   StatusNotifierService({
     DBusClient? client,
     DBusClient Function()? clientFactory,
+    Future<SystemTrayIconPixmap?> Function(String path)? iconFileDecoder,
     Duration heartbeatInterval = const Duration(seconds: 60),
     List<Duration> recoveryBackoff = const <Duration>[
       Duration(seconds: 1),
@@ -65,6 +65,7 @@ class StatusNotifierService implements StatusNotifierClient {
        ),
        _client = client,
        _clientFactory = clientFactory ?? DBusClient.session,
+       _iconFileDecoder = iconFileDecoder,
        _heartbeatInterval = heartbeatInterval,
        _recoveryBackoff = recoveryBackoff;
 
@@ -92,6 +93,7 @@ class StatusNotifierService implements StatusNotifierClient {
   static const int _maxMenuDepth = 5;
 
   final DBusClient Function() _clientFactory;
+  final Future<SystemTrayIconPixmap?> Function(String path)? _iconFileDecoder;
   final Duration _heartbeatInterval;
   final List<Duration> _recoveryBackoff;
   DBusClient? _client;
@@ -109,6 +111,7 @@ class StatusNotifierService implements StatusNotifierClient {
   final Set<String> _iconLoads = {};
   final Map<String, _PendingStatusNotifierRefresh> _pendingRefreshes = {};
   List<SystemTrayItem> _lastSnapshot = const <SystemTrayItem>[];
+  Map<String, String?> _lastIconSignatures = const <String, String?>{};
 
   final List<StreamSubscription<DBusSignal>> _itemSignals = [];
   // Cancelled indirectly by _cancelSubscriptions on recovery and dispose.
@@ -336,6 +339,7 @@ class StatusNotifierService implements StatusNotifierClient {
     _normalPixmaps.clear();
     _attentionPixmaps.clear();
     _lastSnapshot = const <SystemTrayItem>[];
+    _lastIconSignatures = const <String, String?>{};
     _emit();
 
     final oldClient = _client;
@@ -843,7 +847,9 @@ class StatusNotifierService implements StatusNotifierClient {
 
   void _ensureIconPixmap(String iconName, String themePath) {
     final key = _iconCacheKey(iconName, themePath);
-    if (_iconFiles.containsKey(key) || !_iconLoads.add(key)) {
+    if (_iconFiles.containsKey(key) ||
+        _iconPaths.containsKey(key) ||
+        !_iconLoads.add(key)) {
       return;
     }
     unawaited(_loadIconPixmap(key, iconName, themePath));
@@ -863,8 +869,8 @@ class StatusNotifierService implements StatusNotifierClient {
     SystemTrayIconPixmap? pixmap;
     try {
       final path = await _iconPath(iconName, themePath);
-      if (path != null) {
-        pixmap = await decodeTrayIconFile(path);
+      if (path != null && _iconFileDecoder != null) {
+        pixmap = await _iconFileDecoder(path);
       }
     } on Object {
       pixmap = null;
@@ -919,8 +925,19 @@ class StatusNotifierService implements StatusNotifierClient {
     SystemTrayItem item,
     SystemTrayAction action,
     Offset position,
+  ) {
+    return invokeAt(item.id, action, position.dx.round(), position.dy.round());
+  }
+
+  /// Invokes an item method by id with already-rounded coordinates. The worker
+  /// uses this so no [Offset] has to cross the isolate boundary.
+  Future<bool> invokeAt(
+    String itemId,
+    SystemTrayAction action,
+    int x,
+    int y,
   ) async {
-    final registration = _registrations[item.id];
+    final registration = _registrations[itemId];
     if (registration == null || _disposed || _client == null) {
       return false;
     }
@@ -929,16 +946,16 @@ class StatusNotifierService implements StatusNotifierClient {
       SystemTrayAction.secondaryActivate => 'SecondaryActivate',
       SystemTrayAction.contextMenu => 'ContextMenu',
     };
-    final x = position.dx.round().clamp(-0x80000000, 0x7fffffff);
-    final y = position.dy.round().clamp(-0x80000000, 0x7fffffff);
+    final clampedX = x.clamp(-0x80000000, 0x7fffffff);
+    final clampedY = y.clamp(-0x80000000, 0x7fffffff);
     final preferred = _itemInterfaces[registration.id];
     final interfaces = <String>{?preferred, ...itemInterfaces};
     for (final interface in interfaces) {
       try {
         await _remoteItem(registration)
             .callMethod(interface, method, <DBusValue>[
-              DBusInt32(x),
-              DBusInt32(y),
+              DBusInt32(clampedX),
+              DBusInt32(clampedY),
             ], replySignature: DBusSignature(''))
             .timeout(_methodTimeout);
         _itemInterfaces[registration.id] = interface;
@@ -1088,12 +1105,45 @@ class StatusNotifierService implements StatusNotifierClient {
     return List<SystemTrayItem>.unmodifiable(items);
   }
 
+  /// The resolved icon file for [itemId], or null while the lookup is pending
+  /// or when the item has no icon name.
+  String? resolvedIconPathFor(String itemId) {
+    final item = _items[itemId];
+    return item == null ? null : _resolvedIconPath(item);
+  }
+
+  /// The current item for [itemId], or null when it is no longer tracked.
+  SystemTrayItem? itemForId(String itemId) => _items[itemId];
+
   void _emit() {
     final next = _orderedItems();
-    if (!_snapshots.isClosed && !listEquals(_lastSnapshot, next)) {
+    final pathOnlyIcons = _iconFileDecoder == null;
+    final icons = pathOnlyIcons
+        ? _iconSignatures(next)
+        : const <String, String?>{};
+    final itemsChanged = !listEquals(_lastSnapshot, next);
+    final iconsChanged =
+        pathOnlyIcons && !mapEquals(_lastIconSignatures, icons);
+    if (!_snapshots.isClosed && (itemsChanged || iconsChanged)) {
       _lastSnapshot = next;
+      if (pathOnlyIcons) {
+        _lastIconSignatures = icons;
+      }
       _snapshots.add(next);
     }
+  }
+
+  Map<String, String?> _iconSignatures(List<SystemTrayItem> items) {
+    return <String, String?>{
+      for (final item in items) item.id: _resolvedIconPath(item),
+    };
+  }
+
+  String? _resolvedIconPath(SystemTrayItem item) {
+    if (item.iconName.isEmpty) {
+      return null;
+    }
+    return _iconPaths[_iconCacheKey(item.iconName, item.iconThemePath)];
   }
 
   @override
@@ -1614,14 +1664,14 @@ int _premultiplyChannel(int channel, int alpha) {
 }
 
 abstract final class _StatusNotifierLimits {
-  static const int preferredIconDimension =
-      TrayIconLimits.preferredIconDimension;
+  static const int preferredIconDimension = 24;
   static const int maxInputDimension = 512;
   static const int maxInputIconBytes =
       maxInputDimension * maxInputDimension * 4;
-  static const int maxOutputDimension = TrayIconLimits.maxOutputDimension;
+  static const int maxOutputDimension = 64;
   static const int maxIconPaths = 256;
   static const int maxDecodedIcons = 64;
+  static const int maxIconFileBytes = 8 * 1024 * 1024;
 }
 
 /// Resolves `IconName`/`IconThemePath` the way a freedesktop host does.
@@ -1709,7 +1759,7 @@ bool _isSafeIconFile(String path) {
     final stat = File(path).statSync();
     return stat.type == FileSystemEntityType.file &&
         stat.size > 0 &&
-        stat.size <= TrayIconLimits.maxIconFileBytes;
+        stat.size <= _StatusNotifierLimits.maxIconFileBytes;
   } on FileSystemException {
     return false;
   }

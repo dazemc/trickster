@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dbus/dbus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/status_notifier.dart';
+import 'package:trickster/src/services/tray_icon_decoder.dart';
 
 Future<void> _waitFor(bool Function() condition) async {
   final deadline = DateTime.now().add(const Duration(seconds: 5));
@@ -391,6 +392,7 @@ void main() {
     final service = StatusNotifierService(
       client: bus.client(),
       clientFactory: bus.client,
+      iconFileDecoder: decodeTrayIconFile,
     );
     addTearDown(service.dispose);
     final snapshots = <List<SystemTrayItem>>[];
@@ -418,6 +420,53 @@ void main() {
     expect(icon.width, 24);
     expect(icon.height, 24);
     expect(icon.rgba.length, 24 * 24 * 4);
+  });
+
+  test('path-only mode emits a resolved icon path without decoding', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final icons = await Directory.systemTemp.createTemp('trickster-tray-paths');
+    addTearDown(() => icons.delete(recursive: true));
+    final statusDir = Directory('${icons.path}/22x22/status');
+    await statusDir.create(recursive: true);
+    await File(
+      '${statusDir.path}/theme-icon.png',
+    ).writeAsBytes(base64Decode(_pngFixture));
+
+    final service = StatusNotifierService(
+      client: bus.client(),
+      clientFactory: bus.client,
+    );
+    addTearDown(service.dispose);
+    final snapshots = <List<SystemTrayItem>>[];
+    final subscription = service.snapshots.listen(snapshots.add);
+    addTearDown(subscription.cancel);
+    await service.start();
+
+    final tray = bus.client();
+    addTearDown(tray.close);
+    final itemObject = _FakeTrayItemObject()
+      ..iconName = 'theme-icon'
+      ..iconThemePath = icons.path;
+    await tray.registerObject(itemObject);
+    await tray.requestName('org.example.Tray');
+
+    final probe = bus.client();
+    addTearDown(probe.close);
+    final watcher = await _watcherObject(probe);
+    await _registerItem(watcher, 'org.example.Tray/StatusNotifierItem');
+    await _waitFor(
+      () =>
+          snapshots.isNotEmpty &&
+          service.resolvedIconPathFor(snapshots.last.single.id) != null,
+    );
+
+    final item = snapshots.last.single;
+    expect(item.iconPixmap, isNull);
+    expect(
+      service.resolvedIconPathFor(item.id),
+      '${statusDir.path}/theme-icon.png',
+    );
   });
 
   test('hosts the watcher and answers host queries', () async {

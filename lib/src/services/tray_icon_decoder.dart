@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert' show utf8;
 import 'dart:io';
 import 'dart:math' as math;
@@ -85,6 +86,44 @@ Future<SystemTrayIconPixmap?> decodeTrayIconFile(String path) async {
     }
   } on Object {
     return null;
+  }
+}
+
+/// Decodes icon files through one bounded cache.
+///
+/// The proxy owns one decoder for its icon-path snapshots. A path's in-flight
+/// future is shared, failures stay cached as null, and the oldest path is
+/// evicted past [maxEntries].
+class TrayIconDecoder {
+  TrayIconDecoder({
+    this.maxEntries = 64,
+    Future<SystemTrayIconPixmap?> Function(String path)? decode,
+  }) : _decode = decode ?? decodeTrayIconFile;
+
+  final int maxEntries;
+  final Future<SystemTrayIconPixmap?> Function(String path) _decode;
+  final LinkedHashMap<String, Future<SystemTrayIconPixmap?>> _entries =
+      LinkedHashMap<String, Future<SystemTrayIconPixmap?>>();
+
+  /// The number of cached paths, for tests and diagnostics.
+  int get length => _entries.length;
+
+  Future<SystemTrayIconPixmap?> decode(String path) {
+    final existing = _entries.remove(path);
+    if (existing != null) {
+      _entries[path] = existing;
+      return existing;
+    }
+    final future = Future<SystemTrayIconPixmap?>.sync(() => _decode(path));
+    _entries[path] = future;
+    while (_entries.length > maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+    return future;
+  }
+
+  void dispose() {
+    _entries.clear();
   }
 }
 

@@ -121,6 +121,28 @@ void main() {
     );
   });
 
+  test('the decoder shares in-flight paths and bounds its cache', () async {
+    var calls = 0;
+    final decoder = TrayIconDecoder(
+      maxEntries: 2,
+      decode: (path) async {
+        calls += 1;
+        return null;
+      },
+    );
+
+    await decoder.decode('a');
+    await decoder.decode('a');
+    expect(calls, 1);
+
+    await decoder.decode('b');
+    await decoder.decode('c');
+    expect(decoder.length, 2);
+    await decoder.decode('a');
+    expect(calls, 4);
+    expect(decoder.length, 2);
+  });
+
   test('decodes the PNG fixture used by the service tests', () async {
     final directory = await Directory.systemTemp.createTemp(
       'trickster-fixture',
