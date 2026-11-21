@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show FileSystemEvent, Platform;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,6 +27,14 @@ import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
 
+/// Whether a config-directory event names a document both processes edit.
+/// Atomic writes also create `.tmp` and `.prev` neighbours; those must not
+/// schedule a reload.
+bool isEditedDocumentEvent(FileSystemEvent event) {
+  final name = event.path.split(Platform.pathSeparator).last;
+  return name == 'settings.json' || name == 'outputs.conf';
+}
+
 /// Root of the settings application: the same binary in settings mode, its
 /// own process and engine, one plain window, no strip surfaces, no bar blocs.
 ///
@@ -51,6 +60,7 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
     // pill's mode cycle); reload so the pages show what the bar shows.
     _watcher = ConfigWatcher(
       directory: ConfigPaths().directory,
+      include: isEditedDocumentEvent,
       onChanged: () {
         // The watcher reports the directory, not the file. Refresh both
         // documents; each handler preserves an unsaved local draft.

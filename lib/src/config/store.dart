@@ -275,6 +275,13 @@ class NativeSettingsStore {
   int get revision => _revision;
 
   Future<BarSettings> read() async {
+    // A watcher read must observe the same revision the save queue just wrote,
+    // not the file as it stood before the in-flight write landed.
+    await _writeQueue;
+    return _readNow();
+  }
+
+  Future<BarSettings> _readNow() async {
     final document = await _transport.read();
     _remember(document);
     return BarSettings.decode(document.json);
@@ -288,7 +295,7 @@ class NativeSettingsStore {
 
   Future<SettingsDocument> _write(BarSettings settings) async {
     if (_revision <= 0) {
-      await read();
+      await _readNow();
     }
     final expected = _revision;
     final payload = settings.copyWith(revision: expected + 1).encode();
@@ -306,7 +313,7 @@ class NativeSettingsStore {
       // Adopt the other writer's document. The caller reloads it into the
       // editor and retries the user's change; resending this whole snapshot
       // here would silently discard the other writer's fields.
-      await read();
+      await _readNow();
       throw SettingsRevisionConflict(expected: expected, actual: _revision);
     }
   }

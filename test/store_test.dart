@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -68,6 +69,38 @@ class _MutableTransport implements SettingsDocumentTransport {
   }
 }
 
+class _DelayedWriteTransport implements SettingsDocumentTransport {
+  _DelayedWriteTransport(this.document);
+
+  SettingsDocument document;
+  final writeStarted = Completer<void>();
+  final _release = Completer<void>();
+  var reads = 0;
+
+  void release() => _release.complete();
+
+  @override
+  Future<SettingsDocument> read() async {
+    reads += 1;
+    return document;
+  }
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    writeStarted.complete();
+    await _release.future;
+    final settings = BarSettings.decode(document);
+    this.document = SettingsDocument(
+      revision: settings.revision,
+      json: document,
+    );
+    return this.document;
+  }
+}
+
 void main() {
   group('NativeSettingsStore', () {
     test('adopts a lower revision from an external rollback', () async {
@@ -104,6 +137,28 @@ void main() {
       expect(BarSettings.decode(written.json).modules, ['clock']);
       expect(transport.reads, 1);
       expect(store.revision, 2);
+    });
+
+    test('read waits for an in-flight write', () async {
+      final transport = _DelayedWriteTransport(
+        const SettingsDocument(revision: 1, json: '{"revision": 1}'),
+      );
+      final store = NativeSettingsStore(transport);
+      await store.read();
+      expect(transport.reads, 1);
+
+      final write = store.write(const BarSettings(modules: ['clock']));
+      await transport.writeStarted.future;
+      final read = store.read();
+      await Future<void>.delayed(Duration.zero);
+      expect(transport.reads, 1);
+
+      transport.release();
+      await write;
+      final after = await read;
+      expect(transport.reads, 2);
+      expect(after.revision, 2);
+      expect(after.modules, ['clock']);
     });
 
     test(

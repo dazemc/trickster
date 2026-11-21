@@ -260,6 +260,39 @@ void main() {
 
   tearDown(() => directory.delete(recursive: true));
 
+  test('config events refresh only the edited documents', () {
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/settings.json', false),
+      ),
+      isTrue,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/outputs.conf', false),
+      ),
+      isTrue,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/settings.json.tmp', false),
+      ),
+      isFalse,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/settings.json.prev', false),
+      ),
+      isFalse,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/other.conf', false),
+      ),
+      isFalse,
+    );
+  });
+
   test('placement-only preview emits a new settings state', () async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);

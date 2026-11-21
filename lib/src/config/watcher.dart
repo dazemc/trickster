@@ -15,6 +15,7 @@ class ConfigWatcher {
     this.debounce = const Duration(milliseconds: 200),
     this.retryDelay = const Duration(milliseconds: 500),
     this.retryDelayMax = const Duration(seconds: 5),
+    this.include,
     @visibleForTesting Stream<FileSystemEvent> Function(Directory)? watch,
   }) : _watch = watch ?? _watchDirectory,
        _nextRetryDelay = retryDelay;
@@ -22,6 +23,10 @@ class ConfigWatcher {
   final Directory directory;
   final void Function() onChanged;
   final Duration debounce;
+
+  /// Optional event filter. Events that do not pass never start the debounce
+  /// or reset the retry backoff; the watch itself still proves liveness.
+  final bool Function(FileSystemEvent event)? include;
 
   /// Delay before the first resubscribe after the watch stream fails; it
   /// doubles after every consecutive failure.
@@ -60,7 +65,11 @@ class ConfigWatcher {
     final StreamSubscription<FileSystemEvent> subscription;
     try {
       subscription = _watch(directory).listen(
-        (_) => _handleEvent(generation),
+        (event) {
+          if (include?.call(event) ?? true) {
+            _handleEvent(generation);
+          }
+        },
         onError: (Object _) => _handleDrop(generation),
         onDone: () => _handleDrop(generation),
         cancelOnError: true,
