@@ -67,7 +67,7 @@ The document carries:
 - `module_placement`: leading/center/trailing zone per module;
 - `accent`, `accent_source`, `accent_wallpaper_pick`;
 - `display_appearance`: per-connector appearance overrides;
-- `appearance`, `workspaces`, `cpu`, `ram`, `temperature`, `clock`,
+- `appearance`, `workspaces`, `cpu`, `ram`, `temperature`, `disk`, `clock`,
   `battery`, `gpu`, `vram`, `media`, `opencode`: nested module options;
 - `locale`: `en` or `zh`; null follows the system.
 
