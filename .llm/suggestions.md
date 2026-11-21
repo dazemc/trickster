@@ -75,9 +75,8 @@ Nothing in this file authorizes performance work.
 
 ## Correctness and verification
 
-- **Equatable 3.0 no longer compares `runtimeType`.** Distinct state classes
-  that declare the same props now compare equal, so bloc dedup can swallow a
-  transition. Audit every bloc state `==` once; do not downgrade for this.
+- **Equatable 3.0 still compares `runtimeType` at the top level;**
+  single-state-per-bloc architecture makes cross-class collisions inert.
 
 - **`TRICKSTER_LOG` is parsed but unused.** `SessionConfig.log` never reaches a
   logger. Either wire it to the observer/log filter or remove it from the
