@@ -74,6 +74,112 @@
       }
     }
   },
+  "networkWifi": "Wi-Fi",
+  "@networkWifi": {
+    "description": "Network pill label for a connected Wi-Fi link."
+  },
+  "networkEthernet": "Ethernet",
+  "@networkEthernet": {
+    "description": "Network pill label for a connected Ethernet link."
+  },
+  "networkConnected": "Connected",
+  "@networkConnected": {
+    "description": "Network pill label when the medium is unknown."
+  },
+  "networkLinked": "Linked",
+  "@networkLinked": {
+    "description": "Network pill label when the link is up without a default route."
+  },
+  "networkLocal": "Local",
+  "@networkLocal": {
+    "description": "Network pill label reserved for local-only connectivity metadata."
+  },
+  "networkLimited": "Limited",
+  "@networkLimited": {
+    "description": "Network pill label reserved for limited connectivity metadata."
+  },
+  "networkDisconnected": "Disconnected",
+  "@networkDisconnected": {
+    "description": "Network pill label when the selected link is down."
+  },
+  "networkDisabled": "Off",
+  "@networkDisabled": {
+    "description": "Network pill label when the selected interface is administratively down."
+  },
+  "networkRatesCompact": "↓{rx} ↑{tx}",
+  "@networkRatesCompact": {
+    "description": "Compact receive and transmit rates for the network pill.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "1.2M/s"
+      },
+      "tx": {
+        "type": "String",
+        "example": "80K/s"
+      }
+    }
+  },
+  "networkLinkDetail": "link {state}",
+  "@networkLinkDetail": {
+    "description": "Network tooltip link state.",
+    "placeholders": {
+      "state": {
+        "type": "String",
+        "example": "up"
+      }
+    }
+  },
+  "networkLinkUp": "up",
+  "@networkLinkUp": {
+    "description": "Network link state when the carrier is up."
+  },
+  "networkLinkDown": "down",
+  "@networkLinkDown": {
+    "description": "Network link state when the carrier is down."
+  },
+  "networkLinkUnknown": "unknown",
+  "@networkLinkUnknown": {
+    "description": "Network link state when the kernel publishes no carrier or operstate."
+  },
+  "networkSpeedDetail": "speed {speed}",
+  "@networkSpeedDetail": {
+    "description": "Network tooltip Ethernet link speed.",
+    "placeholders": {
+      "speed": {
+        "type": "String",
+        "example": "1 Gb/s"
+      }
+    }
+  },
+  "networkRateDetail": "received {rx} · sent {tx}",
+  "@networkRateDetail": {
+    "description": "Network tooltip current rates.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "1.2M/s"
+      },
+      "tx": {
+        "type": "String",
+        "example": "80K/s"
+      }
+    }
+  },
+  "networkTotalsDetail": "{rx} received · {tx} sent",
+  "@networkTotalsDetail": {
+    "description": "Network tooltip interface lifetime totals.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "12.4 GiB"
+      },
+      "tx": {
+        "type": "String",
+        "example": "1.1 GiB"
+      }
+    }
+  },
   "temperatureCelsius": "{value}°C",
   "@temperatureCelsius": {
     "description": "Temperature value with its Celsius unit.",
@@ -271,6 +377,18 @@
   "@settingsUnavailableNoVram": {
     "description": "Reason shown when no dedicated GPU memory source is detected."
   },
+  "settingsUnavailableNoTemperature": "No temperature sensor detected",
+  "@settingsUnavailableNoTemperature": {
+    "description": "Reason shown when no readable hwmon sensor is detected."
+  },
+  "settingsUnavailableNoDisk": "Configured disk path is unavailable",
+  "@settingsUnavailableNoDisk": {
+    "description": "Reason shown when the configured disk mount is missing or unreadable."
+  },
+  "settingsUnavailableNoNetwork": "No network interface detected",
+  "@settingsUnavailableNoNetwork": {
+    "description": "Reason shown when no physical or pinned network interface exists."
+  },
   "settingsUnavailableNoHyprland": "Hyprland session not detected",
   "@settingsUnavailableNoHyprland": {
     "description": "Reason shown when the Hyprland keyboard backend is unavailable."
@@ -384,6 +502,14 @@
   "@settingsModuleDrag": {
     "description": "Handle label for dragging a module row."
   },
+  "settingsModuleDragHint": "Drag to reorder, or press Control and the arrow keys. Add Shift to move between zones.",
+  "@settingsModuleDragHint": {
+    "description": "Keyboard hint for an enabled module's drag handle."
+  },
+  "settingsModuleDragZoneHint": "Drag to move, or press Control and Shift with the arrow keys to choose a zone.",
+  "@settingsModuleDragZoneHint": {
+    "description": "Keyboard hint for a disabled module's drag handle."
+  },
   "settingsModuleToggleHint": "Toggles the module",
   "@settingsModuleToggleHint": {
     "description": "Accessible hint for a module toggle."
@@ -439,6 +565,10 @@
   "moduleBattery": "Battery",
   "@moduleBattery": {
     "description": "Display name of the battery module."
+  },
+  "moduleNetwork": "Network",
+  "@moduleNetwork": {
+    "description": "Display name of the network module."
   },
   "moduleClock": "Clock",
   "@moduleClock": {
@@ -575,6 +705,26 @@
   "settingsDiskPath": "Mount path",
   "@settingsDiskPath": {
     "description": "Label for the disk module's mount path option."
+  },
+  "settingsDiskPathInvalid": "Use an absolute mount path",
+  "@settingsDiskPathInvalid": {
+    "description": "Validation shown when the disk path is empty, relative, or malformed."
+  },
+  "settingsNetworkInterface": "Interface",
+  "@settingsNetworkInterface": {
+    "description": "Label for the network module's interface name option."
+  },
+  "settingsNetworkInterfaceInvalid": "Use a valid Linux interface name",
+  "@settingsNetworkInterfaceInvalid": {
+    "description": "Validation shown for an invalid network interface name."
+  },
+  "settingsNetworkInterfaceHint": "auto",
+  "@settingsNetworkInterfaceHint": {
+    "description": "Placeholder for the automatic network interface choice."
+  },
+  "settingsNetworkShowRates": "Show rates",
+  "@settingsNetworkShowRates": {
+    "description": "Toggle for compact receive and transmit rates on the network pill."
   },
   "settingsMeterSection": "Meter captions",
   "@settingsMeterSection": {

@@ -8,6 +8,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/state/cpu_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/settings_bloc.dart';
@@ -171,6 +173,65 @@ class FakeDiskSampler extends DiskSampler {
 
   @override
   Stream<DiskSample> get snapshots => controller.stream;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    disposes += 1;
+    await controller.close();
+    await super.dispose();
+  }
+}
+
+class _EmptyNetworkReader implements NetworkReader {
+  @override
+  NetworkKernelReading read({String? selectedName, String? pinnedName}) {
+    return NetworkKernelReading(
+      counters: const {},
+      interfaces: const {},
+      defaultRouteInterfaces: const {},
+    );
+  }
+
+  @override
+  void dispose() {}
+}
+
+class FakeNetworkSampler extends NetworkSampler {
+  FakeNetworkSampler()
+    : super(
+        interval: const Duration(days: 1),
+        reader: _EmptyNetworkReader(),
+        log: (_) {},
+      );
+
+  final controller = StreamController<NetworkSample>.broadcast();
+
+  var disposed = false;
+  var disposes = 0;
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  Stream<NetworkSample> get snapshots => controller.stream;
 
   @override
   void start({bool paused = false}) {
@@ -846,6 +907,103 @@ cpu MHz\t\t: 3400.000
         await pumpEventQueue();
       },
       expect: () => const <DiskSample>[],
+      verify: (_) => expect(fake.startedPaused, isTrue),
+    );
+  });
+
+  group('NetworkBloc', () {
+    late FakeNetworkSampler fake;
+
+    test('started then sampled emits the sample', () async {
+      final sampler = FakeNetworkSampler();
+      final bloc = NetworkBloc(sampler: sampler);
+      const sample = NetworkSample(
+        interface: 'enp42s0',
+        medium: NetworkMedium.ethernet,
+        link: NetworkLink.up,
+        adminUp: true,
+        defaultRoute: true,
+        rxBytesTotal: 1000,
+        txBytesTotal: 2000,
+      );
+      try {
+        bloc.add(const NetworkStarted());
+        await pumpEventQueue();
+        sampler.controller.add(sample);
+        await expectLater(bloc.stream, emits(sample));
+      } finally {
+        await bloc.close();
+      }
+      expect(sampler.disposed, isTrue);
+    });
+
+    test('stopped is terminal and close does not dispose twice', () async {
+      final sampler = FakeNetworkSampler();
+      final bloc = NetworkBloc(sampler: sampler);
+      final seen = <NetworkSample>[];
+      final subscription = bloc.stream.listen(seen.add);
+
+      bloc.add(const NetworkStarted());
+      await pumpEventQueue();
+      bloc.add(const NetworkStopped());
+      await pumpEventQueue();
+
+      expect(sampler.disposes, 1);
+      expect(sampler.controller.isClosed, isTrue);
+
+      bloc.add(
+        const NetworkSampled(
+          NetworkSample(interface: 'enp42s0', adminUp: true),
+        ),
+      );
+      bloc.add(const NetworkStarted(paused: true));
+      bloc.add(const NetworkPaused());
+      bloc.add(const NetworkResumed());
+      await pumpEventQueue();
+
+      expect(seen, isEmpty);
+      expect(sampler.starts, 1);
+      expect(sampler.pauses, 0);
+      expect(sampler.resumes, 0);
+      expect(sampler.disposes, 1);
+
+      await bloc.close();
+      expect(sampler.disposes, 1);
+      await subscription.cancel();
+    });
+
+    blocTest<NetworkBloc, NetworkSample>(
+      'seat pauses and resumes the sampler without emitting',
+      build: () {
+        fake = FakeNetworkSampler();
+        return NetworkBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const NetworkStarted());
+        await pumpEventQueue();
+        bloc.add(const NetworkPaused());
+        await pumpEventQueue();
+        bloc.add(const NetworkResumed());
+        await pumpEventQueue();
+      },
+      expect: () => const <NetworkSample>[],
+      verify: (_) {
+        expect(fake.pauses, 1);
+        expect(fake.resumes, 1);
+      },
+    );
+
+    blocTest<NetworkBloc, NetworkSample>(
+      'a module started while idle seeds a paused sampler',
+      build: () {
+        fake = FakeNetworkSampler();
+        return NetworkBloc(sampler: fake);
+      },
+      act: (bloc) async {
+        bloc.add(const NetworkStarted(paused: true));
+        await pumpEventQueue();
+      },
+      expect: () => const <NetworkSample>[],
       verify: (_) => expect(fake.startedPaused, isTrue),
     );
   });

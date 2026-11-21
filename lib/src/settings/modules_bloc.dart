@@ -9,6 +9,20 @@ import 'package:trickster/src/settings/saver.dart';
 
 const _unset = Object();
 
+/// Removes option panels for modules a disabled or unavailable document no
+/// longer renders.
+Set<String> pruneExpanded(
+  Set<String> expanded,
+  BarSettings settings,
+  List<ModuleAvailability> unavailable,
+) {
+  final hidden = <String>{for (final entry in unavailable) entry.module};
+  return {
+    for (final module in expanded)
+      if (settings.includes(module) && !hidden.contains(module)) module,
+  };
+}
+
 /// The configured modules per zone, in strip order; [exclude] removes the
 /// row currently in flight.
 Map<ModuleZone, List<String>> moduleGroups(
@@ -54,6 +68,22 @@ class ModulesOptionsToggled extends ModulesEvent {
 
   @override
   List<Object?> get props => [module];
+}
+
+/// Asks the injected async loader for the bar's live availability.
+class ModulesAvailabilityRequested extends ModulesEvent {
+  const ModulesAvailabilityRequested();
+}
+
+/// Applies a fresh availability list and prunes panels that can no longer
+/// render.
+class ModulesAvailabilityLoaded extends ModulesEvent {
+  const ModulesAvailabilityLoaded(this.unavailable);
+
+  final List<ModuleAvailability> unavailable;
+
+  @override
+  List<Object?> get props => unavailable;
 }
 
 class ModulesMovedWithinZone extends ModulesEvent {
@@ -253,14 +283,21 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   ModulesBloc({
     required SettingsAppBloc settings,
     List<ModuleAvailability> Function()? availabilityProbe,
+    Future<List<ModuleAvailability>> Function(BarSettings settings)?
+    availabilityLoader,
   }) : _settings = settings,
+       _availabilityLoader = availabilityLoader,
        super(
          ModulesState(
-           unavailable: (availabilityProbe ?? probeModuleAvailability)(),
+           unavailable:
+               availabilityProbe?.call() ??
+               probeModuleAvailability(settings: settings.settings),
          ),
        ) {
     on<ModulesToggled>(_onToggled);
     on<ModulesOptionsToggled>(_onOptionsToggled);
+    on<ModulesAvailabilityRequested>(_onAvailabilityRequested);
+    on<ModulesAvailabilityLoaded>(_onAvailabilityLoaded);
     on<ModulesMovedWithinZone>(_onMovedWithinZone);
     on<ModulesMovedZoneBy>(_onMovedZoneBy);
     on<ModulesDragStarted>(_onDragStarted);
@@ -268,9 +305,14 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     on<ModulesDragEnded>(_onDragEnded);
     on<ModulesDroppedOnDisabled>(_onDroppedOnDisabled);
     on<ModulesReset>(_onReset);
+    if (availabilityLoader != null) {
+      add(const ModulesAvailabilityRequested());
+    }
   }
 
   final SettingsAppBloc _settings;
+  final Future<List<ModuleAvailability>> Function(BarSettings settings)?
+  _availabilityLoader;
   DebouncedSaver? _saver;
 
   BarSettings get _document => _settings.settings;
@@ -290,6 +332,9 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   }
 
   void _onToggled(ModulesToggled event, Emitter<ModulesState> emit) {
+    if (!event.enabled && state.expanded.contains(event.module)) {
+      emit(state.copyWith(expanded: {...state.expanded}..remove(event.module)));
+    }
     _apply((settings) {
       final modules = List<String>.of(settings.modules);
       if (event.enabled) {
@@ -312,6 +357,33 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
       expanded.add(event.module);
     }
     emit(state.copyWith(expanded: expanded));
+  }
+
+  Future<void> _onAvailabilityRequested(
+    ModulesAvailabilityRequested event,
+    Emitter<ModulesState> emit,
+  ) async {
+    final loader = _availabilityLoader;
+    if (loader == null) {
+      return;
+    }
+    final unavailable = await loader(_document);
+    if (isClosed) {
+      return;
+    }
+    add(ModulesAvailabilityLoaded(unavailable));
+  }
+
+  void _onAvailabilityLoaded(
+    ModulesAvailabilityLoaded event,
+    Emitter<ModulesState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        unavailable: event.unavailable,
+        expanded: pruneExpanded(state.expanded, _document, event.unavailable),
+      ),
+    );
   }
 
   /// Keyboard reorder within a zone: swaps the module with its neighbour.

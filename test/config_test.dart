@@ -287,6 +287,7 @@ void main() {
           dateStyle: ClockDateStyle.weekday,
         ),
         battery: BatteryOptions(warn: 30, critical: 15),
+        network: NetworkOptions(interface: 'wlan0', showRates: false),
         gpu: GpuOptions(
           warn: 0.6,
           critical: 0.8,
@@ -321,6 +322,8 @@ void main() {
       expect(decoded.clock.dateStyle, ClockDateStyle.weekday);
       expect(decoded.battery.warn, 30);
       expect(decoded.battery.critical, 15);
+      expect(decoded.network.interface, 'wlan0');
+      expect(decoded.network.showRates, isFalse);
       expect(decoded.cpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.cpu.captionPrefix, 'CPU0');
       expect(decoded.cpu.sparkline, isFalse);
@@ -396,6 +399,14 @@ void main() {
         throwsFormatException,
       );
       expect(bare.battery.critical, 10);
+      expect(bare.network.interface, isNull);
+      expect(bare.network.showRates, isTrue);
+      expect(bare.modules, contains('network'));
+      expect(
+        bare.modules.indexOf('network'),
+        bare.modules.indexOf('battery') + 1,
+        reason: 'network follows battery in the default order',
+      );
       expect(bare.cpu.captionSource, MeterCaptionSource.generic);
       expect(bare.cpu.captionPrefix, isNull);
       expect(bare.cpu.sparkline, isTrue);
@@ -585,6 +596,52 @@ void main() {
           '{"revision": 1, "disk": {"caption_source": "device"}}',
         ),
         throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode('{"revision": 1, "network": "wlan0"}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "network": {"interface": "bad name"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "network": {"interface": "waytoolongname123456"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "network": {"interface": "../x"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "network": {"interface": "eth0:1"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "network": {"show_rates": "yes"}}',
+        ),
+        throwsFormatException,
+      );
+      final networkDefaults = BarSettings.decode(
+        '{"revision": 1, "network": {"interface": "", "show_rates": true}}',
+      );
+      expect(networkDefaults.network.interface, isNull);
+      expect(networkDefaults.network.showRates, isTrue);
+      expect(
+        const NetworkOptions()
+            .copyWith(interface: 'wlan0')
+            .copyWith(interface: null)
+            .interface,
+        isNull,
       );
       expect(
         () => BarSettings.decode(

@@ -74,6 +74,112 @@
       }
     }
   },
+  "networkWifi": "Wi-Fi",
+  "@networkWifi": {
+    "description": "Network pill label for a connected Wi-Fi link."
+  },
+  "networkEthernet": "以太网",
+  "@networkEthernet": {
+    "description": "Network pill label for a connected Ethernet link."
+  },
+  "networkConnected": "已连接",
+  "@networkConnected": {
+    "description": "Network pill label when the medium is unknown."
+  },
+  "networkLinked": "已连线",
+  "@networkLinked": {
+    "description": "Network pill label when the link is up without a default route."
+  },
+  "networkLocal": "本地",
+  "@networkLocal": {
+    "description": "Network pill label reserved for local-only connectivity metadata."
+  },
+  "networkLimited": "受限",
+  "@networkLimited": {
+    "description": "Network pill label reserved for limited connectivity metadata."
+  },
+  "networkDisconnected": "未连接",
+  "@networkDisconnected": {
+    "description": "Network pill label when the selected link is down."
+  },
+  "networkDisabled": "已关闭",
+  "@networkDisabled": {
+    "description": "Network pill label when the selected interface is administratively down."
+  },
+  "networkRatesCompact": "↓{rx} ↑{tx}",
+  "@networkRatesCompact": {
+    "description": "Compact receive and transmit rates for the network pill.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "1.2M/s"
+      },
+      "tx": {
+        "type": "String",
+        "example": "80K/s"
+      }
+    }
+  },
+  "networkLinkDetail": "链路 {state}",
+  "@networkLinkDetail": {
+    "description": "Network tooltip link state.",
+    "placeholders": {
+      "state": {
+        "type": "String",
+        "example": "已连通"
+      }
+    }
+  },
+  "networkLinkUp": "已连通",
+  "@networkLinkUp": {
+    "description": "Network link state when the carrier is up."
+  },
+  "networkLinkDown": "未连通",
+  "@networkLinkDown": {
+    "description": "Network link state when the carrier is down."
+  },
+  "networkLinkUnknown": "未知",
+  "@networkLinkUnknown": {
+    "description": "Network link state when the kernel publishes no carrier or operstate."
+  },
+  "networkSpeedDetail": "速率 {speed}",
+  "@networkSpeedDetail": {
+    "description": "Network tooltip Ethernet link speed.",
+    "placeholders": {
+      "speed": {
+        "type": "String",
+        "example": "1 Gb/s"
+      }
+    }
+  },
+  "networkRateDetail": "接收 {rx} · 发送 {tx}",
+  "@networkRateDetail": {
+    "description": "Network tooltip current rates.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "1.2M/s"
+      },
+      "tx": {
+        "type": "String",
+        "example": "80K/s"
+      }
+    }
+  },
+  "networkTotalsDetail": "累计接收 {rx} · 累计发送 {tx}",
+  "@networkTotalsDetail": {
+    "description": "Network tooltip interface lifetime totals.",
+    "placeholders": {
+      "rx": {
+        "type": "String",
+        "example": "12.4 GiB"
+      },
+      "tx": {
+        "type": "String",
+        "example": "1.1 GiB"
+      }
+    }
+  },
   "temperatureCelsius": "{value}°C",
   "@temperatureCelsius": {
     "description": "Temperature value with its Celsius unit.",
@@ -271,6 +377,18 @@
   "@settingsUnavailableNoVram": {
     "description": "Reason shown when no dedicated GPU memory source is detected."
   },
+  "settingsUnavailableNoTemperature": "未检测到温度传感器",
+  "@settingsUnavailableNoTemperature": {
+    "description": "Reason shown when no readable hwmon sensor is detected."
+  },
+  "settingsUnavailableNoDisk": "配置的磁盘路径不可用",
+  "@settingsUnavailableNoDisk": {
+    "description": "Reason shown when the configured disk mount is missing or unreadable."
+  },
+  "settingsUnavailableNoNetwork": "未检测到网络接口",
+  "@settingsUnavailableNoNetwork": {
+    "description": "Reason shown when no physical or pinned network interface exists."
+  },
   "settingsUnavailableNoHyprland": "未检测到 Hyprland 会话",
   "@settingsUnavailableNoHyprland": {
     "description": "Reason shown when the Hyprland keyboard backend is unavailable."
@@ -384,6 +502,14 @@
   "@settingsModuleDrag": {
     "description": "Handle label for dragging a module row."
   },
+  "settingsModuleDragHint": "拖动以重新排序，或按住 Control 加方向键。加上 Shift 可在区域间移动。",
+  "@settingsModuleDragHint": {
+    "description": "Keyboard hint for an enabled module's drag handle."
+  },
+  "settingsModuleDragZoneHint": "拖动以移动，或按住 Control 和 Shift 加方向键选择区域。",
+  "@settingsModuleDragZoneHint": {
+    "description": "Keyboard hint for a disabled module's drag handle."
+  },
   "settingsModuleToggleHint": "切换该模块",
   "@settingsModuleToggleHint": {
     "description": "Accessible hint for a module toggle."
@@ -439,6 +565,10 @@
   "moduleBattery": "电池",
   "@moduleBattery": {
     "description": "Display name of the battery module."
+  },
+  "moduleNetwork": "网络",
+  "@moduleNetwork": {
+    "description": "Display name of the network module."
   },
   "moduleClock": "时钟",
   "@moduleClock": {
@@ -575,6 +705,26 @@
   "settingsDiskPath": "挂载路径",
   "@settingsDiskPath": {
     "description": "Label for the disk module's mount path option."
+  },
+  "settingsDiskPathInvalid": "请使用绝对挂载路径",
+  "@settingsDiskPathInvalid": {
+    "description": "Validation shown when the disk path is empty, relative, or malformed."
+  },
+  "settingsNetworkInterface": "网络接口",
+  "@settingsNetworkInterface": {
+    "description": "Label for the network module's interface name option."
+  },
+  "settingsNetworkInterfaceInvalid": "请使用有效的 Linux 接口名",
+  "@settingsNetworkInterfaceInvalid": {
+    "description": "Validation shown for an invalid network interface name."
+  },
+  "settingsNetworkInterfaceHint": "自动",
+  "@settingsNetworkInterfaceHint": {
+    "description": "Placeholder for the automatic network interface choice."
+  },
+  "settingsNetworkShowRates": "显示速率",
+  "@settingsNetworkShowRates": {
+    "description": "Toggle for compact receive and transmit rates on the network pill."
   },
   "settingsMeterSection": "仪表标签",
   "@settingsMeterSection": {

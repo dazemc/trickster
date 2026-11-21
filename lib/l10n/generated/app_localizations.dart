@@ -165,6 +165,102 @@ abstract class AppLocalizations {
   /// **'{used} used · {total} total · {free} free'**
   String diskUsageDetail(String used, String total, String free);
 
+  /// Network pill label for a connected Wi-Fi link.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi-Fi'**
+  String get networkWifi;
+
+  /// Network pill label for a connected Ethernet link.
+  ///
+  /// In en, this message translates to:
+  /// **'Ethernet'**
+  String get networkEthernet;
+
+  /// Network pill label when the medium is unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get networkConnected;
+
+  /// Network pill label when the link is up without a default route.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked'**
+  String get networkLinked;
+
+  /// Network pill label reserved for local-only connectivity metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Local'**
+  String get networkLocal;
+
+  /// Network pill label reserved for limited connectivity metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited'**
+  String get networkLimited;
+
+  /// Network pill label when the selected link is down.
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnected'**
+  String get networkDisconnected;
+
+  /// Network pill label when the selected interface is administratively down.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get networkDisabled;
+
+  /// Compact receive and transmit rates for the network pill.
+  ///
+  /// In en, this message translates to:
+  /// **'↓{rx} ↑{tx}'**
+  String networkRatesCompact(String rx, String tx);
+
+  /// Network tooltip link state.
+  ///
+  /// In en, this message translates to:
+  /// **'link {state}'**
+  String networkLinkDetail(String state);
+
+  /// Network link state when the carrier is up.
+  ///
+  /// In en, this message translates to:
+  /// **'up'**
+  String get networkLinkUp;
+
+  /// Network link state when the carrier is down.
+  ///
+  /// In en, this message translates to:
+  /// **'down'**
+  String get networkLinkDown;
+
+  /// Network link state when the kernel publishes no carrier or operstate.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown'**
+  String get networkLinkUnknown;
+
+  /// Network tooltip Ethernet link speed.
+  ///
+  /// In en, this message translates to:
+  /// **'speed {speed}'**
+  String networkSpeedDetail(String speed);
+
+  /// Network tooltip current rates.
+  ///
+  /// In en, this message translates to:
+  /// **'received {rx} · sent {tx}'**
+  String networkRateDetail(String rx, String tx);
+
+  /// Network tooltip interface lifetime totals.
+  ///
+  /// In en, this message translates to:
+  /// **'{rx} received · {tx} sent'**
+  String networkTotalsDetail(String rx, String tx);
+
   /// Temperature value with its Celsius unit.
   ///
   /// In en, this message translates to:
@@ -435,6 +531,24 @@ abstract class AppLocalizations {
   /// **'No dedicated GPU memory detected'**
   String get settingsUnavailableNoVram;
 
+  /// Reason shown when no readable hwmon sensor is detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No temperature sensor detected'**
+  String get settingsUnavailableNoTemperature;
+
+  /// Reason shown when the configured disk mount is missing or unreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured disk path is unavailable'**
+  String get settingsUnavailableNoDisk;
+
+  /// Reason shown when no physical or pinned network interface exists.
+  ///
+  /// In en, this message translates to:
+  /// **'No network interface detected'**
+  String get settingsUnavailableNoNetwork;
+
   /// Reason shown when the Hyprland keyboard backend is unavailable.
   ///
   /// In en, this message translates to:
@@ -597,6 +711,18 @@ abstract class AppLocalizations {
   /// **'Drag to reorder'**
   String get settingsModuleDrag;
 
+  /// Keyboard hint for an enabled module's drag handle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder, or press Control and the arrow keys. Add Shift to move between zones.'**
+  String get settingsModuleDragHint;
+
+  /// Keyboard hint for a disabled module's drag handle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to move, or press Control and Shift with the arrow keys to choose a zone.'**
+  String get settingsModuleDragZoneHint;
+
   /// Accessible hint for a module toggle.
   ///
   /// In en, this message translates to:
@@ -680,6 +806,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Battery'**
   String get moduleBattery;
+
+  /// Display name of the network module.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get moduleNetwork;
 
   /// Display name of the clock module.
   ///
@@ -884,6 +1016,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mount path'**
   String get settingsDiskPath;
+
+  /// Validation shown when the disk path is empty, relative, or malformed.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an absolute mount path'**
+  String get settingsDiskPathInvalid;
+
+  /// Label for the network module's interface name option.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface'**
+  String get settingsNetworkInterface;
+
+  /// Validation shown for an invalid network interface name.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a valid Linux interface name'**
+  String get settingsNetworkInterfaceInvalid;
+
+  /// Placeholder for the automatic network interface choice.
+  ///
+  /// In en, this message translates to:
+  /// **'auto'**
+  String get settingsNetworkInterfaceHint;
+
+  /// Toggle for compact receive and transmit rates on the network pill.
+  ///
+  /// In en, this message translates to:
+  /// **'Show rates'**
+  String get settingsNetworkShowRates;
 
   /// Section heading for meter caption options.
   ///

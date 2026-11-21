@@ -38,6 +38,7 @@ bool moduleHasOptions(String module) {
     'ram' ||
     'temperature' ||
     'disk' ||
+    'network' ||
     'gpu' ||
     'vram' ||
     'battery' ||
@@ -155,6 +156,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: MediaOptions.minVolumeStep.toDouble(),
             max: MediaOptions.maxVolumeStep.toDouble(),
             display: '${settings.media.volumeStep}%',
+            semanticsValueBuilder: (value) => '${value.round()}%',
             resetKey: const ValueKey<String>('reset-media-volume-step'),
             resetLabel: l10n.settingsResetOption(l10n.settingsVolumeStep),
             resetEnabled:
@@ -381,7 +383,6 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             ],
           ),
           const SizedBox(height: 18),
-          const SizedBox(height: 18),
           SettingsToggleRow(
             toggleKey: const ValueKey<String>('clock-show-seconds'),
             label: l10n.settingsClockShowSeconds,
@@ -467,6 +468,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.cpu.warn * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-cpu-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.cpu.warn != const CpuOptions().warn,
@@ -516,6 +519,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.cpu.critical * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-cpu-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled: settings.cpu.critical != const CpuOptions().critical,
@@ -589,6 +594,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.ram.warn * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-ram-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.ram.warn != const RamOptions().warn,
@@ -639,6 +646,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.ram.critical * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-ram-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled: settings.ram.critical != const RamOptions().critical,
@@ -721,6 +730,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             display: l10n.temperatureCelsius(
               '${settings.temperature.warn.round()}',
             ),
+            semanticsValueBuilder: (value) =>
+                l10n.temperatureCelsius('${value.round()}'),
             resetKey: const ValueKey<String>('reset-temperature-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled:
@@ -783,6 +794,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             display: l10n.temperatureCelsius(
               '${settings.temperature.critical.round()}',
             ),
+            semanticsValueBuilder: (value) =>
+                l10n.temperatureCelsius('${value.round()}'),
             resetKey: const ValueKey<String>('reset-temperature-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled:
@@ -879,17 +892,25 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             label: l10n.settingsDiskPath,
             hint: '/',
             value: settings.disk.path,
+            errorFor: (value) =>
+                _isDiskPath(value.trim()) ? null : l10n.settingsDiskPathInvalid,
             onChanged: (value) {
               final path = value.trim();
-              if (path.isEmpty || !path.startsWith('/')) {
-                return;
-              }
               _apply(
                 controller,
                 (settings) =>
                     settings.copyWith(disk: settings.disk.copyWith(path: path)),
               );
             },
+            resetKey: const ValueKey<String>('reset-disk-path'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsDiskPath),
+            resetValue: const DiskOptions().path,
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                disk: settings.disk.copyWith(path: const DiskOptions().path),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           _SliderRow(
@@ -899,6 +920,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.disk.warn * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-disk-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.disk.warn != const DiskOptions().warn,
@@ -950,6 +973,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.disk.critical * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-disk-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled:
@@ -1018,6 +1043,66 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
           ),
         ],
       ),
+      'network' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _OptionTextField(
+            fieldKey: const ValueKey<String>('network-interface'),
+            label: l10n.settingsNetworkInterface,
+            hint: l10n.settingsNetworkInterfaceHint,
+            value: settings.network.interface ?? '',
+            errorFor: (value) {
+              final name = value.trim();
+              if (name.isEmpty || NetworkOptions.isValidInterface(name)) {
+                return null;
+              }
+              return l10n.settingsNetworkInterfaceInvalid;
+            },
+            onChanged: (value) {
+              final name = value.trim();
+              _apply(
+                controller,
+                (settings) => settings.copyWith(
+                  network: settings.network.copyWith(
+                    interface: name.isEmpty ? null : name,
+                  ),
+                ),
+              );
+            },
+            resetKey: const ValueKey<String>('reset-network-interface'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsNetworkInterface),
+            resetValue: '',
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                network: settings.network.copyWith(interface: null),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SettingsToggleRow(
+            toggleKey: const ValueKey<String>('network-show-rates'),
+            label: l10n.settingsNetworkShowRates,
+            value: settings.network.showRates,
+            resetKey: const ValueKey<String>('reset-network-show-rates'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsNetworkShowRates),
+            resetEnabled:
+                settings.network.showRates != const NetworkOptions().showRates,
+            onChanged: (value) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                network: settings.network.copyWith(showRates: value),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                network: settings.network.copyWith(showRates: true),
+              ),
+            ),
+          ),
+        ],
+      ),
       'battery' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1028,6 +1113,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 1,
             max: 100,
             display: '${settings.battery.warn}%',
+            semanticsValueBuilder: (value) => '${value.round()}%',
             resetKey: const ValueKey<String>('reset-battery-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.battery.warn != const BatteryOptions().warn,
@@ -1065,6 +1151,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 1,
             max: 100,
             display: '${settings.battery.critical}%',
+            semanticsValueBuilder: (value) => '${value.round()}%',
             resetKey: const ValueKey<String>('reset-battery-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled:
@@ -1107,6 +1194,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.gpu.warn * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-gpu-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.gpu.warn != const GpuOptions().warn,
@@ -1156,6 +1245,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.gpu.critical * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-gpu-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled: settings.gpu.critical != const GpuOptions().critical,
@@ -1229,6 +1320,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.vram.warn * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-vram-warn'),
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.vram.warn != const VramOptions().warn,
@@ -1281,6 +1374,8 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             min: 0,
             max: 1,
             display: '${(settings.vram.critical * 100).round()}%',
+            semanticsValueBuilder: _ratioSemantics,
+            semanticsStep: 0.01,
             resetKey: const ValueKey<String>('reset-vram-critical'),
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled:
@@ -1543,6 +1638,15 @@ String _opencodeMeterLabel(AppLocalizations l10n, OpencodeMeter meter) {
   };
 }
 
+String _ratioSemantics(double value) => '${(value * 100).round()}%';
+
+/// Mirrors the disk worker's path contract: absolute, bounded, no controls.
+bool _isDiskPath(String value) {
+  return value.startsWith('/') &&
+      value.length < 4096 &&
+      !value.codeUnits.any((unit) => unit < 0x20);
+}
+
 String _captionLabel(AppLocalizations l10n, MeterCaptionSource source) {
   return switch (source) {
     MeterCaptionSource.generic => l10n.settingsMeterCaptionGeneric,
@@ -1655,6 +1759,10 @@ class _ColorRow extends StatelessWidget {
 }
 
 /// A debounced text input for one typed option.
+///
+/// [errorFor] validates the text before it reaches the document; invalid text
+/// stays visible with a caption until the field loses focus, then reverts to
+/// the stored value so the field can never silently disagree with the bar.
 class _OptionTextField extends StatefulWidget {
   const _OptionTextField({
     required this.fieldKey,
@@ -1662,6 +1770,11 @@ class _OptionTextField extends StatefulWidget {
     required this.hint,
     required this.value,
     required this.onChanged,
+    this.errorFor,
+    this.resetKey,
+    this.resetLabel,
+    this.resetValue = '',
+    this.onReset,
   });
 
   final Key fieldKey;
@@ -1669,6 +1782,11 @@ class _OptionTextField extends StatefulWidget {
   final String hint;
   final String value;
   final ValueChanged<String> onChanged;
+  final String? Function(String value)? errorFor;
+  final Key? resetKey;
+  final String? resetLabel;
+  final String resetValue;
+  final VoidCallback? onReset;
 
   @override
   State<_OptionTextField> createState() => _OptionTextFieldState();
@@ -1679,6 +1797,32 @@ class _OptionTextFieldState extends State<_OptionTextField> {
     text: widget.value,
   );
   final FocusNode _focus = FocusNode();
+  String? _error;
+
+  bool get _canReset =>
+      widget.onReset != null &&
+      (_controller.text != widget.resetValue ||
+          widget.value != widget.resetValue);
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    if (_focus.hasFocus) {
+      return;
+    }
+    // Invalid or half-typed text never outlives focus. Revert to the value the
+    // document actually holds.
+    if (_controller.text != widget.value || _error != null) {
+      setState(() {
+        _controller.text = widget.value;
+        _error = null;
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(covariant _OptionTextField oldWidget) {
@@ -1686,14 +1830,33 @@ class _OptionTextFieldState extends State<_OptionTextField> {
     // External edits land when the field is not being typed in.
     if (widget.value != _controller.text && !_focus.hasFocus) {
       _controller.text = widget.value;
+      _error = null;
     }
   }
 
   @override
   void dispose() {
+    _focus.removeListener(_onFocusChanged);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void _changed(String value) {
+    final error = widget.errorFor?.call(value);
+    setState(() => _error = error);
+    if (error == null) {
+      widget.onChanged(value);
+    }
+  }
+
+  void _reset() {
+    _focus.unfocus();
+    setState(() {
+      _controller.text = widget.resetValue;
+      _error = null;
+    });
+    widget.onReset?.call();
   }
 
   @override
@@ -1701,18 +1864,37 @@ class _OptionTextFieldState extends State<_OptionTextField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          widget.label,
-          style: ShellText.systemBarCaption.copyWith(
-            color: ShellMediaColors.lightForegroundSecondary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.label,
+                style: ShellText.systemBarCaption.copyWith(
+                  color: ShellMediaColors.lightForegroundSecondary,
+                ),
+              ),
+            ),
+            if (widget.onReset != null) ...[
+              const SizedBox(width: 8),
+              SettingsResetButton(
+                key: widget.resetKey,
+                label: widget.resetLabel ?? widget.label,
+                enabled: _canReset,
+                onPressed: _reset,
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 6),
         DecoratedBox(
           decoration: BoxDecoration(
             color: SettingsGlass.control(context, SettingsColors.surfaceHigh),
             borderRadius: const BorderRadius.all(Radius.circular(10)),
-            border: Border.all(color: SettingsColors.outline),
+            border: Border.all(
+              color: _error == null
+                  ? SettingsColors.outline
+                  : ShellTelemetryColors.danger,
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1734,11 +1916,20 @@ class _OptionTextFieldState extends State<_OptionTextField> {
                     ),
                   ),
                 ),
-                onChanged: widget.onChanged,
+                onChanged: _changed,
               ),
             ),
           ),
         ),
+        if (_error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _error!,
+            style: ShellText.systemBarCaption.copyWith(
+              color: ShellTelemetryColors.danger,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -2090,6 +2281,8 @@ class _SliderRow extends StatelessWidget {
     required this.resetEnabled,
     required this.onChanged,
     required this.onReset,
+    this.semanticsValueBuilder,
+    this.semanticsStep = 1,
   });
 
   final Key sliderKey;
@@ -2103,6 +2296,8 @@ class _SliderRow extends StatelessWidget {
   final bool resetEnabled;
   final ValueChanged<double> onChanged;
   final VoidCallback onReset;
+  final String Function(double value)? semanticsValueBuilder;
+  final double semanticsStep;
 
   @override
   Widget build(BuildContext context) {
@@ -2124,15 +2319,18 @@ class _SliderRow extends StatelessWidget {
             min: min,
             max: max,
             label: label,
+            semanticsValueBuilder: semanticsValueBuilder,
+            semanticsStep: semanticsStep,
             onChanged: onChanged,
             onChangeEnd: onChanged,
           ),
         ),
-        SizedBox(
-          width: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 52),
           child: Text(
             display,
             textAlign: TextAlign.right,
+            maxLines: 1,
             style: ShellText.systemBarValue,
           ),
         ),

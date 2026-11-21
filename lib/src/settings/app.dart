@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:material_ui/material_ui.dart' show Scrollbar;
 import 'package:trickster/src/config/paths.dart';
+import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/watcher.dart';
 import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/availability.dart';
+import 'package:trickster/src/settings/availability_loader.dart';
 import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/modules_bloc.dart';
 import 'package:trickster/src/settings/pages/about.dart';
@@ -177,7 +180,8 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
 class SettingsHome extends StatefulWidget {
   const SettingsHome({
     this.onClose,
-    this.availabilityProbe = probeModuleAvailability,
+    this.availabilityProbe,
+    this.availabilityLoader,
     this.workspaceNames,
     super.key,
   });
@@ -185,12 +189,23 @@ class SettingsHome extends StatefulWidget {
   /// Test seam; production closes the native settings window.
   final VoidCallback? onClose;
 
-  /// Hardware probe for the modules page; tests substitute their own answer.
-  final List<ModuleAvailability> Function() availabilityProbe;
+  /// Synchronous hardware probe for the modules page. Null uses the
+  /// production probe; tests substitute their own answer.
+  final List<ModuleAvailability> Function()? availabilityProbe;
+
+  /// Asynchronous availability refresh, normally the running bar's control
+  /// status. Tests may inject one; when [availabilityProbe] is supplied
+  /// without this, the page stays on the synchronous probe.
+  final Future<List<ModuleAvailability>> Function(BarSettings settings)?
+  availabilityLoader;
 
   /// Source of live workspace names for the pip mapping editor; null asks
   /// the running bar over the control socket.
   final Future<List<String>> Function()? workspaceNames;
+
+  /// The widest the page column grows on a wide window; controls keep their
+  /// labels close on a 1920px display.
+  static const double maxContentWidth = 1120;
 
   @override
   State<SettingsHome> createState() => _SettingsHomeState();
@@ -200,8 +215,15 @@ enum SettingsSection { appearance, modules, displays, language, about }
 
 class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
+  final ScrollController _pageScroll = ScrollController();
 
   void _select(SettingsSection section) => setState(() => _section = section);
+
+  @override
+  void dispose() {
+    _pageScroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -211,6 +233,13 @@ class _SettingsHomeState extends State<SettingsHome> {
     final (loaded, error) = context.select(
       (SettingsAppBloc bloc) => (bloc.state.loaded, bloc.state.error),
     );
+    final availabilityProbe =
+        widget.availabilityProbe ?? probeModuleAvailability;
+    final availabilityLoader =
+        widget.availabilityLoader ??
+        (widget.availabilityProbe == null
+            ? (settings) => loadModuleAvailability(settings: settings)
+            : null);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -273,23 +302,54 @@ class _SettingsHomeState extends State<SettingsHome> {
                       SettingsNav(section: _section, onSelect: _select),
                       const SizedBox(width: 24),
                       Expanded(
-                        child: SingleChildScrollView(
-                          child: switch (_section) {
-                            SettingsSection.appearance =>
-                              const AppearancePage(),
-                            SettingsSection.modules =>
-                              BlocProvider<ModulesBloc>(
-                                create: (context) => ModulesBloc(
-                                  settings: context.read<SettingsAppBloc>(),
-                                  availabilityProbe: widget.availabilityProbe,
-                                ),
-                                child: ModulesPage(
-                                  workspaceNames: widget.workspaceNames,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final width =
+                                constraints.maxWidth <
+                                    SettingsHome.maxContentWidth
+                                ? constraints.maxWidth
+                                : SettingsHome.maxContentWidth;
+                            return Align(
+                              alignment: Alignment.topLeft,
+                              child: SizedBox(
+                                width: width,
+                                child: Scrollbar(
+                                  controller: _pageScroll,
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: _pageScroll,
+                                    child: SizedBox(
+                                      width: width,
+                                      child: switch (_section) {
+                                        SettingsSection.appearance =>
+                                          const AppearancePage(),
+                                        SettingsSection.modules =>
+                                          BlocProvider<ModulesBloc>(
+                                            create: (context) => ModulesBloc(
+                                              settings: context
+                                                  .read<SettingsAppBloc>(),
+                                              availabilityProbe:
+                                                  availabilityProbe,
+                                              availabilityLoader:
+                                                  availabilityLoader,
+                                            ),
+                                            child: ModulesPage(
+                                              workspaceNames:
+                                                  widget.workspaceNames,
+                                            ),
+                                          ),
+                                        SettingsSection.displays =>
+                                          const DisplaysPage(),
+                                        SettingsSection.language =>
+                                          const LanguagePage(),
+                                        SettingsSection.about =>
+                                          const AboutPage(),
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
-                            SettingsSection.displays => const DisplaysPage(),
-                            SettingsSection.language => const LanguagePage(),
-                            SettingsSection.about => const AboutPage(),
+                            );
                           },
                         ),
                       ),

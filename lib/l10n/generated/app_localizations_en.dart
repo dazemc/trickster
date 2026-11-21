@@ -50,6 +50,64 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get networkWifi => 'Wi-Fi';
+
+  @override
+  String get networkEthernet => 'Ethernet';
+
+  @override
+  String get networkConnected => 'Connected';
+
+  @override
+  String get networkLinked => 'Linked';
+
+  @override
+  String get networkLocal => 'Local';
+
+  @override
+  String get networkLimited => 'Limited';
+
+  @override
+  String get networkDisconnected => 'Disconnected';
+
+  @override
+  String get networkDisabled => 'Off';
+
+  @override
+  String networkRatesCompact(String rx, String tx) {
+    return '↓$rx ↑$tx';
+  }
+
+  @override
+  String networkLinkDetail(String state) {
+    return 'link $state';
+  }
+
+  @override
+  String get networkLinkUp => 'up';
+
+  @override
+  String get networkLinkDown => 'down';
+
+  @override
+  String get networkLinkUnknown => 'unknown';
+
+  @override
+  String networkSpeedDetail(String speed) {
+    return 'speed $speed';
+  }
+
+  @override
+  String networkRateDetail(String rx, String tx) {
+    return 'received $rx · sent $tx';
+  }
+
+  @override
+  String networkTotalsDetail(String rx, String tx) {
+    return '$rx received · $tx sent';
+  }
+
+  @override
   String temperatureCelsius(String value) {
     return '$value°C';
   }
@@ -195,6 +253,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUnavailableNoVram => 'No dedicated GPU memory detected';
 
   @override
+  String get settingsUnavailableNoTemperature =>
+      'No temperature sensor detected';
+
+  @override
+  String get settingsUnavailableNoDisk => 'Configured disk path is unavailable';
+
+  @override
+  String get settingsUnavailableNoNetwork => 'No network interface detected';
+
+  @override
   String get settingsUnavailableNoHyprland => 'Hyprland session not detected';
 
   @override
@@ -278,6 +346,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsModuleDrag => 'Drag to reorder';
 
   @override
+  String get settingsModuleDragHint =>
+      'Drag to reorder, or press Control and the arrow keys. Add Shift to move between zones.';
+
+  @override
+  String get settingsModuleDragZoneHint =>
+      'Drag to move, or press Control and Shift with the arrow keys to choose a zone.';
+
+  @override
   String get settingsModuleToggleHint => 'Toggles the module';
 
   @override
@@ -318,6 +394,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moduleBattery => 'Battery';
+
+  @override
+  String get moduleNetwork => 'Network';
 
   @override
   String get moduleClock => 'Clock';
@@ -421,6 +500,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDiskPath => 'Mount path';
+
+  @override
+  String get settingsDiskPathInvalid => 'Use an absolute mount path';
+
+  @override
+  String get settingsNetworkInterface => 'Interface';
+
+  @override
+  String get settingsNetworkInterfaceInvalid =>
+      'Use a valid Linux interface name';
+
+  @override
+  String get settingsNetworkInterfaceHint => 'auto';
+
+  @override
+  String get settingsNetworkShowRates => 'Show rates';
 
   @override
   String get settingsMeterSection => 'Meter captions';

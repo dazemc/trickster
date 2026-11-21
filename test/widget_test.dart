@@ -12,6 +12,7 @@ import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/keyboard_layout.dart';
 import 'package:trickster/src/bar/meter.dart';
+import 'package:trickster/src/bar/network.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/temperature.dart';
@@ -24,6 +25,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/keyboard_layout.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
@@ -33,6 +35,7 @@ import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/temperature_bloc.dart';
 import 'package:trickster/src/state/tray_bloc.dart';
@@ -256,6 +259,46 @@ void main() {
     disk.add(const DiskSampled(DiskSample()));
     await tester.pump();
     expect(find.byType(DiskPill), findsNothing);
+  });
+
+  testWidgets('network pill follows the block state and hides without data', (
+    tester,
+  ) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(NetworkPill), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-network')),
+      findsOneWidget,
+    );
+    expect(find.text('Ethernet'), findsOneWidget);
+    expect(find.text('↓1.2M/s ↑78.1K/s'), findsOneWidget);
+
+    final network = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<NetworkBloc>();
+    network.add(
+      const NetworkSampled(
+        NetworkSample(
+          interface: 'wlan0',
+          medium: NetworkMedium.wifi,
+          link: NetworkLink.up,
+          adminUp: true,
+          defaultRoute: true,
+          rxBytesPerSecond: 1024,
+          txBytesPerSecond: 512,
+          rxBytesTotal: 2048,
+          txBytesTotal: 1024,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Wi-Fi'), findsOneWidget);
+    expect(find.text('↓1K/s ↑512 B/s'), findsOneWidget);
+
+    network.add(const NetworkSampled(NetworkSample.none()));
+    await tester.pump();
+    expect(find.byType(NetworkPill), findsNothing);
   });
 
   testWidgets('keyboard layout pill follows the block state', (tester) async {

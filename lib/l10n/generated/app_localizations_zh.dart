@@ -50,6 +50,64 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get networkWifi => 'Wi-Fi';
+
+  @override
+  String get networkEthernet => '以太网';
+
+  @override
+  String get networkConnected => '已连接';
+
+  @override
+  String get networkLinked => '已连线';
+
+  @override
+  String get networkLocal => '本地';
+
+  @override
+  String get networkLimited => '受限';
+
+  @override
+  String get networkDisconnected => '未连接';
+
+  @override
+  String get networkDisabled => '已关闭';
+
+  @override
+  String networkRatesCompact(String rx, String tx) {
+    return '↓$rx ↑$tx';
+  }
+
+  @override
+  String networkLinkDetail(String state) {
+    return '链路 $state';
+  }
+
+  @override
+  String get networkLinkUp => '已连通';
+
+  @override
+  String get networkLinkDown => '未连通';
+
+  @override
+  String get networkLinkUnknown => '未知';
+
+  @override
+  String networkSpeedDetail(String speed) {
+    return '速率 $speed';
+  }
+
+  @override
+  String networkRateDetail(String rx, String tx) {
+    return '接收 $rx · 发送 $tx';
+  }
+
+  @override
+  String networkTotalsDetail(String rx, String tx) {
+    return '累计接收 $rx · 累计发送 $tx';
+  }
+
+  @override
   String temperatureCelsius(String value) {
     return '$value°C';
   }
@@ -191,6 +249,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoVram => '未检测到独立显存';
 
   @override
+  String get settingsUnavailableNoTemperature => '未检测到温度传感器';
+
+  @override
+  String get settingsUnavailableNoDisk => '配置的磁盘路径不可用';
+
+  @override
+  String get settingsUnavailableNoNetwork => '未检测到网络接口';
+
+  @override
   String get settingsUnavailableNoHyprland => '未检测到 Hyprland 会话';
 
   @override
@@ -274,6 +341,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsModuleDrag => '拖动排序';
 
   @override
+  String get settingsModuleDragHint =>
+      '拖动以重新排序，或按住 Control 加方向键。加上 Shift 可在区域间移动。';
+
+  @override
+  String get settingsModuleDragZoneHint =>
+      '拖动以移动，或按住 Control 和 Shift 加方向键选择区域。';
+
+  @override
   String get settingsModuleToggleHint => '切换该模块';
 
   @override
@@ -314,6 +389,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get moduleBattery => '电池';
+
+  @override
+  String get moduleNetwork => '网络';
 
   @override
   String get moduleClock => '时钟';
@@ -416,6 +494,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDiskPath => '挂载路径';
+
+  @override
+  String get settingsDiskPathInvalid => '请使用绝对挂载路径';
+
+  @override
+  String get settingsNetworkInterface => '网络接口';
+
+  @override
+  String get settingsNetworkInterfaceInvalid => '请使用有效的 Linux 接口名';
+
+  @override
+  String get settingsNetworkInterfaceHint => '自动';
+
+  @override
+  String get settingsNetworkShowRates => '显示速率';
 
   @override
   String get settingsMeterSection => '仪表标签';

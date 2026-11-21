@@ -7,6 +7,7 @@ import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
@@ -17,6 +18,7 @@ import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
@@ -49,11 +51,13 @@ class ModuleScope extends StatelessWidget {
     this.temperatureBuilder,
     this.diskBuilder,
     this.keyboardLayoutBuilder,
+    this.networkBuilder,
     this.gpuBuilder,
     this.cpuSamplerBuilder,
     this.ramSamplerBuilder,
     this.temperatureSamplerBuilder,
     this.diskSamplerBuilder,
+    this.networkSamplerBuilder,
     this.gpuSamplerBuilder,
     this.batterySamplerBuilder,
     this.opencodeSamplerBuilder,
@@ -75,6 +79,7 @@ class ModuleScope extends StatelessWidget {
   final TemperatureBloc Function()? temperatureBuilder;
   final DiskBloc Function()? diskBuilder;
   final KeyboardLayoutBloc Function()? keyboardLayoutBuilder;
+  final NetworkBloc Function()? networkBuilder;
   final GpuBloc Function({
     required bool includeUsage,
     required bool includeMemory,
@@ -88,6 +93,7 @@ class ModuleScope extends StatelessWidget {
   final RamSampler Function()? ramSamplerBuilder;
   final TemperatureSampler Function()? temperatureSamplerBuilder;
   final DiskSampler Function()? diskSamplerBuilder;
+  final NetworkSampler Function()? networkSamplerBuilder;
   final GpuSampler Function()? gpuSamplerBuilder;
   final BatterySampler Function()? batterySamplerBuilder;
   final OpencodeSampler Function()? opencodeSamplerBuilder;
@@ -109,6 +115,7 @@ class ModuleScope extends StatelessWidget {
         settings.includes('ram') ||
         settings.includes('temperature') ||
         settings.includes('disk') ||
+        settings.includes('network') ||
         settings.includes('gpu') ||
         settings.includes('vram') ||
         settings.includes('battery') ||
@@ -165,6 +172,24 @@ class ModuleScope extends StatelessWidget {
             create: (_) =>
                 keyboardLayoutBuilder?.call() ??
                 (KeyboardLayoutBloc()..add(const KeyboardLayoutStarted())),
+          ),
+        if (settings.includes('network'))
+          BlocProvider<NetworkBloc>(
+            // Recycle on interface change, matching the disk path provider.
+            key: ValueKey<String>(
+              'network-${settings.network.interface ?? 'auto'}',
+            ),
+            create: (context) =>
+                networkBuilder?.call() ??
+                (NetworkBloc(
+                  sampler:
+                      networkSamplerBuilder?.call() ??
+                      NetworkSampler(interface: settings.network.interface),
+                )..add(
+                  NetworkStarted(
+                    paused: context.read<SeatIdleBloc>().state.idle,
+                  ),
+                )),
           ),
         if (settings.includes('gpu') || settings.includes('vram'))
           BlocProvider<GpuBloc>(
@@ -281,6 +306,13 @@ class ModuleScope extends StatelessWidget {
                   if (settings.includes('disk')) {
                     context.read<DiskBloc>().add(
                       state.idle ? const DiskPaused() : const DiskResumed(),
+                    );
+                  }
+                  if (settings.includes('network')) {
+                    context.read<NetworkBloc>().add(
+                      state.idle
+                          ? const NetworkPaused()
+                          : const NetworkResumed(),
                     );
                   }
                   if (settings.includes('gpu') || settings.includes('vram')) {

@@ -10,6 +10,7 @@ import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
+import 'package:trickster/src/bar/network.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/temperature.dart';
 import 'package:trickster/src/bar/tray.dart';
@@ -22,6 +23,7 @@ import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
@@ -189,6 +191,31 @@ void main() {
     );
     final handle = tester.ensureSemantics();
     expect(_nodeByLabel(tester, 'DISK').getSemanticsData().value, '60%');
+    handle.dispose();
+  });
+
+  testWidgets('network pill announces its state and compact rates', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _keymap(
+        const NetworkPill(
+          accent: _accent,
+          sample: NetworkSample(
+            interface: 'enp42s0',
+            medium: NetworkMedium.ethernet,
+            link: NetworkLink.up,
+            adminUp: true,
+            defaultRoute: true,
+            rxBytesPerSecond: 1024,
+            txBytesPerSecond: 512,
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    final network = _nodeByLabel(tester, 'Ethernet');
+    expect(network.getSemanticsData().value, '↓1K/s ↑512 B/s');
     handle.dispose();
   });
 

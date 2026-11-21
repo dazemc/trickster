@@ -138,9 +138,25 @@ void main() {
       l10n.diskUsageDetail('620 GiB', '1 TiB', '404 GiB'),
       '620 GiB 已用 · 1 TiB 总计 · 404 GiB 可用',
     );
+    expect(l10n.moduleNetwork, '网络');
+    expect(l10n.networkEthernet, '以太网');
+    expect(l10n.networkDisconnected, '未连接');
+    expect(l10n.networkRatesCompact('1.2M/s', '80K/s'), '↓1.2M/s ↑80K/s');
+    expect(l10n.networkLinkDetail('已连通'), '链路 已连通');
+    expect(
+      l10n.networkTotalsDetail('1 GiB', '2 GiB'),
+      '累计接收 1 GiB · 累计发送 2 GiB',
+    );
+    expect(l10n.settingsNetworkShowRates, '显示速率');
     expect(l10n.metricKeyboardLayout, 'KB');
     expect(l10n.moduleKeyboardLayout, '键盘布局');
     expect(l10n.keyboardLayoutNames('US / RU'), '布局：US / RU');
     expect(l10n.settingsUnavailableNoHyprland, '未检测到 Hyprland 会话');
+    expect(l10n.settingsUnavailableNoTemperature, '未检测到温度传感器');
+    expect(l10n.settingsUnavailableNoDisk, '配置的磁盘路径不可用');
+    expect(l10n.settingsUnavailableNoNetwork, '未检测到网络接口');
+    expect(l10n.settingsDiskPathInvalid, '请使用绝对挂载路径');
+    expect(l10n.settingsNetworkInterfaceInvalid, '请使用有效的 Linux 接口名');
+    expect(l10n.settingsModuleDragHint, contains('Control'));
   });
 }

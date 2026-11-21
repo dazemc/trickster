@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
     show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
@@ -28,6 +30,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
     'disk' => l10n.moduleDisk,
     'keyboard_layout' => l10n.moduleKeyboardLayout,
     'battery' => l10n.moduleBattery,
+    'network' => l10n.moduleNetwork,
     'clock' => l10n.moduleClock,
     'opencode' => l10n.moduleOpencode,
     _ => module,
@@ -38,6 +41,10 @@ String _reasonLabel(AppLocalizations l10n, ModuleUnavailableReason reason) {
   return switch (reason) {
     ModuleUnavailableReason.noBattery => l10n.settingsUnavailableNoBattery,
     ModuleUnavailableReason.noVram => l10n.settingsUnavailableNoVram,
+    ModuleUnavailableReason.noTemperature =>
+      l10n.settingsUnavailableNoTemperature,
+    ModuleUnavailableReason.noDisk => l10n.settingsUnavailableNoDisk,
+    ModuleUnavailableReason.noNetwork => l10n.settingsUnavailableNoNetwork,
     ModuleUnavailableReason.noHyprland => l10n.settingsUnavailableNoHyprland,
   };
 }
@@ -69,16 +76,150 @@ class _ModulesPageState extends State<ModulesPage> {
   /// target did not register the drop.
   static const double _zoneDropReach = 120;
 
+  /// Pointer distance from a viewport edge that starts auto-scroll.
+  static const double _autoScrollEdge = 64;
+
+  /// Maximum pixels per auto-scroll tick at the very edge.
+  static const double _autoScrollStep = 22;
+
+  static const Duration _autoScrollTick = Duration(milliseconds: 16);
+
   final Map<String, GlobalKey> _rowKeys = <String, GlobalKey>{};
   final Map<ModuleZone, GlobalKey> _zoneKeys = <ModuleZone, GlobalKey>{};
+  final Map<String, GlobalKey> _optionsKeys = <String, GlobalKey>{};
 
   final GlobalKey _disabledKey = GlobalKey();
+
+  Timer? _autoScrollTimer;
+  Offset? _autoScrollPointer;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
 
   GlobalKey _zoneKey(ModuleZone zone) =>
       _zoneKeys.putIfAbsent(zone, GlobalKey.new);
+
+  GlobalKey _optionsKey(String module) =>
+      _optionsKeys.putIfAbsent(module, GlobalKey.new);
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer ??= Timer.periodic(_autoScrollTick, (_) {
+      _autoScroll();
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+    _autoScrollPointer = null;
+  }
+
+  /// Keeps the lifted row moving toward the pointer when the pointer rests
+  /// near a viewport edge. A custom Draggable does not scroll a parent; this
+  /// timer is the edge-scroll that lets leading/trailing meet at small
+  /// windows.
+  void _autoScroll() {
+    if (!mounted) {
+      _stopAutoScroll();
+      return;
+    }
+    final modules = context.read<ModulesBloc>();
+    final pointer = _autoScrollPointer;
+    if (modules.state.dragging == null) {
+      _stopAutoScroll();
+      return;
+    }
+    if (pointer == null) {
+      return;
+    }
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable == null) {
+      return;
+    }
+    final viewport = scrollable.context.findRenderObject() as RenderBox?;
+    if (viewport == null || !viewport.hasSize) {
+      return;
+    }
+    final rect = viewport.localToGlobal(Offset.zero) & viewport.size;
+    var delta = 0.0;
+    if (pointer.dy < rect.top + _autoScrollEdge) {
+      final distance = (rect.top + _autoScrollEdge - pointer.dy).clamp(
+        0.0,
+        _autoScrollEdge,
+      );
+      delta = -_autoScrollStep * (distance / _autoScrollEdge);
+    } else if (pointer.dy > rect.bottom - _autoScrollEdge) {
+      final distance = (pointer.dy - (rect.bottom - _autoScrollEdge)).clamp(
+        0.0,
+        _autoScrollEdge,
+      );
+      delta = _autoScrollStep * (distance / _autoScrollEdge);
+    }
+    if (delta == 0) {
+      return;
+    }
+    final position = scrollable.position;
+    final next = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((next - position.pixels).abs() < 0.5) {
+      return;
+    }
+    position.jumpTo(next);
+    // The rows moved under a stationary pointer; refresh the landing gap.
+    _updateDrag(modules, pointer);
+  }
+
+  /// Reveals an options panel after its row expands. A panel opened near the
+  /// bottom would otherwise appear entirely below the fold.
+  void _revealOptions(String module) {
+    final panel = _optionsKey(module).currentContext;
+    if (panel == null) {
+      return;
+    }
+    final scrollable = Scrollable.maybeOf(panel);
+    if (scrollable == null) {
+      return;
+    }
+    final panelBox = panel.findRenderObject() as RenderBox?;
+    final viewport = scrollable.context.findRenderObject() as RenderBox?;
+    if (panelBox == null || viewport == null || !panelBox.hasSize) {
+      return;
+    }
+    final panelRect = panelBox.localToGlobal(Offset.zero) & panelBox.size;
+    final viewportRect = viewport.localToGlobal(Offset.zero) & viewport.size;
+    if (panelRect.top >= viewportRect.top &&
+        panelRect.bottom <= viewportRect.bottom) {
+      return;
+    }
+    final alignment = panelRect.height > viewportRect.height ? 0.0 : 0.5;
+    unawaited(
+      Scrollable.ensureVisible(
+        panel,
+        alignment: alignment,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
+  void _toggleOptions(ModulesBloc modules, String module) {
+    modules.add(ModulesOptionsToggled(module));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _revealOptions(module);
+    });
+  }
 
   /// Tracks the pointer over the segment geometry so the gap follows the
   /// drag before release.
@@ -88,6 +229,7 @@ class _ModulesPageState extends State<ModulesPage> {
   /// alone (only the pointer is recorded): that card is the
   /// drag-to-disable gesture.
   void _updateDrag(ModulesBloc modules, Offset position) {
+    _autoScrollPointer = position;
     final state = modules.state;
     final dragging = state.dragging;
     if (dragging == null) {
@@ -243,7 +385,7 @@ class _ModulesPageState extends State<ModulesPage> {
       required double feedbackWidth,
       bool draggableOut = false,
     }) {
-      final hasOptions = reorderable && moduleHasOptions(module);
+      final hasOptions = moduleHasOptions(module);
       return _ModuleRow(
         key: ValueKey<String>('module-$module'),
         module: module,
@@ -252,19 +394,23 @@ class _ModulesPageState extends State<ModulesPage> {
         reorderable: reorderable || draggableOut,
         options: hasOptions
             ? ModuleOptionsPanel(
+                key: _optionsKey(module),
                 module: module,
                 workspaceNames: widget.workspaceNames,
               )
             : null,
         optionsExpanded: state.expanded.contains(module),
         onToggleOptions: hasOptions
-            ? () => modules.add(ModulesOptionsToggled(module))
+            ? () => _toggleOptions(modules, module)
             : null,
         feedbackWidth: feedbackWidth,
-        onDragStart: () =>
-            modules.add(ModulesDragStarted(module: module, zone: zone)),
+        onDragStart: () {
+          modules.add(ModulesDragStarted(module: module, zone: zone));
+          _startAutoScroll();
+        },
         onDragUpdate: (position) => _updateDrag(modules, position),
         onDragEnd: (accepted) {
+          _stopAutoScroll();
           final pointer = modules.state.lastPointer;
           modules.add(
             ModulesDragEnded(
@@ -275,15 +421,14 @@ class _ModulesPageState extends State<ModulesPage> {
         },
         onToggle: (value) =>
             modules.add(ModulesToggled(module: module, enabled: value)),
+        keyboardReorder: !draggableOut,
         onKeyboardMove: draggableOut
             ? (_) {}
             : (delta) => modules.add(
                 ModulesMovedWithinZone(module: module, delta: delta),
               ),
-        onKeyboardZone: draggableOut
-            ? (_) {}
-            : (delta) =>
-                  modules.add(ModulesMovedZoneBy(module: module, delta: delta)),
+        onKeyboardZone: (delta) =>
+            modules.add(ModulesMovedZoneBy(module: module, delta: delta)),
       );
     }
 
@@ -522,6 +667,7 @@ class _UnavailableRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
+            flex: 3,
             child: Text(
               label,
               style: ShellText.systemBarValue.copyWith(
@@ -529,11 +675,18 @@ class _UnavailableRow extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            reason,
-            style: ShellText.systemBarCaption.copyWith(
-              color: ShellMediaColors.lightForegroundSecondary.withValues(
-                alpha: 0.7,
+          const SizedBox(width: 16),
+          Flexible(
+            flex: 2,
+            child: Text(
+              reason,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary.withValues(
+                  alpha: 0.7,
+                ),
               ),
             ),
           ),
@@ -559,6 +712,7 @@ class _ModuleRow extends StatelessWidget {
     required this.onToggle,
     required this.onKeyboardMove,
     required this.onKeyboardZone,
+    required this.keyboardReorder,
     super.key,
   });
 
@@ -577,6 +731,10 @@ class _ModuleRow extends StatelessWidget {
   final ValueChanged<int> onKeyboardMove;
   final ValueChanged<int> onKeyboardZone;
 
+  /// False for rows lifted out of the Disabled section: Ctrl+Arrow reorder is
+  /// not meaningful there, but Ctrl+Shift+Arrow still assigns a zone.
+  final bool keyboardReorder;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -587,6 +745,9 @@ class _ModuleRow extends StatelessWidget {
           _ModuleDragHandle(
             key: ValueKey<String>('module-drag-$module'),
             label: l10n.settingsModuleDrag,
+            hint: keyboardReorder
+                ? l10n.settingsModuleDragHint
+                : l10n.settingsModuleDragZoneHint,
             enabled: reorderable,
             onKeyboardMove: onKeyboardMove,
             onKeyboardZone: onKeyboardZone,
@@ -658,7 +819,7 @@ class _ModuleRow extends StatelessWidget {
 }
 
 /// The gear that reveals one module's typed options.
-class _ModuleOptionsButton extends StatelessWidget {
+class _ModuleOptionsButton extends StatefulWidget {
   const _ModuleOptionsButton({
     required this.label,
     required this.expanded,
@@ -671,27 +832,71 @@ class _ModuleOptionsButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
+  State<_ModuleOptionsButton> createState() => _ModuleOptionsButtonState();
+}
+
+class _ModuleOptionsButtonState extends State<_ModuleOptionsButton> {
+  final FocusNode _focusNode = FocusNode();
+  var _focused = false;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      expanded: expanded,
-      label: label,
-      onTap: onPressed,
+      expanded: widget.expanded,
+      label: widget.label,
+      onTap: widget.onPressed,
       child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPressed,
-            child: SizedBox.square(
-              dimension: 24,
-              child: Center(
-                child: Icon(
-                  LucideIcons.settings,
-                  size: 15,
-                  color: expanded
-                      ? ShellBrandColors.defaultAccent
-                      : ShellMediaColors.lightForegroundSecondary,
+        child: FocusableActionDetector(
+          focusNode: _focusNode,
+          onShowFocusHighlight: (value) => setState(() => _focused = value),
+          shortcuts: const <ShortcutActivator, Intent>{
+            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+          },
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                widget.onPressed();
+                return null;
+              },
+            ),
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onPressed,
+              child: SizedBox.square(
+                dimension: 24,
+                child: Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: _focused
+                          ? Border.all(
+                              color: ShellBrandColors.defaultAccent,
+                              width: 1.5,
+                            )
+                          : null,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        LucideIcons.settings,
+                        size: 15,
+                        color: widget.expanded
+                            ? ShellBrandColors.defaultAccent
+                            : ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -702,9 +907,10 @@ class _ModuleOptionsButton extends StatelessWidget {
   }
 }
 
-class _ModuleDragHandle extends StatelessWidget {
+class _ModuleDragHandle extends StatefulWidget {
   const _ModuleDragHandle({
     required this.label,
+    required this.hint,
     required this.enabled,
     required this.onKeyboardMove,
     required this.onKeyboardZone,
@@ -712,46 +918,93 @@ class _ModuleDragHandle extends StatelessWidget {
   });
 
   final String label;
+  final String hint;
   final bool enabled;
   final ValueChanged<int> onKeyboardMove;
   final ValueChanged<int> onKeyboardZone;
 
   @override
+  State<_ModuleDragHandle> createState() => _ModuleDragHandleState();
+}
+
+class _ModuleDragHandleState extends State<_ModuleDragHandle> {
+  final FocusNode _focus = FocusNode();
+  var _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _focused = _focus.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = enabled
+    final color = widget.enabled
         ? ShellMediaColors.lightForegroundSecondary
         : ShellMediaColors.lightForegroundSecondary.withValues(alpha: 0.3);
     return Semantics(
-      label: label,
-      enabled: enabled,
+      label: widget.label,
+      hint: widget.hint,
+      enabled: widget.enabled,
       child: ExcludeSemantics(
-        child: Focus(
-          canRequestFocus: enabled,
-          onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent ||
-                !HardwareKeyboard.instance.isControlPressed) {
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.enabled ? _focus.requestFocus : null,
+          child: Focus(
+            focusNode: _focus,
+            canRequestFocus: widget.enabled,
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent ||
+                  !HardwareKeyboard.instance.isControlPressed) {
+                return KeyEventResult.ignored;
+              }
+              final shift = HardwareKeyboard.instance.isShiftPressed;
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.arrowUp) {
+                shift ? widget.onKeyboardZone(-1) : widget.onKeyboardMove(-1);
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowDown) {
+                shift ? widget.onKeyboardZone(1) : widget.onKeyboardMove(1);
+                return KeyEventResult.handled;
+              }
               return KeyEventResult.ignored;
-            }
-            final shift = HardwareKeyboard.instance.isShiftPressed;
-            final key = event.logicalKey;
-            if (key == LogicalKeyboardKey.arrowUp) {
-              shift ? onKeyboardZone(-1) : onKeyboardMove(-1);
-              return KeyEventResult.handled;
-            }
-            if (key == LogicalKeyboardKey.arrowDown) {
-              shift ? onKeyboardZone(1) : onKeyboardMove(1);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: MouseRegion(
-            cursor: enabled
-                ? SystemMouseCursors.grab
-                : SystemMouseCursors.basic,
-            child: SizedBox.square(
-              dimension: 24,
-              child: Center(
-                child: Icon(LucideIcons.gripVertical, size: 15, color: color),
+            },
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(6)),
+                border: _focused
+                    ? Border.all(
+                        color: ShellBrandColors.defaultAccent,
+                        width: 1.5,
+                      )
+                    : null,
+              ),
+              child: MouseRegion(
+                cursor: widget.enabled
+                    ? SystemMouseCursors.grab
+                    : SystemMouseCursors.basic,
+                child: SizedBox.square(
+                  dimension: 24,
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.gripVertical,
+                      size: 15,
+                      color: color,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

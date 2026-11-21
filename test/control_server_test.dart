@@ -15,11 +15,13 @@ import 'package:trickster/src/platform/control_socket.dart';
 import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/keyboard_layout.dart';
+import 'package:trickster/src/services/network.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/keyboard_layout_bloc.dart';
+import 'package:trickster/src/state/network_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
@@ -621,6 +623,78 @@ void main() {
       'total_bytes': 1000,
       'free_bytes': 300,
       'fraction': 0.6,
+    });
+    expect(state['seat_idle'], {'idle': false});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status exposes the network sample and its idle gate', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) =>
+                SettingsBloc(const BarSettings(modules: ['network'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<NetworkBloc>(
+            create: (_) => NetworkBloc(
+              initial: const NetworkSample(
+                interface: 'enp42s0',
+                medium: NetworkMedium.ethernet,
+                link: NetworkLink.up,
+                adminUp: true,
+                defaultRoute: true,
+                ethernetSpeedMbps: 1000,
+                rxBytesPerSecond: 1200,
+                txBytesPerSecond: 3400,
+                rxBytesTotal: 5000,
+                txBytesTotal: 6000,
+              ),
+            ),
+          ),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: false),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['network'], {
+      'interface': 'enp42s0',
+      'medium': 'ethernet',
+      'link': 'up',
+      'admin_up': true,
+      'default_route': true,
+      'ethernet_speed_mbps': 1000,
+      'rx_bytes_per_second': 1200,
+      'tx_bytes_per_second': 3400,
+      'rx_bytes_total': 5000,
+      'tx_bytes_total': 6000,
     });
     expect(state['seat_idle'], {'idle': false});
     expect(jsonEncode(reply), isA<String>());
