@@ -49,7 +49,7 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 {
   "revision": 1,
   "accent": "#d0bcff",
-  "modules": ["workspaces", "cpu", "gpu", "battery", "clock"]
+  "modules": ["workspaces", "cpu", "gpu", "ram", "battery", "clock"]
 }
 ```
 
@@ -108,6 +108,18 @@ rejected at decode, so a live reload keeps the last-good settings.
   queried device name, or the typed `caption_prefix`.
 - `cpu.sparkline` / `gpu.sparkline` (bool, default `true`) — hide the
   recent-history sparkline.
+- `ram.warn` / `ram.critical` (number 0–1, defaults `0.85` / `0.95`) — tint
+  the used-memory percent when it crosses each level; `warn` must stay below
+  `critical`.
+- `ram.warn_color` / `ram.critical_color` (`#RRGGBB`, optional) — override
+  the default warning and danger tints.
+- `ram.caption_source` (`generic` or `custom`, default `generic`) and
+  `ram.caption_prefix` — label the meter with `RAM` or the typed prefix. RAM
+  has no device-name source.
+- `ram.sparkline` (bool, default `true`) — hide the recent-history sparkline.
+- `ram` is enabled in the default module list; a document that explicitly
+  lists `modules` keeps that list, so an existing setup only gains the pill
+  when its list includes `ram`.
 - `battery.warn` / `battery.critical` (int 1–100, defaults `20` / `10`) —
   tint the battery gauge and percent while discharging; `critical` must stay
   below `warn`.
