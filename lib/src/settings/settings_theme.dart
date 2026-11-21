@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter/widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -194,6 +195,8 @@ class SettingsSlider extends StatefulWidget {
     required this.onChanged,
     required this.onChangeEnd,
     this.label,
+    this.semanticsValueBuilder,
+    this.semanticsStep = 1,
     super.key,
   });
 
@@ -205,6 +208,12 @@ class SettingsSlider extends StatefulWidget {
 
   /// Semantics label; the thickness slider keeps its own default.
   final String? label;
+
+  /// Formats the announced value; null uses the rounded raw value.
+  final String Function(double value)? semanticsValueBuilder;
+
+  /// How far one assistive increase/decrease moves [value].
+  final double semanticsStep;
 
   @override
   State<SettingsSlider> createState() => _SettingsSliderState();
@@ -239,23 +248,24 @@ class _SettingsSliderState extends State<SettingsSlider> {
     final fraction = widget.max > widget.min
         ? ((value - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0)
         : 0.0;
+    final semanticsValue =
+        widget.semanticsValueBuilder?.call(value) ?? '${value.round()}';
+    final step = widget.semanticsStep;
+    final increased = (value + step).clamp(widget.min, widget.max);
+    final decreased = (value - step).clamp(widget.min, widget.max);
     return Semantics(
       slider: true,
       enabled: _enabled,
       label: widget.label ?? context.l10n.settingsThicknessLabel,
-      value: '${value.round()}',
-      increasedValue: '${(value + 1).clamp(widget.min, widget.max).round()}',
-      decreasedValue: '${(value - 1).clamp(widget.min, widget.max).round()}',
-      onIncrease: _enabled
-          ? () => widget.onChangeEnd?.call(
-              (value + 1).clamp(widget.min, widget.max),
-            )
-          : null,
-      onDecrease: _enabled
-          ? () => widget.onChangeEnd?.call(
-              (value - 1).clamp(widget.min, widget.max),
-            )
-          : null,
+      value: semanticsValue,
+      increasedValue:
+          widget.semanticsValueBuilder?.call(increased) ??
+          '${increased.round()}',
+      decreasedValue:
+          widget.semanticsValueBuilder?.call(decreased) ??
+          '${decreased.round()}',
+      onIncrease: _enabled ? () => widget.onChangeEnd?.call(increased) : null,
+      onDecrease: _enabled ? () => widget.onChangeEnd?.call(decreased) : null,
       child: ExcludeSemantics(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -400,7 +410,7 @@ class SettingsChoiceChip extends StatelessWidget {
 }
 
 /// A pill switch with a label, used by option panels for boolean keys.
-class SettingsToggle extends StatelessWidget {
+class SettingsToggle extends StatefulWidget {
   const SettingsToggle({
     required this.label,
     required this.enabled,
@@ -413,48 +423,85 @@ class SettingsToggle extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
+  State<SettingsToggle> createState() => _SettingsToggleState();
+}
+
+class _SettingsToggleState extends State<SettingsToggle> {
+  final FocusNode _focusNode = FocusNode();
+  var _focused = false;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _toggle() => widget.onChanged(!widget.enabled);
+
+  @override
   Widget build(BuildContext context) {
     return Semantics(
-      toggled: enabled,
-      label: label,
+      toggled: widget.enabled,
+      label: widget.label,
       hint: context.l10n.settingsModuleToggleHint,
-      onTap: () => onChanged(!enabled),
+      onTap: _toggle,
       child: ExcludeSemantics(
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onChanged(!enabled),
-            child: AnimatedContainer(
-              duration: Motion.duration(context, Motion.pill),
-              curve: Motion.standard,
-              width: 44,
-              height: 24,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(999)),
-                color: enabled
-                    ? ShellBrandColors.defaultAccent
-                    : SettingsGlass.control(
-                        context,
-                        SettingsColors.surfaceHigh,
-                      ),
-                border: Border.all(color: SettingsColors.outline),
-              ),
-              child: AnimatedAlign(
+        child: FocusableActionDetector(
+          focusNode: _focusNode,
+          onShowFocusHighlight: (value) => setState(() => _focused = value),
+          shortcuts: const <ShortcutActivator, Intent>{
+            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+          },
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                _toggle();
+                return null;
+              },
+            ),
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggle,
+              child: AnimatedContainer(
                 duration: Motion.duration(context, Motion.pill),
                 curve: Motion.standard,
-                alignment: enabled
-                    ? Alignment.centerRight
-                    : Alignment.centerLeft,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: enabled
-                        ? SettingsColors.background
-                        : ShellMediaColors.lightForegroundSecondary,
+                width: 44,
+                height: 24,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.all(Radius.circular(999)),
+                  color: widget.enabled
+                      ? ShellBrandColors.defaultAccent
+                      : SettingsGlass.control(
+                          context,
+                          SettingsColors.surfaceHigh,
+                        ),
+                  border: _focused
+                      ? Border.all(
+                          color: ShellBrandColors.defaultAccent,
+                          width: 1.5,
+                        )
+                      : Border.all(color: SettingsColors.outline),
+                ),
+                child: AnimatedAlign(
+                  duration: Motion.duration(context, Motion.pill),
+                  curve: Motion.standard,
+                  alignment: widget.enabled
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.enabled
+                          ? SettingsColors.background
+                          : ShellMediaColors.lightForegroundSecondary,
+                    ),
+                    child: const SizedBox.square(dimension: 16),
                   ),
-                  child: const SizedBox.square(dimension: 16),
                 ),
               ),
             ),

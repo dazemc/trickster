@@ -253,6 +253,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUnavailableNoVram => 'No dedicated GPU memory detected';
 
   @override
+  String get settingsUnavailableNoTemperature =>
+      'No temperature sensor detected';
+
+  @override
+  String get settingsUnavailableNoDisk => 'Configured disk path is unavailable';
+
+  @override
+  String get settingsUnavailableNoNetwork => 'No network interface detected';
+
+  @override
   String get settingsUnavailableNoHyprland => 'Hyprland session not detected';
 
   @override
@@ -334,6 +344,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsModuleDrag => 'Drag to reorder';
+
+  @override
+  String get settingsModuleDragHint =>
+      'Drag to reorder, or press Control and the arrow keys. Add Shift to move between zones.';
+
+  @override
+  String get settingsModuleDragZoneHint =>
+      'Drag to move, or press Control and Shift with the arrow keys to choose a zone.';
 
   @override
   String get settingsModuleToggleHint => 'Toggles the module';
@@ -484,7 +502,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDiskPath => 'Mount path';
 
   @override
+  String get settingsDiskPathInvalid => 'Use an absolute mount path';
+
+  @override
   String get settingsNetworkInterface => 'Interface';
+
+  @override
+  String get settingsNetworkInterfaceInvalid =>
+      'Use a valid Linux interface name';
 
   @override
   String get settingsNetworkInterfaceHint => 'auto';

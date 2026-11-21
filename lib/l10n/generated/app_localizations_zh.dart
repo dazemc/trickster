@@ -249,6 +249,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoVram => '未检测到独立显存';
 
   @override
+  String get settingsUnavailableNoTemperature => '未检测到温度传感器';
+
+  @override
+  String get settingsUnavailableNoDisk => '配置的磁盘路径不可用';
+
+  @override
+  String get settingsUnavailableNoNetwork => '未检测到网络接口';
+
+  @override
   String get settingsUnavailableNoHyprland => '未检测到 Hyprland 会话';
 
   @override
@@ -330,6 +339,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsModuleDrag => '拖动排序';
+
+  @override
+  String get settingsModuleDragHint =>
+      '拖动以重新排序，或按住 Control 加方向键。加上 Shift 可在区域间移动。';
+
+  @override
+  String get settingsModuleDragZoneHint =>
+      '拖动以移动，或按住 Control 和 Shift 加方向键选择区域。';
 
   @override
   String get settingsModuleToggleHint => '切换该模块';
@@ -479,7 +496,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDiskPath => '挂载路径';
 
   @override
+  String get settingsDiskPathInvalid => '请使用绝对挂载路径';
+
+  @override
   String get settingsNetworkInterface => '网络接口';
+
+  @override
+  String get settingsNetworkInterfaceInvalid => '请使用有效的 Linux 接口名';
 
   @override
   String get settingsNetworkInterfaceHint => '自动';

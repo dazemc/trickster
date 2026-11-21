@@ -152,5 +152,11 @@ void main() {
     expect(l10n.moduleKeyboardLayout, '键盘布局');
     expect(l10n.keyboardLayoutNames('US / RU'), '布局：US / RU');
     expect(l10n.settingsUnavailableNoHyprland, '未检测到 Hyprland 会话');
+    expect(l10n.settingsUnavailableNoTemperature, '未检测到温度传感器');
+    expect(l10n.settingsUnavailableNoDisk, '配置的磁盘路径不可用');
+    expect(l10n.settingsUnavailableNoNetwork, '未检测到网络接口');
+    expect(l10n.settingsDiskPathInvalid, '请使用绝对挂载路径');
+    expect(l10n.settingsNetworkInterfaceInvalid, '请使用有效的 Linux 接口名');
+    expect(l10n.settingsModuleDragHint, contains('Control'));
   });
 }

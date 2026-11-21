@@ -377,6 +377,18 @@
   "@settingsUnavailableNoVram": {
     "description": "Reason shown when no dedicated GPU memory source is detected."
   },
+  "settingsUnavailableNoTemperature": "No temperature sensor detected",
+  "@settingsUnavailableNoTemperature": {
+    "description": "Reason shown when no readable hwmon sensor is detected."
+  },
+  "settingsUnavailableNoDisk": "Configured disk path is unavailable",
+  "@settingsUnavailableNoDisk": {
+    "description": "Reason shown when the configured disk mount is missing or unreadable."
+  },
+  "settingsUnavailableNoNetwork": "No network interface detected",
+  "@settingsUnavailableNoNetwork": {
+    "description": "Reason shown when no physical or pinned network interface exists."
+  },
   "settingsUnavailableNoHyprland": "Hyprland session not detected",
   "@settingsUnavailableNoHyprland": {
     "description": "Reason shown when the Hyprland keyboard backend is unavailable."
@@ -489,6 +501,14 @@
   "settingsModuleDrag": "Drag to reorder",
   "@settingsModuleDrag": {
     "description": "Handle label for dragging a module row."
+  },
+  "settingsModuleDragHint": "Drag to reorder, or press Control and the arrow keys. Add Shift to move between zones.",
+  "@settingsModuleDragHint": {
+    "description": "Keyboard hint for an enabled module's drag handle."
+  },
+  "settingsModuleDragZoneHint": "Drag to move, or press Control and Shift with the arrow keys to choose a zone.",
+  "@settingsModuleDragZoneHint": {
+    "description": "Keyboard hint for a disabled module's drag handle."
   },
   "settingsModuleToggleHint": "Toggles the module",
   "@settingsModuleToggleHint": {
@@ -686,9 +706,17 @@
   "@settingsDiskPath": {
     "description": "Label for the disk module's mount path option."
   },
+  "settingsDiskPathInvalid": "Use an absolute mount path",
+  "@settingsDiskPathInvalid": {
+    "description": "Validation shown when the disk path is empty, relative, or malformed."
+  },
   "settingsNetworkInterface": "Interface",
   "@settingsNetworkInterface": {
     "description": "Label for the network module's interface name option."
+  },
+  "settingsNetworkInterfaceInvalid": "Use a valid Linux interface name",
+  "@settingsNetworkInterfaceInvalid": {
+    "description": "Validation shown for an invalid network interface name."
   },
   "settingsNetworkInterfaceHint": "auto",
   "@settingsNetworkInterfaceHint": {

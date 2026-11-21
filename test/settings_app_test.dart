@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -5,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' show Scrollbar;
+import 'package:trickster/l10n/generated/app_localizations_en.dart';
 import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -17,7 +20,10 @@ import 'package:trickster/src/settings/availability.dart';
 import 'package:trickster/src/settings/bloc.dart';
 import 'package:trickster/src/settings/color_format.dart';
 import 'package:trickster/src/settings/color_wheel.dart';
+import 'package:trickster/src/settings/module_options.dart';
+import 'package:trickster/src/settings/modules_bloc.dart';
 import 'package:trickster/src/settings/pages/about.dart';
+import 'package:trickster/src/settings/pages/modules.dart';
 import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
@@ -56,19 +62,30 @@ Future<void> _pump(
   SettingsAppBloc bloc, {
   VoidCallback? onClose,
   List<ModuleAvailability> Function()? availabilityProbe,
+  Future<List<ModuleAvailability>> Function(BarSettings settings)?
+  availabilityLoader,
   Future<List<String>> Function()? workspaceNames,
   bool disableAnimations = false,
+  Size size = const Size(980, 720),
+  double textScale = 1.0,
+  Locale? locale,
 }) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   return tester.pumpWidget(
     BlocProvider.value(
       value: bloc,
       child: BlocProvider<WallpaperAccentBloc>(
         create: (_) => WallpaperAccentBloc(watch: false),
         child: TricksterLocalizationScope(
+          locale: locale,
           child: MediaQuery(
             data: MediaQueryData(
-              size: const Size(980, 720),
+              size: size,
               disableAnimations: disableAnimations,
+              textScaler: TextScaler.linear(textScale),
             ),
             child: Directionality(
               textDirection: TextDirection.ltr,
@@ -80,6 +97,7 @@ Future<void> _pump(
                       availabilityProbe:
                           availabilityProbe ??
                           () => const <ModuleAvailability>[],
+                      availabilityLoader: availabilityLoader,
                       workspaceNames: workspaceNames,
                     ),
                   ),
@@ -99,28 +117,40 @@ Future<void> _dragModuleTo(
   Finder target,
 ) async {
   final handle = find.byKey(ValueKey<String>('module-drag-$module'));
-  await tester.ensureVisible(target);
-  await tester.pumpAndSettle();
   await tester.ensureVisible(handle);
   await tester.pumpAndSettle();
   final start = tester.getCenter(handle);
-  final end = tester.getCenter(target);
+  final initial = tester.getRect(target);
   final gesture = await tester.startGesture(start);
   await tester.pump(const Duration(milliseconds: 120));
-  // Cross the drag slop first so the recognizer claims the pointer. The
-  // source row then collapses, which moves the target; re-read it before
-  // steering there.
-  final slop = Offset(0, end.dy >= start.dy ? 24 : -24);
+  // Cross the drag slop first so the recognizer claims the pointer.
+  final slop = Offset(0, initial.center.dy >= start.dy ? 24 : -24);
   await gesture.moveBy(slop);
   await tester.pump(const Duration(milliseconds: 60));
-  final liveEnd = tester.getCenter(target);
-  var current = start + slop;
-  const steps = 8;
-  for (var step = 1; step <= steps; step++) {
-    current = Offset.lerp(start + slop, liveEnd, step / steps)!;
-    await gesture.moveTo(current);
-    await tester.pump(const Duration(milliseconds: 40));
+
+  // Let the product's edge auto-scroll bring an off-screen target into the
+  // viewport, exactly as a real pointer drag does.
+  for (var step = 0; step < 40; step++) {
+    final viewport = tester.getRect(find.byType(SingleChildScrollView));
+    final rect = tester.getRect(target);
+    if (rect.bottom > viewport.top + 8 && rect.top < viewport.bottom - 8) {
+      break;
+    }
+    final edge = rect.center.dy < viewport.center.dy
+        ? viewport.top + 12
+        : viewport.bottom - 12;
+    await gesture.moveTo(Offset(viewport.center.dx, edge));
+    await tester.pump(const Duration(milliseconds: 80));
   }
+
+  final viewport = tester.getRect(find.byType(SingleChildScrollView));
+  final rect = tester.getRect(target);
+  final end = Offset(
+    rect.center.dx.clamp(viewport.left + 8, viewport.right - 8),
+    rect.center.dy.clamp(viewport.top + 8, viewport.bottom - 8),
+  );
+  await gesture.moveTo(end);
+  await tester.pump(const Duration(milliseconds: 60));
   await gesture.up();
   await tester.pumpAndSettle();
   await tester.pump(const Duration(milliseconds: 400));
@@ -134,8 +164,6 @@ Future<void> _dragModuleBelow(
   Finder target,
 ) async {
   final handle = find.byKey(ValueKey<String>('module-drag-$module'));
-  await tester.ensureVisible(target);
-  await tester.pumpAndSettle();
   await tester.ensureVisible(handle);
   await tester.pumpAndSettle();
   final start = tester.getCenter(handle);
@@ -144,19 +172,74 @@ Future<void> _dragModuleBelow(
   const slop = Offset(0, 24);
   await gesture.moveBy(slop);
   await tester.pump(const Duration(milliseconds: 60));
-  final rect = tester.getRect(target);
-  final end = Offset(rect.center.dx, rect.bottom + 12);
-  var current = start + slop;
-  const steps = 8;
-  for (var step = 1; step <= steps; step++) {
-    current = Offset.lerp(start + slop, end, step / steps)!;
-    await gesture.moveTo(current);
-    await tester.pump(const Duration(milliseconds: 40));
+
+  for (var step = 0; step < 40; step++) {
+    final viewport = tester.getRect(find.byType(SingleChildScrollView));
+    final rect = tester.getRect(target);
+    if (rect.bottom > viewport.top + 8 && rect.top < viewport.bottom - 8) {
+      break;
+    }
+    final edge = rect.center.dy < viewport.center.dy
+        ? viewport.top + 12
+        : viewport.bottom - 12;
+    await gesture.moveTo(Offset(viewport.center.dx, edge));
+    await tester.pump(const Duration(milliseconds: 80));
   }
+
+  final viewport = tester.getRect(find.byType(SingleChildScrollView));
+  final rect = tester.getRect(target);
+  final end = Offset(
+    rect.center.dx.clamp(viewport.left + 8, viewport.right - 8),
+    (rect.bottom + 12).clamp(viewport.top + 8, viewport.bottom - 8),
+  );
+  await gesture.moveTo(end);
+  await tester.pump(const Duration(milliseconds: 60));
   await gesture.up();
   await tester.pumpAndSettle();
   await tester.pump(const Duration(milliseconds: 400));
   await tester.pump();
+}
+
+/// The modules page's own vertical scroll view.
+ScrollableState _pageScroll(WidgetTester tester) {
+  return tester.state<ScrollableState>(_pageScrollable());
+}
+
+Finder _pageScrollable() {
+  return find
+      .descendant(
+        of: find.byType(SingleChildScrollView),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+}
+
+Future<void> _openModules(WidgetTester tester) async {
+  await tester.tap(
+    find.descendant(
+      of: find.byType(SettingsNav),
+      matching: find.text('Modules'),
+    ),
+  );
+  await tester.pump();
+}
+
+void _expectNoException(WidgetTester tester) {
+  expect(tester.takeException(), isNull);
+}
+
+String _fieldText(WidgetTester tester, Finder field) {
+  return tester
+      .widget<EditableText>(
+        find.descendant(of: field, matching: find.byType(EditableText)),
+      )
+      .controller
+      .text;
+}
+
+void _blur(WidgetTester tester) {
+  FocusManager.instance.primaryFocus?.unfocus();
+  tester.binding.scheduleFrame();
 }
 
 void main() {
@@ -377,6 +460,458 @@ void main() {
       BarSettings.decode(file.readAsStringSync()).zoneFor('clock'),
       ModuleZone.leading,
     );
+  });
+
+  testWidgets('modules page lays out at real surfaces', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    for (final size in const [
+      Size(900, 600),
+      Size(1280, 800),
+      Size(1920, 1080),
+    ]) {
+      await _pump(tester, bloc, size: size);
+      await _openModules(tester);
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(find.byType(SettingsHome)), size);
+      expect(find.byType(Scrollbar), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(ModulesPage)).width,
+        lessThanOrEqualTo(SettingsHome.maxContentWidth),
+      );
+      _expectNoException(tester);
+
+      if (size.width == 900) {
+        expect(_pageScroll(tester).position.maxScrollExtent, greaterThan(0));
+      }
+      for (final module in BarSettings.knownModules) {
+        await tester.scrollUntilVisible(
+          find.byKey(ValueKey<String>('module-$module')),
+          120,
+          scrollable: _pageScrollable(),
+        );
+        await tester.pump();
+        expect(find.byKey(ValueKey<String>('module-$module')), findsOneWidget);
+        _expectNoException(tester);
+      }
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey<String>('module-zone-disabled')),
+        120,
+        scrollable: _pageScrollable(),
+      );
+      await tester.pump();
+      expect(find.text('Drop a module here'), findsWidgets);
+      _expectNoException(tester);
+    }
+  });
+
+  testWidgets('opening a bottom-row gear reveals its panel', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final gear = find.byKey(const ValueKey<String>('module-options-opencode'));
+    await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+
+    final panel = find.byType(ModuleOptionsPanel);
+    expect(panel, findsOneWidget);
+    final panelRect = tester.getRect(panel);
+    final viewport = tester.getRect(find.byType(SingleChildScrollView));
+    expect(panelRect.top, lessThan(viewport.bottom));
+    expect(panelRect.bottom, greaterThan(viewport.top));
+    expect(panelRect.top, greaterThanOrEqualTo(viewport.top - 1));
+    _expectNoException(tester);
+  });
+
+  testWidgets('module catalog, order, and gears stay complete', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizationsEn();
+    for (final module in BarSettings.knownModules) {
+      expect(
+        find.text(moduleLabel(l10n, module)),
+        findsOneWidget,
+        reason: 'missing label for $module',
+      );
+      expect(
+        find.byKey(ValueKey<String>('module-toggle-$module')),
+        findsOneWidget,
+        reason: 'missing toggle for $module',
+      );
+      final gear = find.byKey(ValueKey<String>('module-options-$module'));
+      if (moduleHasOptions(module)) {
+        expect(gear, findsOneWidget, reason: 'missing gear for $module');
+      } else {
+        expect(gear, findsNothing, reason: 'unexpected gear for $module');
+      }
+    }
+
+    final groups = moduleGroups(const BarSettings(), const []);
+    for (final entry in groups.entries) {
+      var previous = double.negativeInfinity;
+      for (final module in entry.value) {
+        final y = tester
+            .getTopLeft(find.byKey(ValueKey<String>('module-$module')))
+            .dy;
+        expect(y, greaterThan(previous), reason: '${entry.key.wire} order');
+        previous = y;
+      }
+    }
+    _expectNoException(tester);
+  });
+
+  testWidgets('disabled modules keep options and prune the expanded panel', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final gear = find.byKey(const ValueKey<String>('module-options-network'));
+    await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    expect(find.byType(ModuleOptionsPanel), findsOneWidget);
+
+    final toggle = find.byKey(const ValueKey<String>('module-toggle-network'));
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
+    await tester.tap(toggle);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(bloc.settings.modules, isNot(contains('network')));
+    expect(find.byType(ModuleOptionsPanel), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('module-zone-disabled')),
+      160,
+      scrollable: _pageScrollable(),
+    );
+    final disabledGear = find.byKey(
+      const ValueKey<String>('module-options-network'),
+    );
+    await tester.scrollUntilVisible(
+      disabledGear,
+      160,
+      scrollable: _pageScrollable(),
+    );
+    expect(disabledGear, findsOneWidget);
+    await tester.tap(disabledGear);
+    await tester.pumpAndSettle();
+    expect(find.byType(ModuleOptionsPanel), findsOneWidget);
+    _expectNoException(tester);
+  });
+
+  testWidgets('gear and module toggle activate from the keyboard', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final gear = find.byKey(const ValueKey<String>('module-options-network'));
+    final gearAction = tester.widget<FocusableActionDetector>(
+      find.descendant(of: gear, matching: find.byType(FocusableActionDetector)),
+    );
+    gearAction.focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(ModuleOptionsPanel), findsOneWidget);
+
+    final toggle = find.byKey(const ValueKey<String>('module-toggle-network'));
+    final toggleAction = tester.widget<FocusableActionDetector>(
+      find.descendant(
+        of: toggle,
+        matching: find.byType(FocusableActionDetector),
+      ),
+    );
+    toggleAction.focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(bloc.settings.modules, isNot(contains('network')));
+  });
+
+  testWidgets('an availability refresh prunes a vanished options panel', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final refresh = Completer<List<ModuleAvailability>>();
+    await _pump(
+      tester,
+      bloc,
+      size: const Size(900, 600),
+      availabilityProbe: () => const <ModuleAvailability>[],
+      availabilityLoader: (_) => refresh.future,
+    );
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final gear = find.byKey(const ValueKey<String>('module-options-clock'));
+    await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    expect(find.byType(ModuleOptionsPanel), findsOneWidget);
+
+    refresh.complete(const [
+      ModuleAvailability(
+        module: 'clock',
+        reason: ModuleUnavailableReason.noBattery,
+      ),
+    ]);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byType(ModuleOptionsPanel), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('module-unavailable-clock')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keyboard drag handle reorders and changes zone', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(const ValueKey<String>('module-drag-clock'));
+    await tester.scrollUntilVisible(handle, 120, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(handle);
+    await tester.pump();
+
+    final before = List<String>.of(bloc.settings.modules);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(
+      bloc.settings.modules.indexOf('clock'),
+      lessThan(before.indexOf('clock')),
+    );
+
+    await tester.tap(handle);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(bloc.settings.zoneFor('clock'), ModuleZone.center);
+  });
+
+  testWidgets('dragging near the page edge auto-scrolls to leading', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final handle = find.byKey(const ValueKey<String>('module-drag-clock'));
+    await tester.scrollUntilVisible(handle, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    final scroll = _pageScroll(tester);
+    final before = scroll.position.pixels;
+    expect(before, greaterThan(0));
+
+    final start = tester.getCenter(handle);
+    final gesture = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 120));
+    await gesture.moveBy(const Offset(0, -24));
+    await tester.pump(const Duration(milliseconds: 60));
+    final viewport = tester.getRect(find.byType(SingleChildScrollView));
+    await gesture.moveTo(Offset(viewport.center.dx, viewport.top + 12));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(scroll.position.pixels, lessThan(before));
+    final tray = find.byKey(const ValueKey<String>('module-tray'));
+    final trayCenter = tester.getCenter(tray);
+    expect(trayCenter.dy, inInclusiveRange(0, 600));
+    expect(trayCenter.dx, inInclusiveRange(0, 900));
+
+    await gesture.moveTo(trayCenter);
+    await tester.pump(const Duration(milliseconds: 60));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(bloc.settings.zoneFor('clock'), ModuleZone.leading);
+    _expectNoException(tester);
+  });
+
+  testWidgets('modules page survives text scaling with unavailable rows', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(
+      tester,
+      bloc,
+      size: const Size(900, 600),
+      textScale: 2,
+      availabilityProbe: () => const [
+        ModuleAvailability(
+          module: 'battery',
+          reason: ModuleUnavailableReason.noBattery,
+        ),
+        ModuleAvailability(
+          module: 'vram',
+          reason: ModuleUnavailableReason.noVram,
+        ),
+        ModuleAvailability(
+          module: 'temperature',
+          reason: ModuleUnavailableReason.noTemperature,
+        ),
+        ModuleAvailability(
+          module: 'disk',
+          reason: ModuleUnavailableReason.noDisk,
+        ),
+        ModuleAvailability(
+          module: 'network',
+          reason: ModuleUnavailableReason.noNetwork,
+        ),
+        ModuleAvailability(
+          module: 'keyboard_layout',
+          reason: ModuleUnavailableReason.noHyprland,
+        ),
+      ],
+    );
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('module-zone-unavailable')),
+      160,
+      scrollable: _pageScrollable(),
+    );
+    await tester.pump();
+    _expectNoException(tester);
+    expect(find.text('No dedicated GPU memory detected'), findsOneWidget);
+    expect(find.text('No temperature sensor detected'), findsOneWidget);
+    expect(find.text('Configured disk path is unavailable'), findsOneWidget);
+    expect(find.text('No network interface detected'), findsOneWidget);
+
+    final gear = find.byKey(const ValueKey<String>('module-options-ram'));
+    await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    _expectNoException(tester);
+  });
+
+  testWidgets('meter sliders announce real units', (tester) async {
+    final handle = tester.ensureSemantics();
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    Future<void> open(String module) async {
+      final gear = find.byKey(ValueKey<String>('module-options-$module'));
+      await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+      await tester.pumpAndSettle();
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
+    }
+
+    await open('ram');
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('options-ram-warn'))).value,
+      '85%',
+    );
+    await open('temperature');
+    expect(
+      tester
+          .getSemantics(find.byKey(const ValueKey('options-temperature-warn')))
+          .value,
+      '80°C',
+    );
+    handle.dispose();
+  });
+
+  testWidgets('disk and network fields reset and reject invalid text', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc, size: const Size(900, 600));
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    Future<void> open(String module) async {
+      final gear = find.byKey(ValueKey<String>('module-options-$module'));
+      await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+      await tester.pumpAndSettle();
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
+    }
+
+    await open('disk');
+    final path = find.byKey(const ValueKey<String>('disk-path'));
+    await tester.enterText(path, '/data');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(bloc.settings.disk.path, '/data');
+
+    final resetPath = find.byKey(const ValueKey<String>('reset-disk-path'));
+    await tester.ensureVisible(resetPath);
+    await tester.pumpAndSettle();
+    await tester.tap(resetPath);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.disk.path, '/');
+    expect(_fieldText(tester, path), '/');
+
+    await tester.enterText(path, 'relative');
+    await tester.pump();
+    expect(find.text('Use an absolute mount path'), findsOneWidget);
+    expect(bloc.settings.disk.path, '/');
+    _blur(tester);
+    await tester.pumpAndSettle();
+    expect(_fieldText(tester, path), '/');
+
+    await open('network');
+    final interface = find.byKey(const ValueKey<String>('network-interface'));
+    await tester.enterText(interface, 'wlan0');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(bloc.settings.network.interface, 'wlan0');
+    final resetInterface = find.byKey(
+      const ValueKey<String>('reset-network-interface'),
+    );
+    await tester.ensureVisible(resetInterface);
+    await tester.pumpAndSettle();
+    await tester.tap(resetInterface);
+    await tester.pumpAndSettle();
+    expect(bloc.settings.network.interface, isNull);
+
+    await tester.enterText(interface, 'bad name!');
+    await tester.pump();
+    expect(find.text('Use a valid Linux interface name'), findsOneWidget);
+    expect(bloc.settings.network.interface, isNull);
+    _blur(tester);
+    await tester.pumpAndSettle();
+    expect(_fieldText(tester, interface), '');
   });
 
   testWidgets('every module option resets to its default', (tester) async {
@@ -1781,7 +2316,10 @@ void main() {
               data: const MediaQueryData(size: Size(980, 720)),
               child: Directionality(
                 textDirection: TextDirection.ltr,
-                child: SettingsHome(onClose: () {}),
+                child: SettingsHome(
+                  onClose: () {},
+                  availabilityProbe: () => const <ModuleAvailability>[],
+                ),
               ),
             ),
           ),

@@ -324,6 +324,36 @@ NetworkLink parseLinkState({String? carrier, String? operstate}) {
   };
 }
 
+/// Whether a physical interface or an explicitly pinned name exists.
+///
+/// Used by the settings availability probe; it mirrors the sampler's
+/// selection rule without reading counters or routes. Auto mode ignores
+/// loopback and interfaces without a `device` link; a pinned name is accepted
+/// as written, including a virtual interface.
+bool hasNetworkInterface({String netRoot = '/sys/class/net', String? pinned}) {
+  final root = Directory(netRoot);
+  if (!root.existsSync()) {
+    return false;
+  }
+  if (pinned != null && pinned.isNotEmpty) {
+    return Directory('$netRoot/$pinned').existsSync();
+  }
+  try {
+    for (final entity in root.listSync(followLinks: true)) {
+      final name = entity.path.split(Platform.pathSeparator).last;
+      if (name == 'lo' || name.isEmpty) {
+        continue;
+      }
+      if (Directory('${entity.path}/device').existsSync()) {
+        return true;
+      }
+    }
+  } on FileSystemException {
+    return false;
+  }
+  return false;
+}
+
 /// The active interface. Auto mode trusts only physical interfaces and picks
 /// one; it never aggregates or samples a tunnel. A pinned name is accepted as
 /// written, including a virtual interface, because pinning is explicit.

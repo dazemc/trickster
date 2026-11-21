@@ -531,6 +531,24 @@ abstract class AppLocalizations {
   /// **'No dedicated GPU memory detected'**
   String get settingsUnavailableNoVram;
 
+  /// Reason shown when no readable hwmon sensor is detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No temperature sensor detected'**
+  String get settingsUnavailableNoTemperature;
+
+  /// Reason shown when the configured disk mount is missing or unreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured disk path is unavailable'**
+  String get settingsUnavailableNoDisk;
+
+  /// Reason shown when no physical or pinned network interface exists.
+  ///
+  /// In en, this message translates to:
+  /// **'No network interface detected'**
+  String get settingsUnavailableNoNetwork;
+
   /// Reason shown when the Hyprland keyboard backend is unavailable.
   ///
   /// In en, this message translates to:
@@ -692,6 +710,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Drag to reorder'**
   String get settingsModuleDrag;
+
+  /// Keyboard hint for an enabled module's drag handle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder, or press Control and the arrow keys. Add Shift to move between zones.'**
+  String get settingsModuleDragHint;
+
+  /// Keyboard hint for a disabled module's drag handle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to move, or press Control and Shift with the arrow keys to choose a zone.'**
+  String get settingsModuleDragZoneHint;
 
   /// Accessible hint for a module toggle.
   ///
@@ -987,11 +1017,23 @@ abstract class AppLocalizations {
   /// **'Mount path'**
   String get settingsDiskPath;
 
+  /// Validation shown when the disk path is empty, relative, or malformed.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an absolute mount path'**
+  String get settingsDiskPathInvalid;
+
   /// Label for the network module's interface name option.
   ///
   /// In en, this message translates to:
   /// **'Interface'**
   String get settingsNetworkInterface;
+
+  /// Validation shown for an invalid network interface name.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a valid Linux interface name'**
+  String get settingsNetworkInterfaceInvalid;
 
   /// Placeholder for the automatic network interface choice.
   ///

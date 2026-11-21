@@ -377,6 +377,18 @@
   "@settingsUnavailableNoVram": {
     "description": "Reason shown when no dedicated GPU memory source is detected."
   },
+  "settingsUnavailableNoTemperature": "未检测到温度传感器",
+  "@settingsUnavailableNoTemperature": {
+    "description": "Reason shown when no readable hwmon sensor is detected."
+  },
+  "settingsUnavailableNoDisk": "配置的磁盘路径不可用",
+  "@settingsUnavailableNoDisk": {
+    "description": "Reason shown when the configured disk mount is missing or unreadable."
+  },
+  "settingsUnavailableNoNetwork": "未检测到网络接口",
+  "@settingsUnavailableNoNetwork": {
+    "description": "Reason shown when no physical or pinned network interface exists."
+  },
   "settingsUnavailableNoHyprland": "未检测到 Hyprland 会话",
   "@settingsUnavailableNoHyprland": {
     "description": "Reason shown when the Hyprland keyboard backend is unavailable."
@@ -489,6 +501,14 @@
   "settingsModuleDrag": "拖动排序",
   "@settingsModuleDrag": {
     "description": "Handle label for dragging a module row."
+  },
+  "settingsModuleDragHint": "拖动以重新排序，或按住 Control 加方向键。加上 Shift 可在区域间移动。",
+  "@settingsModuleDragHint": {
+    "description": "Keyboard hint for an enabled module's drag handle."
+  },
+  "settingsModuleDragZoneHint": "拖动以移动，或按住 Control 和 Shift 加方向键选择区域。",
+  "@settingsModuleDragZoneHint": {
+    "description": "Keyboard hint for a disabled module's drag handle."
   },
   "settingsModuleToggleHint": "切换该模块",
   "@settingsModuleToggleHint": {
@@ -686,9 +706,17 @@
   "@settingsDiskPath": {
     "description": "Label for the disk module's mount path option."
   },
+  "settingsDiskPathInvalid": "请使用绝对挂载路径",
+  "@settingsDiskPathInvalid": {
+    "description": "Validation shown when the disk path is empty, relative, or malformed."
+  },
   "settingsNetworkInterface": "网络接口",
   "@settingsNetworkInterface": {
     "description": "Label for the network module's interface name option."
+  },
+  "settingsNetworkInterfaceInvalid": "请使用有效的 Linux 接口名",
+  "@settingsNetworkInterfaceInvalid": {
+    "description": "Validation shown for an invalid network interface name."
   },
   "settingsNetworkInterfaceHint": "自动",
   "@settingsNetworkInterfaceHint": {

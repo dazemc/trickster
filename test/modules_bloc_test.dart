@@ -40,6 +40,23 @@ void main() {
     );
   });
 
+  test('pruneExpanded drops disabled and unavailable panels', () {
+    const settings = BarSettings(modules: ['clock', 'ram']);
+    expect(
+      pruneExpanded(
+        {'clock', 'ram', 'gpu'},
+        settings,
+        const [
+          ModuleAvailability(
+            module: 'ram',
+            reason: ModuleUnavailableReason.noBattery,
+          ),
+        ],
+      ),
+      {'clock'},
+    );
+  });
+
   test('modules state round-trips its json', () {
     const state = ModulesState(
       unavailable: [

@@ -116,6 +116,15 @@ class TemperatureSampler {
   static const Set<String> _cpuChips = {'k10temp', 'coretemp', 'zenpower'};
   static final RegExp _temperatureInput = RegExp(r'^temp(\d+)_input$');
 
+  /// Whether the machine publishes at least one readable hwmon temperature.
+  /// Used by the settings availability probe without starting a sampler.
+  static bool hasReadableSensor({String hwmonRoot = '/sys/class/hwmon'}) {
+    final sampler = TemperatureSampler(hwmonRoot: hwmonRoot);
+    final readable = sampler._scan() != null;
+    sampler.dispose();
+    return readable;
+  }
+
   TemperatureSample _latest = const TemperatureSample();
   Timer? _timer;
   var _running = false;
