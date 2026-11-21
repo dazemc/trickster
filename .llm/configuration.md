@@ -99,21 +99,50 @@ The document carries:
 Every write is revision-checked against a fresh read of the live document.
 A mismatch is a `SettingsRevisionConflict`; the store adopts the other
 writer's revision, the editor reloads that document, and the user retries
-deliberately. It never resends a stale whole-document snapshot and never keeps
-a document history. The settings application starts on the control socket when
-the bar answers and otherwise uses the file transport. It flips to the file
-after the first `ControlSocketException`, including a save after the bar
-exits; the fallback is sticky for the session.
+deliberately. A draft preview still owns the editor on an external change: the
+reload reports the conflict and keeps the edit; the eventual save re-reads and
+conflicts instead of replacing the newer document. A successful external
+reload clears a prior conflict error. The store never resends a stale
+whole-document snapshot and never keeps a document history. A caller's
+snapshot carries the revision it was derived from; if that revision is not the
+store's adopted revision, the store re-reads and conflicts rather than letting
+a first bar persist overwrite what the settings application already wrote.
+The settings application starts on the control socket when the bar answers and
+otherwise uses the file transport. A server-side rejection
+(`ControlServerException`) stays on the socket; it flips to the file only after
+the first `ControlSocketException`, including a save after the bar exits, and
+the fallback is sticky for the session.
 
 **Persistence.** The file transport keeps the current document plus one
-last-good copy. A write snapshots the last document known to decode
-(`_lastGood`) into `.prev` through `.prev.tmp` and an atomic rename, then
-writes the live document through `.tmp` and renames it into place. It never
-copies the possibly corrupt live file into `.prev`. A read tries the live
-document, then `.prev`, then the in-memory last-good copy. An unreadable
-candidate is skipped the same way as an undecodable one. Normal bootstrap uses
-this recovery; `--check` still validates the live document itself. This is
-current + last-good + one previous snapshot, not a history.
+last-good copy. A write takes an advisory lock on `settings.json.lock`, so its
+read/check/rename is one critical section across transports and processes;
+the lock file is retained, never deleted (deleting it would defeat exclusion).
+Production waits for the lock asynchronously; widget tests opt into the sync
+lock. A write snapshots the last document known to decode (`_lastGood`) into
+`.prev` through a unique `.prev.tmp.<pid>.<time>` file and an atomic rename,
+then writes the live document through a unique `.tmp.<pid>.<time>` file and
+renames it into place. It never copies the possibly corrupt live file into
+`.prev`.
+
+A valid live document always wins, including a deliberate external rollback to
+a lower revision. `.prev` and the in-memory last-good copy recover only when
+the live document is missing, unreadable, or corrupt; between those two, the
+newer revision wins. An unreadable candidate is skipped the same way as an
+undecodable one. Normal bootstrap uses this recovery, seeds `.prev`-backed
+documents instead of overwriting them, and reports an outputs parse error and
+a settings parse error independently; `--check` still validates the live
+document itself. A settings document that failed to load is never replaced by
+editor defaults: the save re-reads and conflicts against the real revision.
+This is current + last-good + one previous snapshot, not a history.
+
+**Editing and close.** Same-frame edits compose onto the pending document in
+the settings application, while the same field still collapses to its latest
+value. Closing from the in-app close control flushes pending settings and
+outputs, rebases edits made while a write was in flight, and drains until
+nothing is pending (bounded at 3 s). A titlebar close or Alt+F4 reaches Dart
+through `settingsCloseRequested`; the native delete handler holds the window
+while Dart flushes and calls `settingsClose`, with a 5 s native fallback so a
+dead isolate cannot make the window unclosable. A failed flush still closes.
 
 **Gaps.**
 
@@ -128,7 +157,9 @@ reloads through the bootstrap path. A watch stream that errors or closes is
 replaced after 500 ms, doubling to a 5 s cap; dispose is terminal.
 `ConfigWatcher.start` never throws: a directory-creation or watch failure
 enters the same retry path, and dispose leaves no subscription, debounce, or
-restart timer. An invalid file logs and keeps last-good state; the bar never
+restart timer. An invalid file logs and keeps last-good state; the other
+document from the same reload still applies, so a corrupt `settings.json` does
+not postpone a valid `outputs.conf` change (or the reverse). The bar never
 crashes over config.
 
 - **Hot keys** (accent, module list/order, clock format, thresholds) rebuild

@@ -53,6 +53,10 @@ Versioned document with Denial's revision discipline: one async write queue, `ex
 }
 ```
 
+Writes from the bar and the settings window share one revision line and one cross-process lock. If the document changed since the editor loaded it, the save is rejected instead of overwriting the other writer; the editor shows the conflict and reloads the latest document. An unsaved edit survives an external change and still conflicts when saved, so neither writer loses fields silently. Closing the settings window flushes pending settings and display edits first: the close control, the titlebar close, and Alt+F4 all wait for the write to land (with a bounded fallback) before the window disappears, and a failed save never leaves the window unclosable.
+
+A valid live `settings.json` always wins, even when its revision is lower than one seen earlier — a deliberate rollback is honored. The `.prev` snapshot and in-memory copy are used only when the live file is missing, unreadable, or corrupt. A corrupt settings document keeps last-good settings without blocking a valid `outputs.conf` reload, and the settings window never replaces a document it could not load with defaults.
+
 ### Module options
 
 The `modules` list enables the modules and sets their order inside each
