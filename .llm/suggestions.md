@@ -73,11 +73,6 @@ Nothing in this file authorizes performance work.
 - **Equatable 3.0 still compares `runtimeType` at the top level;**
   single-state-per-bloc architecture makes cross-class collisions inert.
 
-- **`SessionConfig` writes `onDemand` but only parses `on_demand`.** The
-  default keyboard value does not survive `toJson`/`fromJson`; the existing
-  round-trip test uses `exclusive` and misses it. Accept both spellings or
-  serialize the wire name.
-
 - **OpenCode's usage API is experimental.** The module reads
   `$XDG_STATE_HOME/opencode/service.json` and
   `/api/experimental/usage/limits`, both internal OpenCode surfaces that may
