@@ -204,7 +204,7 @@ samplers keep their normal cadence.
 | --- | --- | --- |
 | CPU | 1 Hz `/proc/stat` | Paused; one 100 ms prime sample on resume; 45-sample history; reused buffer |
 | RAM | 1 Hz `/proc/meminfo` | Paused; one fresh immediate sample on resume; 45-sample history; reused 8 KiB buffer |
-| GPU | 1 Hz sysfs/NVML | Paused; in-flight generation dropped; 45-sample history |
+| GPU / VRAM | 1 Hz sysfs/NVML; usage and memory flags | Paused; in-flight generation dropped; 45-sample histories; one timer and one NVML worker whether either or both modules are configured |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
 | MPRIS | Worker isolate; D-Bus signals + 60 s recovery | Recovery scan paused; signals and current state stay live; one scan on resume; 16-player cap |
