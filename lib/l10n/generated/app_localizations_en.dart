@@ -34,6 +34,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get desktopGpuLabel => 'GPU';
 
   @override
+  String get desktopVramLabel => 'VRAM';
+
+  @override
   String get mediaControls => 'Media controls';
 
   @override
@@ -165,6 +168,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUnavailableNoBattery => 'No battery detected';
 
   @override
+  String get settingsUnavailableNoVram => 'No dedicated GPU memory detected';
+
+  @override
   String settingsModuleOptions(String module) {
     return '$module options';
   }
@@ -270,6 +276,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moduleGpu => 'GPU';
+
+  @override
+  String get moduleVram => 'Video memory';
 
   @override
   String get moduleBattery => 'Battery';

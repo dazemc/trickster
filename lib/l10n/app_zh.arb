@@ -38,6 +38,10 @@
   "@desktopGpuLabel": {
     "description": "Caption for a GPU meter when no device name is known."
   },
+  "desktopVramLabel": "VRAM",
+  "@desktopVramLabel": {
+    "description": "Caption for a VRAM meter when no device name is known."
+  },
   "mediaControls": "媒体控件",
   "@mediaControls": {
     "description": "Accessible label for the media pill."
@@ -213,6 +217,10 @@
   "@settingsUnavailableNoBattery": {
     "description": "Reason shown when no battery is detected."
   },
+  "settingsUnavailableNoVram": "未检测到独立显存",
+  "@settingsUnavailableNoVram": {
+    "description": "Reason shown when no dedicated GPU memory source is detected."
+  },
   "settingsModuleOptions": "{module} 选项",
   "@settingsModuleOptions": {
     "description": "Gear label revealing one module's options.",
@@ -357,6 +365,10 @@
   "moduleGpu": "GPU",
   "@moduleGpu": {
     "description": "Display name of the GPU module."
+  },
+  "moduleVram": "显存",
+  "@moduleVram": {
+    "description": "Display name of the VRAM module."
   },
   "moduleBattery": "电池",
   "@moduleBattery": {

@@ -14,6 +14,7 @@ import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/pill_tooltip.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
@@ -209,16 +210,19 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
       ),
       'gpu': (position) => BlocBuilder<GpuBloc, GpuState>(
         builder: (context, state) {
-          if (state.loads.isEmpty) {
+          final loads = state.loads
+              .where((load) => load.usage != null)
+              .toList(growable: false);
+          if (loads.isEmpty) {
             return const SizedBox.shrink();
           }
           return Flex(
             direction: horizontal ? Axis.horizontal : Axis.vertical,
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (var i = 0; i < state.loads.length; i += 1)
+              for (var i = 0; i < loads.length; i += 1)
                 SystemBarEntrance(
-                  key: ValueKey<String>('system-bar-gpu-${state.loads[i].id}'),
+                  key: ValueKey<String>('system-bar-gpu-${loads[i].id}'),
                   index: position,
                   horizontal: horizontal,
                   child: Padding(
@@ -232,7 +236,7 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                     child: RepaintBoundary(
                       child: GpuPill(
                         accent: accent,
-                        load: state.loads[i],
+                        load: loads[i],
                         warn: settings.gpu.warn,
                         critical: settings.gpu.critical,
                         captionSource: settings.gpu.captionSource,
@@ -240,6 +244,53 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
                         warnColor: settings.gpu.warnColor,
                         criticalColor: settings.gpu.criticalColor,
                         sparkline: settings.gpu.sparkline,
+                        vertical: vertical,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+      'vram': (position) => BlocBuilder<GpuBloc, GpuState>(
+        builder: (context, state) {
+          final loads = state.loads
+              .where((load) => load.memoryFraction != null)
+              .toList(growable: false);
+          if (loads.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return Flex(
+            direction: horizontal ? Axis.horizontal : Axis.vertical,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < loads.length; i += 1)
+                SystemBarEntrance(
+                  key: ValueKey<String>('system-bar-vram-${loads[i].id}'),
+                  index: position,
+                  horizontal: horizontal,
+                  child: Padding(
+                    padding: vertical
+                        ? const EdgeInsets.only(
+                            bottom: TricksterBarStrip._cardGap,
+                          )
+                        : const EdgeInsets.only(
+                            right: TricksterBarStrip._cardGap,
+                          ),
+                    child: RepaintBoundary(
+                      child: VramPill(
+                        accent: accent,
+                        load: loads[i],
+                        index: i,
+                        count: loads.length,
+                        warn: settings.vram.warn,
+                        critical: settings.vram.critical,
+                        captionSource: settings.vram.captionSource,
+                        captionPrefix: settings.vram.captionPrefix,
+                        warnColor: settings.vram.warnColor,
+                        criticalColor: settings.vram.criticalColor,
+                        sparkline: settings.vram.sparkline,
                         vertical: vertical,
                       ),
                     ),

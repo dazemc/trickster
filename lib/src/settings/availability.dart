@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:trickster/src/services/gpu.dart';
+
 /// One module that cannot run on this machine, with the reason why.
 class ModuleAvailability {
   const ModuleAvailability({required this.module, required this.reason});
@@ -9,7 +11,7 @@ class ModuleAvailability {
 }
 
 /// Why a module cannot run here; the settings page maps this to a caption.
-enum ModuleUnavailableReason { noBattery }
+enum ModuleUnavailableReason { noBattery, noVram }
 
 /// Probes the machine for hardware the bar might not find. The settings page
 /// takes this as a parameter so tests (and future remote transports) can
@@ -21,6 +23,14 @@ List<ModuleAvailability> probeModuleAvailability() {
       const ModuleAvailability(
         module: 'battery',
         reason: ModuleUnavailableReason.noBattery,
+      ),
+    );
+  }
+  if (!hasGpuMemorySource()) {
+    unavailable.add(
+      const ModuleAvailability(
+        module: 'vram',
+        reason: ModuleUnavailableReason.noVram,
       ),
     );
   }

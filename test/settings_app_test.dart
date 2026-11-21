@@ -386,6 +386,8 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Modules'));
     await tester.pump();
 
+    expect(find.text('Video memory'), findsOneWidget);
+
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
@@ -458,6 +460,25 @@ void main() {
     await reset('reset-ram-meter-caption');
     expect(bloc.settings.ram.captionSource, MeterCaptionSource.generic);
 
+    await openOptions('vram');
+    await nudgeToMax('options-vram-warn');
+    await reset('reset-vram-warn');
+    expect(bloc.settings.vram.warn, const VramOptions().warn);
+    await reset('reset-vram-critical');
+    expect(bloc.settings.vram.critical, const VramOptions().critical);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('vram-meter-caption-device')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('vram-meter-caption-device')),
+    );
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.vram.captionSource, MeterCaptionSource.device);
+    await reset('reset-vram-meter-caption');
+    expect(bloc.settings.vram.captionSource, MeterCaptionSource.generic);
+
     await openOptions('battery');
     await nudgeToMax('options-battery-warn');
     await reset('reset-battery-warn');
@@ -485,6 +506,8 @@ void main() {
     expect(decoded.cpu.critical, const CpuOptions().critical);
     expect(decoded.ram.warn, const RamOptions().warn);
     expect(decoded.ram.critical, const RamOptions().critical);
+    expect(decoded.vram.warn, const VramOptions().warn);
+    expect(decoded.vram.critical, const VramOptions().critical);
     expect(decoded.battery.warn, const BatteryOptions().warn);
     expect(decoded.battery.critical, const BatteryOptions().critical);
     expect(decoded.gpu.captionSource, const GpuOptions().captionSource);
@@ -691,6 +714,10 @@ void main() {
           module: 'battery',
           reason: ModuleUnavailableReason.noBattery,
         ),
+        ModuleAvailability(
+          module: 'vram',
+          reason: ModuleUnavailableReason.noVram,
+        ),
       ],
     );
     await tester.tap(find.bySemanticsLabel('Modules'));
@@ -705,6 +732,11 @@ void main() {
     );
     expect(battery, findsOneWidget);
     expect(find.text('No battery detected'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('module-unavailable-vram')),
+      findsOneWidget,
+    );
+    expect(find.text('No dedicated GPU memory detected'), findsOneWidget);
     // The battery is not offered as a toggle in a zone segment.
     expect(
       find.byKey(const ValueKey<String>('module-toggle-battery')),

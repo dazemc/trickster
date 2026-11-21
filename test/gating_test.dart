@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/ram.dart';
+import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
@@ -438,6 +441,77 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.byType(CpuPill), findsNothing);
+  });
+
+  testWidgets('vram-only idle dispatches the shared GPU events', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final gpu = _RecordingGpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'vram']),
+      seatIdleChanges: changes.stream,
+      gpuSamplerBuilder: () => gpu,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(gpu.starts, 1);
+    expect(gpu.pauses, 1);
+    expect(gpu.resumes, 1);
+  });
+
+  testWidgets('gpu and vram share exactly one GpuBloc', (tester) async {
+    var builds = 0;
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'gpu', 'vram']),
+      gpuBuilder: () {
+        builds += 1;
+        return GpuBloc(
+          initial: const GpuState([
+            GpuLoad(
+              id: 'card0',
+              label: 'AMD0',
+              usage: 0.4,
+              memoryUsedBytes: 500,
+              memoryTotalBytes: 1000,
+            ),
+          ]),
+        );
+      },
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(builds, 1);
+    expect(find.byType(GpuPill), findsOneWidget);
+    expect(find.byType(VramPill), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-gpu-card0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-vram-card0')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('disabled vram alone builds no GpuBloc or sampler', (
+    tester,
+  ) async {
+    final gpu = _RecordingGpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      gpuSamplerBuilder: () => gpu,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(gpu.starts, 0);
+    expect(find.byType(VramPill), findsNothing);
   });
 
   testWidgets('ram-only idle dispatches only the ram events', (tester) async {

@@ -701,13 +701,20 @@ cpu MHz\t\t: 3400.000
 
     test('gpu state json round-trips', () {
       final state = GpuState([
-        const GpuLoad(id: 'card0', label: 'AMD0').append(0.4).append(0.5),
+        const GpuLoad(id: 'card0', label: 'AMD0')
+            .append(0.4, memoryUsedBytes: 400, memoryTotalBytes: 1000)
+            .append(0.5, memoryUsedBytes: 500, memoryTotalBytes: 1000),
       ]);
       final decoded = GpuState.fromJson(
         Map<String, dynamic>.from(state.toJson()),
       );
       expect(decoded, state);
-      expect(decoded.loads.single.history, [0.4, 0.5]);
+      final load = decoded.loads.single;
+      expect(load.history, [0.4, 0.5]);
+      expect(load.memoryUsedBytes, 500);
+      expect(load.memoryTotalBytes, 1000);
+      expect(load.memoryFraction, 0.5);
+      expect(load.memoryHistory, [0.4, 0.5]);
     });
   });
 

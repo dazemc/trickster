@@ -141,6 +141,12 @@ abstract class AppLocalizations {
   /// **'GPU'**
   String get desktopGpuLabel;
 
+  /// Caption for a VRAM meter when no device name is known.
+  ///
+  /// In en, this message translates to:
+  /// **'VRAM'**
+  String get desktopVramLabel;
+
   /// Accessible label for the media pill.
   ///
   /// In en, this message translates to:
@@ -387,6 +393,12 @@ abstract class AppLocalizations {
   /// **'No battery detected'**
   String get settingsUnavailableNoBattery;
 
+  /// Reason shown when no dedicated GPU memory source is detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No dedicated GPU memory detected'**
+  String get settingsUnavailableNoVram;
+
   /// Gear label revealing one module's typed options.
   ///
   /// In en, this message translates to:
@@ -596,6 +608,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'GPU'**
   String get moduleGpu;
+
+  /// Display name of the VRAM module.
+  ///
+  /// In en, this message translates to:
+  /// **'Video memory'**
+  String get moduleVram;
 
   /// Display name of the battery module.
   ///

@@ -37,6 +37,7 @@ bool moduleHasOptions(String module) {
     'cpu' ||
     'ram' ||
     'gpu' ||
+    'vram' ||
     'battery' ||
     'media' ||
     'opencode' => true,
@@ -900,6 +901,132 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             ),
             onSparkline: (settings, value) =>
                 settings.copyWith(gpu: settings.gpu.copyWith(sparkline: value)),
+          ),
+        ],
+      ),
+      'vram' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-vram-warn'),
+            label: l10n.settingsWarnLabel,
+            value: settings.vram.warn,
+            min: 0,
+            max: 1,
+            display: '${(settings.vram.warn * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-vram-warn'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+            resetEnabled: settings.vram.warn != const VramOptions().warn,
+            onChanged: (value) {
+              final warn = value;
+              _apply(controller, (settings) {
+                final critical = settings.vram.critical <= warn
+                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    : settings.vram.critical;
+                return settings.copyWith(
+                  vram: settings.vram.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final warn = math
+                  .min(const VramOptions().warn, settings.vram.critical - 0.01)
+                  .clamp(0.0, 0.99);
+              return settings.copyWith(
+                vram: settings.vram.copyWith(warn: warn),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('vram-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.vram.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                vram: settings.vram.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                vram: settings.vram.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-vram-warn-color'),
+          ),
+          const SizedBox(height: 10),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-vram-critical'),
+            label: l10n.settingsCriticalLabel,
+            value: settings.vram.critical,
+            min: 0,
+            max: 1,
+            display: '${(settings.vram.critical * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-vram-critical'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
+            resetEnabled:
+                settings.vram.critical != const VramOptions().critical,
+            onChanged: (value) {
+              final critical = value;
+              _apply(controller, (settings) {
+                final warn = settings.vram.warn >= critical
+                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    : settings.vram.warn;
+                return settings.copyWith(
+                  vram: settings.vram.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final critical = math
+                  .max(const VramOptions().critical, settings.vram.warn + 0.01)
+                  .clamp(0.01, 1.0);
+              return settings.copyWith(
+                vram: settings.vram.copyWith(critical: critical),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('vram-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.vram.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                vram: settings.vram.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                vram: settings.vram.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-vram-critical-color'),
+          ),
+          ..._meterControls(
+            l10n: l10n,
+            controller: controller,
+            prefix: 'vram',
+            captionSource: settings.vram.captionSource,
+            captionPrefix: settings.vram.captionPrefix,
+            sparkline: settings.vram.sparkline,
+            onCaption: (settings, source) => settings.copyWith(
+              vram: settings.vram.copyWith(captionSource: source),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              vram: settings.vram.copyWith(
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
+              ),
+            ),
+            onSparkline: (settings, value) => settings.copyWith(
+              vram: settings.vram.copyWith(sparkline: value),
+            ),
           ),
         ],
       ),

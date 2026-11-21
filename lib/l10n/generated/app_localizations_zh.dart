@@ -34,6 +34,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get desktopGpuLabel => 'GPU';
 
   @override
+  String get desktopVramLabel => 'VRAM';
+
+  @override
   String get mediaControls => '媒体控件';
 
   @override
@@ -161,6 +164,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoBattery => '未检测到电池';
 
   @override
+  String get settingsUnavailableNoVram => '未检测到独立显存';
+
+  @override
   String settingsModuleOptions(String module) {
     return '$module 选项';
   }
@@ -266,6 +272,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get moduleGpu => 'GPU';
+
+  @override
+  String get moduleVram => '显存';
 
   @override
   String get moduleBattery => '电池';

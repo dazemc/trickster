@@ -11,10 +11,22 @@ void _nvmlWorker(List<SendPort> bootstrap) {
     if (operation != 1) {
       throw UnsupportedError('Unknown operation $operation');
     }
+    var includeUsage = true;
+    var includeMemory = true;
+    if (payload is List<Object?> && payload.length == 2) {
+      includeUsage = payload[0] != false;
+      includeMemory = payload[1] != false;
+    }
     return <Object?>[
       null,
       <Object?>[
-        <Object?>[0, 0.5, 'Test GPU'],
+        <Object?>[
+          0,
+          includeUsage ? 0.5 : null,
+          'Test GPU',
+          includeMemory ? 100 : null,
+          includeMemory ? 200 : null,
+        ],
       ],
     ];
   });
@@ -48,6 +60,24 @@ void main() {
     expect(read.samples.single.index, 0);
     expect(read.samples.single.usage, closeTo(0.5, 0.0001));
     expect(read.samples.single.name, 'Test GPU');
+    expect(read.samples.single.usedBytes, 100);
+    expect(read.samples.single.totalBytes, 200);
+
+    final memoryOnly = await reader.read(
+      includeUsage: false,
+      includeMemory: true,
+    );
+    expect(memoryOnly.samples.single.usage, isNull);
+    expect(memoryOnly.samples.single.usedBytes, 100);
+    expect(memoryOnly.samples.single.totalBytes, 200);
+
+    final usageOnly = await reader.read(
+      includeUsage: true,
+      includeMemory: false,
+    );
+    expect(usageOnly.samples.single.usage, closeTo(0.5, 0.0001));
+    expect(usageOnly.samples.single.usedBytes, isNull);
+    expect(usageOnly.samples.single.totalBytes, isNull);
   });
 
   test('a timeout enters cooldown instead of respawning immediately', () async {

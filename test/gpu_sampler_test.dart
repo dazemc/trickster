@@ -37,16 +37,34 @@ Directory _createRoot(
 
 String _driverPath(Directory root) => '${root.path}/nvidia-version';
 
+void _writeDeviceFile(
+  Directory root,
+  String card,
+  String relative,
+  String value,
+) {
+  File('${root.path}/$card/device/$relative')
+    ..createSync(recursive: true)
+    ..writeAsStringSync(value);
+}
+
 class FakeNvmlReader extends NvmlReader {
   FakeNvmlReader([this.samples = const [], this.error]);
 
   final List<NvidiaGpuSample> samples;
   final String? error;
   var reads = 0;
+  bool? includeUsage;
+  bool? includeMemory;
 
   @override
-  Future<NvmlRead> read() async {
+  Future<NvmlRead> read({
+    bool includeUsage = true,
+    bool includeMemory = true,
+  }) async {
     reads += 1;
+    this.includeUsage = includeUsage;
+    this.includeMemory = includeMemory;
     return (samples: samples, error: error);
   }
 
@@ -62,12 +80,16 @@ class BlockingNvmlReader extends NvmlReader {
   var disposed = 0;
   var active = 0;
   var maxActive = 0;
+  bool? includeUsage;
+  bool? includeMemory;
 
   bool get hasPending => _pending != null;
 
   @override
-  Future<NvmlRead> read() {
+  Future<NvmlRead> read({bool includeUsage = true, bool includeMemory = true}) {
     reads += 1;
+    this.includeUsage = includeUsage;
+    this.includeMemory = includeMemory;
     active += 1;
     if (active > maxActive) {
       maxActive = active;
@@ -148,6 +170,209 @@ void main() {
     final again = await sampler.sample();
     expect(again.map((load) => load.usage), [0.4, 0.8, 0.1]);
     expect(again.first.history, [0.4, 0.4]);
+  });
+
+  test('maps dedicated VRAM bytes and keeps a memory series', () async {
+    final root = _createRoot({'card0': ('0x1002', '40')});
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '1000');
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '250');
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(loads.single.usage, closeTo(0.4, 1e-9));
+    expect(loads.single.memoryUsedBytes, 250);
+    expect(loads.single.memoryTotalBytes, 1000);
+    expect(loads.single.memoryFraction, closeTo(0.25, 1e-9));
+    expect(loads.single.memoryHistory, [0.25]);
+
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '500');
+    final again = await sampler.sample();
+    expect(again.single.memoryFraction, closeTo(0.5, 1e-9));
+    expect(again.single.memoryHistory, [0.25, 0.5]);
+  });
+
+  test('reads Xe tile VRAM on a memory-only card', () async {
+    final root = _createRoot({'card0': ('0x8086', null)});
+    _writeDeviceFile(root, 'card0', 'tile0/vram0/total_bytes', '2000');
+    _writeDeviceFile(root, 'card0', 'tile0/vram0/used_bytes', '500');
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(loads, hasLength(1));
+    expect(loads.single.id, 'card0');
+    expect(loads.single.usage, isNull);
+    expect(loads.single.memoryUsedBytes, 500);
+    expect(loads.single.memoryTotalBytes, 2000);
+    expect(loads.single.memoryFraction, closeTo(0.25, 1e-9));
+  });
+
+  test(
+    'memory-only and busy-only cards keep their independent fields',
+    () async {
+      final root = _createRoot({
+        'card0': ('0x1002', '40'),
+        'card1': ('0x8086', null),
+      });
+      _writeDeviceFile(root, 'card1', 'mem_info_vram_total', '2000');
+      _writeDeviceFile(root, 'card1', 'mem_info_vram_used', '1000');
+      final sampler = GpuSampler(
+        drmRoot: root.path,
+        nvml: FakeNvmlReader(),
+        nvidiaDriverPath: _driverPath(root),
+      );
+      addTearDown(sampler.dispose);
+
+      final loads = await sampler.sample();
+      expect(loads.map((load) => load.id), ['card0', 'card1']);
+      expect(loads.first.usage, closeTo(0.4, 1e-9));
+      expect(loads.first.memoryFraction, isNull);
+      expect(loads.last.usage, isNull);
+      expect(loads.last.memoryFraction, closeTo(0.5, 1e-9));
+    },
+  );
+
+  test('zero, missing, or unreadable memory is no VRAM', () async {
+    final root = _createRoot({
+      'card0': ('0x1002', '40'),
+      'card1': ('0x8086', null),
+    });
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '0');
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '0');
+    _writeDeviceFile(root, 'card1', 'mem_info_vram_total', '2000');
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(loads, hasLength(1), reason: 'the zero/missing card is skipped');
+    expect(loads.single.id, 'card0');
+    expect(loads.single.memoryFraction, isNull);
+  });
+
+  test('usage and memory flags gate independent reads', () async {
+    final root = _createRoot({'card0': ('0x1002', '40')});
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '1000');
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '250');
+    final nvml = FakeNvmlReader();
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+      includeUsage: false,
+      includeMemory: true,
+    );
+    addTearDown(sampler.dispose);
+
+    final loads = await sampler.sample();
+    expect(loads.single.usage, isNull);
+    expect(loads.single.memoryFraction, closeTo(0.25, 1e-9));
+    expect(nvml.includeUsage, isFalse);
+    expect(nvml.includeMemory, isTrue);
+
+    final memoryOnlyRoot = _createRoot({'card0': ('0x8086', null)});
+    _writeDeviceFile(memoryOnlyRoot, 'card0', 'mem_info_vram_total', '1000');
+    _writeDeviceFile(memoryOnlyRoot, 'card0', 'mem_info_vram_used', '250');
+    final usageNvml = FakeNvmlReader();
+    final usageOnly = GpuSampler(
+      drmRoot: memoryOnlyRoot.path,
+      nvml: usageNvml,
+      nvidiaDriverPath: _driverPath(memoryOnlyRoot),
+      includeUsage: true,
+      includeMemory: false,
+    );
+    addTearDown(usageOnly.dispose);
+    expect(await usageOnly.sample(), isEmpty);
+    expect(usageNvml.includeUsage, isTrue);
+    expect(usageNvml.includeMemory, isFalse);
+  });
+
+  test('the memory series keeps the cap and appends newest last', () async {
+    final root = _createRoot({'card0': ('0x1002', '40')});
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '100');
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    late List<GpuLoad> loads;
+    for (var i = 0; i < GpuLoad.capacity + 5; i += 1) {
+      _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '$i');
+      loads = await sampler.sample();
+    }
+    final load = loads.single;
+    expect(load.memoryHistory.length, GpuLoad.capacity);
+    expect(load.memoryHistory.first, closeTo(0.05, 1e-9));
+    expect(load.memoryHistory.last, closeTo(0.49, 1e-9));
+  });
+
+  test('backward-compatible GPU JSON loads without memory keys', () {
+    final old = GpuLoad.fromJson(const <String, dynamic>{
+      'id': 'card0',
+      'label': 'AMD',
+      'usage': 0.4,
+      'history': [0.4],
+    });
+    expect(old.memoryUsedBytes, isNull);
+    expect(old.memoryTotalBytes, isNull);
+    expect(old.memoryFraction, isNull);
+    expect(old.memoryHistory, isEmpty);
+
+    const load = GpuLoad(
+      id: 'card0',
+      label: 'AMD',
+      usage: 0.4,
+      memoryUsedBytes: 500,
+      memoryTotalBytes: 1000,
+      memoryHistory: [0.5],
+    );
+    final decoded = GpuLoad.fromJson(Map<String, dynamic>.from(load.toJson()));
+    expect(decoded.memoryUsedBytes, 500);
+    expect(decoded.memoryTotalBytes, 1000);
+    expect(decoded.memoryFraction, 0.5);
+    expect(decoded.memoryHistory, [0.5]);
+  });
+
+  test('hasGpuMemorySource recognizes NVIDIA, sysfs, and absent memory', () {
+    final nvidia = _createRoot({});
+    expect(
+      hasGpuMemorySource(
+        drmRoot: nvidia.path,
+        nvidiaDriverPath: _driverPath(nvidia),
+      ),
+      isTrue,
+    );
+
+    final amd = _createRoot({'card0': ('0x1002', null)}, nvidiaDriver: false);
+    _writeDeviceFile(amd, 'card0', 'mem_info_vram_total', '1000');
+    _writeDeviceFile(amd, 'card0', 'mem_info_vram_used', '250');
+    expect(
+      hasGpuMemorySource(drmRoot: amd.path, nvidiaDriverPath: _driverPath(amd)),
+      isTrue,
+    );
+
+    final none = _createRoot({'card0': ('0x8086', '20')}, nvidiaDriver: false);
+    expect(
+      hasGpuMemorySource(
+        drmRoot: none.path,
+        nvidiaDriverPath: _driverPath(none),
+      ),
+      isFalse,
+    );
   });
 
   test('series keeps the cap and appends newest last', () async {
@@ -287,7 +512,9 @@ void main() {
       {'card1': ('0x10de', null)},
       runtimeStatus: {'card1': 'suspended'},
     );
-    final nvml = FakeNvmlReader(const [NvidiaGpuSample(index: 0, usage: 0.9)]);
+    final nvml = FakeNvmlReader(const [
+      NvidiaGpuSample(index: 0, usage: 0.9, usedBytes: 500, totalBytes: 1000),
+    ]);
     final sampler = GpuSampler(
       drmRoot: root.path,
       nvml: nvml,
@@ -300,6 +527,7 @@ void main() {
     expect(loads.single.id, 'nvml0');
     expect(loads.single.label, 'GPU');
     expect(loads.single.usage, 0.0);
+    expect(loads.single.memoryFraction, isNull);
   });
 
   test('reads NVML when the NVIDIA GPU is active', () async {

@@ -14,6 +14,9 @@ class GpuLoad extends Equatable {
     this.name,
     this.usage,
     this.history = const <double>[],
+    this.memoryUsedBytes,
+    this.memoryTotalBytes,
+    this.memoryHistory = const <double>[],
   });
 
   /// Readings each sparkline keeps: 45 samples at the 1 Hz cadence.
@@ -37,22 +40,69 @@ class GpuLoad extends Equatable {
   /// Up to [capacity] readings, oldest first; the newest equals [usage].
   final List<double> history;
 
-  GpuLoad append(double usage) {
-    final next = <double>[...history, usage];
-    if (next.length > capacity) {
-      next.removeRange(0, next.length - capacity);
+  /// Dedicated VRAM in use and total, or null when the device publishes no
+  /// memory or the read was not requested.
+  final int? memoryUsedBytes;
+  final int? memoryTotalBytes;
+
+  /// Up to [capacity] memory-used fractions, oldest first.
+  final List<double> memoryHistory;
+
+  double? get memoryFraction {
+    final used = memoryUsedBytes;
+    final total = memoryTotalBytes;
+    if (used == null || total == null || total <= 0) {
+      return null;
+    }
+    return (used / total).clamp(0.0, 1.0);
+  }
+
+  GpuLoad append(double? usage, {int? memoryUsedBytes, int? memoryTotalBytes}) {
+    final next = <double>[...history];
+    if (usage != null) {
+      next.add(usage);
+      if (next.length > capacity) {
+        next.removeRange(0, next.length - capacity);
+      }
+    }
+    final nextMemory = <double>[...memoryHistory];
+    final memoryFraction =
+        (memoryUsedBytes != null &&
+            memoryTotalBytes != null &&
+            memoryTotalBytes > 0)
+        ? (memoryUsedBytes / memoryTotalBytes).clamp(0.0, 1.0)
+        : null;
+    if (memoryFraction != null) {
+      nextMemory.add(memoryFraction);
+      if (nextMemory.length > capacity) {
+        nextMemory.removeRange(0, nextMemory.length - capacity);
+      }
     }
     return GpuLoad(
       id: id,
       label: label,
       name: name,
       usage: usage,
-      history: List.unmodifiable(next),
+      history: usage == null ? history : List.unmodifiable(next),
+      memoryUsedBytes: memoryUsedBytes,
+      memoryTotalBytes: memoryTotalBytes,
+      memoryHistory: memoryFraction == null
+          ? memoryHistory
+          : List.unmodifiable(nextMemory),
     );
   }
 
   @override
-  List<Object?> get props => [id, label, name, usage, history];
+  List<Object?> get props => [
+    id,
+    label,
+    name,
+    usage,
+    history,
+    memoryUsedBytes,
+    memoryTotalBytes,
+    memoryHistory,
+  ];
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -60,6 +110,9 @@ class GpuLoad extends Equatable {
     'name': name,
     'usage': usage,
     'history': history,
+    'memory_used_bytes': memoryUsedBytes,
+    'memory_total_bytes': memoryTotalBytes,
+    'memory_history': memoryHistory,
   };
 
   static GpuLoad fromJson(Map<String, dynamic> json) => GpuLoad(
@@ -69,6 +122,12 @@ class GpuLoad extends Equatable {
     usage: (json['usage'] as num?)?.toDouble(),
     history: [
       for (final value in json['history'] as List<dynamic>? ?? const [])
+        (value as num).toDouble(),
+    ],
+    memoryUsedBytes: (json['memory_used_bytes'] as num?)?.toInt(),
+    memoryTotalBytes: (json['memory_total_bytes'] as num?)?.toInt(),
+    memoryHistory: [
+      for (final value in json['memory_history'] as List<dynamic>? ?? const [])
         (value as num).toDouble(),
     ],
   );
@@ -101,15 +160,18 @@ class GpuState extends Equatable {
       GpuState(gpuLoadsFromJson((json['gpus'] as List?) ?? const []));
 }
 
-/// Autodetects GPU utilization without spawning sampling processes: amdgpu
-/// publishes `gpu_busy_percent` under `/sys/class/drm`; the NVIDIA proprietary
-/// driver is read over NVML on a persistent worker isolate. GPUs offering
-/// neither (i915, nouveau) simply do not appear, and NVML is only consulted
-/// when the proprietary driver or a discovered NVIDIA card is present, so
-/// AMD-only systems never load it.
+/// Autodetects GPU utilization and dedicated VRAM without spawning sampling
+/// processes: amdgpu/i915 expose `gpu_busy_percent` and `mem_info_vram_*`
+/// under `/sys/class/drm`, Xe exposes `tile0/vram0/*`, and the NVIDIA
+/// proprietary driver is read over NVML on a persistent worker isolate.
+/// [includeUsage] and [includeMemory] keep a GPU-only or VRAM-only bar from
+/// doing the other read; NVML is only consulted when the proprietary driver
+/// or a discovered NVIDIA card is present, so AMD-only systems never load it.
 class GpuSampler {
   GpuSampler({
     this.interval = const Duration(seconds: 1),
+    this.includeUsage = true,
+    this.includeMemory = true,
     String drmRoot = '/sys/class/drm',
     NvmlReader? nvml,
     String nvidiaDriverPath = '/proc/driver/nvidia/version',
@@ -120,6 +182,12 @@ class GpuSampler {
        _log = log ?? _stderrLog;
 
   final Duration interval;
+
+  /// Whether utilization is read. A VRAM-only bar sets this false.
+  final bool includeUsage;
+
+  /// Whether dedicated VRAM is read. A GPU-only bar sets this false.
+  final bool includeMemory;
   final String _drmRoot;
   final NvmlReader _nvml;
   final String _nvidiaDriverPath;
@@ -238,14 +306,43 @@ class GpuSampler {
   /// without the periodic timer) can drive it directly.
   Future<List<GpuLoad>> sample() async {
     _devices ??= _discover();
-    final reads = <({String id, String label, String? name, double usage})>[
-      for (final device in _devices!)
-        if (_busyPercent(device.busyFile) case final usage?)
-          (id: device.id, label: device.label, name: null, usage: usage),
-    ];
+    final reads =
+        <
+          ({
+            String id,
+            String label,
+            String? name,
+            double? usage,
+            int? memoryUsed,
+            int? memoryTotal,
+          })
+        >[];
+    for (final device in _devices!) {
+      final usage = includeUsage && device.busyFile != null
+          ? _busyPercent(device.busyFile!)
+          : null;
+      final memoryFiles = device.memoryFiles;
+      final memory = includeMemory && memoryFiles != null
+          ? _readMemory(memoryFiles)
+          : null;
+      if (usage == null && memory == null) {
+        continue;
+      }
+      reads.add((
+        id: device.id,
+        label: device.label,
+        name: null,
+        usage: usage,
+        memoryUsed: memory?.used,
+        memoryTotal: memory?.total,
+      ));
+    }
     if (_hasNvidia) {
       if (await _canReadNvidiaWithoutWake()) {
-        final read = await _nvml.read();
+        final read = await _nvml.read(
+          includeUsage: includeUsage,
+          includeMemory: includeMemory,
+        );
         final error = read.error;
         if (error != null && !_nvidiaFailureLogged) {
           // One line per process, not one per sample: a driver update that
@@ -260,9 +357,11 @@ class GpuSampler {
             label: GpuLoad.genericLabel,
             name: name == null || name.isEmpty ? null : name,
             usage: nvidia.usage,
+            memoryUsed: nvidia.usedBytes,
+            memoryTotal: nvidia.totalBytes,
           ));
         }
-      } else {
+      } else if (includeUsage) {
         for (
           var index = 0;
           index < _nvidiaRuntimeStatusFiles!.length;
@@ -273,6 +372,8 @@ class GpuSampler {
             label: GpuLoad.genericLabel,
             name: null,
             usage: 0.0,
+            memoryUsed: null,
+            memoryTotal: null,
           ));
         }
       }
@@ -284,7 +385,11 @@ class GpuSampler {
       for (final read in reads)
         (previous[read.id] ??
                 GpuLoad(id: read.id, label: read.label, name: read.name))
-            .append(read.usage),
+            .append(
+              read.usage,
+              memoryUsedBytes: read.memoryUsed,
+              memoryTotalBytes: read.memoryTotal,
+            ),
     ];
     _loads = _disambiguate(next);
     return _loads;
@@ -318,11 +423,22 @@ class GpuSampler {
           }
         }
         final busyFile = File('$device/gpu_busy_percent');
-        if (!busyFile.existsSync()) {
+        final memoryFiles = includeMemory ? _memoryFilesFor(device) : null;
+        final hasBusy = includeUsage && busyFile.existsSync();
+        final hasMemory =
+            includeMemory &&
+            memoryFiles != null &&
+            (_readInt(memoryFiles.totalFile) ?? 0) > 0;
+        if (!hasBusy && !hasMemory) {
           continue;
         }
         devices.add(
-          _GpuDevice(id: name, label: _vendorLabel(vendor), busyFile: busyFile),
+          _GpuDevice(
+            id: name,
+            label: _vendorLabel(vendor),
+            busyFile: hasBusy ? busyFile : null,
+            memoryFiles: hasMemory ? memoryFiles : null,
+          ),
         );
       }
     } on FileSystemException {
@@ -377,6 +493,15 @@ class GpuSampler {
     return (percent / 100.0).clamp(0.0, 1.0);
   }
 
+  ({int used, int total})? _readMemory(_GpuMemoryFiles files) {
+    final total = _readInt(files.totalFile);
+    final used = _readInt(files.usedFile);
+    if (total == null || total <= 0 || used == null || used < 0) {
+      return null;
+    }
+    return (used: used, total: total);
+  }
+
   String? _readText(File file) {
     try {
       final opened = file.openSync();
@@ -412,6 +537,9 @@ class GpuSampler {
             name: load.name,
             usage: load.usage,
             history: load.history,
+            memoryUsedBytes: load.memoryUsedBytes,
+            memoryTotalBytes: load.memoryTotalBytes,
+            memoryHistory: load.memoryHistory,
           )
         else
           load,
@@ -424,11 +552,90 @@ class _GpuDevice {
     required this.id,
     required this.label,
     required this.busyFile,
+    required this.memoryFiles,
   });
 
   final String id;
   final String label;
-  final File busyFile;
+  final File? busyFile;
+  final _GpuMemoryFiles? memoryFiles;
+}
+
+class _GpuMemoryFiles {
+  const _GpuMemoryFiles({required this.usedFile, required this.totalFile});
+
+  final File usedFile;
+  final File totalFile;
+}
+
+/// Finds the first supported dedicated-VRAM sysfs pair for one DRM device.
+///
+/// amdgpu and some i915/Arc cards publish `mem_info_vram_*`; Xe publishes
+/// `tile0/vram0/{total,used}_bytes`. Both files must exist; the caller still
+/// treats a zero or unreadable total as no memory.
+_GpuMemoryFiles? _memoryFilesFor(String device) {
+  final directTotal = File('$device/mem_info_vram_total');
+  final directUsed = File('$device/mem_info_vram_used');
+  if (directTotal.existsSync() && directUsed.existsSync()) {
+    return _GpuMemoryFiles(usedFile: directUsed, totalFile: directTotal);
+  }
+  final xeTotal = File('$device/tile0/vram0/total_bytes');
+  final xeUsed = File('$device/tile0/vram0/used_bytes');
+  if (xeTotal.existsSync() && xeUsed.existsSync()) {
+    return _GpuMemoryFiles(usedFile: xeUsed, totalFile: xeTotal);
+  }
+  return null;
+}
+
+int? _readInt(File file) {
+  try {
+    return int.tryParse(file.readAsStringSync().trim());
+  } on FileSystemException {
+    return null;
+  }
+}
+
+/// Whether this machine publishes any dedicated GPU memory source.
+///
+/// Used by the settings availability probe. It intentionally treats a
+/// present NVIDIA driver or card as available even when NVML is broken, so a
+/// probe can never block a machine whose runtime query might work.
+bool hasGpuMemorySource({
+  String drmRoot = '/sys/class/drm',
+  String nvidiaDriverPath = '/proc/driver/nvidia/version',
+}) {
+  if (File(nvidiaDriverPath).existsSync()) {
+    return true;
+  }
+  final root = Directory(drmRoot);
+  if (!root.existsSync()) {
+    return false;
+  }
+  try {
+    for (final entity in root.listSync(followLinks: false)) {
+      if (entity is! Directory) {
+        continue;
+      }
+      final name = entity.uri.pathSegments
+          .where((part) => part.isNotEmpty)
+          .last;
+      if (!RegExp(r'^card\d+$').hasMatch(name)) {
+        continue;
+      }
+      final device = '${entity.path}/device';
+      if (File('$device/vendor').existsSync() &&
+          File('$device/vendor').readAsStringSync().trim() == '0x10de') {
+        return true;
+      }
+      final files = _memoryFilesFor(device);
+      if (files != null && (_readInt(files.totalFile) ?? 0) > 0) {
+        return true;
+      }
+    }
+  } on FileSystemException {
+    return false;
+  }
+  return false;
 }
 
 void _stderrLog(String message) => stderr.writeln(message);

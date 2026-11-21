@@ -46,9 +46,15 @@ class GpuSampled extends GpuEvent {
 }
 
 class GpuBloc extends Bloc<GpuEvent, GpuState> {
-  GpuBloc({GpuSampler? sampler, GpuState initial = const GpuState()})
-    : _sampler = sampler ?? GpuSampler(),
-      super(initial) {
+  GpuBloc({
+    GpuSampler? sampler,
+    GpuState initial = const GpuState(),
+    bool includeUsage = true,
+    bool includeMemory = true,
+  }) : _sampler =
+           sampler ??
+           GpuSampler(includeUsage: includeUsage, includeMemory: includeMemory),
+       super(initial) {
     on<GpuStarted>(_onStarted);
     on<GpuPaused>(_onPaused);
     on<GpuResumed>(_onResumed);

@@ -88,6 +88,7 @@ class ModuleScope extends StatelessWidget {
         settings.includes('cpu') ||
         settings.includes('ram') ||
         settings.includes('gpu') ||
+        settings.includes('vram') ||
         settings.includes('battery') ||
         settings.includes('media') ||
         settings.includes('opencode');
@@ -113,11 +114,15 @@ class ModuleScope extends StatelessWidget {
                   RamStarted(paused: context.read<SeatIdleBloc>().state.idle),
                 )),
           ),
-        if (settings.includes('gpu'))
+        if (settings.includes('gpu') || settings.includes('vram'))
           BlocProvider<GpuBloc>(
             create: (context) =>
                 gpuBuilder?.call() ??
-                (GpuBloc(sampler: gpuSamplerBuilder?.call())..add(
+                (GpuBloc(
+                  sampler: gpuSamplerBuilder?.call(),
+                  includeUsage: settings.includes('gpu'),
+                  includeMemory: settings.includes('vram'),
+                )..add(
                   GpuStarted(paused: context.read<SeatIdleBloc>().state.idle),
                 )),
           ),
@@ -190,7 +195,7 @@ class ModuleScope extends StatelessWidget {
                     state.idle ? const RamPaused() : const RamResumed(),
                   );
                 }
-                if (settings.includes('gpu')) {
+                if (settings.includes('gpu') || settings.includes('vram')) {
                   context.read<GpuBloc>().add(
                     state.idle ? const GpuPaused() : const GpuResumed(),
                   );

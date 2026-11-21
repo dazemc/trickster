@@ -12,7 +12,9 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/ram.dart';
+import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
@@ -428,6 +430,70 @@ void main() {
       'total_bytes': 8 * 1024 * 1024,
       'history': [0.5, 0.75],
     });
+    expect(state['seat_idle'], {'idle': false});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status carries VRAM inside the shared gpu state', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) => SettingsBloc(const BarSettings(modules: ['vram'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<GpuBloc>(
+            create: (_) => GpuBloc(
+              initial: const GpuState([
+                GpuLoad(
+                  id: 'card0',
+                  label: 'AMD0',
+                  usage: 0.4,
+                  history: [0.4],
+                  memoryUsedBytes: 500,
+                  memoryTotalBytes: 1000,
+                  memoryHistory: [0.5],
+                ),
+              ]),
+            ),
+          ),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: false),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state.containsKey('vram'), isFalse);
+    final gpu = (state['gpu']! as Map<String, Object?>)['gpus']! as List;
+    final load = gpu.single as Map<String, Object?>;
+    expect(load['memory_used_bytes'], 500);
+    expect(load['memory_total_bytes'], 1000);
+    expect(load['memory_history'], [0.5]);
     expect(state['seat_idle'], {'idle': false});
     expect(jsonEncode(reply), isA<String>());
   });

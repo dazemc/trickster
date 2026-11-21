@@ -22,6 +22,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
     'media' => l10n.moduleMedia,
     'cpu' => l10n.moduleCpu,
     'gpu' => l10n.moduleGpu,
+    'vram' => l10n.moduleVram,
     'ram' => l10n.moduleRam,
     'battery' => l10n.moduleBattery,
     'clock' => l10n.moduleClock,
@@ -33,6 +34,7 @@ String moduleLabel(AppLocalizations l10n, String module) {
 String _reasonLabel(AppLocalizations l10n, ModuleUnavailableReason reason) {
   return switch (reason) {
     ModuleUnavailableReason.noBattery => l10n.settingsUnavailableNoBattery,
+    ModuleUnavailableReason.noVram => l10n.settingsUnavailableNoVram,
   };
 }
 

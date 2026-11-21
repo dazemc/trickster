@@ -54,6 +54,7 @@ Future<Map<String, Object?>> handleControlRequest({
           settings.includes('cpu') ||
               settings.includes('ram') ||
               settings.includes('gpu') ||
+              settings.includes('vram') ||
               settings.includes('battery') ||
               settings.includes('opencode')
           ? _read<SeatIdleBloc>(context)

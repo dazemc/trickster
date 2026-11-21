@@ -11,6 +11,7 @@ import 'package:trickster/src/bar/cpu.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/shell_keys.dart';
@@ -119,6 +120,28 @@ void main() {
     );
     final handle = tester.ensureSemantics();
     expect(_nodeByLabel(tester, 'RAM').getSemanticsData().value, '50%');
+    handle.dispose();
+  });
+
+  testWidgets('vram meter announces the VRAM caption and percent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _keymap(
+        const VramPill(
+          accent: _accent,
+          load: GpuLoad(
+            id: 'card0',
+            label: 'AMD0',
+            memoryUsedBytes: 500,
+            memoryTotalBytes: 1000,
+            memoryHistory: [0.5],
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    expect(_nodeByLabel(tester, 'VRAM').getSemanticsData().value, '50%');
     handle.dispose();
   });
 

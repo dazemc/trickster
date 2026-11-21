@@ -13,6 +13,7 @@ import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/tray.dart';
+import 'package:trickster/src/bar/vram.dart';
 import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
@@ -133,6 +134,49 @@ void main() {
     await tester.pump();
     expect(find.byType(RamPill), findsNothing);
   });
+
+  testWidgets(
+    'vram cards follow the shared GPU state and hide without memory',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await pumpBarHarness(
+        tester,
+        gpuInitial: const GpuState([
+          GpuLoad(
+            id: 'card0',
+            label: 'AMD0',
+            usage: 0.4,
+            history: [0.4],
+            memoryUsedBytes: 600,
+            memoryTotalBytes: 1000,
+            memoryHistory: [0.6],
+          ),
+        ]),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(VramPill), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('system-bar-vram-card0')),
+        findsOneWidget,
+      );
+      expect(find.text('VRAM'), findsOneWidget);
+      expect(find.text('60%', findRichText: true), findsOneWidget);
+
+      final gpu = tester
+          .element(find.byType(TricksterBarStrip))
+          .read<GpuBloc>();
+      gpu.add(
+        const GpuSampled([
+          GpuLoad(id: 'card0', label: 'AMD0', usage: 0.4, history: [0.4]),
+        ]),
+      );
+      await tester.pump();
+      expect(find.byType(VramPill), findsNothing);
+    },
+  );
 
   testWidgets('gpu cards follow the service list', (tester) async {
     tester.view.physicalSize = const Size(1600, 200);

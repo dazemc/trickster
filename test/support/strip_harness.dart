@@ -146,6 +146,7 @@ Future<void> pumpBarHarness(
   CpuBloc Function()? cpuBuilder,
   RamBloc Function()? ramBuilder,
   GpuBloc Function()? gpuBuilder,
+  GpuState gpuInitial = const GpuState(),
   CpuSampler Function()? cpuSamplerBuilder,
   RamSampler Function()? ramSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
@@ -200,7 +201,7 @@ Future<void> pumpBarHarness(
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null
-                    ? () => GpuBloc(initial: const GpuState())
+                    ? () => GpuBloc(initial: gpuInitial)
                     : null),
             cpuSamplerBuilder: cpuSamplerBuilder,
             ramSamplerBuilder: ramSamplerBuilder,

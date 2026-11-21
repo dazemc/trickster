@@ -11,17 +11,32 @@ import 'package:trickster/src/services/background_worker.dart';
 /// worker).
 typedef NvmlRead = ({List<NvidiaGpuSample> samples, String? error});
 
-/// One NVIDIA GPU utilization reading as a 0-1 fraction.
+/// One NVIDIA GPU reading. Utilization and memory are independently optional:
+/// a memory-only query leaves [usage] null, and a GPU-only query leaves the
+/// byte fields null.
 class NvidiaGpuSample {
-  const NvidiaGpuSample({required this.index, required this.usage, this.name});
+  const NvidiaGpuSample({
+    required this.index,
+    this.usage,
+    this.name,
+    this.usedBytes,
+    this.totalBytes,
+  });
 
   /// NVML device index, stable across reads.
   final int index;
 
-  final double usage;
+  /// GPU utilization as a 0-1 fraction, or null when it was not requested or
+  /// could not be read.
+  final double? usage;
 
   /// NVML device name, or null when the query is unavailable.
   final String? name;
+
+  /// VRAM bytes in use and available, or null when memory was not requested,
+  /// the device publishes no total, or the query failed.
+  final int? usedBytes;
+  final int? totalBytes;
 }
 
 /// Typed UI-isolate facade for NVML readings owned by the persistent NVIDIA
@@ -51,7 +66,10 @@ class NvmlReader {
   final Duration _cooldown;
   DateTime? _cooldownUntil;
 
-  Future<NvmlRead> read() async {
+  Future<NvmlRead> read({
+    bool includeUsage = true,
+    bool includeMemory = true,
+  }) async {
     final now = DateTime.now();
     final cooldownUntil = _cooldownUntil;
     if (cooldownUntil != null && now.isBefore(cooldownUntil)) {
@@ -63,6 +81,7 @@ class NvmlReader {
     try {
       final read = await _worker.invoke<NvmlRead>(
         operation: _readNvidiaGpuSamples,
+        payload: <Object?>[includeUsage, includeMemory],
         decode: _decodeNvmlRead,
         timeout: _requestTimeout,
       );
@@ -99,14 +118,18 @@ NvmlRead _decodeNvmlRead(Object? response) {
     samples: <NvidiaGpuSample>[
       for (final row in rows)
         if (row is List<Object?> &&
-            row.length == 3 &&
+            row.length == 5 &&
             row[0] is int &&
-            row[1] is double &&
-            (row[2] == null || row[2] is String))
+            (row[1] == null || row[1] is double) &&
+            (row[2] == null || row[2] is String) &&
+            (row[3] == null || row[3] is int) &&
+            (row[4] == null || row[4] is int))
           NvidiaGpuSample(
             index: row[0]! as int,
-            usage: row[1]! as double,
+            usage: row[1] as double?,
             name: row[2] as String?,
+            usedBytes: row[3] as int?,
+            totalBytes: row[4] as int?,
           )
         else
           throw const FormatException('Invalid NVIDIA GPU sample'),
@@ -118,11 +141,20 @@ NvmlRead _decodeNvmlRead(Object? response) {
 @pragma('vm:entry-point')
 void _nvidiaWorkerMain(List<SendPort> bootstrap) {
   final reader = _NativeNvmlReader();
-  serveBackgroundWorker(bootstrap, (operation, _) {
+  serveBackgroundWorker(bootstrap, (operation, payload) {
     if (operation != _readNvidiaGpuSamples) {
       throw UnsupportedError('Unknown NVIDIA worker operation $operation');
     }
-    return reader.read();
+    var includeUsage = true;
+    var includeMemory = true;
+    if (payload is List<Object?> && payload.length == 2) {
+      includeUsage = payload[0] != false;
+      includeMemory = payload[1] != false;
+    }
+    return reader.read(
+      includeUsage: includeUsage,
+      includeMemory: includeMemory,
+    );
   });
 }
 
@@ -137,31 +169,53 @@ final class _NativeNvmlReader {
   _getUtilization;
   int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int)?
   _getDeviceName;
+  int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_NvmlMemory>)? _getMemory;
 
   static const _deviceNameCapacity = 96;
 
-  List<Object?> read() {
+  List<Object?> read({
+    required bool includeUsage,
+    required bool includeMemory,
+  }) {
     if (_unavailable || (_library == null && !_initialize())) {
       return <Object?>[_failure ?? 'NVML unavailable', const <Object?>[]];
     }
     final utilization = pkg_ffi.calloc<_NvmlUtilization>();
+    final memory = pkg_ffi.calloc<_NvmlMemory>();
     final name = pkg_ffi.calloc<ffi.Uint8>(_deviceNameCapacity);
     try {
       final samples = <Object?>[];
       for (var index = 0; index < _devices.length; index += 1) {
         final device = _devices[index];
-        if (_getUtilization(device, utilization) != 0) {
+        double? usage;
+        if (includeUsage && _getUtilization(device, utilization) == 0) {
+          usage = (utilization.ref.gpu / 100.0).clamp(0.0, 1.0);
+        }
+        int? usedBytes;
+        int? totalBytes;
+        final getMemory = _getMemory;
+        if (includeMemory &&
+            getMemory != null &&
+            getMemory(device, memory) == 0 &&
+            memory.ref.total > 0) {
+          usedBytes = memory.ref.used;
+          totalBytes = memory.ref.total;
+        }
+        if (usage == null && totalBytes == null) {
           continue;
         }
         samples.add(<Object?>[
           index,
-          (utilization.ref.gpu / 100.0).clamp(0.0, 1.0),
+          usage,
           _readName(device, name),
+          usedBytes,
+          totalBytes,
         ]);
       }
       return <Object?>[null, samples];
     } finally {
       pkg_ffi.calloc.free(utilization);
+      pkg_ffi.calloc.free(memory);
       pkg_ffi.calloc.free(name);
     }
   }
@@ -226,6 +280,18 @@ final class _NativeNvmlReader {
       } on Object {
         _getDeviceName = null;
       }
+      try {
+        _getMemory = library
+            .lookupFunction<
+              ffi.Int32 Function(
+                ffi.Pointer<ffi.Void>,
+                ffi.Pointer<_NvmlMemory>,
+              ),
+              int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_NvmlMemory>)
+            >('nvmlDeviceGetMemoryInfo');
+      } on Object {
+        _getMemory = null;
+      }
 
       final count = pkg_ffi.calloc<ffi.Uint32>();
       final handle = pkg_ffi.calloc<ffi.Pointer<ffi.Void>>();
@@ -256,6 +322,19 @@ final class _NvmlUtilization extends ffi.Struct {
   @ffi.Uint32()
   external int gpu;
 
+  /// Memory-controller utilization, not VRAM bytes. Never use this for the
+  /// VRAM meter; `nvmlDeviceGetMemoryInfo` supplies used/total bytes.
   @ffi.Uint32()
   external int memory;
+}
+
+final class _NvmlMemory extends ffi.Struct {
+  @ffi.Uint64()
+  external int total;
+
+  @ffi.Uint64()
+  external int free;
+
+  @ffi.Uint64()
+  external int used;
 }

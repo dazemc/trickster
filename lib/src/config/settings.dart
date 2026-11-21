@@ -437,6 +437,106 @@ class GpuOptions extends Equatable {
   }
 }
 
+/// Typed options for the per-GPU VRAM meter.
+class VramOptions extends Equatable {
+  const VramOptions({
+    this.warn = 0.85,
+    this.critical = 0.95,
+    this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
+    this.sparkline = true,
+  });
+
+  final double warn;
+  final double critical;
+  final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
+
+  /// Whether the recent-history sparkline renders.
+  final bool sparkline;
+
+  @override
+  List<Object?> get props => [
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    warnColor,
+    criticalColor,
+    sparkline,
+  ];
+
+  Map<String, Object?> toJson() => {
+    'warn': warn,
+    'critical': critical,
+    'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
+    if (warnColor != null) 'warn_color': _hex(warnColor!),
+    if (criticalColor != null) 'critical_color': _hex(criticalColor!),
+    'sparkline': sparkline,
+  };
+
+  VramOptions copyWith({
+    double? warn,
+    double? critical,
+    MeterCaptionSource? captionSource,
+    Object? captionPrefix = _unset,
+    Object? warnColor = _unset,
+    Object? criticalColor = _unset,
+    bool? sparkline,
+  }) {
+    return VramOptions(
+      warn: warn ?? this.warn,
+      critical: critical ?? this.critical,
+      captionSource: captionSource ?? this.captionSource,
+      captionPrefix: identical(captionPrefix, _unset)
+          ? this.captionPrefix
+          : captionPrefix as String?,
+      warnColor: identical(warnColor, _unset)
+          ? this.warnColor
+          : warnColor as Color?,
+      criticalColor: identical(criticalColor, _unset)
+          ? this.criticalColor
+          : criticalColor as Color?,
+      sparkline: sparkline ?? this.sparkline,
+    );
+  }
+
+  static VramOptions fromJson(Object? json) {
+    if (json == null) {
+      return const VramOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.vram must be an object');
+    }
+    final warn = _ratio(json['warn'], 'settings.vram.warn') ?? 0.85;
+    final critical = _ratio(json['critical'], 'settings.vram.critical') ?? 0.95;
+    if (warn >= critical) {
+      throw const FormatException('settings.vram.warn must be below critical');
+    }
+    return VramOptions(
+      warn: warn,
+      critical: critical,
+      captionSource: MeterCaptionSource.parse(json['caption_source']),
+      captionPrefix: _prefix(json['caption_prefix']),
+      warnColor: _meterColor(json['warn_color'], 'settings.vram.warn_color'),
+      criticalColor: _meterColor(
+        json['critical_color'],
+        'settings.vram.critical_color',
+      ),
+      sparkline: json['sparkline'] as bool? ?? true,
+    );
+  }
+}
+
 /// Typed options for the clock pill.
 enum ClockFormat {
   locale('locale'),
@@ -988,6 +1088,7 @@ class BarSettings extends Equatable {
     'media',
     'cpu',
     'gpu',
+    'vram',
     'ram',
     'battery',
     'clock',
@@ -1010,6 +1111,7 @@ class BarSettings extends Equatable {
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
+    this.vram = const VramOptions(),
     this.media = const MediaOptions(),
     this.opencode = const OpencodeOptions(),
   });
@@ -1044,6 +1146,7 @@ class BarSettings extends Equatable {
   final ClockOptions clock;
   final BatteryOptions battery;
   final GpuOptions gpu;
+  final VramOptions vram;
   final MediaOptions media;
   final OpencodeOptions opencode;
 
@@ -1070,6 +1173,7 @@ class BarSettings extends Equatable {
     clock,
     battery,
     gpu,
+    vram,
     media,
     opencode,
   ];
@@ -1124,6 +1228,7 @@ class BarSettings extends Equatable {
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
+    'vram': vram.toJson(),
     'media': media.toJson(),
     'opencode': opencode.toJson(),
     'appearance': appearance.toJson(),
@@ -1152,6 +1257,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      vram: vram,
       media: media,
       opencode: opencode,
     );
@@ -1176,6 +1282,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      vram: vram,
       media: media,
       opencode: opencode,
     );
@@ -1200,6 +1307,7 @@ class BarSettings extends Equatable {
       clock: clock,
       battery: battery,
       gpu: gpu,
+      vram: vram,
       media: media,
       opencode: opencode,
     );
@@ -1215,6 +1323,7 @@ class BarSettings extends Equatable {
     ClockOptions? clock,
     BatteryOptions? battery,
     GpuOptions? gpu,
+    VramOptions? vram,
     MediaOptions? media,
     OpencodeOptions? opencode,
     String? locale,
@@ -1241,6 +1350,7 @@ class BarSettings extends Equatable {
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
+      vram: vram ?? this.vram,
       media: media ?? this.media,
       opencode: opencode ?? this.opencode,
     );
@@ -1287,6 +1397,7 @@ class BarSettings extends Equatable {
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),
+      vram: VramOptions.fromJson(decoded['vram']),
       media: MediaOptions.fromJson(decoded['media']),
       opencode: OpencodeOptions.fromJson(decoded['opencode']),
     );
