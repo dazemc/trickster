@@ -60,11 +60,13 @@ Nothing in this file authorizes performance work.
 
 ## Performance and refresh
 
-- **StatusNotifier parsing runs on the UI isolate.** MPRIS now does its
-  parsing, discovery, and method calls in a worker isolate, but StatusNotifier
-  still creates its session client on the UI isolate; signal coalescing bounds
-  frequency, not parse cost. Moving it needs a proxy design because it exports
-  bus objects.
+- **StatusNotifier parsing runs on the UI isolate.** A full worker move is
+  not safe as one slice: exported watcher objects are pure Dart and can live in
+  a worker, but `dart:ui`/flutter_svg icon-file decoding cannot run in a
+  spawned isolate. The safe boundary is a worker-owned D-Bus backend plus a UI
+  icon decoder and snapshot merge. Requires measured tray jank, a real-worker
+  fake-bus test, and worker-crash recovery before landing. No authorized TODO
+  step.
 
 ## Idle and sampling
 
