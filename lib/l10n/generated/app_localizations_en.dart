@@ -34,6 +34,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get metricTemperature => 'TEMP';
 
   @override
+  String get metricDisk => 'DISK';
+
+  @override
+  String diskUsageDetail(String used, String total, String free) {
+    return '$used used · $total total · $free free';
+  }
+
+  @override
   String temperatureCelsius(String value) {
     return '$value°C';
   }
@@ -286,6 +294,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moduleTemperature => 'Temperature';
 
   @override
+  String get moduleDisk => 'Disk';
+
+  @override
   String get moduleGpu => 'GPU';
 
   @override
@@ -393,6 +404,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCriticalLabel => 'Critical';
+
+  @override
+  String get settingsDiskPath => 'Mount path';
 
   @override
   String get settingsMeterSection => 'Meter captions';

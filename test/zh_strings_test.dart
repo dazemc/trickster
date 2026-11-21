@@ -132,5 +132,11 @@ void main() {
     expect(l10n.metricTemperature, 'TEMP');
     expect(l10n.moduleTemperature, '温度');
     expect(l10n.temperatureCelsius('36'), '36°C');
+    expect(l10n.metricDisk, 'DISK');
+    expect(l10n.moduleDisk, '磁盘');
+    expect(
+      l10n.diskUsageDetail('620 GiB', '1 TiB', '404 GiB'),
+      '620 GiB 已用 · 1 TiB 总计 · 404 GiB 可用',
+    );
   });
 }

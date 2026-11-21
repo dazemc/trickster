@@ -444,6 +444,110 @@ class TemperatureOptions extends Equatable {
   }
 }
 
+/// Typed options for the disk meter.
+class DiskOptions extends Equatable {
+  const DiskOptions({
+    this.path = '/',
+    this.warn = 0.80,
+    this.critical = 0.95,
+    this.captionSource = MeterCaptionSource.generic,
+    this.captionPrefix,
+    this.warnColor,
+    this.criticalColor,
+  });
+
+  final String path;
+  final double warn;
+  final double critical;
+  final MeterCaptionSource captionSource;
+
+  /// Caption text when [captionSource] is custom.
+  final String? captionPrefix;
+
+  /// Threshold tints; null keeps the shell defaults.
+  final Color? warnColor;
+  final Color? criticalColor;
+
+  @override
+  List<Object?> get props => [
+    path,
+    warn,
+    critical,
+    captionSource,
+    captionPrefix,
+    warnColor,
+    criticalColor,
+  ];
+
+  Map<String, Object?> toJson() => {
+    'path': path,
+    'warn': warn,
+    'critical': critical,
+    'caption_source': captionSource.name,
+    if (captionPrefix != null) 'caption_prefix': captionPrefix,
+    if (warnColor != null) 'warn_color': _hex(warnColor!),
+    if (criticalColor != null) 'critical_color': _hex(criticalColor!),
+  };
+
+  DiskOptions copyWith({
+    String? path,
+    double? warn,
+    double? critical,
+    MeterCaptionSource? captionSource,
+    Object? captionPrefix = _unset,
+    Object? warnColor = _unset,
+    Object? criticalColor = _unset,
+  }) {
+    return DiskOptions(
+      path: path ?? this.path,
+      warn: warn ?? this.warn,
+      critical: critical ?? this.critical,
+      captionSource: captionSource ?? this.captionSource,
+      captionPrefix: identical(captionPrefix, _unset)
+          ? this.captionPrefix
+          : captionPrefix as String?,
+      warnColor: identical(warnColor, _unset)
+          ? this.warnColor
+          : warnColor as Color?,
+      criticalColor: identical(criticalColor, _unset)
+          ? this.criticalColor
+          : criticalColor as Color?,
+    );
+  }
+
+  static DiskOptions fromJson(Object? json) {
+    if (json == null) {
+      return const DiskOptions();
+    }
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('settings.disk must be an object');
+    }
+    final warn = _ratio(json['warn'], 'settings.disk.warn') ?? 0.80;
+    final critical = _ratio(json['critical'], 'settings.disk.critical') ?? 0.95;
+    if (warn >= critical) {
+      throw const FormatException('settings.disk.warn must be below critical');
+    }
+    final captionSource = MeterCaptionSource.parse(json['caption_source']);
+    if (captionSource == MeterCaptionSource.device) {
+      throw const FormatException(
+        'settings.disk.caption_source must be generic or custom',
+      );
+    }
+    return DiskOptions(
+      path: _diskPath(json['path']) ?? '/',
+      warn: warn,
+      critical: critical,
+      captionSource: captionSource,
+      captionPrefix: _prefix(json['caption_prefix']),
+      warnColor: _meterColor(json['warn_color'], 'settings.disk.warn_color'),
+      criticalColor: _meterColor(
+        json['critical_color'],
+        'settings.disk.critical_color',
+      ),
+    );
+  }
+}
+
 /// Typed options for the GPU meter; the same shape as the CPU's meter keys.
 class GpuOptions extends Equatable {
   const GpuOptions({
@@ -1066,6 +1170,21 @@ double? _celsius(Object? value, String key) {
   return value.toDouble();
 }
 
+String? _diskPath(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || value.isEmpty || !value.startsWith('/')) {
+    throw const FormatException(
+      'settings.disk.path must be an absolute mount path',
+    );
+  }
+  if (value.length >= 4096 || value.codeUnits.any((unit) => unit < 0x20)) {
+    throw const FormatException('settings.disk.path is too long or invalid');
+  }
+  return value;
+}
+
 int? _percent(Object? value, String key) {
   if (value == null) {
     return null;
@@ -1214,6 +1333,7 @@ class BarSettings extends Equatable {
     'vram',
     'ram',
     'temperature',
+    'disk',
     'battery',
     'clock',
     'opencode',
@@ -1233,6 +1353,7 @@ class BarSettings extends Equatable {
     this.cpu = const CpuOptions(),
     this.ram = const RamOptions(),
     this.temperature = const TemperatureOptions(),
+    this.disk = const DiskOptions(),
     this.clock = const ClockOptions(),
     this.battery = const BatteryOptions(),
     this.gpu = const GpuOptions(),
@@ -1269,6 +1390,7 @@ class BarSettings extends Equatable {
   final CpuOptions cpu;
   final RamOptions ram;
   final TemperatureOptions temperature;
+  final DiskOptions disk;
   final ClockOptions clock;
   final BatteryOptions battery;
   final GpuOptions gpu;
@@ -1297,6 +1419,7 @@ class BarSettings extends Equatable {
     cpu,
     ram,
     temperature,
+    disk,
     clock,
     battery,
     gpu,
@@ -1353,6 +1476,7 @@ class BarSettings extends Equatable {
     'cpu': cpu.toJson(),
     'ram': ram.toJson(),
     'temperature': temperature.toJson(),
+    'disk': disk.toJson(),
     'clock': clock.toJson(),
     'battery': battery.toJson(),
     'gpu': gpu.toJson(),
@@ -1383,6 +1507,7 @@ class BarSettings extends Equatable {
       cpu: cpu,
       ram: ram,
       temperature: temperature,
+      disk: disk,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1409,6 +1534,7 @@ class BarSettings extends Equatable {
       cpu: cpu,
       ram: ram,
       temperature: temperature,
+      disk: disk,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1435,6 +1561,7 @@ class BarSettings extends Equatable {
       cpu: cpu,
       ram: ram,
       temperature: temperature,
+      disk: disk,
       clock: clock,
       battery: battery,
       gpu: gpu,
@@ -1452,6 +1579,7 @@ class BarSettings extends Equatable {
     CpuOptions? cpu,
     RamOptions? ram,
     TemperatureOptions? temperature,
+    DiskOptions? disk,
     ClockOptions? clock,
     BatteryOptions? battery,
     GpuOptions? gpu,
@@ -1480,6 +1608,7 @@ class BarSettings extends Equatable {
       cpu: cpu ?? this.cpu,
       ram: ram ?? this.ram,
       temperature: temperature ?? this.temperature,
+      disk: disk ?? this.disk,
       clock: clock ?? this.clock,
       battery: battery ?? this.battery,
       gpu: gpu ?? this.gpu,
@@ -1528,6 +1657,7 @@ class BarSettings extends Equatable {
       cpu: CpuOptions.fromJson(decoded['cpu'], legacy: legacyMeter),
       ram: RamOptions.fromJson(decoded['ram']),
       temperature: TemperatureOptions.fromJson(decoded['temperature']),
+      disk: DiskOptions.fromJson(decoded['disk']),
       clock: ClockOptions.fromJson(decoded['clock']),
       battery: BatteryOptions.fromJson(decoded['battery']),
       gpu: GpuOptions.fromJson(decoded['gpu'], legacy: legacyMeter),

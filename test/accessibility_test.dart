@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/temperature.dart';
@@ -19,6 +20,7 @@ import 'package:trickster/src/layout/shell_keys.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -166,6 +168,27 @@ void main() {
     );
     final handle = tester.ensureSemantics();
     expect(_nodeByLabel(tester, 'CPU').getSemanticsData().value, '36°C');
+    handle.dispose();
+  });
+
+  testWidgets('disk meter announces the DISK caption and percent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _keymap(
+        const DiskPill(
+          accent: _accent,
+          sample: DiskSample(
+            path: '/',
+            usedBytes: 600,
+            totalBytes: 1000,
+            freeBytes: 300,
+          ),
+        ),
+      ),
+    );
+    final handle = tester.ensureSemantics();
+    expect(_nodeByLabel(tester, 'DISK').getSemanticsData().value, '60%');
     handle.dispose();
   });
 

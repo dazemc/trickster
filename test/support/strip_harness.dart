@@ -9,6 +9,7 @@ import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
@@ -20,6 +21,7 @@ import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/calendar_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/module_scope.dart';
@@ -148,11 +150,13 @@ Future<void> pumpBarHarness(
   CpuBloc Function()? cpuBuilder,
   RamBloc Function()? ramBuilder,
   TemperatureBloc Function()? temperatureBuilder,
+  DiskBloc Function()? diskBuilder,
   GpuBloc Function()? gpuBuilder,
   GpuState gpuInitial = const GpuState(),
   CpuSampler Function()? cpuSamplerBuilder,
   RamSampler Function()? ramSamplerBuilder,
   TemperatureSampler Function()? temperatureSamplerBuilder,
+  DiskSampler Function()? diskSamplerBuilder,
   GpuSampler Function()? gpuSamplerBuilder,
   BatterySampler Function()? batterySamplerBuilder,
   OpencodeSampler Function()? opencodeSamplerBuilder,
@@ -215,6 +219,18 @@ Future<void> pumpBarHarness(
                         ),
                       )
                     : null),
+            diskBuilder:
+                diskBuilder ??
+                (diskSamplerBuilder == null
+                    ? () => DiskBloc(
+                        initial: const DiskSample(
+                          path: '/',
+                          usedBytes: 620 * 1024 * 1024 * 1024,
+                          totalBytes: 1024 * 1024 * 1024 * 1024,
+                          freeBytes: 404 * 1024 * 1024 * 1024,
+                        ),
+                      )
+                    : null),
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null
@@ -223,6 +239,7 @@ Future<void> pumpBarHarness(
             cpuSamplerBuilder: cpuSamplerBuilder,
             ramSamplerBuilder: ramSamplerBuilder,
             temperatureSamplerBuilder: temperatureSamplerBuilder,
+            diskSamplerBuilder: diskSamplerBuilder,
             gpuSamplerBuilder: gpuSamplerBuilder,
             trayBuilder:
                 trayBuilder ?? () => TrayBloc(initial: const TrayState()),

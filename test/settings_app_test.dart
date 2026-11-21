@@ -388,6 +388,7 @@ void main() {
 
     expect(find.text('Video memory'), findsOneWidget);
     expect(find.text('Temperature'), findsOneWidget);
+    expect(find.text('Disk'), findsOneWidget);
 
     Future<void> settle() async {
       await tester.pump(const Duration(milliseconds: 400));
@@ -487,6 +488,20 @@ void main() {
     await reset('reset-temperature-meter-caption');
     expect(bloc.settings.temperature.captionSource, MeterCaptionSource.generic);
 
+    await openOptions('disk');
+    final pathField = find.byKey(const ValueKey<String>('disk-path'));
+    await tester.ensureVisible(pathField);
+    await tester.pumpAndSettle();
+    await tester.enterText(pathField, '/data');
+    await tester.pump();
+    await settle();
+    expect(bloc.settings.disk.path, '/data');
+    await nudgeToMax('options-disk-warn');
+    await reset('reset-disk-warn');
+    expect(bloc.settings.disk.warn, const DiskOptions().warn);
+    await reset('reset-disk-critical');
+    expect(bloc.settings.disk.critical, const DiskOptions().critical);
+
     await openOptions('vram');
     await nudgeToMax('options-vram-warn');
     await reset('reset-vram-warn');
@@ -535,6 +550,9 @@ void main() {
     expect(decoded.ram.critical, const RamOptions().critical);
     expect(decoded.temperature.warn, const TemperatureOptions().warn);
     expect(decoded.temperature.critical, const TemperatureOptions().critical);
+    expect(decoded.disk.path, '/data');
+    expect(decoded.disk.warn, const DiskOptions().warn);
+    expect(decoded.disk.critical, const DiskOptions().critical);
     expect(decoded.vram.warn, const VramOptions().warn);
     expect(decoded.vram.critical, const VramOptions().critical);
     expect(decoded.battery.warn, const BatteryOptions().warn);

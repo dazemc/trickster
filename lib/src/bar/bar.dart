@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/flow.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/media.dart';
@@ -23,6 +24,7 @@ import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/platform/opencode_app.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
@@ -31,6 +33,7 @@ import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
@@ -400,6 +403,36 @@ class _TricksterBarStripState extends State<TricksterBarStrip> {
               );
             },
           ),
+      'disk': (position) => BlocBuilder<DiskBloc, DiskSample>(
+        builder: (context, sample) {
+          if (sample.fraction == null) {
+            return const SizedBox.shrink();
+          }
+          return SystemBarEntrance(
+            key: const ValueKey<String>('system-bar-disk'),
+            index: position,
+            horizontal: horizontal,
+            child: Padding(
+              padding: vertical
+                  ? const EdgeInsets.only(bottom: TricksterBarStrip._cardGap)
+                  : const EdgeInsets.only(right: TricksterBarStrip._cardGap),
+              child: RepaintBoundary(
+                child: DiskPill(
+                  accent: accent,
+                  sample: sample,
+                  warn: settings.disk.warn,
+                  critical: settings.disk.critical,
+                  captionSource: settings.disk.captionSource,
+                  captionPrefix: settings.disk.captionPrefix,
+                  warnColor: settings.disk.warnColor,
+                  criticalColor: settings.disk.criticalColor,
+                  vertical: vertical,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
       'battery': (position) => BlocBuilder<BatteryBloc, BatteryStatus>(
         builder: (context, status) {
           if (status.capacity == null) {

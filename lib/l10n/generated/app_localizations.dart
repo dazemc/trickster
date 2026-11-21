@@ -141,6 +141,18 @@ abstract class AppLocalizations {
   /// **'TEMP'**
   String get metricTemperature;
 
+  /// Caption for the disk meter.
+  ///
+  /// In en, this message translates to:
+  /// **'DISK'**
+  String get metricDisk;
+
+  /// Disk tooltip detail with IEC byte values.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} used · {total} total · {free} free'**
+  String diskUsageDetail(String used, String total, String free);
+
   /// Temperature value with its Celsius unit.
   ///
   /// In en, this message translates to:
@@ -621,6 +633,12 @@ abstract class AppLocalizations {
   /// **'Temperature'**
   String get moduleTemperature;
 
+  /// Display name of the disk module.
+  ///
+  /// In en, this message translates to:
+  /// **'Disk'**
+  String get moduleDisk;
+
   /// Display name of the GPU module.
   ///
   /// In en, this message translates to:
@@ -836,6 +854,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Critical'**
   String get settingsCriticalLabel;
+
+  /// Label for the disk module's mount path option.
+  ///
+  /// In en, this message translates to:
+  /// **'Mount path'**
+  String get settingsDiskPath;
 
   /// Section heading for meter caption options.
   ///

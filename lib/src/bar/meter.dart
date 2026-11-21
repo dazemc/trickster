@@ -19,6 +19,7 @@ class LoadMeter extends StatelessWidget {
     this.vertical = false,
     this.readingText,
     this.readingUnit = '%',
+    this.stacked = false,
     super.key,
   });
 
@@ -46,6 +47,9 @@ class LoadMeter extends StatelessWidget {
   /// Unit appended to the reading; defaults to `%`.
   final String readingUnit;
 
+  /// Stacks the caption above the reading in a vertical strip.
+  final bool stacked;
+
   @override
   Widget build(BuildContext context) {
     final percent = ((current ?? 0.0) * 100).round();
@@ -60,11 +64,11 @@ class LoadMeter extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
+              if (stacked)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
                       label,
                       maxLines: 1,
                       softWrap: false,
@@ -73,10 +77,7 @@ class LoadMeter extends StatelessWidget {
                         color: captionColor,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
+                    Text(
                       '$text$unit',
                       maxLines: 1,
                       softWrap: false,
@@ -85,9 +86,37 @@ class LoadMeter extends StatelessWidget {
                         color: valueColor,
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: ShellText.systemBarCaption.copyWith(
+                          color: captionColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        '$text$unit',
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: ShellText.systemBarValue.copyWith(
+                          color: valueColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               if (sparkline) ...[
                 const SizedBox(height: 3),
                 RepaintBoundary(

@@ -38,6 +38,28 @@
   "@metricTemperature": {
     "description": "Caption for a temperature meter when no CPU sensor is selected."
   },
+  "metricDisk": "DISK",
+  "@metricDisk": {
+    "description": "Caption for the disk meter."
+  },
+  "diskUsageDetail": "{used} used · {total} total · {free} free",
+  "@diskUsageDetail": {
+    "description": "Disk tooltip detail with IEC byte values.",
+    "placeholders": {
+      "used": {
+        "type": "String",
+        "example": "620 GiB"
+      },
+      "total": {
+        "type": "String",
+        "example": "1.0 TiB"
+      },
+      "free": {
+        "type": "String",
+        "example": "404 GiB"
+      }
+    }
+  },
   "temperatureCelsius": "{value}°C",
   "@temperatureCelsius": {
     "description": "Temperature value with its Celsius unit.",
@@ -380,6 +402,10 @@
   "@moduleTemperature": {
     "description": "Display name of the temperature module."
   },
+  "moduleDisk": "Disk",
+  "@moduleDisk": {
+    "description": "Display name of the disk module."
+  },
   "moduleGpu": "GPU",
   "@moduleGpu": {
     "description": "Display name of the GPU module."
@@ -523,6 +549,10 @@
   "settingsCriticalLabel": "Critical",
   "@settingsCriticalLabel": {
     "description": "Label for the critical threshold slider."
+  },
+  "settingsDiskPath": "Mount path",
+  "@settingsDiskPath": {
+    "description": "Label for the disk module's mount path option."
   },
   "settingsMeterSection": "Meter captions",
   "@settingsMeterSection": {

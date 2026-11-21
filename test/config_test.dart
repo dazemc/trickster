@@ -271,6 +271,15 @@ void main() {
           criticalColor: Color(0xffaa00ff),
           sparkline: false,
         ),
+        disk: DiskOptions(
+          path: '/data',
+          warn: 0.7,
+          critical: 0.9,
+          captionSource: MeterCaptionSource.custom,
+          captionPrefix: 'ROOT',
+          warnColor: Color(0xff112233),
+          criticalColor: Color(0xff445566),
+        ),
         clock: ClockOptions(
           format: ClockFormat.hour24,
           showDate: false,
@@ -329,6 +338,13 @@ void main() {
       expect(decoded.temperature.warnColor, const Color(0xffff00aa));
       expect(decoded.temperature.criticalColor, const Color(0xffaa00ff));
       expect(decoded.temperature.sparkline, isFalse);
+      expect(decoded.disk.path, '/data');
+      expect(decoded.disk.warn, 0.7);
+      expect(decoded.disk.critical, 0.9);
+      expect(decoded.disk.captionSource, MeterCaptionSource.custom);
+      expect(decoded.disk.captionPrefix, 'ROOT');
+      expect(decoded.disk.warnColor, const Color(0xff112233));
+      expect(decoded.disk.criticalColor, const Color(0xff445566));
       expect(decoded.gpu.captionSource, MeterCaptionSource.custom);
       expect(decoded.gpu.captionPrefix, 'GPU0');
       expect(decoded.gpu.warn, 0.6);
@@ -398,6 +414,17 @@ void main() {
       expect(bare.temperature.captionSource, MeterCaptionSource.generic);
       expect(bare.temperature.captionPrefix, isNull);
       expect(bare.temperature.sparkline, isTrue);
+      expect(bare.disk.path, '/');
+      expect(bare.disk.warn, 0.80);
+      expect(bare.disk.critical, 0.95);
+      expect(bare.disk.captionSource, MeterCaptionSource.generic);
+      expect(bare.disk.captionPrefix, isNull);
+      expect(bare.modules, contains('disk'));
+      expect(
+        bare.modules.indexOf('disk'),
+        bare.modules.indexOf('temperature') + 1,
+        reason: 'disk follows temperature in the default order',
+      );
       expect(bare.modules, contains('ram'));
       expect(bare.modules, contains('temperature'));
       expect(
@@ -533,6 +560,27 @@ void main() {
         throwsFormatException,
       );
       expect(
+        () => BarSettings.decode('{"revision": 1, "disk": "fast"}'),
+        throwsFormatException,
+      );
+      expect(
+        () =>
+            BarSettings.decode('{"revision": 1, "disk": {"path": "relative"}}'),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "disk": {"warn": 0.96, "critical": 0.95}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => BarSettings.decode(
+          '{"revision": 1, "disk": {"caption_source": "device"}}',
+        ),
+        throwsFormatException,
+      );
+      expect(
         () => BarSettings.decode(
           '{"revision": 1, "gpu": {"critical_color": "not a color"}}',
         ),
@@ -566,6 +614,8 @@ void main() {
       expect(explicit.vram.sparkline, isTrue);
       expect(explicit.temperature.captionSource, MeterCaptionSource.generic);
       expect(explicit.temperature.sparkline, isTrue);
+      expect(explicit.disk.path, '/');
+      expect(explicit.disk.captionSource, MeterCaptionSource.generic);
     });
 
     test('the accent source round-trips and rejects unknown values', () {

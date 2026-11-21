@@ -34,6 +34,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get metricTemperature => 'TEMP';
 
   @override
+  String get metricDisk => 'DISK';
+
+  @override
+  String diskUsageDetail(String used, String total, String free) {
+    return '$used 已用 · $total 总计 · $free 可用';
+  }
+
+  @override
   String temperatureCelsius(String value) {
     return '$value°C';
   }
@@ -282,6 +290,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get moduleTemperature => '温度';
 
   @override
+  String get moduleDisk => '磁盘';
+
+  @override
   String get moduleGpu => 'GPU';
 
   @override
@@ -388,6 +399,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsCriticalLabel => '严重';
+
+  @override
+  String get settingsDiskPath => '挂载路径';
 
   @override
   String get settingsMeterSection => '仪表标签';

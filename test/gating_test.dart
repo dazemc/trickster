@@ -7,6 +7,7 @@ import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/battery.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/ram.dart';
 import 'package:trickster/src/bar/temperature.dart';
@@ -15,6 +16,7 @@ import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
+import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
@@ -23,6 +25,7 @@ import 'package:trickster/src/services/status_notifier.dart';
 import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/observer.dart';
 import 'package:trickster/src/state/seat_idle_bloc.dart';
@@ -97,6 +100,44 @@ class _RecordingRamSampler extends RamSampler {
 }
 
 class _RecordingTemperatureSampler extends TemperatureSampler {
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  void start({bool paused = false}) {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pause() {
+    pauses += 1;
+  }
+
+  @override
+  void resume() {
+    resumes += 1;
+  }
+}
+
+class _NullDiskReader implements DiskUsageReader {
+  @override
+  Future<StatvfsUsage?> read(String path) async => null;
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class _RecordingDiskSampler extends DiskSampler {
+  _RecordingDiskSampler()
+    : super(
+        interval: const Duration(days: 1),
+        path: '/',
+        reader: _NullDiskReader(),
+      );
+
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -590,6 +631,91 @@ void main() {
     );
     expect(temperature.starts, 1);
     expect(temperature.startedPaused, isTrue);
+  });
+
+  testWidgets('disk-only idle dispatches only its own events', (tester) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final disk = _RecordingDiskSampler();
+    final cpu = _RecordingCpuSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'disk']),
+      seatIdleChanges: changes.stream,
+      diskSamplerBuilder: () => disk,
+      cpuSamplerBuilder: () => cpu,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(true);
+    await tester.pump();
+    changes.add(false);
+    await tester.pump();
+    expect(disk.pauses, 1);
+    expect(disk.resumes, 1);
+    expect(cpu.pauses, 0);
+    expect(cpu.resumes, 0);
+  });
+
+  testWidgets('disabled disk builds no bloc or sampler', (tester) async {
+    final disk = _RecordingDiskSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      diskSamplerBuilder: () => disk,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(disk.starts, 0);
+    expect(find.byType(DiskPill), findsNothing);
+  });
+
+  testWidgets('a disk module created while idle starts paused', (tester) async {
+    final disk = _RecordingDiskSampler();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'disk']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      diskSamplerBuilder: () => disk,
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(disk.starts, 1);
+    expect(disk.startedPaused, isTrue);
+  });
+
+  testWidgets('a disk path change replaces the provider', (tester) async {
+    var builds = 0;
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'disk']),
+      diskBuilder: () {
+        builds += 1;
+        return DiskBloc(
+          initial: const DiskSample(
+            path: '/',
+            usedBytes: 600,
+            totalBytes: 1000,
+            freeBytes: 300,
+          ),
+        );
+      },
+      settle: const Duration(milliseconds: 100),
+    );
+    expect(builds, 1);
+
+    final settingsBloc = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<SettingsBloc>();
+    settingsBloc.add(
+      const SettingsLoaded(
+        BarSettings(
+          modules: ['clock', 'disk'],
+          disk: DiskOptions(path: '/data'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(builds, 2);
   });
 
   testWidgets('ram-only idle dispatches only the ram events', (tester) async {

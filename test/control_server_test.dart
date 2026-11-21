@@ -12,9 +12,11 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/control/control_handler.dart';
 import 'package:trickster/src/control/control_server.dart';
 import 'package:trickster/src/platform/control_socket.dart';
+import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
+import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/outputs_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
@@ -557,6 +559,66 @@ void main() {
       'chip': 'k10temp',
       'is_cpu': true,
       'history': [50.0, 55.0],
+    });
+    expect(state['seat_idle'], {'idle': false});
+    expect(jsonEncode(reply), isA<String>());
+  });
+
+  testWidgets('status exposes the disk sample and its idle gate', (
+    tester,
+  ) async {
+    final settings = FileSettingsTransport(File('settings.json'));
+    final outputs = FileOutputsTransport(File('outputs.conf'));
+    late final BuildContext context;
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SessionBloc>(create: (_) => SessionBloc()),
+          BlocProvider<SettingsBloc>(
+            create: (_) => SettingsBloc(const BarSettings(modules: ['disk'])),
+          ),
+          BlocProvider<OutputsBloc>(create: (_) => OutputsBloc()),
+          BlocProvider<DiskBloc>(
+            create: (_) => DiskBloc(
+              initial: const DiskSample(
+                path: '/',
+                usedBytes: 600,
+                totalBytes: 1000,
+                freeBytes: 300,
+              ),
+            ),
+          ),
+          BlocProvider<SeatIdleBloc>(
+            create: (_) => SeatIdleBloc(
+              initial: const SeatIdleState(idle: false),
+              changes: () => const Stream<bool>.empty(),
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (captured) {
+            context = captured;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final reply = await handleControlRequest(
+      context: context,
+      settings: settings,
+      outputs: outputs,
+      reload: () => null,
+      request: const <String, Object?>{'command': 'status'},
+    );
+
+    final state = reply['state']! as Map<String, Object?>;
+    expect(state['disk'], {
+      'path': '/',
+      'used_bytes': 600,
+      'total_bytes': 1000,
+      'free_bytes': 300,
+      'fraction': 0.6,
     });
     expect(state['seat_idle'], {'idle': false});
     expect(jsonEncode(reply), isA<String>());

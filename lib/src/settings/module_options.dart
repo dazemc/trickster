@@ -37,6 +37,7 @@ bool moduleHasOptions(String module) {
     'cpu' ||
     'ram' ||
     'temperature' ||
+    'disk' ||
     'gpu' ||
     'vram' ||
     'battery' ||
@@ -858,6 +859,153 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
           ),
         ],
       ),
+      'disk' => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _OptionTextField(
+            fieldKey: const ValueKey<String>('disk-path'),
+            label: l10n.settingsDiskPath,
+            hint: '/',
+            value: settings.disk.path,
+            onChanged: (value) {
+              final path = value.trim();
+              if (path.isEmpty || !path.startsWith('/')) {
+                return;
+              }
+              _apply(
+                controller,
+                (settings) =>
+                    settings.copyWith(disk: settings.disk.copyWith(path: path)),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-disk-warn'),
+            label: l10n.settingsWarnLabel,
+            value: settings.disk.warn,
+            min: 0,
+            max: 1,
+            display: '${(settings.disk.warn * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-disk-warn'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
+            resetEnabled: settings.disk.warn != const DiskOptions().warn,
+            onChanged: (value) {
+              final warn = value;
+              _apply(controller, (settings) {
+                final critical = settings.disk.critical <= warn
+                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    : settings.disk.critical;
+                return settings.copyWith(
+                  disk: settings.disk.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final warn = math
+                  .min(const DiskOptions().warn, settings.disk.critical - 0.01)
+                  .clamp(0.0, 0.99);
+              return settings.copyWith(
+                disk: settings.disk.copyWith(warn: warn),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('disk-warn-color'),
+            label: l10n.settingsWarnColor,
+            color: settings.disk.warnColor,
+            fallback: ShellTelemetryColors.warning,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                disk: settings.disk.copyWith(warnColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                disk: settings.disk.copyWith(warnColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-disk-warn-color'),
+          ),
+          const SizedBox(height: 10),
+          _SliderRow(
+            sliderKey: const ValueKey<String>('options-disk-critical'),
+            label: l10n.settingsCriticalLabel,
+            value: settings.disk.critical,
+            min: 0,
+            max: 1,
+            display: '${(settings.disk.critical * 100).round()}%',
+            resetKey: const ValueKey<String>('reset-disk-critical'),
+            resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
+            resetEnabled:
+                settings.disk.critical != const DiskOptions().critical,
+            onChanged: (value) {
+              final critical = value;
+              _apply(controller, (settings) {
+                final warn = settings.disk.warn >= critical
+                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    : settings.disk.warn;
+                return settings.copyWith(
+                  disk: settings.disk.copyWith(warn: warn, critical: critical),
+                );
+              });
+            },
+            onReset: () => _apply(controller, (settings) {
+              final critical = math
+                  .max(const DiskOptions().critical, settings.disk.warn + 0.01)
+                  .clamp(0.01, 1.0);
+              return settings.copyWith(
+                disk: settings.disk.copyWith(critical: critical),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          _ColorRow(
+            fieldKey: const ValueKey<String>('disk-critical-color'),
+            label: l10n.settingsCriticalColor,
+            color: settings.disk.criticalColor,
+            fallback: ShellTelemetryColors.danger,
+            onChanged: (color) => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                disk: settings.disk.copyWith(criticalColor: color),
+              ),
+            ),
+            onReset: () => _apply(
+              controller,
+              (settings) => settings.copyWith(
+                disk: settings.disk.copyWith(criticalColor: null),
+              ),
+            ),
+            resetKey: const ValueKey<String>('reset-disk-critical-color'),
+          ),
+          ..._meterControls(
+            l10n: l10n,
+            controller: controller,
+            prefix: 'disk',
+            captionSource: settings.disk.captionSource,
+            captionPrefix: settings.disk.captionPrefix,
+            sparkline: true,
+            includeSparkline: false,
+            captionSources: const [
+              MeterCaptionSource.generic,
+              MeterCaptionSource.custom,
+            ],
+            onCaption: (settings, source) => settings.copyWith(
+              disk: settings.disk.copyWith(captionSource: source),
+            ),
+            onCaptionPrefix: (settings, value) => settings.copyWith(
+              disk: settings.disk.copyWith(
+                captionPrefix: value.trim().isEmpty ? null : value.trim(),
+              ),
+            ),
+            onSparkline: (settings, value) => settings,
+          ),
+        ],
+      ),
       'battery' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1258,6 +1406,7 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     required MeterCaptionSource captionSource,
     required String? captionPrefix,
     required bool sparkline,
+    bool includeSparkline = true,
     List<MeterCaptionSource>? captionSources,
     required BarSettings Function(
       BarSettings settings,
@@ -1308,19 +1457,21 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
           ),
         ),
       ],
-      const SizedBox(height: 18),
-      SettingsToggleRow(
-        toggleKey: ValueKey<String>('$prefix-meter-sparkline'),
-        label: l10n.settingsMeterSparkline,
-        value: sparkline,
-        resetKey: ValueKey<String>('reset-$prefix-meter-sparkline'),
-        resetLabel: l10n.settingsResetOption(l10n.settingsMeterSparkline),
-        resetEnabled: !sparkline,
-        onChanged: (value) =>
-            _apply(controller, (settings) => onSparkline(settings, value)),
-        onReset: () =>
-            _apply(controller, (settings) => onSparkline(settings, true)),
-      ),
+      if (includeSparkline) ...[
+        const SizedBox(height: 18),
+        SettingsToggleRow(
+          toggleKey: ValueKey<String>('$prefix-meter-sparkline'),
+          label: l10n.settingsMeterSparkline,
+          value: sparkline,
+          resetKey: ValueKey<String>('reset-$prefix-meter-sparkline'),
+          resetLabel: l10n.settingsResetOption(l10n.settingsMeterSparkline),
+          resetEnabled: !sparkline,
+          onChanged: (value) =>
+              _apply(controller, (settings) => onSparkline(settings, value)),
+          onReset: () =>
+              _apply(controller, (settings) => onSparkline(settings, true)),
+        ),
+      ],
     ];
   }
 }

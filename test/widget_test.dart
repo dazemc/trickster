@@ -8,6 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:trickster/src/bar/bar.dart';
 import 'package:trickster/src/bar/clock.dart';
 import 'package:trickster/src/bar/cpu.dart';
+import 'package:trickster/src/bar/disk.dart';
 import 'package:trickster/src/bar/gpu.dart';
 import 'package:trickster/src/bar/meter.dart';
 import 'package:trickster/src/bar/pill.dart';
@@ -19,6 +20,7 @@ import 'package:trickster/src/bar/workspaces.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
+import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/status_notifier.dart';
@@ -26,6 +28,7 @@ import 'package:trickster/src/services/temperature.dart';
 import 'package:trickster/src/services/wallpaper.dart';
 import 'package:trickster/src/services/workspaces.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
+import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/ram_bloc.dart';
 import 'package:trickster/src/state/temperature_bloc.dart';
@@ -222,6 +225,35 @@ void main() {
       expect(find.byType(TemperaturePill), findsNothing);
     },
   );
+
+  testWidgets('disk pill follows the block state and hides without data', (
+    tester,
+  ) async {
+    await pumpBarHarness(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(DiskPill), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('system-bar-disk')),
+      findsOneWidget,
+    );
+    expect(find.text('DISK'), findsOneWidget);
+    expect(find.text('61%', findRichText: true), findsOneWidget);
+
+    final disk = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<DiskBloc>();
+    disk.add(
+      const DiskSampled(
+        DiskSample(path: '/', usedBytes: 800, totalBytes: 1000, freeBytes: 200),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('80%', findRichText: true), findsOneWidget);
+
+    disk.add(const DiskSampled(DiskSample()));
+    await tester.pump();
+    expect(find.byType(DiskPill), findsNothing);
+  });
 
   testWidgets('gpu cards follow the service list', (tester) async {
     tester.view.physicalSize = const Size(1600, 200);

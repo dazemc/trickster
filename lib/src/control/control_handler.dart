@@ -9,6 +9,7 @@ import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
+import 'package:trickster/src/state/disk_bloc.dart';
 import 'package:trickster/src/state/gpu_bloc.dart';
 import 'package:trickster/src/state/media_bloc.dart';
 import 'package:trickster/src/state/opencode_bloc.dart';
@@ -55,6 +56,7 @@ Future<Map<String, Object?>> handleControlRequest({
           settings.includes('cpu') ||
               settings.includes('ram') ||
               settings.includes('temperature') ||
+              settings.includes('disk') ||
               settings.includes('gpu') ||
               settings.includes('vram') ||
               settings.includes('battery') ||
@@ -82,6 +84,8 @@ Future<Map<String, Object?>> handleControlRequest({
             'ram': bloc.state.toJson(),
           if (_read<TemperatureBloc>(context) case final bloc?)
             'temperature': bloc.state.toJson(),
+          if (_read<DiskBloc>(context) case final bloc?)
+            'disk': bloc.state.toJson(),
           if (_read<GpuBloc>(context) case final bloc?)
             'gpu': bloc.state.toJson(),
           if (_read<BatteryBloc>(context) case final bloc?)
