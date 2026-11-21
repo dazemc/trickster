@@ -227,6 +227,22 @@ back to the settings process environment.
   once as a fallback for `cpu` and `gpu` and never written again.
 
 
+## Bar menu
+
+Right-clicking an empty part of the strip opens a small panel anchored at
+that edge. Its **Trickster Settings** entry launches the same executable as a
+separate `--settings` process and detaches it, so the bar keeps running. When
+the bar has an outputs override (`--config PATH` or
+`TRICKSTER_OUTPUT_CONFIG`), the menu forwards it, so the settings window
+edits the same `outputs.conf` the bar read.
+
+Pills keep their own secondary-click behavior: media cycles its mode, tray
+icons open their D-Bus menu, and a press that lands on a module never reaches
+the bar menu. Only one overlay is open at a time: opening a tray menu,
+calendar, volume slider, or bar menu dismisses the previous one. Escape or a
+press outside the panel closes it.
+
+
 ## Live reload
 
 A file watcher (200ms debounce) applies edits without restarting:
