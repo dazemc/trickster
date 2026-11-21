@@ -218,6 +218,19 @@ void main() {
     expect(f.samples, hasLength(1));
   });
 
+  testWidgets('start after dispose stays terminal', (tester) async {
+    final root = _createRoot();
+    _sensor(root, 0, name: 'k10temp', inputs: {'temp1_input': 50000});
+    final f = _fixture(root, interval: const Duration(milliseconds: 10));
+    addTearDown(f.dispose);
+
+    f.sampler.dispose();
+    f.sampler.start();
+    await tester.pump(const Duration(milliseconds: 11));
+    expect(f.sampler.isRunning, isFalse);
+    expect(f.samples, isEmpty);
+  });
+
   testWidgets('removing the only sensor clears a previously visible reading', (
     tester,
   ) async {

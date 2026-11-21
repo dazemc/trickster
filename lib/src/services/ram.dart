@@ -138,6 +138,9 @@ class RamSampler {
   /// Starts sampling. A paused start leaves the timer stopped so a module
   /// created while the seat is already idle does no periodic work.
   void start({bool paused = false}) {
+    if (_disposed) {
+      return;
+    }
     if (_running) {
       if (paused) {
         pause();
@@ -176,6 +179,9 @@ class RamSampler {
   }
 
   void _schedule() {
+    if (_disposed) {
+      return;
+    }
     _timer ??= Timer.periodic(interval, (_) => _sample());
   }
 

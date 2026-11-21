@@ -856,6 +856,18 @@ void main() {
     expect(f.nvml.disposed, 1);
   });
 
+  testWidgets('start after dispose stays terminal', (tester) async {
+    final f = _blockingFixture(interval: const Duration(milliseconds: 10));
+    addTearDown(f.dispose);
+
+    await f.sampler.dispose();
+    f.sampler.start();
+    await tester.pump(const Duration(milliseconds: 11));
+    expect(f.sampler.isRunning, isFalse);
+    expect(f.nvml.reads, 0);
+    expect(f.samples, isEmpty);
+  });
+
   testWidgets('history and names survive a pause and resume', (tester) async {
     final f = _blockingFixture();
     addTearDown(f.dispose);

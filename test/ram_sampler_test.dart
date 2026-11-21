@@ -189,6 +189,17 @@ void main() {
     expect(f.samples, hasLength(1));
   });
 
+  testWidgets('start after dispose stays terminal', (tester) async {
+    final f = _fixture(interval: const Duration(milliseconds: 10));
+    addTearDown(f.dispose);
+
+    f.sampler.dispose();
+    f.sampler.start();
+    await tester.pump(const Duration(milliseconds: 11));
+    expect(f.sampler.isRunning, isFalse);
+    expect(f.samples, isEmpty);
+  });
+
   testWidgets('a missing meminfo file leaves the machine hidden', (
     tester,
   ) async {

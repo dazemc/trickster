@@ -571,6 +571,99 @@ void main() {
     expect(BarSettings.decode(file.readAsStringSync()).locale, isNull);
   });
 
+  testWidgets('meter thresholds keep one step at the slider ends', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await tester.tap(find.bySemanticsLabel('Modules'));
+    await tester.pump();
+
+    Future<void> settle() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+    }
+
+    Future<void> openOptions(String module) async {
+      final gear = find.byKey(ValueKey<String>('module-options-$module'));
+      await tester.ensureVisible(gear);
+      await tester.pumpAndSettle();
+      await tester.tap(gear);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapEdge(String sliderKey, {required bool right}) async {
+      final slider = find.byKey(ValueKey<String>(sliderKey));
+      await tester.ensureVisible(slider);
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(slider);
+      await tester.tapAt(
+        Offset(right ? rect.right - 0.25 : rect.left + 0.25, rect.center.dy),
+      );
+      await tester.pump();
+      await settle();
+    }
+
+    Future<void> reset(String resetKey) async {
+      final button = find.byKey(ValueKey<String>(resetKey));
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pump();
+      await settle();
+    }
+
+    for (final module in ['ram', 'vram', 'temperature']) {
+      bool ordered(BarSettings decoded) => switch (module) {
+        'ram' => decoded.ram.warn < decoded.ram.critical,
+        'vram' => decoded.vram.warn < decoded.vram.critical,
+        _ => decoded.temperature.warn < decoded.temperature.critical,
+      };
+
+      await openOptions(module);
+      await tapEdge('options-$module-warn', right: true);
+      var decoded = BarSettings.decode(file.readAsStringSync());
+      switch (module) {
+        case 'ram':
+          expect(decoded.ram.warn, closeTo(0.99, 1e-9));
+          expect(decoded.ram.critical, closeTo(1.0, 1e-9));
+        case 'vram':
+          expect(decoded.vram.warn, closeTo(0.99, 1e-9));
+          expect(decoded.vram.critical, closeTo(1.0, 1e-9));
+        case 'temperature':
+          expect(decoded.temperature.warn, 149);
+          expect(decoded.temperature.critical, 150);
+      }
+      expect(ordered(decoded), isTrue);
+
+      // Reset the neighbor while warning is pinned at its maximum.
+      await reset('reset-$module-critical');
+      decoded = BarSettings.decode(file.readAsStringSync());
+      expect(ordered(decoded), isTrue);
+
+      await tapEdge('options-$module-critical', right: false);
+      decoded = BarSettings.decode(file.readAsStringSync());
+      switch (module) {
+        case 'ram':
+          expect(decoded.ram.warn, 0);
+          expect(decoded.ram.critical, closeTo(0.01, 1e-9));
+        case 'vram':
+          expect(decoded.vram.warn, 0);
+          expect(decoded.vram.critical, closeTo(0.01, 1e-9));
+        case 'temperature':
+          expect(decoded.temperature.warn, 0);
+          expect(decoded.temperature.critical, 1);
+      }
+      expect(ordered(decoded), isTrue);
+
+      // Reset warning while critical is pinned at its minimum.
+      await reset('reset-$module-warn');
+      decoded = BarSettings.decode(file.readAsStringSync());
+      expect(ordered(decoded), isTrue);
+    }
+  });
+
   testWidgets('displays page writes placement and output selection', (
     tester,
   ) async {

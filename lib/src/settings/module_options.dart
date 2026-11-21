@@ -593,10 +593,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.ram.warn != const RamOptions().warn,
             onChanged: (value) {
-              final warn = value;
+              // Leave one step between the thresholds at the slider end.
+              final warn = value.clamp(0.0, 0.99);
               _apply(controller, (settings) {
                 final critical = settings.ram.critical <= warn
-                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    ? math.min(1.0, warn + 0.01)
                     : settings.ram.critical;
                 return settings.copyWith(
                   ram: settings.ram.copyWith(warn: warn, critical: critical),
@@ -642,10 +643,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsCriticalLabel),
             resetEnabled: settings.ram.critical != const RamOptions().critical,
             onChanged: (value) {
-              final critical = value;
+              final critical = value.clamp(0.01, 1.0);
               _apply(controller, (settings) {
                 final warn = settings.ram.warn >= critical
-                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    ? math.max(0.0, critical - 0.01)
                     : settings.ram.warn;
                 return settings.copyWith(
                   ram: settings.ram.copyWith(warn: warn, critical: critical),
@@ -656,8 +657,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final critical = math
                   .max(const RamOptions().critical, settings.ram.warn + 0.01)
                   .clamp(0.01, 1.0);
+              final warn = math
+                  .min(settings.ram.warn, critical - 0.01)
+                  .clamp(0.0, 0.99);
               return settings.copyWith(
-                ram: settings.ram.copyWith(critical: critical),
+                ram: settings.ram.copyWith(warn: warn, critical: critical),
               );
             }),
           ),
@@ -722,10 +726,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetEnabled:
                 settings.temperature.warn != const TemperatureOptions().warn,
             onChanged: (value) {
-              final warn = value.roundToDouble();
+              // The slider ends at 150; warning must stop one degree earlier.
+              final warn = value.roundToDouble().clamp(0.0, 149.0);
               _apply(controller, (settings) {
                 final critical = settings.temperature.critical <= warn
-                    ? (warn + 1).clamp(1, 150).toDouble()
+                    ? math.min(150.0, warn + 1)
                     : settings.temperature.critical;
                 return settings.copyWith(
                   temperature: settings.temperature.copyWith(
@@ -784,10 +789,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                 settings.temperature.critical !=
                 const TemperatureOptions().critical,
             onChanged: (value) {
-              final critical = value.roundToDouble();
+              final critical = value.roundToDouble().clamp(1.0, 150.0);
               _apply(controller, (settings) {
                 final warn = settings.temperature.warn >= critical
-                    ? (critical - 1).clamp(0, 149).toDouble()
+                    ? math.max(0.0, critical - 1)
                     : settings.temperature.warn;
                 return settings.copyWith(
                   temperature: settings.temperature.copyWith(
@@ -805,8 +810,15 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
                   )
                   .clamp(1, 150)
                   .toDouble();
+              final warn = math
+                  .min(settings.temperature.warn, critical - 1)
+                  .clamp(0, 149)
+                  .toDouble();
               return settings.copyWith(
-                temperature: settings.temperature.copyWith(critical: critical),
+                temperature: settings.temperature.copyWith(
+                  warn: warn,
+                  critical: critical,
+                ),
               );
             }),
           ),
@@ -1221,10 +1233,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetLabel: l10n.settingsResetOption(l10n.settingsWarnLabel),
             resetEnabled: settings.vram.warn != const VramOptions().warn,
             onChanged: (value) {
-              final warn = value;
+              // Leave one step between the thresholds at the slider end.
+              final warn = value.clamp(0.0, 0.99);
               _apply(controller, (settings) {
                 final critical = settings.vram.critical <= warn
-                    ? (warn + 0.01).clamp(0.01, 1.0)
+                    ? math.min(1.0, warn + 0.01)
                     : settings.vram.critical;
                 return settings.copyWith(
                   vram: settings.vram.copyWith(warn: warn, critical: critical),
@@ -1273,10 +1286,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             resetEnabled:
                 settings.vram.critical != const VramOptions().critical,
             onChanged: (value) {
-              final critical = value;
+              final critical = value.clamp(0.01, 1.0);
               _apply(controller, (settings) {
                 final warn = settings.vram.warn >= critical
-                    ? (critical - 0.01).clamp(0.0, 0.99)
+                    ? math.max(0.0, critical - 0.01)
                     : settings.vram.warn;
                 return settings.copyWith(
                   vram: settings.vram.copyWith(warn: warn, critical: critical),
@@ -1287,8 +1300,11 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
               final critical = math
                   .max(const VramOptions().critical, settings.vram.warn + 0.01)
                   .clamp(0.01, 1.0);
+              final warn = math
+                  .min(settings.vram.warn, critical - 0.01)
+                  .clamp(0.0, 0.99);
               return settings.copyWith(
-                vram: settings.vram.copyWith(critical: critical),
+                vram: settings.vram.copyWith(warn: warn, critical: critical),
               );
             }),
           ),

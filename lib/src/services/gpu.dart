@@ -247,6 +247,9 @@ class GpuSampler {
   /// Starts sampling. A paused start leaves the timer stopped so a module
   /// created while the seat is already idle does no periodic work.
   void start({bool paused = false}) {
+    if (_disposed) {
+      return;
+    }
     if (_running) {
       if (paused) {
         pause();
@@ -284,6 +287,9 @@ class GpuSampler {
   }
 
   void _begin() {
+    if (_disposed) {
+      return;
+    }
     unawaited(_tick());
     _timer ??= Timer.periodic(interval, (_) => unawaited(_tick()));
   }
@@ -303,6 +309,9 @@ class GpuSampler {
   }
 
   Future<void> _tick() async {
+    if (_disposed) {
+      return;
+    }
     if (_sampling) {
       _resample = true;
       return;
