@@ -224,9 +224,12 @@ raster file dimension, and 4,194,304 raster file pixels. Raster decode targets
 clamp both axes to a 24 px longest side; the SVG path stays vector-based. MPRIS
 caps 16 players and keeps a 60 s recovery refresh, paused with the seat while
 signals stay live. MPRIS parsing, discovery, and method calls run in its worker
-isolate; only JSON-compatible snapshots and command replies cross back.
-StatusNotifier still opens its D-Bus client on the UI isolate; moving it needs
-a proxy design because it exports bus objects.
+isolate; only JSON-compatible snapshots and command replies cross back. An
+isolate exit or startup failure is retried with 1 s→30 s capped backoff and
+never more than one spawn in flight; the recovery-paused start is replayed and
+a valid snapshot resets the backoff. StatusNotifier still opens its D-Bus
+client on the UI isolate; moving it needs a proxy design because it exports
+bus objects.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
 event-driven. All three dedup snapshots against the last emission; niri's
@@ -407,6 +410,7 @@ same scenario and keep the numbers with their provenance.
 | Battery 5 s async sysfs, not UPower | Current | `battery.dart`; async reads, generation guard, dedup |
 | Battery/OpenCode idle gating | Current | `SeatIdleBloc` + sampler `start(paused:)`/`pause`/`resume` |
 | MPRIS recovery idle gate | Current | `MediaPlayerService.pauseRecovery`/`resumeRecovery` + `SeatIdleBloc`; signals stay live |
+| MPRIS worker crash recovery | Current | `MediaPlayerWorkerProxy`; 1 s→30 s capped single-flight respawn, paused-start replay, unavailable on failure |
 | Blur capability-gated, per-pill region | Current | Runner + `BlurRegionController`; not active on host |
 | Blur region cache | Current | `(bounds, radius)` rows, dirty/structural flush; unchanged bounds do not rebuild |
 | Tray 64/256/8 MiB caps plus 4096 px/4.2 MP raster, known-property retention, digest equality | Current | `_StatusNotifierLimits`, `_decodeIconFile`, `retainStatusNotifierItemProperties`, `SystemTrayIconPixmap` |
