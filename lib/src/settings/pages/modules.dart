@@ -1036,129 +1036,136 @@ class _ModuleOptionsOverlayState extends State<_ModuleOptionsOverlay> {
           _maxWidth,
           math.max(0.0, constraints.maxWidth - _edge * 2),
         );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            ExcludeSemantics(
-              child: GestureDetector(
-                key: const ValueKey<String>('module-options-inspector-scrim'),
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onClose,
-                child: ColoredBox(
-                  color: SettingsColors.background.withValues(alpha: 0.72),
+        return BlockSemantics(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ExcludeSemantics(
+                child: GestureDetector(
+                  key: const ValueKey<String>('module-options-inspector-scrim'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onClose,
+                  child: ColoredBox(
+                    color: SettingsColors.background.withValues(alpha: 0.72),
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              top: _edge,
-              right: _edge,
-              bottom: _edge,
-              width: width,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {},
-                child: Semantics(
-                  scopesRoute: true,
-                  namesRoute: true,
-                  explicitChildNodes: true,
-                  label: l10n.settingsModuleOptions(label),
-                  child: Shortcuts(
-                    shortcuts: const <ShortcutActivator, Intent>{
-                      SingleActivator(LogicalKeyboardKey.escape):
-                          DismissIntent(),
-                    },
-                    child: Actions(
-                      actions: <Type, Action<Intent>>{
-                        DismissIntent: CallbackAction<DismissIntent>(
-                          onInvoke: (_) {
-                            widget.onClose();
-                            return null;
-                          },
-                        ),
+              Positioned(
+                top: _edge,
+                right: _edge,
+                bottom: _edge,
+                width: width,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: Semantics(
+                    scopesRoute: true,
+                    namesRoute: true,
+                    explicitChildNodes: true,
+                    label: l10n.settingsModuleOptions(label),
+                    child: Shortcuts(
+                      shortcuts: const <ShortcutActivator, Intent>{
+                        SingleActivator(LogicalKeyboardKey.escape):
+                            DismissIntent(),
                       },
-                      child: FocusScope(
-                        autofocus: true,
-                        child: FocusTraversalGroup(
-                          policy: ReadingOrderTraversalPolicy(),
-                          child: DecoratedBox(
-                            key: const ValueKey<String>(
-                              'module-options-inspector',
-                            ),
-                            decoration: BoxDecoration(
-                              color: SettingsGlass.panel(
-                                context,
-                                SettingsColors.surface,
+                      child: Actions(
+                        actions: <Type, Action<Intent>>{
+                          DismissIntent: CallbackAction<DismissIntent>(
+                            onInvoke: (_) {
+                              widget.onClose();
+                              return null;
+                            },
+                          ),
+                        },
+                        child: FocusScope(
+                          autofocus: true,
+                          child: FocusTraversalGroup(
+                            policy: ReadingOrderTraversalPolicy(),
+                            child: DecoratedBox(
+                              key: const ValueKey<String>(
+                                'module-options-inspector',
                               ),
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(18),
-                              ),
-                              border: Border.all(color: SettingsColors.outline),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    20,
-                                    16,
-                                    12,
-                                    12,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Semantics(
-                                          header: true,
-                                          child: Text(
-                                            l10n.settingsModuleOptions(label),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: ShellText.systemBarValue
-                                                .copyWith(fontSize: 15),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      _OptionsCloseButton(
-                                        label: l10n.settingsOptionsClose,
-                                        onPressed: widget.onClose,
-                                      ),
-                                    ],
-                                  ),
+                              decoration: BoxDecoration(
+                                color: SettingsGlass.panel(
+                                  context,
+                                  SettingsColors.surface,
                                 ),
-                                Container(
-                                  height: 1,
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(18),
+                                ),
+                                border: Border.all(
                                   color: SettingsColors.outline,
                                 ),
-                                Expanded(
-                                  child: Scrollbar(
-                                    key: const ValueKey<String>(
-                                      'module-options-inspector-scrollbar',
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      16,
+                                      12,
+                                      12,
                                     ),
-                                    controller: _scroll,
-                                    thumbVisibility: true,
-                                    child: SingleChildScrollView(
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          // The route label already names the
+                                          // inspector; keep the visible title
+                                          // out of the tree so it is not read
+                                          // twice.
+                                          child: ExcludeSemantics(
+                                            child: Text(
+                                              l10n.settingsModuleOptions(label),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: ShellText.systemBarValue
+                                                  .copyWith(fontSize: 15),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        _OptionsCloseButton(
+                                          label: l10n.settingsOptionsClose,
+                                          onPressed: widget.onClose,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    height: 1,
+                                    color: SettingsColors.outline,
+                                  ),
+                                  Expanded(
+                                    child: Scrollbar(
                                       key: const ValueKey<String>(
-                                        'module-options-inspector-scroll',
+                                        'module-options-inspector-scrollbar',
                                       ),
                                       controller: _scroll,
-                                      padding: const EdgeInsets.fromLTRB(
-                                        20,
-                                        16,
-                                        20,
-                                        20,
-                                      ),
-                                      child: ModuleOptionsPanel(
-                                        key: ValueKey<String>(
-                                          'module-options-panel-${widget.module}',
+                                      thumbVisibility: true,
+                                      child: SingleChildScrollView(
+                                        key: const ValueKey<String>(
+                                          'module-options-inspector-scroll',
                                         ),
-                                        module: widget.module,
-                                        workspaceNames: widget.workspaceNames,
+                                        controller: _scroll,
+                                        padding: const EdgeInsets.fromLTRB(
+                                          20,
+                                          16,
+                                          20,
+                                          20,
+                                        ),
+                                        child: ModuleOptionsPanel(
+                                          key: ValueKey<String>(
+                                            'module-options-panel-${widget.module}',
+                                          ),
+                                          module: widget.module,
+                                          workspaceNames: widget.workspaceNames,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1167,8 +1174,8 @@ class _ModuleOptionsOverlayState extends State<_ModuleOptionsOverlay> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

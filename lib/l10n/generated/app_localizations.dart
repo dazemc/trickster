@@ -831,11 +831,17 @@ abstract class AppLocalizations {
   /// **'Drag to move, or press Control and Shift with the arrow keys to choose a zone.'**
   String get settingsModuleDragZoneHint;
 
-  /// Accessible hint for a module toggle.
+  /// Accessible hint for a settings toggle.
   ///
   /// In en, this message translates to:
-  /// **'Toggles the module'**
-  String get settingsModuleToggleHint;
+  /// **'Toggles this setting'**
+  String get settingsToggleHint;
+
+  /// Note under the clock date and seconds toggles on left or right bars.
+  ///
+  /// In en, this message translates to:
+  /// **'Date and seconds are hidden on vertical bars.'**
+  String get settingsClockVerticalNote;
 
   /// Accessible label for moving a module earlier in the strip.
   ///

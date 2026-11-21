@@ -670,9 +670,13 @@
   "@settingsModuleDragZoneHint": {
     "description": "Keyboard hint for a disabled module's drag handle."
   },
-  "settingsModuleToggleHint": "切换该模块",
-  "@settingsModuleToggleHint": {
-    "description": "Accessible hint for a module toggle."
+  "settingsToggleHint": "切换此设置",
+  "@settingsToggleHint": {
+    "description": "Accessible hint for a settings toggle."
+  },
+  "settingsClockVerticalNote": "垂直状态栏不显示日期和秒数。",
+  "@settingsClockVerticalNote": {
+    "description": "Note under the clock date and seconds toggles on left or right bars."
   },
   "settingsModuleMoveUp": "前移",
   "@settingsModuleMoveUp": {

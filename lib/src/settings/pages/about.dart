@@ -113,8 +113,10 @@ class _AboutRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
+          flex: 3,
           child: Text(
             label,
             style: ShellText.systemBarCaption.copyWith(
@@ -122,7 +124,15 @@ class _AboutRow extends StatelessWidget {
             ),
           ),
         ),
-        Text(value, style: ShellText.systemBarValue),
+        const SizedBox(width: 16),
+        Flexible(
+          flex: 2,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: ShellText.systemBarValue,
+          ),
+        ),
       ],
     );
   }

@@ -429,7 +429,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Drag to move, or press Control and Shift with the arrow keys to choose a zone.';
 
   @override
-  String get settingsModuleToggleHint => 'Toggles the module';
+  String get settingsToggleHint => 'Toggles this setting';
+
+  @override
+  String get settingsClockVerticalNote =>
+      'Date and seconds are hidden on vertical bars.';
 
   @override
   String get settingsModuleMoveUp => 'Move earlier';

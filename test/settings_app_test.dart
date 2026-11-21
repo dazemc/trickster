@@ -4,11 +4,13 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show Scrollbar;
+import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/l10n/generated/app_localizations_en.dart';
 import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
@@ -4181,6 +4183,241 @@ void main() {
     expect(bloc.settings.accentWallpaperPick, '#00AA88');
     _expectNoException(tester);
   });
+
+  testWidgets('the inspector blocks shell semantics while it is open', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final semantics = tester.ensureSemantics();
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    await _openOptions(tester, 'clock');
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(ModuleOptionsPanel)),
+    );
+    final labels = _rootSemanticsLabels(tester);
+    for (final label in const [
+      'Close settings',
+      'Appearance',
+      'Modules',
+      'Displays',
+      'Language',
+      'About',
+    ]) {
+      expect(labels, isNot(contains(label)), reason: label);
+    }
+    expect(
+      labels.where((label) => label == l10n.settingsModuleOptions('Clock')),
+      hasLength(1),
+      reason: 'the route names the inspector exactly once',
+    );
+
+    await _closeOptions(tester);
+    final restored = _rootSemanticsLabels(tester);
+    for (final label in const [
+      'Close settings',
+      'Appearance',
+      'Modules',
+      'Displays',
+      'Language',
+      'About',
+    ]) {
+      expect(restored, contains(label), reason: label);
+    }
+    semantics.dispose();
+  });
+
+  testWidgets('about rows fit at 200 percent in both locales', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    Future<Map<String, Object?>> loader() async => const <String, Object?>{
+      'ok': false,
+    };
+
+    Future<void> pumpAbout(Size window, Locale locale) {
+      // The settings shell leaves this much for the page column.
+      final width = window.width - 262;
+      tester.view.physicalSize = window;
+      tester.view.devicePixelRatio = 1.0;
+      return tester.pumpWidget(
+        BlocProvider.value(
+          value: bloc,
+          child: TricksterLocalizationScope(
+            locale: locale,
+            child: MediaQuery(
+              data: MediaQueryData(
+                size: window,
+                textScaler: const TextScaler.linear(2),
+              ),
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    child: SingleChildScrollView(
+                      child: AboutPage(versionLoader: loader),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final (window, locale) in const [
+      (Size(980, 720), Locale('en')),
+      (Size(980, 720), Locale('zh')),
+      (Size(900, 600), Locale('en')),
+      (Size(900, 600), Locale('zh')),
+    ]) {
+      await pumpAbout(window, locale);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '$window $locale');
+
+      final l10n = AppLocalizations.of(tester.element(find.byType(AboutPage)));
+      final card = find.descendant(
+        of: find.byType(AboutPage),
+        matching: find.byType(SettingsCard),
+      );
+      final bounds = tester.getRect(card);
+      expect(bounds.width, greaterThan(0));
+
+      void expectVisibleText(String text, {required bool label}) {
+        final finder = find.text(text);
+        expect(finder, findsOneWidget, reason: '$text at $window $locale');
+        final rect = tester.getRect(finder);
+        expect(rect.isEmpty, isFalse, reason: '$text has no extent');
+        expect(
+          rect.left,
+          greaterThanOrEqualTo(bounds.left),
+          reason: '$text escaped left at $window $locale',
+        );
+        expect(
+          rect.right,
+          lessThanOrEqualTo(bounds.right),
+          reason: '$text escaped right at $window $locale',
+        );
+        if (label) {
+          expect(
+            rect.width,
+            greaterThan(0),
+            reason: '$text collapsed at $window $locale',
+          );
+        }
+      }
+
+      expectVisibleText(l10n.settingsAboutVersion, label: true);
+      expectVisibleText(l10n.settingsAboutBar, label: true);
+      expectVisibleText(l10n.settingsAboutProtocol, label: true);
+      expectVisibleText(l10n.settingsAboutRepository, label: true);
+      expectVisibleText(l10n.settingsAboutNotRunning, label: false);
+      expectVisibleText('github.com/dazemc/trickster', label: false);
+      expect(find.text(Cli.appVersion), findsWidgets);
+    }
+  });
+
+  testWidgets('toggles expose one label and a generic hint', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final semantics = tester.ensureSemantics();
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(tester.element(find.byType(SettingsNav)));
+
+    void expectToggle(Finder toggle, String label) {
+      final node = tester.getSemantics(toggle);
+      expect(node.label, label);
+      expect(node.hint, l10n.settingsToggleHint);
+      expect(
+        _rootSemanticsLabels(tester).where((value) => value == label),
+        hasLength(1),
+        reason: '$label is announced once',
+      );
+    }
+
+    expectToggle(
+      find.byKey(const ValueKey<String>('appearance-blur')),
+      l10n.settingsAppearanceBlur,
+    );
+
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    await _openOptions(tester, 'clock');
+    await tester.pumpAndSettle();
+    expectToggle(
+      find.byKey(const ValueKey<String>('clock-show-seconds')),
+      l10n.settingsClockShowSeconds,
+    );
+
+    await _openOptions(tester, 'network');
+    await tester.pumpAndSettle();
+    expectToggle(
+      find.byKey(const ValueKey<String>('network-show-rates')),
+      l10n.settingsNetworkShowRates,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('clock date and seconds are disabled on vertical bars', (
+    tester,
+  ) async {
+    File(
+      '${directory.path}/outputs.conf',
+    ).writeAsStringSync('system_bar=left,72\n');
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final semantics = tester.ensureSemantics();
+    await _pump(tester, bloc, size: const Size(900, 600), textScale: 2);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+    await _openOptions(tester, 'clock');
+    await tester.pumpAndSettle();
+
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(ModuleOptionsPanel)),
+    );
+    expect(find.text(l10n.settingsClockVerticalNote), findsNWidgets(2));
+
+    for (final (toggleKey, resetKey) in const [
+      ('clock-show-seconds', 'reset-clock-show-seconds'),
+      ('clock-show-date', 'reset-clock-show-date'),
+    ]) {
+      final toggle = tester.widget<SettingsToggle>(
+        find.byKey(ValueKey<String>(toggleKey)),
+      );
+      expect(toggle.onChanged, isNull, reason: toggleKey);
+      expect(
+        tester
+            .widget<SettingsResetButton>(find.byKey(ValueKey<String>(resetKey)))
+            .enabled,
+        isFalse,
+        reason: resetKey,
+      );
+      expect(
+        tester
+            .getSemantics(find.byKey(ValueKey<String>(toggleKey)))
+            .flagsCollection
+            .isEnabled,
+        ui.Tristate.isFalse,
+        reason: toggleKey,
+      );
+    }
+
+    await tester.tap(find.byKey(const ValueKey<String>('clock-show-seconds')));
+    await tester.pump();
+    expect(bloc.settings.clock.showSeconds, isFalse);
+    semantics.dispose();
+  });
 }
 
 Future<Map<String, Object?>> _failingVersionLoader() async {
@@ -4196,6 +4433,25 @@ FocusNode _controlFocus(WidgetTester tester, Finder control) {
         ),
       )
       .focusNode!;
+}
+
+/// Every label the active semantics tree exposes to assistive tech.
+List<String> _rootSemanticsLabels(WidgetTester tester) {
+  final view = tester.binding.renderViews.first;
+  final root = view.owner!.semanticsOwner!.rootSemanticsNode!;
+  final labels = <String>[];
+  void visit(SemanticsNode node) {
+    if (node.label.isNotEmpty) {
+      labels.add(node.label);
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return true;
+    });
+  }
+
+  visit(root);
+  return labels;
 }
 
 /// Counting all dirty elements includes the provider scope that the bloc

@@ -19,6 +19,7 @@ import 'package:material_ui/material_ui.dart'
 
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/bloc.dart';
@@ -91,6 +92,10 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
     final settings = context.select(
       (SettingsAppBloc bloc) => bloc.state.settings,
     );
+    final side = context.select(
+      (SettingsAppBloc bloc) => bloc.state.outputs.side,
+    );
+    final vertical = side == SystemBarSide.left || side == SystemBarSide.right;
     return switch (widget.module) {
       'media' => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,6 +394,9 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             toggleKey: const ValueKey<String>('clock-show-seconds'),
             label: l10n.settingsClockShowSeconds,
             value: settings.clock.showSeconds,
+            enabled: !vertical,
+            hint: vertical ? l10n.settingsClockVerticalNote : null,
+            note: vertical ? l10n.settingsClockVerticalNote : null,
             resetKey: const ValueKey<String>('reset-clock-show-seconds'),
             resetLabel: l10n.settingsResetOption(l10n.settingsClockShowSeconds),
             resetEnabled: settings.clock.showSeconds,
@@ -442,6 +450,9 @@ class _ModuleOptionsPanelState extends State<ModuleOptionsPanel> {
             toggleKey: const ValueKey<String>('clock-show-date'),
             label: l10n.settingsClockShowDate,
             value: settings.clock.showDate,
+            enabled: !vertical,
+            hint: vertical ? l10n.settingsClockVerticalNote : null,
+            note: vertical ? l10n.settingsClockVerticalNote : null,
             resetKey: const ValueKey<String>('reset-clock-show-date'),
             resetLabel: l10n.settingsResetOption(l10n.settingsClockShowDate),
             resetEnabled: !settings.clock.showDate,

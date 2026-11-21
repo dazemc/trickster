@@ -423,7 +423,10 @@ class AppLocalizationsZh extends AppLocalizations {
       '拖动以移动，或按住 Control 和 Shift 加方向键选择区域。';
 
   @override
-  String get settingsModuleToggleHint => '切换该模块';
+  String get settingsToggleHint => '切换此设置';
+
+  @override
+  String get settingsClockVerticalNote => '垂直状态栏不显示日期和秒数。';
 
   @override
   String get settingsModuleMoveUp => '前移';

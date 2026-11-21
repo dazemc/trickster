@@ -670,9 +670,13 @@
   "@settingsModuleDragZoneHint": {
     "description": "Keyboard hint for a disabled module's drag handle."
   },
-  "settingsModuleToggleHint": "Toggles the module",
-  "@settingsModuleToggleHint": {
-    "description": "Accessible hint for a module toggle."
+  "settingsToggleHint": "Toggles this setting",
+  "@settingsToggleHint": {
+    "description": "Accessible hint for a settings toggle."
+  },
+  "settingsClockVerticalNote": "Date and seconds are hidden on vertical bars.",
+  "@settingsClockVerticalNote": {
+    "description": "Note under the clock date and seconds toggles on left or right bars."
   },
   "settingsModuleMoveUp": "Move earlier",
   "@settingsModuleMoveUp": {

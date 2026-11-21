@@ -561,12 +561,18 @@ class SettingsToggle extends StatefulWidget {
     required this.label,
     required this.enabled,
     required this.onChanged,
+    this.hint,
     super.key,
   });
 
   final String label;
   final bool enabled;
-  final ValueChanged<bool> onChanged;
+
+  /// Null disables the control.
+  final ValueChanged<bool>? onChanged;
+
+  /// Accessible hint; null uses the generic setting-toggle hint.
+  final String? hint;
 
   @override
   State<SettingsToggle> createState() => _SettingsToggleState();
@@ -576,23 +582,32 @@ class _SettingsToggleState extends State<SettingsToggle> {
   final FocusNode _focusNode = FocusNode();
   var _focused = false;
 
+  bool get _interactive => widget.onChanged != null;
+
   @override
   void dispose() {
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _toggle() => widget.onChanged(!widget.enabled);
+  void _toggle() {
+    final onChanged = widget.onChanged;
+    if (onChanged != null) {
+      onChanged(!widget.enabled);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       toggled: widget.enabled,
+      enabled: _interactive,
       label: widget.label,
-      hint: context.l10n.settingsModuleToggleHint,
-      onTap: _toggle,
+      hint: widget.hint ?? context.l10n.settingsToggleHint,
+      onTap: _interactive ? _toggle : null,
       child: ExcludeSemantics(
         child: FocusableActionDetector(
+          enabled: _interactive,
           focusNode: _focusNode,
           onShowFocusHighlight: (value) => setState(() => _focused = value),
           shortcuts: const <ShortcutActivator, Intent>{
@@ -608,10 +623,12 @@ class _SettingsToggleState extends State<SettingsToggle> {
             ),
           },
           child: MouseRegion(
-            cursor: SystemMouseCursors.click,
+            cursor: _interactive
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _toggle,
+              onTap: _interactive ? _toggle : null,
               child: AnimatedContainer(
                 duration: Motion.duration(context, Motion.pill),
                 curve: Motion.standard,
@@ -620,7 +637,12 @@ class _SettingsToggleState extends State<SettingsToggle> {
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   borderRadius: const BorderRadius.all(Radius.circular(999)),
-                  color: widget.enabled
+                  color: !_interactive
+                      ? SettingsGlass.control(
+                          context,
+                          SettingsColors.surfaceHigh,
+                        )
+                      : widget.enabled
                       ? ShellBrandColors.defaultAccent
                       : SettingsGlass.control(
                           context,
@@ -673,6 +695,9 @@ class SettingsToggleRow extends StatelessWidget {
     required this.resetEnabled,
     required this.onChanged,
     required this.onReset,
+    this.enabled = true,
+    this.hint,
+    this.note,
     super.key,
   });
 
@@ -685,15 +710,28 @@ class SettingsToggleRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final VoidCallback onReset;
 
+  /// False disables the switch and its reset.
+  final bool enabled;
+
+  /// Accessible hint; null uses the generic setting-toggle hint.
+  final String? hint;
+
+  /// An optional line below the row explaining why it is unavailable.
+  final String? note;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final row = Row(
       children: [
         Expanded(
-          child: Text(
-            label,
-            style: ShellText.systemBarCaption.copyWith(
-              color: ShellMediaColors.lightForegroundSecondary,
+          // The switch already carries [label]; excluding this copy stops a
+          // screen reader from announcing the setting twice.
+          child: ExcludeSemantics(
+            child: Text(
+              label,
+              style: ShellText.systemBarCaption.copyWith(
+                color: ShellMediaColors.lightForegroundSecondary,
+              ),
             ),
           ),
         ),
@@ -701,14 +739,34 @@ class SettingsToggleRow extends StatelessWidget {
           key: toggleKey,
           label: label,
           enabled: value,
-          onChanged: onChanged,
+          onChanged: enabled ? onChanged : null,
+          hint: hint,
         ),
         const SizedBox(width: 12),
         SettingsResetButton(
           key: resetKey,
           label: resetLabel,
-          enabled: resetEnabled,
+          enabled: enabled && resetEnabled,
           onPressed: onReset,
+        ),
+      ],
+    );
+    final note = this.note;
+    if (note == null) {
+      return row;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        row,
+        const SizedBox(height: 4),
+        Text(
+          note,
+          style: ShellText.systemBarCaption.copyWith(
+            color: ShellMediaColors.lightForegroundSecondary.withValues(
+              alpha: 0.7,
+            ),
+          ),
         ),
       ],
     );
