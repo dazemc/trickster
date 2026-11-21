@@ -57,7 +57,9 @@ Future<void> main(List<String> args) async {
     MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => SettingsBloc(runtime.settings, settingsStore.write),
+          create: (_) => SettingsBloc(runtime.settings, (settings) async {
+            await settingsStore.write(settings);
+          }),
         ),
         BlocProvider(create: (_) => SessionBloc(runtime.session)),
         BlocProvider(create: (_) => OutputsBloc(runtime.outputs)),

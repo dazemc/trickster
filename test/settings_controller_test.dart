@@ -53,6 +53,7 @@ class _FakeBar {
 
   final ServerSocket _server;
   final String path;
+  final List<String> commands = <String>[];
   String document = const BarSettings(revision: 3).encode();
   int revision = 3;
   var _closed = false;
@@ -77,6 +78,7 @@ class _FakeBar {
     await for (final line in lines) {
       final request = (jsonDecode(line) as Map).cast<String, Object?>();
       final command = request['command'];
+      commands.add('$command');
       if (command == 'settings.read') {
         socket.write(
           '${jsonEncode({'ok': true, 'revision': revision, 'document': document})}\n',
@@ -150,6 +152,15 @@ void main() {
     expect(bloc.settings.revision, 4);
     expect(bar.revision, 4);
     expect(bar.document, contains('d0bcff'));
+    // The write response is the new document; no read-after-write round trip.
+    expect(
+      bar.commands.where((command) => command == 'settings.read'),
+      hasLength(1),
+    );
+    expect(
+      bar.commands.where((command) => command == 'settings.write'),
+      hasLength(1),
+    );
   });
 
   test(

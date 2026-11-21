@@ -41,9 +41,13 @@ class _MutableTransport implements SettingsDocumentTransport {
   _MutableTransport(this.document);
 
   SettingsDocument document;
+  var reads = 0;
 
   @override
-  Future<SettingsDocument> read() async => document;
+  Future<SettingsDocument> read() async {
+    reads += 1;
+    return document;
+  }
 
   @override
   Future<SettingsDocument> write({
@@ -85,6 +89,21 @@ void main() {
       await store.write(const BarSettings(modules: ['clock']));
       expect(store.revision, 4);
       expect(transport.document.revision, 4);
+    });
+
+    test('write returns the written document without a read-back', () async {
+      final transport = _MutableTransport(
+        const SettingsDocument(revision: 1, json: '{"revision": 1}'),
+      );
+      final store = NativeSettingsStore(transport);
+      await store.read();
+      expect(transport.reads, 1);
+
+      final written = await store.write(const BarSettings(modules: ['clock']));
+      expect(written.revision, 2);
+      expect(BarSettings.decode(written.json).modules, ['clock']);
+      expect(transport.reads, 1);
+      expect(store.revision, 2);
     });
 
     test(

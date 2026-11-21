@@ -364,8 +364,8 @@ class SettingsAppBloc extends Bloc<SettingsAppEvent, SettingsAppState> {
     }
     emit(state.copyWith(busy: true, error: null));
     try {
-      await store.write(event.settings);
-      final settings = await store.read();
+      final written = await store.write(event.settings);
+      final settings = BarSettings.decode(written.json);
       emit(
         state.copyWith(
           settings: settings,

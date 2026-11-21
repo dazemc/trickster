@@ -280,13 +280,13 @@ class NativeSettingsStore {
     return BarSettings.decode(document.json);
   }
 
-  Future<void> write(BarSettings settings) {
+  Future<SettingsDocument> write(BarSettings settings) {
     final write = _writeQueue.then((_) => _write(settings));
-    _writeQueue = write.catchError((_) {});
+    _writeQueue = write.then<void>((_) {}).catchError((Object _) {});
     return write;
   }
 
-  Future<void> _write(BarSettings settings) async {
+  Future<SettingsDocument> _write(BarSettings settings) async {
     if (_revision <= 0) {
       await read();
     }
@@ -298,6 +298,7 @@ class NativeSettingsStore {
         document: payload,
       );
       _remember(response);
+      return response;
     } on Object catch (error) {
       if (!_isRevisionConflict(error)) {
         rethrow;
