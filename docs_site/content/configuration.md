@@ -31,7 +31,9 @@ Process environment wins over the file for the same key.
 
 ### Bar placement — `~/.config/trickster/outputs.conf`
 
-Denial's `system_bar=` grammar, verbatim. Template copied on first launch, never overwritten.
+Every process resolves the same outputs document, highest precedence first: `--config PATH`, the process `TRICKSTER_OUTPUT_CONFIG`, the same key in `session.conf`, then the XDG default. The bar and the settings window share that resolution; the bar menu forwards the bar's override, and `--config` is not required for the settings window to find a custom path. Relative paths become absolute and `.`/`..` segments collapse; symbolic links are left unresolved so watcher events still compare equal.
+
+Denial's `system_bar=` grammar, verbatim. Template copied on first launch, never overwritten; a valid `outputs.conf.prev` prevents seeding a default over a recoverable document.
 
 ```sh
 # system_bar=top,32
@@ -39,7 +41,9 @@ Denial's `system_bar=` grammar, verbatim. Template copied on first launch, never
 # system_bar=hidden
 ```
 
-The third field and beyond select connectors; with no connectors the bar lands on every output. Thickness is a positive logical-pixel band up to 512; the parser rejects a non-finite, zero, negative, or oversized value, so the bar keeps its last-good file instead of accepting a band that could swallow an output. A settings save rewrites only the `system_bar=` line: comments and unrelated keys stay byte-for-byte, the write is atomic (unique temp file plus rename), and the live document is snapshotted to `outputs.conf.prev` for recovery from a torn write. `hidden` forces thickness 0 and releases the exclusive zone; the settings page clears the connector selection when hidden is chosen, so returning to an edge starts from every output at the default thickness. A failed save is reported on the displays page while the bar keeps its previous placement; a control-socket rejection stays on the socket rather than silently rewriting the file, and only genuine transport loss falls back to the file. The page cannot turn off the last selected visible output because an empty connector list means every output, so that row locks on with a note while its toggle and semantics action are disabled; the all-outputs reset and hidden mode keep their behavior. Output rows join the Tab order as single buttons: Enter or Space toggles one, the accent ring marks focus, and assistive technology hears the connector, mode, toggled state, and the lock reason when locked.
+The third field and beyond select connectors; with no connectors the bar lands on every output. Thickness is a positive logical-pixel band up to 512; the parser rejects a non-finite, zero, negative, or oversized value, so the bar keeps its last-good file instead of accepting a band that could swallow an output.
+
+On startup a valid live document wins. A missing, unreadable, empty, or corrupt live file recovers `outputs.conf.prev`; when a parse error forced that recovery, the bar applies the snapshot and logs a warning, while `--check` still fails the live document and names the parse error separately from the recovered placement. With no usable live file and no usable snapshot, the bar starts from the canonical defaults and reports the error. A settings save rewrites only the `system_bar=` line: comments and unrelated keys stay byte-for-byte, the write is atomic (unique temp file plus rename), and the live document is snapshotted to `outputs.conf.prev` for recovery from a torn write. `hidden` forces thickness 0 and releases the exclusive zone; the settings page clears the connector selection when hidden is chosen, so returning to an edge starts from every output at the default thickness, and the one-shot `--edge` override reactivates a hidden document at the default 32-pixel band. A failed save is reported on the displays page while the bar keeps its previous placement; a control-socket rejection stays on the socket rather than silently rewriting the file, and only genuine transport loss falls back to the file. The page cannot turn off the last selected visible output because an empty connector list means every output, so that row locks on with a note while its toggle and semantics action are disabled; the all-outputs reset and hidden mode keep their behavior. Output rows join the Tab order as single buttons: Enter or Space toggles one, the accent ring marks focus, and assistive technology hears the connector, mode, toggled state, and the lock reason when locked. An unwritable config directory is logged and seeding never stops the bar.
 
 ### Settings — `~/.config/trickster/settings.json`
 
@@ -268,8 +272,8 @@ with an active layout) and falls back to the settings process environment.
 Right-clicking an empty part of the strip opens a small panel anchored at
 that edge. Its **Trickster Settings** entry launches the same executable as a
 separate `--settings` process and detaches it, so the bar keeps running. When
-the bar has an outputs override (`--config PATH` or
-`TRICKSTER_OUTPUT_CONFIG`), the menu forwards it, so the settings window
+the bar has an outputs override (`--config PATH`, `TRICKSTER_OUTPUT_CONFIG`, or
+`session.conf`), the menu forwards that resolved path, so the settings window
 edits the same `outputs.conf` the bar read.
 
 Pills keep their own secondary-click behavior: media cycles its mode, tray
@@ -281,11 +285,11 @@ press outside the panel closes it.
 
 ## Live reload
 
-A file watcher (200ms debounce) applies edits without restarting:
+The bar watches the settings root and, when the outputs override's parent is a different directory, that parent too; the settings window watches the same roots. A 200ms debounce coalesces bursts. A normalized exact filter admits only the resolved `settings.json` and `outputs.conf` paths, including an atomic rename's destination, so `.tmp`/`.prev` neighbours and unrelated files never reload. A settings save sent over the control socket applies immediately through the bar's reload path, so a custom outputs path takes effect even before its file event; watchers still cover file fallback and hand edits.
 
 - **Hot keys** — accent, module list/order, clock format, thresholds. Providers rebuild; surfaces untouched.
 - **Disruptive keys** — edge, layer, exclusive size, output set. Only the affected layer surface is destroyed and recreated.
 
 <Warning>
-An invalid file keeps the last-good state and logs the error. The bar never crashes on config.
+An invalid file keeps the last-good state and logs the error; an outputs document recovered from `.prev` applies the snapshot with a logged warning, and `--check` still fails that live file. The bar never crashes on config.
 </Warning>
