@@ -77,7 +77,7 @@ Any failing line exits non-zero with a `fail` reason. The most common failure is
 
 ## First launch
 
-On first launch Trickster seeds `~/.config/trickster/` with `outputs.conf` and `settings.json` defaults and shows a top strip with workspaces, CPU, GPU, RAM, battery, and clock pills. See [Configuration](/configuration) to move it.
+On first launch Trickster seeds `~/.config/trickster/` with `outputs.conf` and `settings.json` defaults and shows a top strip with workspaces, CPU, GPU, VRAM, RAM, battery, and clock pills. See [Configuration](/configuration) to move it.
 
 ## Stopping
 
