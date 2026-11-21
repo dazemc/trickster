@@ -67,8 +67,8 @@ The document carries:
 - `module_placement`: leading/center/trailing zone per module;
 - `accent`, `accent_source`, `accent_wallpaper_pick`;
 - `display_appearance`: per-connector appearance overrides;
-- `appearance`, `workspaces`, `cpu`, `clock`, `battery`, `gpu`, `media`,
-  `opencode`: nested module options;
+- `appearance`, `workspaces`, `cpu`, `ram`, `clock`, `battery`, `gpu`,
+  `media`, `opencode`: nested module options;
 - `locale`: `en` or `zh`; null follows the system.
 
 Every write is revision-checked. A mismatch is a `StateError`; the store
