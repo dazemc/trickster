@@ -18,3 +18,15 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- M: Make `*Stopped` terminal for `CpuBloc`, `GpuBloc`, `BatteryBloc`,
+  `MediaBloc`, `TrayBloc`, `WorkspacesBloc`, and `OpencodeBloc`. Mark the
+  bloc stopped, cancel its snapshots subscription, dispose the underlying
+  sampler/service/monitor/worker exactly once, and ignore later
+  Started/Paused/Resumed/Sample/Focus/Refresh events. `close()` after a stop
+  stays safe and does not dispose twice; close without a stop keeps the
+  current teardown. No production path emits `Stopped` yet. Done when tests
+  cover each bloc's single dispose, ignored later samples and starts, and
+  close-after-stop; analyze/full tests/release build are green.
