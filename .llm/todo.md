@@ -21,13 +21,7 @@ Sizes: S <1 day, M 1–3 days, L 3+ days.
 
 ## Settings performance
 
-1. **S — Settings: watch only edited documents, serialize reads.** Filter the
-   config watcher to `settings.json` and `outputs.conf` (drop `.prev`/`.tmp`),
-   and make `NativeSettingsStore.read` await an in-flight write. External
-   revisions must still reload. Done with watcher-filter and read-after-write
-   queue tests.
-
-2. **S — Settings: scoped module drag rebuilds.** Do not emit a modules bloc
+1. **S — Settings: scoped module drag rebuilds.** Do not emit a modules bloc
    state for pointer moves that do not change the preview slot, and read the
    last pointer outside reactive state. Done with a bloc test proving repeated
    same-slot drag previews emit once and the existing drag tests stay green.
