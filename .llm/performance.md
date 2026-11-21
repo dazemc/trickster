@@ -173,7 +173,7 @@ samplers keep their normal cadence. Multi-seat compositors are a gap.
 | GPU | 1 Hz sysfs/NVML | Paused; in-flight generation dropped; 45-sample history |
 | Battery | 5 s sysfs | Paused; one fresh sample on resume; async sysfs I/O; equal status deduplicated |
 | OpenCode | 60 s HTTP | Paused; one fresh request on resume; in-flight generation dropped |
-| MPRIS | D-Bus signals + 60 s recovery | Recovery scan paused; signals and current state stay live; one scan on resume; 16-player cap |
+| MPRIS | Worker isolate; D-Bus signals + 60 s recovery | Recovery scan paused; signals and current state stay live; one scan on resume; 16-player cap |
 | StatusNotifier | D-Bus signals; 45 ms coalesce | Event-driven |
 | Workspaces | Sway/Hyprland/niri events | Event-driven; Hyprland 32 ms debounce |
 | Clock | minute-aligned / 1 Hz | Continues |
@@ -194,9 +194,9 @@ Rules that follow from the table:
   paused with the seat, with overlapping/post-pause reads generation-guarded
   and equal status deduplicated; the UPower migration is an open
   port/performance gap.
-- MPRIS keeps its D-Bus signal subscriptions and selected player while the
-  seat is idle; only the 60 s recovery scan stops, and resume runs one scan
-  before restoring the cadence.
+- MPRIS keeps its D-Bus signal subscriptions and selected player in its worker
+  isolate while the seat is idle; only the 60 s recovery scan stops, and
+  resume runs one scan before restoring the cadence.
 
 ## Event-driven service contracts
 
@@ -223,9 +223,10 @@ icons, 512 px D-Bus pixmap input, 64 px output, 8 MiB per icon file, 4096 px
 raster file dimension, and 4,194,304 raster file pixels. Raster decode targets
 clamp both axes to a 24 px longest side; the SVG path stays vector-based. MPRIS
 caps 16 players and keeps a 60 s recovery refresh, paused with the seat while
-signals stay live. Both services currently open their D-Bus clients on the UI
-isolate; moving proxy work to the existing `background_worker.dart` pattern is
-a performance gap.
+signals stay live. MPRIS parsing, discovery, and method calls run in its worker
+isolate; only JSON-compatible snapshots and command replies cross back.
+StatusNotifier still opens its D-Bus client on the UI isolate; moving it needs
+a proxy design because it exports bus objects.
 
 **Workspaces.** Sway/i3 IPC, Hyprland sockets, and niri's event stream are
 event-driven. All three dedup snapshots against the last emission; niri's
