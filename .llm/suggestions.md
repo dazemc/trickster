@@ -58,10 +58,9 @@ Nothing in this file authorizes performance work.
   conforming 128² pixmap parse costs ~5.3 ms p50 on the UI isolate (256²
   ~21.8 ms, 512² ~90.5 ms, AOT), and 32×64² at 10 Hz takes 54% UI CPU. The
   pure-Dart D-Bus parse dominates; `dart:ui`/flutter_svg icon-file decoding is
-  ~1.56 ms and stays on the UI isolate. Implement a worker DBus backend plus
-  the UI icon decoder in staged slices: extract models/decoder/client
-  boundary, then the protocol/worker/proxy default-off, then flip the default.
-  No code has landed; no authorized TODO step.
+  ~1.56 ms and stays on the UI isolate. The models/decoder/client boundary
+  has landed; the local service remains the default. The protocol/worker/proxy
+  default-off slice and the default flip remain unqueued.
 
 ## Correctness and verification
 
