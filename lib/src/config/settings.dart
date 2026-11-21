@@ -1409,6 +1409,8 @@ class BarSettings extends Equatable {
     'opencode',
   ];
 
+  static final Set<String> _knownModuleSet = knownModules.toSet();
+
   const BarSettings({
     this.revision = 1,
     this.accent,
@@ -1726,9 +1728,7 @@ class BarSettings extends Equatable {
       locale: locale is String ? locale : null,
       accentSource: AccentSource.parse(decoded['accent_source']),
       accentWallpaperPick: _accentPick(decoded['accent_wallpaper_pick']),
-      modules: modules is List
-          ? modules.whereType<String>().toList(growable: false)
-          : knownModules,
+      modules: _configuredModules(modules),
       modulePlacement: _modulePlacement(decoded['module_placement']),
       displayAppearance: _displayAppearance(decoded['display_appearance']),
       appearance: AppearanceOptions.fromJson(decoded['appearance']),
@@ -1745,6 +1745,31 @@ class BarSettings extends Equatable {
       media: MediaOptions.fromJson(decoded['media']),
       opencode: OpencodeOptions.fromJson(decoded['opencode']),
     );
+  }
+
+  /// Configured module names, first occurrence only. A hand-edited duplicate
+  /// otherwise becomes duplicate widget keys in both the bar and settings
+  /// page; order is the strip order, so the first occurrence wins.
+  static List<String> _configuredModules(Object? value) {
+    if (value is! List) {
+      return knownModules;
+    }
+    final seen = <String>{};
+    return [
+      for (final module in value)
+        if (module is String && seen.add(module)) module,
+    ];
+  }
+
+  /// Known modules in [modules], deduplicated first occurrence. Unknown names
+  /// stay in the document for forward compatibility but render nowhere.
+  static Iterable<String> renderableModules(Iterable<String> modules) sync* {
+    final seen = <String>{};
+    for (final module in modules) {
+      if (_knownModuleSet.contains(module) && seen.add(module)) {
+        yield module;
+      }
+    }
   }
 
   static Map<String, ModuleZone> _modulePlacement(Object? value) {

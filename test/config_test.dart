@@ -132,6 +132,14 @@ void main() {
       expect(decoded.modules, ['clock', 'cpu']);
     });
 
+    test('duplicate modules keep the first occurrence; unknown names wait', () {
+      final decoded = BarSettings.decode(
+        '{"revision": 1, "modules": ["clock", "weather", "clock", "cpu"]}',
+      );
+      expect(decoded.modules, ['clock', 'weather', 'cpu']);
+      expect(BarSettings.renderableModules(decoded.modules), ['clock', 'cpu']);
+    });
+
     test('placement-only changes compare unequal', () {
       const base = BarSettings();
       final moved = BarSettings(modulePlacement: {'clock': ModuleZone.leading});

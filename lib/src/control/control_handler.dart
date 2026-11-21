@@ -143,6 +143,8 @@ Future<Map<String, Object?>> handleControlRequest({
           'revision': written.revision,
           'document': written.json,
         };
+      } on SettingsRevisionConflict catch (error) {
+        return <String, Object?>{'ok': false, 'error': error.message};
       } on StateError catch (error) {
         return <String, Object?>{'ok': false, 'error': error.message};
       }

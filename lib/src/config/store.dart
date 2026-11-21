@@ -10,6 +10,25 @@ class SettingsDocument {
   final String json;
 }
 
+/// A write lost the revision race. The caller keeps the disk document and
+/// asks the user to retry, rather than replacing the other writer's fields
+/// with a stale whole-document snapshot.
+class SettingsRevisionConflict implements Exception {
+  const SettingsRevisionConflict({
+    required this.expected,
+    required this.actual,
+  });
+
+  final int expected;
+  final int actual;
+
+  String get message =>
+      'settings changed elsewhere (revision $actual, expected $expected)';
+
+  @override
+  String toString() => 'SettingsRevisionConflict: $message';
+}
+
 abstract interface class SettingsDocumentTransport {
   Future<SettingsDocument> read();
 
@@ -20,31 +39,37 @@ abstract interface class SettingsDocumentTransport {
 }
 
 class FileSettingsTransport implements SettingsDocumentTransport {
-  FileSettingsTransport(this.file);
+  FileSettingsTransport(this.file, {String Function(File file)? readFile})
+    : _readFile = readFile ?? _readFileSync;
 
   final File file;
+  final String Function(File file) _readFile;
 
-  SettingsDocument? _current;
   SettingsDocument? _lastGood;
 
-  SettingsDocument? get lastGood => _lastGood;
+  static String _readFileSync(File file) => file.readAsStringSync();
 
-  @override
-  Future<SettingsDocument> read() async {
-    // The live document wins; a torn write or a corrupt edit falls back to
-    // the retained previous snapshot, then to the in-memory last-good copy.
+  /// Synchronous read shared by the async transport and bootstrap. The live
+  /// document wins; an unreadable or corrupt live file falls through to the
+  /// retained previous snapshot, then to the in-memory last-good copy.
+  SettingsDocument readSync() {
     for (final candidate in <File>[file, File('${file.path}.prev')]) {
       if (!candidate.existsSync()) {
         continue;
       }
-      final json = candidate.readAsStringSync();
+      final String json;
+      try {
+        json = _readFile(candidate);
+      } on Object {
+        // An unreadable candidate is no more authoritative than a torn one.
+        continue;
+      }
       try {
         final settings = BarSettings.decode(json);
         final document = SettingsDocument(
           revision: settings.revision,
           json: json,
         );
-        _current = document;
         _lastGood = document;
         return document;
       } on Object {
@@ -53,7 +78,6 @@ class FileSettingsTransport implements SettingsDocumentTransport {
     }
     final remembered = _lastGood;
     if (remembered != null) {
-      _current = remembered;
       return remembered;
     }
     if (!file.existsSync()) {
@@ -63,18 +87,19 @@ class FileSettingsTransport implements SettingsDocumentTransport {
       );
       file.parent.createSync(recursive: true);
       file.writeAsStringSync(created.json);
-      _current = created;
       _lastGood = created;
       return created;
     }
     // Both files exist but neither decodes and there is nothing remembered:
     // surface the live document's error rather than silently losing settings.
-    final json = file.readAsStringSync();
+    final json = _readFile(file);
     final settings = BarSettings.decode(json);
     final document = SettingsDocument(revision: settings.revision, json: json);
-    _current = document;
     return document;
   }
+
+  @override
+  Future<SettingsDocument> read() async => readSync();
 
   /// Replaces `.prev` with the last document that decoded successfully. The
   /// live file may be torn when [read] recovered from `.prev`, so it must
@@ -107,10 +132,14 @@ class FileSettingsTransport implements SettingsDocumentTransport {
     required int expectedRevision,
     required String document,
   }) async {
-    final current = _current ?? await read();
+    // Always re-read: the revision line belongs to the file, not to this
+    // long-lived object. A second transport instance (the bar's and a
+    // file-fallback settings app are separate writers) may have advanced it.
+    final current = await read();
     if (expectedRevision != current.revision) {
-      throw StateError(
-        'settings revision ${current.revision} != expected $expectedRevision',
+      throw SettingsRevisionConflict(
+        expected: expectedRevision,
+        actual: current.revision,
       );
     }
     final settings = BarSettings.decode(document);
@@ -139,7 +168,6 @@ class FileSettingsTransport implements SettingsDocumentTransport {
       }
       rethrow;
     }
-    _current = next;
     _lastGood = next;
     return next;
   }
@@ -191,7 +219,7 @@ class FallbackSettingsTransport implements SettingsDocumentTransport {
 
 /// Talks to the bar's control socket instead of the file. The same
 /// `SettingsDocument` protocol rides one JSON request/reply line; revision
-/// mismatches stay [StateError] so the store's retry path is unchanged.
+/// mismatches stay [StateError] so the store's conflict path is unchanged.
 class SocketSettingsTransport implements SettingsDocumentTransport {
   SocketSettingsTransport({String? socketPath}) : _socketPath = socketPath;
 
@@ -247,37 +275,55 @@ class NativeSettingsStore {
   int get revision => _revision;
 
   Future<BarSettings> read() async {
+    // A watcher read must observe the same revision the save queue just wrote,
+    // not the file as it stood before the in-flight write landed.
+    await _writeQueue;
+    return _readNow();
+  }
+
+  Future<BarSettings> _readNow() async {
     final document = await _transport.read();
     _remember(document);
     return BarSettings.decode(document.json);
   }
 
-  Future<void> write(BarSettings settings) {
+  Future<SettingsDocument> write(BarSettings settings) {
     final write = _writeQueue.then((_) => _write(settings));
-    _writeQueue = write.catchError((_) {});
+    _writeQueue = write.then<void>((_) {}).catchError((Object _) {});
     return write;
   }
 
-  Future<void> _write(BarSettings settings) async {
+  Future<SettingsDocument> _write(BarSettings settings) async {
     if (_revision <= 0) {
-      await read();
+      await _readNow();
     }
-    final payload = settings.copyWith(revision: _revision + 1).encode();
+    final expected = _revision;
+    final payload = settings.copyWith(revision: expected + 1).encode();
     try {
       final response = await _transport.write(
-        expectedRevision: _revision,
+        expectedRevision: expected,
         document: payload,
       );
       _remember(response);
-    } on StateError {
-      await read();
-      final retry = settings.copyWith(revision: _revision + 1).encode();
-      final response = await _transport.write(
-        expectedRevision: _revision,
-        document: retry,
-      );
-      _remember(response);
+      return response;
+    } on Object catch (error) {
+      if (!_isRevisionConflict(error)) {
+        rethrow;
+      }
+      // Adopt the other writer's document. The caller reloads it into the
+      // editor and retries the user's change; resending this whole snapshot
+      // here would silently discard the other writer's fields.
+      await _readNow();
+      throw SettingsRevisionConflict(expected: expected, actual: _revision);
     }
+  }
+
+  static bool _isRevisionConflict(Object error) {
+    if (error is SettingsRevisionConflict) {
+      return true;
+    }
+    return error is StateError &&
+        error.message.toString().toLowerCase().contains('revision');
   }
 
   void _remember(SettingsDocument document) {

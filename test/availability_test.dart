@@ -70,6 +70,19 @@ void main() {
     expect(unavailable.single.reason, ModuleUnavailableReason.noTemperature);
   });
 
+  test('a probe read failure is reported as unavailable, never thrown', () {
+    final unavailable = probeModuleAvailability(
+      hasBattery: () => throw const FileSystemException('permission denied'),
+      hasVram: () => true,
+      hasTemperature: () => true,
+      hasDisk: () => true,
+      hasNetwork: () => true,
+      hasHyprland: () => true,
+    );
+    expect(_modules(unavailable), ['battery']);
+    expect(unavailable.single.reason, ModuleUnavailableReason.noBattery);
+  });
+
   test('bar status overrides the ambient keyboard probe', () async {
     const offlineProbe = <ModuleAvailability>[
       ModuleAvailability(

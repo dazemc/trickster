@@ -51,6 +51,33 @@ void main() {
     }
   });
 
+  test('the event filter suppresses unrelated paths', () async {
+    final harness = _WatchHarness();
+    var changes = 0;
+    final watcher = ConfigWatcher(
+      directory: directory,
+      debounce: const Duration(milliseconds: 10),
+      include: (event) => event.path.endsWith('settings.json'),
+      onChanged: () => changes += 1,
+      watch: harness.open,
+    );
+    try {
+      watcher.start();
+      harness.current
+        ..add(FileSystemCreateEvent('settings.json.tmp', false))
+        ..add(FileSystemCreateEvent('settings.json.prev', false))
+        ..add(FileSystemCreateEvent('outputs.conf', false));
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(changes, 0);
+
+      harness.current.add(FileSystemCreateEvent('settings.json', false));
+      await _waitFor(() => changes == 1);
+    } finally {
+      await watcher.dispose();
+      await harness.close();
+    }
+  });
+
   test('an errored watch resubscribes and keeps the debounce', () async {
     final harness = _WatchHarness();
     var changes = 0;

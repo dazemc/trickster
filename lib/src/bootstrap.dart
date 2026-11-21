@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:trickster/src/config/paths.dart';
 import 'package:trickster/src/config/session.dart';
 import 'package:trickster/src/config/settings.dart';
+import 'package:trickster/src/config/store.dart';
 import 'package:trickster/src/layout/system_bar.dart';
 
 class RuntimeConfig {
@@ -86,15 +87,24 @@ class Bootstrap {
     if (!file.existsSync()) {
       return const BarSettings();
     }
-    try {
-      return BarSettings.decode(file.readAsStringSync());
-    } on Object catch (error) {
-      // Decoders cast typed fields, so a wrong JSON scalar throws TypeError
-      // rather than FormatException. Both mean "invalid document" here.
-      stderr.writeln('trickster: $error');
-      if (strict) {
+    if (strict) {
+      // A preflight validates the live document itself; `.prev` recovery is a
+      // runtime courtesy, never an excuse to pass a corrupt file.
+      try {
+        return BarSettings.decode(file.readAsStringSync());
+      } on Object catch (error) {
+        // Decoders cast typed fields, so a wrong JSON scalar throws TypeError
+        // rather than FormatException. Both mean "invalid document" here.
+        stderr.writeln('trickster: $error');
         rethrow;
       }
+    }
+    try {
+      // Match the settings application: a torn or unreadable live file falls
+      // back to `.prev` instead of discarding the user's document.
+      return BarSettings.decode(FileSettingsTransport(file).readSync().json);
+    } on Object catch (error) {
+      stderr.writeln('trickster: $error');
       return const BarSettings();
     }
   }

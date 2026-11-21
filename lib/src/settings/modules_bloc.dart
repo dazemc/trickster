@@ -31,10 +31,11 @@ Map<ModuleZone, List<String>> moduleGroups(
   String? exclude,
 }) {
   final missing = <String>{for (final entry in unavailable) entry.module};
+  final configured = BarSettings.renderableModules(settings.modules);
   return <ModuleZone, List<String>>{
     for (final zone in ModuleZone.values)
       zone: [
-        for (final module in settings.modules)
+        for (final module in configured)
           if (module != exclude &&
               !missing.contains(module) &&
               settings.zoneFor(module) == zone)
@@ -315,6 +316,14 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   _availabilityLoader;
   DebouncedSaver? _saver;
 
+  /// The latest pointer position. This is deliberately outside
+  /// [ModulesState]: a pointer move inside the same preview slot must not
+  /// rebuild every module row, but the drop fallback still needs the exact
+  /// release position.
+  Offset? _lastPointer;
+
+  Offset? get lastPointer => _lastPointer;
+
   BarSettings get _document => _settings.settings;
 
   /// Applies [change] as a live preview and saves it after the debounce.
@@ -397,7 +406,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
         for (final unavailable in state.unavailable) unavailable.module,
       };
       final segment = [
-        for (final candidate in settings.modules)
+        for (final candidate in BarSettings.renderableModules(settings.modules))
           if (!missing.contains(candidate) &&
               settings.zoneFor(candidate) == zone)
             candidate,
@@ -439,7 +448,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
         for (final unavailable in state.unavailable) unavailable.module,
       };
       final inZone = [
-        for (final candidate in modules)
+        for (final candidate in BarSettings.renderableModules(modules))
           if (!missing.contains(candidate) &&
               (placement[candidate] ?? defaultModuleZone(candidate)) == zone)
             candidate,
@@ -472,6 +481,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
 
   void _onDragStarted(ModulesDragStarted event, Emitter<ModulesState> emit) {
     final current = _groupsFor(_document)[event.zone] ?? const <String>[];
+    _lastPointer = null;
     emit(
       state.copyWith(
         dragging: event.module,
@@ -487,8 +497,8 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     ModulesDragPreviewed event,
     Emitter<ModulesState> emit,
   ) {
+    _lastPointer = event.position;
     if (event.zone == state.previewZone && event.index == state.previewIndex) {
-      emit(state.copyWith(lastPointer: event.position));
       return;
     }
     emit(
@@ -505,6 +515,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     final zone = state.previewZone;
     final index = state.previewIndex;
     final handled = state.dropHandled;
+    _lastPointer = null;
     emit(
       state.copyWith(
         dragging: null,

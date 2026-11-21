@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show FileSystemEvent, FileSystemMoveEvent, Platform;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,11 +19,32 @@ import 'package:trickster/src/settings/pages/appearance.dart';
 import 'package:trickster/src/settings/pages/displays.dart';
 import 'package:trickster/src/settings/pages/language.dart';
 import 'package:trickster/src/settings/pages/modules.dart';
+import 'package:trickster/src/settings/saver.dart';
 import 'package:trickster/src/settings/settings_theme.dart';
+import 'package:trickster/src/settings/wallpaper_loader.dart';
 import 'package:trickster/src/state/capabilities_bloc.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 import 'package:trickster/src/theme/motion.dart';
 import 'package:trickster/src/theme/tokens.dart';
+
+/// Whether a config-directory event names a document both processes edit.
+/// Atomic writes also create `.tmp` and `.prev` neighbours; those must not
+/// schedule a reload.
+bool isEditedDocumentEvent(FileSystemEvent event) {
+  bool edited(String path) {
+    final name = path.split(Platform.pathSeparator).last;
+    return name == 'settings.json' || name == 'outputs.conf';
+  }
+
+  if (edited(event.path)) {
+    return true;
+  }
+  // Atomic replace reports the temporary source path with the live document
+  // as the destination.
+  return event is FileSystemMoveEvent &&
+      event.destination != null &&
+      edited(event.destination!);
+}
 
 /// Root of the settings application: the same binary in settings mode, its
 /// own process and engine, one plain window, no strip surfaces, no bar blocs.
@@ -49,9 +71,17 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
     // pill's mode cycle); reload so the pages show what the bar shows.
     _watcher = ConfigWatcher(
       directory: ConfigPaths().directory,
-      onChanged: () => _bloc.add(const SettingsAppDocumentChanged()),
+      include: isEditedDocumentEvent,
+      onChanged: () {
+        // The watcher reports the directory, not the file. Refresh both
+        // documents; each handler preserves an unsaved local draft.
+        _bloc
+          ..add(const SettingsAppDocumentChanged())
+          ..add(const SettingsAppOutputsChanged());
+      },
     )..start();
     _wallpaperAccent = WallpaperAccentBloc(
+      remote: loadBarWallpaperAccent,
       outputs: () => _bloc.availableOutputs,
       strip: () =>
           (side: _bloc.outputs.side, thickness: _bloc.outputs.thickness),
@@ -72,8 +102,8 @@ class _TricksterSettingsAppState extends State<TricksterSettingsApp> {
     return BlocProvider.value(
       value: _bloc,
       child: BlocListener<SettingsAppBloc, SettingsAppState>(
-        // The settings process samples the wallpaper itself, so the
-        // appearance page can list the accents the bar is choosing from.
+        // Prefer the bar's already-sampled wallpaper state; the local
+        // sampler remains the fallback when no bar answers.
         listenWhen: (previous, next) =>
             previous.settings.usesWallpaperAccent !=
             next.settings.usesWallpaperAccent,
@@ -217,7 +247,35 @@ class _SettingsHomeState extends State<SettingsHome> {
   var _section = SettingsSection.appearance;
   final ScrollController _pageScroll = ScrollController();
 
-  void _select(SettingsSection section) => setState(() => _section = section);
+  Future<void> _flushDocuments() async {
+    final bloc = context.read<SettingsAppBloc>();
+    await DebouncedSaver.flushFor(bloc);
+    await bloc.settled;
+    await bloc.flushOutputs();
+    await bloc.settled;
+  }
+
+  Future<void> _select(SettingsSection section) async {
+    // A debounced edit belongs to the document, not to the page that happens
+    // to be mounted when the user navigates away.
+    await _flushDocuments();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _section = section);
+  }
+
+  Future<void> _close() async {
+    await _flushDocuments();
+    if (!mounted) {
+      return;
+    }
+    if (widget.onClose != null) {
+      widget.onClose!();
+      return;
+    }
+    await LayerShell().closeSettingsWindow();
+  }
 
   @override
   void dispose() {
@@ -266,11 +324,7 @@ class _SettingsHomeState extends State<SettingsHome> {
                   ],
                 ),
               ),
-              SettingsCloseButton(
-                onPressed:
-                    widget.onClose ??
-                    () => unawaited(LayerShell().closeSettingsWindow()),
-              ),
+              SettingsCloseButton(onPressed: () => unawaited(_close())),
             ],
           ),
           if (error != null) ...[

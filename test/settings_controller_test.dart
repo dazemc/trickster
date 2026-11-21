@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/settings/bloc.dart';
 
@@ -46,6 +48,62 @@ class _FakeLayerShell extends LayerShell {
   Future<List<LayerOutput>> outputs() async => const <LayerOutput>[];
 }
 
+class _GatedSettingsTransport implements SettingsDocumentTransport {
+  final _read = Completer<SettingsDocument>();
+  var reads = 0;
+
+  @override
+  Future<SettingsDocument> read() {
+    reads += 1;
+    return _read.future;
+  }
+
+  void complete(SettingsDocument document) => _read.complete(document);
+
+  void fail(Object error) => _read.completeError(error);
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async => throw UnimplementedError();
+}
+
+class _GatedOutputsTransport implements OutputsDocumentTransport {
+  final _read = Completer<String>();
+  var reads = 0;
+
+  @override
+  Future<String> read() {
+    reads += 1;
+    return _read.future;
+  }
+
+  void complete(String document) => _read.complete(document);
+
+  void fail(Object error) => _read.completeError(error);
+
+  @override
+  Future<String> write(String document) async => throw UnimplementedError();
+}
+
+class _GatedLayerShell extends LayerShell {
+  _GatedLayerShell() : super(channel: const MethodChannel('test/trickster'));
+
+  final _outputs = Completer<List<LayerOutput>>();
+  var calls = 0;
+
+  @override
+  Future<List<LayerOutput>> outputs() {
+    calls += 1;
+    return _outputs.future;
+  }
+
+  void complete(List<LayerOutput> outputs) => _outputs.complete(outputs);
+
+  void fail(Object error) => _outputs.completeError(error);
+}
+
 /// A fake bar control socket serving the settings document like the real
 /// handler does, including revision conflicts.
 class _FakeBar {
@@ -53,6 +111,7 @@ class _FakeBar {
 
   final ServerSocket _server;
   final String path;
+  final List<String> commands = <String>[];
   String document = const BarSettings(revision: 3).encode();
   int revision = 3;
   var _closed = false;
@@ -77,6 +136,7 @@ class _FakeBar {
     await for (final line in lines) {
       final request = (jsonDecode(line) as Map).cast<String, Object?>();
       final command = request['command'];
+      commands.add('$command');
       if (command == 'settings.read') {
         socket.write(
           '${jsonEncode({'ok': true, 'revision': revision, 'document': document})}\n',
@@ -127,6 +187,19 @@ class _FakeBar {
   }
 }
 
+Future<void> _waitFor(
+  bool Function() condition, {
+  Duration timeout = const Duration(seconds: 2),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('condition was not met within $timeout');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+}
+
 void main() {
   const accent = Color(0xffd0bcff);
 
@@ -150,42 +223,136 @@ void main() {
     expect(bloc.settings.revision, 4);
     expect(bar.revision, 4);
     expect(bar.document, contains('d0bcff'));
+    // The write response is the new document; no read-after-write round trip.
+    expect(
+      bar.commands.where((command) => command == 'settings.read'),
+      hasLength(1),
+    );
+    expect(
+      bar.commands.where((command) => command == 'settings.write'),
+      hasLength(1),
+    );
   });
 
-  test('absorbs one revision conflict without losing data', () async {
-    final bar = await _FakeBar.start();
-    addTearDown(bar.dispose);
-    final bloc = _bloc(
-      socket: SocketSettingsTransport(socketPath: bar.path),
-      directory: Directory.systemTemp,
+  test(
+    'surfaces a revision conflict and keeps the latest disk document',
+    () async {
+      final bar = await _FakeBar.start();
+      addTearDown(bar.dispose);
+      final bloc = _bloc(
+        socket: SocketSettingsTransport(socketPath: bar.path),
+        directory: Directory.systemTemp,
+      );
+      addTearDown(bloc.close);
+
+      await _load(bloc);
+      bar.conflicts = 1;
+      await _save(bloc, bloc.settings.copyWith(accent: accent));
+
+      expect(bloc.error, contains('changed elsewhere'));
+      expect(bloc.settings.accent, const Color(0xff00ff00));
+      expect(bloc.settings.revision, 4);
+      expect(bar.revision, 4);
+      expect(bar.document, contains('00ff00'));
+      expect(bar.document, isNot(contains('d0bcff')));
+    },
+  );
+
+  test(
+    'a save after a conflict writes against the reloaded revision',
+    () async {
+      final bar = await _FakeBar.start();
+      addTearDown(bar.dispose);
+      final bloc = _bloc(
+        socket: SocketSettingsTransport(socketPath: bar.path),
+        directory: Directory.systemTemp,
+      );
+      addTearDown(bloc.close);
+
+      await _load(bloc);
+      bar.conflicts = 1;
+      await _save(bloc, bloc.settings.copyWith(accent: accent));
+      expect(bloc.error, contains('changed elsewhere'));
+
+      // The user retries after seeing the loaded document; this is a fresh
+      // snapshot at the adopted revision, not a silent resend.
+      await _save(
+        bloc,
+        bloc.settings.copyWith(accent: const Color(0xff112233)),
+      );
+      expect(bloc.error, isNull);
+      expect(bar.revision, 5);
+      expect(bar.document, contains('112233'));
+    },
+  );
+
+  test('initial document and output reads start together', () async {
+    final settings = _GatedSettingsTransport();
+    final outputs = _GatedOutputsTransport();
+    final layer = _GatedLayerShell();
+    final bloc = SettingsAppBloc(
+      socket: settings,
+      file: FileSettingsTransport(File('/unused/settings.json')),
+      outputsSocket: outputs,
+      outputsFile: FileOutputsTransport(File('/unused/outputs.conf')),
+      layerShell: layer,
     );
     addTearDown(bloc.close);
 
-    await _load(bloc);
-    bar.conflicts = 1;
-    await _save(bloc, bloc.settings.copyWith(accent: accent));
+    bloc.add(const SettingsAppLoadRequested());
+    await _waitFor(
+      () => settings.reads == 1 && outputs.reads == 1 && layer.calls == 1,
+    );
+    expect(bloc.loaded, isFalse);
 
-    expect(bloc.error, isNull);
-    expect(bloc.settings.accent, accent);
-    expect(bar.revision, 5);
-    expect(bar.document, contains('d0bcff'));
+    final loaded = bloc.stream.firstWhere((state) => state.loaded);
+    outputs.complete(const OutputsConfig().encode());
+    layer.complete(const <LayerOutput>[
+      LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    expect(bloc.loaded, isFalse);
+
+    settings.complete(
+      SettingsDocument(
+        revision: 2,
+        json: const BarSettings(revision: 2).encode(),
+      ),
+    );
+    final state = await loaded;
+    expect(state.settings.revision, 2);
+    expect(state.availableOutputs.single.name, 'eDP-1');
+    expect(state.error, isNull);
+    expect(state.outputsError, isNull);
   });
 
-  test('surfaces a conflict that outlives the retry', () async {
-    final bar = await _FakeBar.start();
-    addTearDown(bar.dispose);
-    final bloc = _bloc(
-      socket: SocketSettingsTransport(socketPath: bar.path),
-      directory: Directory.systemTemp,
+  test('initial read errors stay per field', () async {
+    final settings = _GatedSettingsTransport();
+    final outputs = _GatedOutputsTransport();
+    final layer = _GatedLayerShell();
+    final bloc = SettingsAppBloc(
+      socket: settings,
+      file: FileSettingsTransport(File('/unused/settings.json')),
+      outputsSocket: outputs,
+      outputsFile: FileOutputsTransport(File('/unused/outputs.conf')),
+      layerShell: layer,
     );
     addTearDown(bloc.close);
 
-    await _load(bloc);
-    bar.conflicts = 2;
-    await _save(bloc, bloc.settings.copyWith(accent: accent));
+    bloc.add(const SettingsAppLoadRequested());
+    await _waitFor(
+      () => settings.reads == 1 && outputs.reads == 1 && layer.calls == 1,
+    );
+    final loaded = bloc.stream.firstWhere((state) => state.loaded);
+    settings.fail(StateError('settings down'));
+    outputs.fail(StateError('outputs down'));
+    layer.complete(const <LayerOutput>[]);
 
-    expect(bloc.error, contains('revision'));
-    expect(bar.document, contains('00ff00'));
+    final state = await loaded;
+    expect(state.loaded, isTrue);
+    expect(state.error, contains('settings down'));
+    expect(state.outputsError, contains('outputs down'));
+    expect(state.availableOutputs, isEmpty);
   });
 
   test('falls back to the file when no bar answers', () async {

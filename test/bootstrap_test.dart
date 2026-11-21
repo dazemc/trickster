@@ -48,19 +48,35 @@ void main() {
     expect(File(paths.settings).readAsStringSync(), '{"revision": 9}');
   });
 
-  test('malformed scalar values fall back to defaults but fail strict load', () {
+  test(
+    'malformed scalar values fall back to defaults but fail strict load',
+    () {
+      final paths = ConfigPaths(configHome: home.path);
+      Directory(paths.root).createSync(recursive: true);
+      File(
+        paths.settings,
+      ).writeAsStringSync('{"revision":1,"clock":{"show_date":"yes"}}');
+
+      final runtime = Bootstrap.load(paths: paths);
+      expect(runtime.settings, const BarSettings());
+      expect(
+        () => Bootstrap.load(paths: paths, strict: true),
+        throwsA(isA<TypeError>()),
+      );
+    },
+  );
+
+  test('normal load recovers a corrupt live settings file from .prev', () {
     final paths = ConfigPaths(configHome: home.path);
     Directory(paths.root).createSync(recursive: true);
-    File(paths.settings).writeAsStringSync(
-      '{"revision":1,"clock":{"show_date":"yes"}}',
-    );
+    File(paths.settings).writeAsStringSync('{"revision":9,"modules":');
+    File(
+      '${paths.settings}.prev',
+    ).writeAsStringSync(const BarSettings(revision: 4).encode());
 
     final runtime = Bootstrap.load(paths: paths);
-    expect(runtime.settings, const BarSettings());
-    expect(
-      () => Bootstrap.load(paths: paths, strict: true),
-      throwsA(isA<TypeError>()),
-    );
+    expect(runtime.settings.revision, 4);
+    expect(() => Bootstrap.load(paths: paths, strict: true), throwsA(anything));
   });
 
   test('a missing template falls back to the built-in header', () {

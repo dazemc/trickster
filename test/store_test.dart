@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/config/settings.dart';
@@ -40,9 +42,13 @@ class _MutableTransport implements SettingsDocumentTransport {
   _MutableTransport(this.document);
 
   SettingsDocument document;
+  var reads = 0;
 
   @override
-  Future<SettingsDocument> read() async => document;
+  Future<SettingsDocument> read() async {
+    reads += 1;
+    return document;
+  }
 
   @override
   Future<SettingsDocument> write({
@@ -54,6 +60,38 @@ class _MutableTransport implements SettingsDocumentTransport {
         'revision ${this.document.revision} != $expectedRevision',
       );
     }
+    final settings = BarSettings.decode(document);
+    this.document = SettingsDocument(
+      revision: settings.revision,
+      json: document,
+    );
+    return this.document;
+  }
+}
+
+class _DelayedWriteTransport implements SettingsDocumentTransport {
+  _DelayedWriteTransport(this.document);
+
+  SettingsDocument document;
+  final writeStarted = Completer<void>();
+  final _release = Completer<void>();
+  var reads = 0;
+
+  void release() => _release.complete();
+
+  @override
+  Future<SettingsDocument> read() async {
+    reads += 1;
+    return document;
+  }
+
+  @override
+  Future<SettingsDocument> write({
+    required int expectedRevision,
+    required String document,
+  }) async {
+    writeStarted.complete();
+    await _release.future;
     final settings = BarSettings.decode(document);
     this.document = SettingsDocument(
       revision: settings.revision,
@@ -86,16 +124,65 @@ void main() {
       expect(transport.document.revision, 4);
     });
 
-    test('retries once after a concurrent revision advance', () async {
-      final transport = _RacingTransport(
+    test('write returns the written document without a read-back', () async {
+      final transport = _MutableTransport(
         const SettingsDocument(revision: 1, json: '{"revision": 1}'),
       );
       final store = NativeSettingsStore(transport);
-      await store.write(const BarSettings(modules: ['clock']));
-      expect(transport.writes, 2);
-      expect(store.revision, 3);
-      expect(transport.document.revision, 3);
+      await store.read();
+      expect(transport.reads, 1);
+
+      final written = await store.write(const BarSettings(modules: ['clock']));
+      expect(written.revision, 2);
+      expect(BarSettings.decode(written.json).modules, ['clock']);
+      expect(transport.reads, 1);
+      expect(store.revision, 2);
     });
+
+    test('read waits for an in-flight write', () async {
+      final transport = _DelayedWriteTransport(
+        const SettingsDocument(revision: 1, json: '{"revision": 1}'),
+      );
+      final store = NativeSettingsStore(transport);
+      await store.read();
+      expect(transport.reads, 1);
+
+      final write = store.write(const BarSettings(modules: ['clock']));
+      await transport.writeStarted.future;
+      final read = store.read();
+      await Future<void>.delayed(Duration.zero);
+      expect(transport.reads, 1);
+
+      transport.release();
+      await write;
+      final after = await read;
+      expect(transport.reads, 2);
+      expect(after.revision, 2);
+      expect(after.modules, ['clock']);
+    });
+
+    test(
+      'surfaces a concurrent revision advance without a blind retry',
+      () async {
+        final transport = _RacingTransport(
+          const SettingsDocument(revision: 1, json: '{"revision": 1}'),
+        );
+        final store = NativeSettingsStore(transport);
+        await expectLater(
+          store.write(const BarSettings(modules: ['clock'])),
+          throwsA(isA<SettingsRevisionConflict>()),
+        );
+        expect(transport.writes, 1);
+        expect(store.revision, 2);
+        expect(transport.document.revision, 2);
+
+        // A deliberate retry starts from the adopted revision and lands.
+        await store.write(const BarSettings(modules: ['clock']));
+        expect(transport.writes, 2);
+        expect(store.revision, 3);
+        expect(transport.document.revision, 3);
+      },
+    );
 
     test('file transport round-trips and keeps revisions', () async {
       final directory = await Directory.systemTemp.createTemp('trickster');
@@ -116,12 +203,75 @@ void main() {
             expectedRevision: 1,
             document: const BarSettings(revision: 9).encode(),
           ),
-          throwsStateError,
+          throwsA(isA<SettingsRevisionConflict>()),
         );
       } finally {
         await directory.delete(recursive: true);
       }
     });
+    test('two file transports cannot write the same revision', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-cross-writer',
+      );
+      try {
+        final file = File('${directory.path}/settings.json');
+        final first = FileSettingsTransport(file);
+        final second = FileSettingsTransport(file);
+        expect((await first.read()).revision, 1);
+        expect((await second.read()).revision, 1);
+
+        await first.write(
+          expectedRevision: 1,
+          document: const BarSettings(
+            revision: 2,
+            accent: Color(0xff112233),
+          ).encode(),
+        );
+        await expectLater(
+          second.write(
+            expectedRevision: 1,
+            document: const BarSettings(
+              revision: 2,
+              accent: Color(0xff445566),
+            ).encode(),
+          ),
+          throwsA(isA<SettingsRevisionConflict>()),
+        );
+        expect(
+          BarSettings.decode(file.readAsStringSync()).accent,
+          const Color(0xff112233),
+        );
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    test('an unreadable live file falls through to .prev', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'trickster-unreadable',
+      );
+      try {
+        final file = File('${directory.path}/settings.json');
+        final previous = File('${file.path}.prev');
+        file.writeAsStringSync(const BarSettings(revision: 3).encode());
+        previous.writeAsStringSync(const BarSettings(revision: 2).encode());
+        final transport = FileSettingsTransport(
+          file,
+          readFile: (candidate) {
+            if (candidate.path == file.path) {
+              throw const FileSystemException('permission denied');
+            }
+            return candidate.readAsStringSync();
+          },
+        );
+        final recovered = await transport.read();
+        expect(recovered.revision, 2);
+        expect(BarSettings.decode(recovered.json).revision, 2);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    });
+
     test('file transport writes atomically and recovers from .prev', () async {
       final directory = await Directory.systemTemp.createTemp(
         'trickster-atomic',

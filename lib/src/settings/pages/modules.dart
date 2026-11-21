@@ -411,7 +411,7 @@ class _ModulesPageState extends State<ModulesPage> {
         onDragUpdate: (position) => _updateDrag(modules, position),
         onDragEnd: (accepted) {
           _stopAutoScroll();
-          final pointer = modules.state.lastPointer;
+          final pointer = modules.lastPointer;
           modules.add(
             ModulesDragEnded(
               accepted: accepted,

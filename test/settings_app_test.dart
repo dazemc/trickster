@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -12,6 +13,7 @@ import 'package:trickster/src/cli.dart';
 import 'package:trickster/src/config/outputs_store.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/config/store.dart';
+import 'package:trickster/src/layout/system_bar.dart';
 import 'package:trickster/src/locale.dart';
 import 'package:trickster/src/platform/layer_shell.dart';
 import 'package:trickster/src/services/wallpaper.dart';
@@ -29,17 +31,21 @@ import 'package:trickster/src/settings/settings_theme.dart';
 import 'package:trickster/src/state/wallpaper_accent.dart';
 
 class _FakeLayerShell extends LayerShell {
-  _FakeLayerShell() : super(channel: const MethodChannel('test/trickster'));
+  _FakeLayerShell({
+    this.reported = const <LayerOutput>[
+      LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+      // A scaled output: 1280x720 logical is a 2560x1440 mode at scale 2.
+      LayerOutput(name: 'HDMI-A-1', width: 1280, height: 720, scale: 2),
+    ],
+  }) : super(channel: const MethodChannel('test/trickster'));
+
+  final List<LayerOutput> reported;
 
   @override
-  Future<List<LayerOutput>> outputs() async => const <LayerOutput>[
-    LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
-    // A scaled output: 1280x720 logical is a 2560x1440 mode at scale 2.
-    LayerOutput(name: 'HDMI-A-1', width: 1280, height: 720, scale: 2),
-  ];
+  Future<List<LayerOutput>> outputs() async => reported;
 }
 
-Future<SettingsAppBloc> _bloc(File file) async {
+Future<SettingsAppBloc> _bloc(File file, {LayerShell? layerShell}) async {
   final directory = file.parent;
   final bloc = SettingsAppBloc(
     socket: SocketSettingsTransport(
@@ -50,7 +56,7 @@ Future<SettingsAppBloc> _bloc(File file) async {
       socketPath: '${directory.path}/no-bar.sock',
     ),
     outputsFile: FileOutputsTransport(File('${directory.path}/outputs.conf')),
-    layerShell: _FakeLayerShell(),
+    layerShell: layerShell ?? _FakeLayerShell(),
   );
   bloc.add(const SettingsAppLoadRequested());
   await bloc.stream.firstWhere((state) => state.loaded);
@@ -254,6 +260,49 @@ void main() {
 
   tearDown(() => directory.delete(recursive: true));
 
+  test('config events refresh only the edited documents', () {
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/settings.json', false),
+      ),
+      isTrue,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/outputs.conf', false),
+      ),
+      isTrue,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/settings.json.tmp', false),
+      ),
+      isFalse,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/settings.json.prev', false),
+      ),
+      isFalse,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemCreateEvent('/cfg/trickster/other.conf', false),
+      ),
+      isFalse,
+    );
+    expect(
+      isEditedDocumentEvent(
+        FileSystemMoveEvent(
+          '/cfg/trickster/settings.json.tmp',
+          false,
+          '/cfg/trickster/settings.json',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
   test('placement-only preview emits a new settings state', () async {
     final bloc = await _bloc(file);
     addTearDown(bloc.close);
@@ -274,6 +323,56 @@ void main() {
       ),
     );
     await expectation.timeout(const Duration(seconds: 5));
+  });
+
+  test('same-slot drag previews do not emit a new state', () async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    final modules = ModulesBloc(
+      settings: bloc,
+      availabilityProbe: () => const <ModuleAvailability>[],
+    );
+    addTearDown(modules.close);
+
+    final zone = bloc.settings.zoneFor('clock');
+    modules.add(ModulesDragStarted(module: 'clock', zone: zone));
+    await modules.stream.firstWhere((state) => state.dragging == 'clock');
+    final index = modules.state.previewIndex;
+    var emits = 0;
+    final subscription = modules.stream.listen((_) => emits += 1);
+
+    modules
+      ..add(
+        ModulesDragPreviewed(
+          zone: zone,
+          index: index,
+          position: const Offset(10, 20),
+        ),
+      )
+      ..add(
+        ModulesDragPreviewed(
+          zone: zone,
+          index: index,
+          position: const Offset(30, 40),
+        ),
+      );
+    await Future<void>.delayed(Duration.zero);
+    expect(emits, 0);
+    expect(modules.lastPointer, const Offset(30, 40));
+
+    final changed = modules.stream.firstWhere(
+      (state) => state.previewIndex != index,
+    );
+    modules.add(
+      ModulesDragPreviewed(
+        zone: zone,
+        index: index + 1,
+        position: const Offset(50, 60),
+      ),
+    );
+    await changed;
+    expect(modules.state.lastPointer, const Offset(50, 60));
+    await subscription.cancel();
   });
 
   testWidgets('settings shell shows the appearance page', (tester) async {
@@ -352,6 +451,74 @@ void main() {
     await tester.pump();
     expect(file.readAsStringSync(), contains('8ab4ff'));
     expect(bloc.error, isNull);
+  });
+
+  testWidgets('a pending edit is flushed by a section switch', (tester) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-preset-#8AB4FF')),
+    );
+    await tester.pump();
+    expect(bloc.settings.accent, const Color(0xff8ab4ff));
+    expect(file.readAsStringSync(), isNot(contains('8ab4ff')));
+
+    await tester.tap(find.bySemanticsLabel('Language'));
+    await tester.pumpAndSettle();
+    expect(file.readAsStringSync(), contains('8ab4ff'));
+    expect(bloc.error, isNull);
+  });
+
+  testWidgets('a pending edit is flushed when its options panel collapses', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    final gear = find.byKey(const ValueKey<String>('module-options-clock'));
+    await tester.scrollUntilVisible(gear, 160, scrollable: _pageScrollable());
+    await tester.pumpAndSettle();
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('clock-format-24h')));
+    await tester.pump();
+    expect(bloc.settings.clock.format, ClockFormat.hour24);
+    expect(
+      BarSettings.decode(file.readAsStringSync()).clock.format,
+      isNot(ClockFormat.hour24),
+    );
+
+    await tester.tap(gear);
+    await tester.pumpAndSettle();
+    expect(
+      BarSettings.decode(file.readAsStringSync()).clock.format,
+      ClockFormat.hour24,
+    );
+  });
+
+  testWidgets('closing flushes the pending edit before onClose', (
+    tester,
+  ) async {
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    var closed = 0;
+    await _pump(tester, bloc, onClose: () => closed++);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('accent-preset-#8AB4FF')),
+    );
+    await tester.pump();
+    expect(file.readAsStringSync(), isNot(contains('8ab4ff')));
+
+    await tester.tap(find.byType(SettingsCloseButton));
+    await tester.pumpAndSettle();
+    expect(closed, 1);
+    expect(file.readAsStringSync(), contains('8ab4ff'));
   });
 
   testWidgets('reset clears the accent', (tester) async {
@@ -1162,8 +1329,10 @@ void main() {
       await tester.ensureVisible(slider);
       await tester.pumpAndSettle();
       final rect = tester.getRect(slider);
+      // Drive the endpoint itself, not a point safely inside it. This is the
+      // boundary that used to collapse warn == critical.
       await tester.tapAt(
-        Offset(right ? rect.right - 0.25 : rect.left + 0.25, rect.center.dy),
+        Offset(right ? rect.right - 0.001 : rect.left + 0.001, rect.center.dy),
       );
       await tester.pump();
       await settle();
@@ -1178,10 +1347,22 @@ void main() {
       await settle();
     }
 
-    for (final module in ['ram', 'vram', 'temperature']) {
+    for (final module in [
+      'cpu',
+      'gpu',
+      'disk',
+      'ram',
+      'vram',
+      'temperature',
+      'battery',
+    ]) {
       bool ordered(BarSettings decoded) => switch (module) {
+        'cpu' => decoded.cpu.warn < decoded.cpu.critical,
+        'gpu' => decoded.gpu.warn < decoded.gpu.critical,
+        'disk' => decoded.disk.warn < decoded.disk.critical,
         'ram' => decoded.ram.warn < decoded.ram.critical,
         'vram' => decoded.vram.warn < decoded.vram.critical,
+        'battery' => decoded.battery.warn > decoded.battery.critical,
         _ => decoded.temperature.warn < decoded.temperature.critical,
       };
 
@@ -1189,6 +1370,15 @@ void main() {
       await tapEdge('options-$module-warn', right: true);
       var decoded = BarSettings.decode(file.readAsStringSync());
       switch (module) {
+        case 'cpu':
+          expect(decoded.cpu.warn, closeTo(0.99, 1e-9));
+          expect(decoded.cpu.critical, closeTo(1.0, 1e-9));
+        case 'gpu':
+          expect(decoded.gpu.warn, closeTo(0.99, 1e-9));
+          expect(decoded.gpu.critical, closeTo(1.0, 1e-9));
+        case 'disk':
+          expect(decoded.disk.warn, closeTo(0.99, 1e-9));
+          expect(decoded.disk.critical, closeTo(1.0, 1e-9));
         case 'ram':
           expect(decoded.ram.warn, closeTo(0.99, 1e-9));
           expect(decoded.ram.critical, closeTo(1.0, 1e-9));
@@ -1198,6 +1388,9 @@ void main() {
         case 'temperature':
           expect(decoded.temperature.warn, 149);
           expect(decoded.temperature.critical, 150);
+        case 'battery':
+          expect(decoded.battery.warn, 100);
+          expect(decoded.battery.critical, 10);
       }
       expect(ordered(decoded), isTrue);
 
@@ -1209,6 +1402,15 @@ void main() {
       await tapEdge('options-$module-critical', right: false);
       decoded = BarSettings.decode(file.readAsStringSync());
       switch (module) {
+        case 'cpu':
+          expect(decoded.cpu.warn, 0);
+          expect(decoded.cpu.critical, closeTo(0.01, 1e-9));
+        case 'gpu':
+          expect(decoded.gpu.warn, 0);
+          expect(decoded.gpu.critical, closeTo(0.01, 1e-9));
+        case 'disk':
+          expect(decoded.disk.warn, 0);
+          expect(decoded.disk.critical, closeTo(0.01, 1e-9));
         case 'ram':
           expect(decoded.ram.warn, 0);
           expect(decoded.ram.critical, closeTo(0.01, 1e-9));
@@ -1218,6 +1420,9 @@ void main() {
         case 'temperature':
           expect(decoded.temperature.warn, 0);
           expect(decoded.temperature.critical, 1);
+        case 'battery':
+          expect(decoded.battery.warn, 100);
+          expect(decoded.battery.critical, 1);
       }
       expect(ordered(decoded), isTrue);
 
@@ -1256,6 +1461,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(outputs.readAsStringSync(), contains('system_bar=bottom,32\n'));
   });
+
+  testWidgets('an unplugged connector never collapses to all outputs', (
+    tester,
+  ) async {
+    final outputs = File('${directory.path}/outputs.conf')
+      ..writeAsStringSync('system_bar=top,32,eDP-1,HDMI-A-1\n');
+    final bloc = await _bloc(
+      file,
+      layerShell: _FakeLayerShell(
+        reported: const <LayerOutput>[
+          LayerOutput(name: 'eDP-1', width: 1920, height: 1080),
+        ],
+      ),
+    );
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await tester.tap(find.bySemanticsLabel('Displays'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey<String>('output-eDP-1')));
+    await tester.pumpAndSettle();
+    final parsed = OutputsConfig.parse(outputs.readAsStringSync());
+    expect(parsed.connectors, ['HDMI-A-1']);
+    expect(parsed.hosts('eDP-1'), isFalse);
+    expect(parsed.hosts('HDMI-A-1'), isTrue);
+  });
+
+  test(
+    'an external outputs change reloads unless a draft owns the page',
+    () async {
+      final bloc = await _bloc(file);
+      addTearDown(bloc.close);
+      final outputs = File('${directory.path}/outputs.conf')
+        ..writeAsStringSync('system_bar=bottom,40\n');
+      bloc.add(const SettingsAppOutputsChanged());
+      final reloaded = await bloc.stream.firstWhere(
+        (state) => state.outputs.side == SystemBarSide.bottom,
+      );
+      expect(reloaded.outputs.thickness, 40);
+
+      bloc.add(
+        const SettingsAppOutputsPreviewed(
+          OutputsConfig(
+            side: SystemBarSide.left,
+            thickness: 80,
+            connectors: ['eDP-1'],
+          ),
+        ),
+      );
+      await bloc.stream.firstWhere(
+        (state) => state.outputs.side == SystemBarSide.left,
+      );
+      outputs.writeAsStringSync('system_bar=right,60\n');
+      bloc.add(const SettingsAppOutputsChanged());
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(bloc.outputs.side, SystemBarSide.left);
+      expect(bloc.outputs.thickness, 80);
+    },
+  );
 
   testWidgets('drag preview follows the hovered half of the row', (
     tester,
@@ -1460,6 +1724,24 @@ void main() {
       tester.getCenter(battery).dy,
       greaterThan(tester.getCenter(unavailable).dy),
     );
+  });
+
+  testWidgets('duplicate and unknown modules never multiply rows', (
+    tester,
+  ) async {
+    file.writeAsStringSync(
+      '{"revision": 1, "modules": ["clock", "weather", "clock", "cpu"]}',
+    );
+    final bloc = await _bloc(file);
+    addTearDown(bloc.close);
+    await _pump(tester, bloc);
+    await _openModules(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('module-clock')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('module-cpu')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('module-weather')), findsNothing);
+    expect(bloc.settings.modules, ['clock', 'weather', 'cpu']);
   });
 
   testWidgets('modules group by placement zone', (tester) async {
@@ -2191,8 +2473,9 @@ void main() {
     expect(states, 2);
     expect(bloc.settings.accent, const Color(0xff040506));
 
-    // Cancel the pending save so the test leaves no timer behind.
-    saver.dispose();
+    // This test owns only the coalescing behavior; dedicated tests cover the
+    // dispose flush. Drop the pending save so it leaves no timer behind.
+    saver.dispose(flush: false);
   });
 
   testWidgets('appearance page switches the accent source', (tester) async {
@@ -2366,6 +2649,35 @@ void main() {
     expect(settingsGlassEnabled(hostBlur: true, documentBlur: false), isFalse);
     expect(settingsGlassEnabled(hostBlur: false, documentBlur: true), isFalse);
     expect(settingsGlassEnabled(hostBlur: false, documentBlur: false), isFalse);
+  });
+
+  test('settings app state round-trips output geometry', () {
+    const state = SettingsAppState(
+      availableOutputs: [
+        LayerOutput(
+          name: 'HDMI-A-1',
+          viewId: 7,
+          x: 1920,
+          y: 0,
+          width: 2560,
+          height: 1440,
+          scale: 2,
+        ),
+      ],
+      usingSocket: true,
+      loaded: true,
+    );
+    final json = jsonDecode(jsonEncode(state.toJson())) as Map<String, dynamic>;
+    final decoded = SettingsAppState.fromJson(json);
+    final output = decoded.availableOutputs.single;
+    expect(output.name, 'HDMI-A-1');
+    expect(output.viewId, 7);
+    expect(output.x, 1920);
+    expect(output.y, 0);
+    expect(output.width, 2560);
+    expect(output.height, 1440);
+    expect(output.scale, 2);
+    expect(decoded.usingSocket, isTrue);
   });
 
   test('an external document change reloads the settings', () async {

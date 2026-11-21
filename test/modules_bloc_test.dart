@@ -26,6 +26,15 @@ void main() {
     expect(groups[ModuleZone.center], isNot(contains('cpu')));
   });
 
+  test('groups ignore unknown names and duplicate configured entries', () {
+    const settings = BarSettings(modules: ['clock', 'weather', 'clock', 'cpu']);
+    final groups = moduleGroups(settings, const []);
+    expect(groups[ModuleZone.trailing], ['clock', 'cpu']);
+    expect([
+      for (final entry in groups.values) ...entry,
+    ], isNot(contains('weather')));
+  });
+
   test('groups exclude the row in flight', () {
     const settings = BarSettings(
       modules: ['clock', 'tray'],
