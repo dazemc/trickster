@@ -25,6 +25,14 @@ typedef struct {
   gboolean horizontal;
 } TricksterSurface;
 
+typedef struct {
+  MyApplication* app;
+  uint32_t global;
+  struct wl_seat* seat;
+  struct ext_idle_notification_v1* notification;
+  gboolean idle;
+} TricksterIdleSeat;
+
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
@@ -48,12 +56,10 @@ struct _MyApplication {
   struct wl_compositor* compositor;
   struct ext_background_effect_manager_v1* blur_manager;
   gboolean idle;
+  GPtrArray* idle_seats;
   struct wl_registry* idle_registry;
   uint32_t idle_notifier_global;
-  uint32_t idle_seat_global;
   struct ext_idle_notifier_v1* idle_notifier;
-  struct wl_seat* idle_seat;
-  struct ext_idle_notification_v1* idle_notification;
   gchar* side;
   gint thickness;
   gchar* layer;
@@ -417,12 +423,12 @@ static gboolean trickster_probe_blur(MyApplication* self) {
   return self->blur_supported;
 }
 
-// The seat is observed only: the bar binds a wl_seat proxy for the idle
-// notification and never requests its devices or creates an inhibitor.
-// get_idle_notification obeys the compositor's idle-inhibitor policy, which
-// is the honest "seat is idle" signal. Multi-seat compositors are observed
-// through their first seat; a removed seat or notifier is rebound if a new
-// global appears.
+// Every advertised seat is observed only: the bar binds version-1 wl_seat
+// proxies and one inhibitor-aware idle notification per seat. It never
+// requests input devices or creates an inhibitor. get_idle_notification obeys
+// the compositor's idle-inhibitor policy, so a seat is idle only when the
+// whole seat is idle. The aggregate is idle only when at least one seat is
+// bound and every bound seat has a live notification reporting idle.
 static const uint32_t kIdleTimeoutMs = 60000;
 
 static void idle_seat_capabilities(void* data, struct wl_seat* seat,
@@ -442,28 +448,119 @@ static void trickster_emit_idle(MyApplication* self, gboolean idle) {
                                   nullptr, nullptr, nullptr);
 }
 
-static void trickster_drop_idle_notification(MyApplication* self) {
-  if (self->idle_notification != nullptr) {
-    ext_idle_notification_v1_destroy(self->idle_notification);
-    self->idle_notification = nullptr;
+static TricksterIdleSeat* trickster_idle_seat_for(MyApplication* self,
+                                                  uint32_t global) {
+  for (guint i = 0; i < self->idle_seats->len; i++) {
+    TricksterIdleSeat* seat =
+        (TricksterIdleSeat*)g_ptr_array_index(self->idle_seats, i);
+    if (seat->global == global) {
+      return seat;
+    }
   }
-  // Losing the seat or notifier must resume the samplers: no resumed event
-  // will arrive for an object that no longer exists.
-  trickster_emit_idle(self, FALSE);
+  return nullptr;
+}
+
+static gboolean trickster_idle_aggregate(MyApplication* self) {
+  if (self->idle_notifier == nullptr || self->idle_seats->len == 0) {
+    return FALSE;
+  }
+  for (guint i = 0; i < self->idle_seats->len; i++) {
+    TricksterIdleSeat* seat =
+        (TricksterIdleSeat*)g_ptr_array_index(self->idle_seats, i);
+    if (seat->seat == nullptr || seat->notification == nullptr ||
+        !seat->idle) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+static void trickster_recompute_idle(MyApplication* self) {
+  trickster_emit_idle(self, trickster_idle_aggregate(self));
+}
+
+static void trickster_idle_seat_free(gpointer data) {
+  TricksterIdleSeat* seat = (TricksterIdleSeat*)data;
+  if (seat->notification != nullptr) {
+    ext_idle_notification_v1_destroy(seat->notification);
+    seat->notification = nullptr;
+  }
+  if (seat->seat != nullptr) {
+    wl_seat_destroy(seat->seat);
+    seat->seat = nullptr;
+  }
+  g_free(seat);
+}
+
+static void trickster_reset_idle_seats(MyApplication* self) {
+  for (guint i = 0; i < self->idle_seats->len; i++) {
+    TricksterIdleSeat* seat =
+        (TricksterIdleSeat*)g_ptr_array_index(self->idle_seats, i);
+    seat->idle = FALSE;
+  }
+}
+
+static void trickster_destroy_idle_notifications(MyApplication* self) {
+  for (guint i = 0; i < self->idle_seats->len; i++) {
+    TricksterIdleSeat* seat =
+        (TricksterIdleSeat*)g_ptr_array_index(self->idle_seats, i);
+    if (seat->notification != nullptr) {
+      ext_idle_notification_v1_destroy(seat->notification);
+      seat->notification = nullptr;
+    }
+  }
+  trickster_reset_idle_seats(self);
+  trickster_recompute_idle(self);
+}
+
+static void trickster_drop_idle_notifier(MyApplication* self) {
+  trickster_destroy_idle_notifications(self);
+  if (self->idle_notifier != nullptr) {
+    ext_idle_notifier_v1_destroy(self->idle_notifier);
+    self->idle_notifier = nullptr;
+  }
+  self->idle_notifier_global = 0;
+  trickster_recompute_idle(self);
 }
 
 static void idle_notification_idled(
     void* data, struct ext_idle_notification_v1* notification) {
-  trickster_emit_idle(MY_APPLICATION(data), TRUE);
+  TricksterIdleSeat* seat = (TricksterIdleSeat*)data;
+  seat->idle = TRUE;
+  trickster_recompute_idle(seat->app);
 }
 
 static void idle_notification_resumed(
     void* data, struct ext_idle_notification_v1* notification) {
-  trickster_emit_idle(MY_APPLICATION(data), FALSE);
+  TricksterIdleSeat* seat = (TricksterIdleSeat*)data;
+  seat->idle = FALSE;
+  trickster_recompute_idle(seat->app);
 }
 
 static void trickster_bind_idle_registry(MyApplication* self);
 static gboolean trickster_install_idle(MyApplication* self);
+
+static gboolean trickster_install_seat_idle(MyApplication* self,
+                                            TricksterIdleSeat* seat) {
+  if (seat->seat == nullptr) {
+    return FALSE;
+  }
+  if (seat->notification != nullptr) {
+    return TRUE;
+  }
+  if (self->idle_notifier == nullptr) {
+    return FALSE;
+  }
+  seat->notification = ext_idle_notifier_v1_get_idle_notification(
+      self->idle_notifier, kIdleTimeoutMs, seat->seat);
+  if (seat->notification == nullptr) {
+    return FALSE;
+  }
+  static const struct ext_idle_notification_v1_listener listener = {
+      idle_notification_idled, idle_notification_resumed};
+  ext_idle_notification_v1_add_listener(seat->notification, &listener, seat);
+  return TRUE;
+}
 
 static void idle_registry_global(void* data, struct wl_registry* registry,
                                  uint32_t name, const char* interface,
@@ -476,39 +573,49 @@ static void idle_registry_global(void* data, struct wl_registry* registry,
       self->idle_notifier_global = name;
     }
   } else if (g_strcmp0(interface, wl_seat_interface.name) == 0) {
-    if (self->idle_seat == nullptr) {
-      self->idle_seat = (struct wl_seat*)wl_registry_bind(
+    if (trickster_idle_seat_for(self, name) == nullptr) {
+      TricksterIdleSeat* seat = g_new0(TricksterIdleSeat, 1);
+      seat->app = self;
+      seat->global = name;
+      seat->seat = (struct wl_seat*)wl_registry_bind(
           registry, name, &wl_seat_interface, MIN(version, 1));
-      self->idle_seat_global = name;
-      static const struct wl_seat_listener listener = {
-          idle_seat_capabilities, idle_seat_name};
-      wl_seat_add_listener(self->idle_seat, &listener, self);
+      if (seat->seat == nullptr) {
+        g_free(seat);
+      } else {
+        static const struct wl_seat_listener listener = {
+            idle_seat_capabilities, idle_seat_name};
+        wl_seat_add_listener(seat->seat, &listener, self);
+        g_ptr_array_add(self->idle_seats, seat);
+      }
     }
   }
-  if (self->idle_notifier != nullptr && self->idle_seat != nullptr) {
+  if (self->idle_notifier != nullptr) {
     trickster_install_idle(self);
   }
+  // A new seat starts not idle, so an aggregate true must fall back to false.
+  trickster_recompute_idle(self);
 }
 
 static void idle_registry_global_remove(void* data, struct wl_registry* registry,
                                         uint32_t name) {
   MyApplication* self = MY_APPLICATION(data);
-  if (name == self->idle_seat_global) {
-    self->idle_seat_global = 0;
-    trickster_drop_idle_notification(self);
-    if (self->idle_seat != nullptr) {
-      wl_seat_destroy(self->idle_seat);
-      self->idle_seat = nullptr;
-    }
+  if (name == self->idle_notifier_global) {
+    trickster_drop_idle_notifier(self);
     return;
   }
-  if (name == self->idle_notifier_global) {
-    self->idle_notifier_global = 0;
-    trickster_drop_idle_notification(self);
-    if (self->idle_notifier != nullptr) {
-      ext_idle_notifier_v1_destroy(self->idle_notifier);
-      self->idle_notifier = nullptr;
+  for (guint i = 0; i < self->idle_seats->len; i++) {
+    TricksterIdleSeat* seat =
+        (TricksterIdleSeat*)g_ptr_array_index(self->idle_seats, i);
+    if (seat->global != name) {
+      continue;
     }
+    // The array free func destroys the notification before the seat proxy.
+    // A lost seat resets the observation: remaining seats must prove idle
+    // again before the aggregate can return true.
+    g_ptr_array_remove_index(self->idle_seats, i);
+    trickster_reset_idle_seats(self);
+    trickster_recompute_idle(self);
+    return;
   }
 }
 
@@ -538,32 +645,23 @@ static void trickster_bind_idle_registry(MyApplication* self) {
   wl_display_roundtrip(wl);
 }
 
-// One notification per process while a seat and notifier exist. Returns true
-// only after the notification object was actually created, so --check does
-// not report support that cannot deliver events.
+// One notification per bound seat while the notifier exists. Returns true
+// only when at least one notification object was actually created, so
+// --check does not report support that cannot deliver events.
 static gboolean trickster_install_idle(MyApplication* self) {
-  if (self->idle_notification != nullptr) {
-    return TRUE;
-  }
   trickster_bind_idle_registry(self);
-  // The initial roundtrip may already have delivered both globals and
-  // installed the notification through idle_registry_global.
-  if (self->idle_notification != nullptr) {
-    return TRUE;
-  }
-  if (self->idle_notifier == nullptr || self->idle_seat == nullptr) {
+  if (self->idle_notifier == nullptr) {
     return FALSE;
   }
-  self->idle_notification = ext_idle_notifier_v1_get_idle_notification(
-      self->idle_notifier, kIdleTimeoutMs, self->idle_seat);
-  if (self->idle_notification == nullptr) {
-    return FALSE;
+  gboolean any = FALSE;
+  for (guint i = 0; i < self->idle_seats->len; i++) {
+    TricksterIdleSeat* seat =
+        (TricksterIdleSeat*)g_ptr_array_index(self->idle_seats, i);
+    if (trickster_install_seat_idle(self, seat)) {
+      any = TRUE;
+    }
   }
-  static const struct ext_idle_notification_v1_listener listener = {
-      idle_notification_idled, idle_notification_resumed};
-  ext_idle_notification_v1_add_listener(self->idle_notification, &listener,
-                                        self);
-  return TRUE;
+  return any;
 }
 
 static gboolean trickster_probe_idle(MyApplication* self) {
@@ -857,7 +955,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "seatIdle") == 0) {
     g_autoptr(FlValue) result =
-        fl_value_new_bool(self->idle ? TRUE : FALSE);
+        fl_value_new_bool(trickster_idle_aggregate(self) ? TRUE : FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else if (g_strcmp0(method, "surfaceThickness") == 0) {
     // The strip grows and shrinks with its wrapped content: the exclusive
@@ -1613,14 +1711,8 @@ static void my_application_dispose(GObject* object) {
     wl_registry_destroy(self->blur_registry);
     self->blur_registry = nullptr;
   }
-  if (self->idle_notification != nullptr) {
-    ext_idle_notification_v1_destroy(self->idle_notification);
-    self->idle_notification = nullptr;
-  }
-  if (self->idle_seat != nullptr) {
-    wl_seat_destroy(self->idle_seat);
-    self->idle_seat = nullptr;
-  }
+  // The array free func destroys each seat's notification, then its proxy.
+  g_clear_pointer(&self->idle_seats, g_ptr_array_unref);
   if (self->idle_notifier != nullptr) {
     ext_idle_notifier_v1_destroy(self->idle_notifier);
     self->idle_notifier = nullptr;
@@ -1662,6 +1754,7 @@ static void my_application_init(MyApplication* self) {
   self->surfaces = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->menus = g_ptr_array_new_with_free_func(trickster_surface_free);
   self->tooltips = g_ptr_array_new_with_free_func(trickster_surface_free);
+  self->idle_seats = g_ptr_array_new_with_free_func(trickster_idle_seat_free);
   self->connector_cache = g_hash_table_new_full(
       g_direct_hash, g_direct_equal, nullptr, g_free);
   self->settings_mode = FALSE;
