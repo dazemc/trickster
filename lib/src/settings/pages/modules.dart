@@ -45,7 +45,8 @@ String _reasonLabel(AppLocalizations l10n, ModuleUnavailableReason reason) {
       l10n.settingsUnavailableNoTemperature,
     ModuleUnavailableReason.noDisk => l10n.settingsUnavailableNoDisk,
     ModuleUnavailableReason.noNetwork => l10n.settingsUnavailableNoNetwork,
-    ModuleUnavailableReason.noHyprland => l10n.settingsUnavailableNoHyprland,
+    ModuleUnavailableReason.noKeyboardLayoutBackend =>
+      l10n.settingsUnavailableNoKeyboardLayoutBackend,
   };
 }
 

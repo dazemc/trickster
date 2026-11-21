@@ -20,7 +20,7 @@ enum ModuleUnavailableReason {
   noTemperature,
   noDisk,
   noNetwork,
-  noHyprland,
+  noKeyboardLayoutBackend,
 }
 
 /// Probes the machine for hardware and configured paths the bar might not
@@ -37,7 +37,7 @@ List<ModuleAvailability> probeModuleAvailability({
   bool Function()? hasTemperature,
   bool Function()? hasDisk,
   bool Function()? hasNetwork,
-  bool Function()? hasHyprland,
+  bool Function()? hasKeyboardLayoutBackend,
 }) {
   final unavailable = <ModuleAvailability>[];
   if (!_available(hasBattery, _hasBattery)) {
@@ -83,11 +83,11 @@ List<ModuleAvailability> probeModuleAvailability({
       ),
     );
   }
-  if (!_available(hasHyprland, _hasHyprland)) {
+  if (!_available(hasKeyboardLayoutBackend, _hasKeyboardLayoutBackend)) {
     unavailable.add(
       const ModuleAvailability(
         module: 'keyboard_layout',
-        reason: ModuleUnavailableReason.noHyprland,
+        reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
       ),
     );
   }
@@ -123,9 +123,14 @@ bool _available(bool Function()? override, bool Function() fallback) {
   }
 }
 
-bool _hasHyprland() {
-  return Platform.environment['HYPRLAND_INSTANCE_SIGNATURE'] != null &&
-      Platform.environment['XDG_RUNTIME_DIR'] != null;
+bool _hasKeyboardLayoutBackend() {
+  final environment = Platform.environment;
+  final hyprland =
+      environment['HYPRLAND_INSTANCE_SIGNATURE'] != null &&
+      environment['XDG_RUNTIME_DIR'] != null;
+  return hyprland ||
+      environment['SWAYSOCK'] != null ||
+      environment['NIRI_SOCKET'] != null;
 }
 
 bool _hasBattery() {

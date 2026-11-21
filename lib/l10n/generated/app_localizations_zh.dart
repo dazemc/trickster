@@ -258,7 +258,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUnavailableNoNetwork => '未检测到网络接口';
 
   @override
-  String get settingsUnavailableNoHyprland => '未检测到 Hyprland 会话';
+  String get settingsUnavailableNoKeyboardLayoutBackend => '未检测到支持的键盘后端';
 
   @override
   String settingsModuleOptions(String module) {

@@ -54,7 +54,7 @@ List<ModuleAvailability> applyBarAvailability(
     next.add(
       const ModuleAvailability(
         module: 'keyboard_layout',
-        reason: ModuleUnavailableReason.noHyprland,
+        reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
       ),
     );
   }

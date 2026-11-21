@@ -151,7 +151,7 @@ void main() {
     expect(l10n.metricKeyboardLayout, 'KB');
     expect(l10n.moduleKeyboardLayout, '键盘布局');
     expect(l10n.keyboardLayoutNames('US / RU'), '布局：US / RU');
-    expect(l10n.settingsUnavailableNoHyprland, '未检测到 Hyprland 会话');
+    expect(l10n.settingsUnavailableNoKeyboardLayoutBackend, '未检测到支持的键盘后端');
     expect(l10n.settingsUnavailableNoTemperature, '未检测到温度传感器');
     expect(l10n.settingsUnavailableNoDisk, '配置的磁盘路径不可用');
     expect(l10n.settingsUnavailableNoNetwork, '未检测到网络接口');

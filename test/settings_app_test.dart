@@ -959,7 +959,7 @@ void main() {
         ),
         ModuleAvailability(
           module: 'keyboard_layout',
-          reason: ModuleUnavailableReason.noHyprland,
+          reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
         ),
       ],
     );
@@ -1689,7 +1689,7 @@ void main() {
         ),
         ModuleAvailability(
           module: 'keyboard_layout',
-          reason: ModuleUnavailableReason.noHyprland,
+          reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
         ),
       ],
     );
@@ -1714,7 +1714,10 @@ void main() {
       find.byKey(const ValueKey<String>('module-unavailable-keyboard_layout')),
       findsOneWidget,
     );
-    expect(find.text('Hyprland session not detected'), findsOneWidget);
+    expect(
+      find.text('No supported keyboard-layout backend detected'),
+      findsOneWidget,
+    );
     // The battery is not offered as a toggle in a zone segment.
     expect(
       find.byKey(const ValueKey<String>('module-toggle-battery')),

@@ -549,11 +549,11 @@ abstract class AppLocalizations {
   /// **'No network interface detected'**
   String get settingsUnavailableNoNetwork;
 
-  /// Reason shown when the Hyprland keyboard backend is unavailable.
+  /// Reason shown when no compositor keyboard backend is available.
   ///
   /// In en, this message translates to:
-  /// **'Hyprland session not detected'**
-  String get settingsUnavailableNoHyprland;
+  /// **'No supported keyboard-layout backend detected'**
+  String get settingsUnavailableNoKeyboardLayoutBackend;
 
   /// Gear label revealing one module's typed options.
   ///

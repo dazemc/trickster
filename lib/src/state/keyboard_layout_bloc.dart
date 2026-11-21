@@ -36,7 +36,7 @@ class KeyboardLayoutBloc
   KeyboardLayoutBloc({
     KeyboardLayoutBackend? backend,
     KeyboardLayoutState initial = const KeyboardLayoutState(),
-  }) : _backend = backend ?? HyprlandKeyboardLayout(),
+  }) : _backend = backend ?? detectKeyboardLayoutBackend(),
        super(initial) {
     on<KeyboardLayoutStarted>(_onStarted);
     on<KeyboardLayoutStopped>(_onStopped);
@@ -47,7 +47,7 @@ class KeyboardLayoutBloc
     });
   }
 
-  final KeyboardLayoutBackend _backend;
+  final KeyboardLayoutBackend? _backend;
   StreamSubscription<KeyboardLayoutState>? _subscription;
   var _stopped = false;
 
@@ -58,10 +58,14 @@ class KeyboardLayoutBloc
     if (_stopped) {
       return;
     }
-    _subscription ??= _backend.snapshots.listen(
+    final backend = _backend;
+    if (backend == null) {
+      return;
+    }
+    _subscription ??= backend.snapshots.listen(
       (state) => add(KeyboardLayoutChanged(state)),
     );
-    unawaited(_backend.start());
+    unawaited(backend.start());
   }
 
   Future<void> _onStopped(
@@ -74,7 +78,7 @@ class KeyboardLayoutBloc
     _stopped = true;
     await _subscription?.cancel();
     _subscription = null;
-    await _backend.dispose();
+    await _backend?.dispose();
   }
 
   @override
@@ -84,7 +88,7 @@ class KeyboardLayoutBloc
     await _subscription?.cancel();
     _subscription = null;
     if (!wasStopped) {
-      await _backend.dispose();
+      await _backend?.dispose();
     }
     return super.close();
   }

@@ -263,7 +263,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUnavailableNoNetwork => 'No network interface detected';
 
   @override
-  String get settingsUnavailableNoHyprland => 'Hyprland session not detected';
+  String get settingsUnavailableNoKeyboardLayoutBackend =>
+      'No supported keyboard-layout backend detected';
 
   @override
   String settingsModuleOptions(String module) {

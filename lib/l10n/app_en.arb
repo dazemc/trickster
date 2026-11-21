@@ -389,9 +389,9 @@
   "@settingsUnavailableNoNetwork": {
     "description": "Reason shown when no physical or pinned network interface exists."
   },
-  "settingsUnavailableNoHyprland": "Hyprland session not detected",
-  "@settingsUnavailableNoHyprland": {
-    "description": "Reason shown when the Hyprland keyboard backend is unavailable."
+  "settingsUnavailableNoKeyboardLayoutBackend": "No supported keyboard-layout backend detected",
+  "@settingsUnavailableNoKeyboardLayoutBackend": {
+    "description": "Reason shown when no compositor keyboard backend is available."
   },
   "settingsModuleOptions": "{module} options",
   "@settingsModuleOptions": {

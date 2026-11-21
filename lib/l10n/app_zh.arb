@@ -389,9 +389,9 @@
   "@settingsUnavailableNoNetwork": {
     "description": "Reason shown when no physical or pinned network interface exists."
   },
-  "settingsUnavailableNoHyprland": "未检测到 Hyprland 会话",
-  "@settingsUnavailableNoHyprland": {
-    "description": "Reason shown when the Hyprland keyboard backend is unavailable."
+  "settingsUnavailableNoKeyboardLayoutBackend": "未检测到支持的键盘后端",
+  "@settingsUnavailableNoKeyboardLayoutBackend": {
+    "description": "Reason shown when no compositor keyboard backend is available."
   },
   "settingsModuleOptions": "{module} 选项",
   "@settingsModuleOptions": {

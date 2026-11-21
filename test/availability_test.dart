@@ -23,7 +23,7 @@ void main() {
       hasTemperature: () => false,
       hasDisk: () => false,
       hasNetwork: () => false,
-      hasHyprland: () => false,
+      hasKeyboardLayoutBackend: () => false,
     );
     expect(_modules(unavailable), [
       'vram',
@@ -37,7 +37,7 @@ void main() {
       ModuleUnavailableReason.noVram,
       ModuleUnavailableReason.noTemperature,
       ModuleUnavailableReason.noDisk,
-      ModuleUnavailableReason.noHyprland,
+      ModuleUnavailableReason.noKeyboardLayoutBackend,
       ModuleUnavailableReason.noBattery,
       ModuleUnavailableReason.noNetwork,
     ]);
@@ -51,7 +51,7 @@ void main() {
         hasTemperature: () => true,
         hasDisk: () => true,
         hasNetwork: () => true,
-        hasHyprland: () => true,
+        hasKeyboardLayoutBackend: () => true,
       ),
       isEmpty,
     );
@@ -64,7 +64,7 @@ void main() {
       hasTemperature: () => false,
       hasDisk: () => true,
       hasNetwork: () => true,
-      hasHyprland: () => true,
+      hasKeyboardLayoutBackend: () => true,
     );
     expect(_modules(unavailable), ['temperature']);
     expect(unavailable.single.reason, ModuleUnavailableReason.noTemperature);
@@ -77,7 +77,7 @@ void main() {
       hasTemperature: () => true,
       hasDisk: () => true,
       hasNetwork: () => true,
-      hasHyprland: () => true,
+      hasKeyboardLayoutBackend: () => true,
     );
     expect(_modules(unavailable), ['battery']);
     expect(unavailable.single.reason, ModuleUnavailableReason.noBattery);
@@ -87,7 +87,7 @@ void main() {
     const offlineProbe = <ModuleAvailability>[
       ModuleAvailability(
         module: 'keyboard_layout',
-        reason: ModuleUnavailableReason.noHyprland,
+        reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
       ),
     ];
     final online = await loadModuleAvailability(
@@ -126,7 +126,7 @@ void main() {
     const offline = <ModuleAvailability>[
       ModuleAvailability(
         module: 'keyboard_layout',
-        reason: ModuleUnavailableReason.noHyprland,
+        reason: ModuleUnavailableReason.noKeyboardLayoutBackend,
       ),
     ];
     expect(
