@@ -196,10 +196,10 @@ void main() {
     expect(again.single.memoryHistory, [0.25, 0.5]);
   });
 
-  test('reads Xe tile VRAM on a memory-only card', () async {
-    final root = _createRoot({'card0': ('0x8086', null)});
-    _writeDeviceFile(root, 'card0', 'tile0/vram0/total_bytes', '2000');
-    _writeDeviceFile(root, 'card0', 'tile0/vram0/used_bytes', '500');
+  test('reads VRAM on a memory-only card', () async {
+    final root = _createRoot({'card0': ('0x1002', null)});
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '2000');
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '500');
     final sampler = GpuSampler(
       drmRoot: root.path,
       nvml: FakeNvmlReader(),
@@ -299,6 +299,34 @@ void main() {
     expect(usageNvml.includeMemory, isFalse);
   });
 
+  test('configure re-discovers the newly enabled fields', () async {
+    final root = _createRoot({'card0': ('0x1002', '40')});
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '1000');
+    _writeDeviceFile(root, 'card0', 'mem_info_vram_used', '250');
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: FakeNvmlReader(),
+      nvidiaDriverPath: _driverPath(root),
+      includeUsage: true,
+      includeMemory: false,
+    );
+    addTearDown(sampler.dispose);
+
+    final usageOnly = await sampler.sample();
+    expect(usageOnly.single.usage, closeTo(0.4, 1e-9));
+    expect(usageOnly.single.memoryFraction, isNull);
+
+    sampler.configure(includeUsage: true, includeMemory: true);
+    final both = await sampler.sample();
+    expect(both.single.usage, closeTo(0.4, 1e-9));
+    expect(both.single.memoryFraction, closeTo(0.25, 1e-9));
+
+    sampler.configure(includeUsage: false, includeMemory: true);
+    final memoryOnly = await sampler.sample();
+    expect(memoryOnly.single.usage, isNull);
+    expect(memoryOnly.single.memoryFraction, closeTo(0.25, 1e-9));
+  });
+
   test('the memory series keeps the cap and appends newest last', () async {
     final root = _createRoot({'card0': ('0x1002', '40')});
     _writeDeviceFile(root, 'card0', 'mem_info_vram_total', '100');
@@ -372,6 +400,80 @@ void main() {
         nvidiaDriverPath: _driverPath(none),
       ),
       isFalse,
+    );
+  });
+
+  test(
+    'follows symlinked DRM card entries in discovery and availability',
+    () async {
+      final root = Directory.systemTemp.createTempSync('trickster-gpu-symlink');
+      addTearDown(() => root.deleteSync(recursive: true));
+      final target = Directory('${root.path}/physical-card/device')
+        ..createSync(recursive: true);
+      File('${target.path}/vendor').writeAsStringSync('0x1002\n');
+      File('${target.path}/gpu_busy_percent').writeAsStringSync('40\n');
+      File('${target.path}/mem_info_vram_total').writeAsStringSync('1000\n');
+      File('${target.path}/mem_info_vram_used').writeAsStringSync('250\n');
+      Link('${root.path}/card0').createSync('${root.path}/physical-card');
+
+      final sampler = GpuSampler(
+        drmRoot: root.path,
+        nvml: FakeNvmlReader(),
+        nvidiaDriverPath: '${root.path}/missing-nvidia-version',
+      );
+      addTearDown(sampler.dispose);
+
+      final loads = await sampler.sample();
+      expect(loads, hasLength(1));
+      expect(loads.single.id, 'card0');
+      expect(loads.single.usage, closeTo(0.4, 1e-9));
+      expect(loads.single.memoryFraction, closeTo(0.25, 1e-9));
+      expect(
+        hasGpuMemorySource(
+          drmRoot: root.path,
+          nvidiaDriverPath: '${root.path}/missing-nvidia-version',
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test('real sysfs card symlinks are traversed when a source is present', () {
+    final root = Directory('/sys/class/drm');
+    if (!root.existsSync()) {
+      return;
+    }
+    final cards = root
+        .listSync(followLinks: false)
+        .whereType<Link>()
+        .where(
+          (link) => RegExp(r'^card\d+$').hasMatch(
+            link.uri.pathSegments.where((part) => part.isNotEmpty).last,
+          ),
+        )
+        .toList(growable: false);
+    if (cards.isEmpty) {
+      return;
+    }
+    final hasSource = cards.any((card) {
+      final device = '${card.path}/device';
+      if (File('$device/mem_info_vram_total').existsSync() &&
+          File('$device/mem_info_vram_used').existsSync()) {
+        return true;
+      }
+      final vendor = File('$device/vendor');
+      return vendor.existsSync() &&
+          vendor.readAsStringSync().trim() == '0x10de';
+    });
+    if (!hasSource) {
+      return;
+    }
+    expect(
+      hasGpuMemorySource(
+        drmRoot: root.path,
+        nvidiaDriverPath: '/nonexistent/trickster-nvidia-version',
+      ),
+      isTrue,
     );
   });
 
@@ -528,6 +630,59 @@ void main() {
     expect(loads.single.label, 'GPU');
     expect(loads.single.usage, 0.0);
     expect(loads.single.memoryFraction, isNull);
+  });
+
+  test(
+    'does not fabricate zero for an active card beside a suspended one',
+    () async {
+      final root = _createRoot(
+        {'card0': ('0x10de', null), 'card1': ('0x10de', null)},
+        runtimeStatus: {'card0': 'active', 'card1': 'suspended'},
+      );
+      final nvml = FakeNvmlReader(const [
+        NvidiaGpuSample(index: 0, usage: 0.9, name: 'RTX 4070 Ti'),
+      ]);
+      final sampler = GpuSampler(
+        drmRoot: root.path,
+        nvml: nvml,
+        nvidiaDriverPath: _driverPath(root),
+      );
+      addTearDown(sampler.dispose);
+
+      final loads = await sampler.sample();
+      expect(nvml.reads, 0);
+      expect(loads, hasLength(1));
+      expect(loads.single.id, 'nvml1');
+      expect(loads.single.usage, 0.0);
+    },
+  );
+
+  test('refreshes a missing NVIDIA name when the card wakes', () async {
+    final root = _createRoot(
+      {'card0': ('0x10de', null)},
+      runtimeStatus: {'card0': 'suspended'},
+    );
+    final nvml = FakeNvmlReader(const [
+      NvidiaGpuSample(index: 0, usage: 0.9, name: 'RTX 4070 Ti'),
+    ]);
+    final sampler = GpuSampler(
+      drmRoot: root.path,
+      nvml: nvml,
+      nvidiaDriverPath: _driverPath(root),
+    );
+    addTearDown(sampler.dispose);
+
+    final first = await sampler.sample();
+    expect(first.single.name, isNull);
+
+    File(
+      '${root.path}/card0/device/power/runtime_status',
+    ).writeAsStringSync('active');
+    final second = await sampler.sample();
+    expect(nvml.reads, 1);
+    expect(second.single.name, 'RTX 4070 Ti');
+    expect(second.single.usage, closeTo(0.9, 1e-9));
+    expect(second.single.history, [0.0, 0.9]);
   });
 
   test('reads NVML when the NVIDIA GPU is active', () async {

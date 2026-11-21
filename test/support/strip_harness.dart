@@ -154,7 +154,8 @@ Future<void> pumpBarHarness(
   TemperatureBloc Function()? temperatureBuilder,
   DiskBloc Function()? diskBuilder,
   KeyboardLayoutBloc Function()? keyboardLayoutBuilder,
-  GpuBloc Function()? gpuBuilder,
+  GpuBloc Function({required bool includeUsage, required bool includeMemory})?
+  gpuBuilder,
   GpuState gpuInitial = const GpuState(),
   CpuSampler Function()? cpuSamplerBuilder,
   RamSampler Function()? ramSamplerBuilder,
@@ -248,7 +249,14 @@ Future<void> pumpBarHarness(
             gpuBuilder:
                 gpuBuilder ??
                 (gpuSamplerBuilder == null
-                    ? () => GpuBloc(initial: gpuInitial)
+                    ? ({
+                        required bool includeUsage,
+                        required bool includeMemory,
+                      }) => GpuBloc(
+                        initial: gpuInitial,
+                        includeUsage: includeUsage,
+                        includeMemory: includeMemory,
+                      )
                     : null),
             cpuSamplerBuilder: cpuSamplerBuilder,
             ramSamplerBuilder: ramSamplerBuilder,

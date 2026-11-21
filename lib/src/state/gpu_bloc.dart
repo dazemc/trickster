@@ -22,6 +22,19 @@ class GpuStarted extends GpuEvent {
   List<Object?> get props => [paused];
 }
 
+class GpuConfigured extends GpuEvent {
+  const GpuConfigured({
+    required this.includeUsage,
+    required this.includeMemory,
+  });
+
+  final bool includeUsage;
+  final bool includeMemory;
+
+  @override
+  List<Object?> get props => [includeUsage, includeMemory];
+}
+
 class GpuPaused extends GpuEvent {
   const GpuPaused();
 }
@@ -55,7 +68,12 @@ class GpuBloc extends Bloc<GpuEvent, GpuState> {
            sampler ??
            GpuSampler(includeUsage: includeUsage, includeMemory: includeMemory),
        super(initial) {
+    _sampler.configure(
+      includeUsage: includeUsage,
+      includeMemory: includeMemory,
+    );
     on<GpuStarted>(_onStarted);
+    on<GpuConfigured>(_onConfigured);
     on<GpuPaused>(_onPaused);
     on<GpuResumed>(_onResumed);
     on<GpuStopped>(_onStopped);
@@ -78,6 +96,16 @@ class GpuBloc extends Bloc<GpuEvent, GpuState> {
       (loads) => add(GpuSampled(loads)),
     );
     _sampler.start(paused: event.paused);
+  }
+
+  void _onConfigured(GpuConfigured event, Emitter<GpuState> emit) {
+    if (_stopped) {
+      return;
+    }
+    _sampler.configure(
+      includeUsage: event.includeUsage,
+      includeMemory: event.includeMemory,
+    );
   }
 
   void _onPaused(GpuPaused event, Emitter<GpuState> emit) {

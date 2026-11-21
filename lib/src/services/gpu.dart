@@ -57,7 +57,12 @@ class GpuLoad extends Equatable {
     return (used / total).clamp(0.0, 1.0);
   }
 
-  GpuLoad append(double? usage, {int? memoryUsedBytes, int? memoryTotalBytes}) {
+  GpuLoad append(
+    double? usage, {
+    int? memoryUsedBytes,
+    int? memoryTotalBytes,
+    String? name,
+  }) {
     final next = <double>[...history];
     if (usage != null) {
       next.add(usage);
@@ -81,7 +86,7 @@ class GpuLoad extends Equatable {
     return GpuLoad(
       id: id,
       label: label,
-      name: name,
+      name: name ?? this.name,
       usage: usage,
       history: usage == null ? history : List.unmodifiable(next),
       memoryUsedBytes: memoryUsedBytes,
@@ -161,33 +166,38 @@ class GpuState extends Equatable {
 }
 
 /// Autodetects GPU utilization and dedicated VRAM without spawning sampling
-/// processes: amdgpu/i915 expose `gpu_busy_percent` and `mem_info_vram_*`
-/// under `/sys/class/drm`, Xe exposes `tile0/vram0/*`, and the NVIDIA
-/// proprietary driver is read over NVML on a persistent worker isolate.
-/// [includeUsage] and [includeMemory] keep a GPU-only or VRAM-only bar from
-/// doing the other read; NVML is only consulted when the proprietary driver
-/// or a discovered NVIDIA card is present, so AMD-only systems never load it.
+/// processes: amdgpu publishes `gpu_busy_percent` and `mem_info_vram_*` under
+/// `/sys/class/drm`, and the NVIDIA proprietary driver is read over NVML on a
+/// persistent worker isolate. [includeUsage] and [includeMemory] keep a
+/// GPU-only or VRAM-only bar from doing the other read; NVML is only consulted
+/// when the proprietary driver or a discovered NVIDIA card is present, so
+/// AMD-only systems never load it.
 class GpuSampler {
   GpuSampler({
     this.interval = const Duration(seconds: 1),
-    this.includeUsage = true,
-    this.includeMemory = true,
+    bool includeUsage = true,
+    bool includeMemory = true,
     String drmRoot = '/sys/class/drm',
     NvmlReader? nvml,
     String nvidiaDriverPath = '/proc/driver/nvidia/version',
     void Function(String message)? log,
-  }) : _drmRoot = drmRoot,
+  }) : _includeUsage = includeUsage,
+       _includeMemory = includeMemory,
+       _drmRoot = drmRoot,
        _nvml = nvml ?? NvmlReader(),
        _nvidiaDriverPath = nvidiaDriverPath,
        _log = log ?? _stderrLog;
 
   final Duration interval;
 
+  bool _includeUsage;
+  bool _includeMemory;
+
   /// Whether utilization is read. A VRAM-only bar sets this false.
-  final bool includeUsage;
+  bool get includeUsage => _includeUsage;
 
   /// Whether dedicated VRAM is read. A GPU-only bar sets this false.
-  final bool includeMemory;
+  bool get includeMemory => _includeMemory;
   final String _drmRoot;
   final NvmlReader _nvml;
   final String _nvidiaDriverPath;
@@ -212,6 +222,23 @@ class GpuSampler {
 
   @visibleForTesting
   bool get isRunning => _timer?.isActive ?? false;
+
+  /// Reconfigures which fields the next sample reads. Discovery is repeated
+  /// because the memory-file set depends on [includeMemory]. A running sampler
+  /// takes one immediate pass so the pill reflects the new module set.
+  void configure({required bool includeUsage, required bool includeMemory}) {
+    if (_disposed ||
+        (includeUsage == _includeUsage && includeMemory == _includeMemory)) {
+      return;
+    }
+    _includeUsage = includeUsage;
+    _includeMemory = includeMemory;
+    _devices = null;
+    _generation += 1;
+    if (_running && !_paused) {
+      unawaited(_tick());
+    }
+  }
 
   bool get _hasNvidia =>
       (_nvidiaDriverPresent ??= File(_nvidiaDriverPath).existsSync()) ||
@@ -338,7 +365,8 @@ class GpuSampler {
       ));
     }
     if (_hasNvidia) {
-      if (await _canReadNvidiaWithoutWake()) {
+      final suspended = await _suspendedNvidiaIndices();
+      if (suspended.isEmpty) {
         final read = await _nvml.read(
           includeUsage: includeUsage,
           includeMemory: includeMemory,
@@ -362,11 +390,9 @@ class GpuSampler {
           ));
         }
       } else if (includeUsage) {
-        for (
-          var index = 0;
-          index < _nvidiaRuntimeStatusFiles!.length;
-          index += 1
-        ) {
+        // Never invent a reading for an awake card just because another card
+        // is suspended; only the suspended indices get the parked zero.
+        for (final index in suspended) {
           reads.add((
             id: 'nvml$index',
             label: GpuLoad.genericLabel,
@@ -389,6 +415,7 @@ class GpuSampler {
               read.usage,
               memoryUsedBytes: read.memoryUsed,
               memoryTotalBytes: read.memoryTotal,
+              name: read.name,
             ),
     ];
     _loads = _disambiguate(next);
@@ -403,7 +430,7 @@ class GpuSampler {
     final devices = <_GpuDevice>[];
     final nvidiaRuntimeStatusFiles = <File>[];
     try {
-      for (final entity in root.listSync(followLinks: false)) {
+      for (final entity in root.listSync(followLinks: true)) {
         if (entity is! Directory) {
           continue;
         }
@@ -445,34 +472,35 @@ class GpuSampler {
       _nvidiaRuntimeStatusFiles = const <File>[];
       return const <_GpuDevice>[];
     }
+    nvidiaRuntimeStatusFiles.sort((a, b) => a.path.compareTo(b.path));
     _nvidiaRuntimeStatusFiles = nvidiaRuntimeStatusFiles;
     devices.sort((a, b) => a.id.compareTo(b.id));
     return devices;
   }
 
-  /// NVML utilization queries power on a runtime-suspended dGPU. Leave hybrid
-  /// graphics asleep until another workload activates them.
-  Future<bool> _canReadNvidiaWithoutWake() async {
+  /// Indices of NVIDIA cards that must not be queried because NVML would
+  /// power them on. An empty set means every card is awake; a missing runtime
+  /// status list means PM is not exposed through DRM, so querying cannot wake
+  /// an always-on card.
+  Future<Set<int>> _suspendedNvidiaIndices() async {
     final statusFiles = _nvidiaRuntimeStatusFiles;
     if (statusFiles == null || statusFiles.isEmpty) {
-      // Desktop NVIDIA systems may not expose runtime PM through DRM. Keep
-      // NVML available there because querying an always-on GPU cannot wake it.
-      return true;
+      return const <int>{};
     }
-    var suspended = false;
-    for (final statusFile in statusFiles) {
+    final suspended = <int>{};
+    for (var index = 0; index < statusFiles.length; index += 1) {
       try {
-        final status = (await statusFile.readAsString()).trim();
+        final status = (await statusFiles[index].readAsString()).trim();
         if (status == 'suspended' ||
             status == 'suspending' ||
             status == 'resuming') {
-          suspended = true;
+          suspended.add(index);
         }
       } on FileSystemException {
         continue;
       }
     }
-    return !suspended;
+    return suspended;
   }
 
   static final RegExp _cardName = RegExp(r'^card\d+$');
@@ -568,21 +596,16 @@ class _GpuMemoryFiles {
   final File totalFile;
 }
 
-/// Finds the first supported dedicated-VRAM sysfs pair for one DRM device.
+/// Finds the dedicated-VRAM sysfs pair for one DRM device.
 ///
-/// amdgpu and some i915/Arc cards publish `mem_info_vram_*`; Xe publishes
-/// `tile0/vram0/{total,used}_bytes`. Both files must exist; the caller still
-/// treats a zero or unreadable total as no memory.
+/// amdgpu publishes `mem_info_vram_*`; there is no equivalent mainline i915 or
+/// Xe pair. Both files must exist, and the caller still treats a zero or
+/// unreadable total as no memory.
 _GpuMemoryFiles? _memoryFilesFor(String device) {
   final directTotal = File('$device/mem_info_vram_total');
   final directUsed = File('$device/mem_info_vram_used');
   if (directTotal.existsSync() && directUsed.existsSync()) {
     return _GpuMemoryFiles(usedFile: directUsed, totalFile: directTotal);
-  }
-  final xeTotal = File('$device/tile0/vram0/total_bytes');
-  final xeUsed = File('$device/tile0/vram0/used_bytes');
-  if (xeTotal.existsSync() && xeUsed.existsSync()) {
-    return _GpuMemoryFiles(usedFile: xeUsed, totalFile: xeTotal);
   }
   return null;
 }
@@ -612,7 +635,7 @@ bool hasGpuMemorySource({
     return false;
   }
   try {
-    for (final entity in root.listSync(followLinks: false)) {
+    for (final entity in root.listSync(followLinks: true)) {
       if (entity is! Directory) {
         continue;
       }

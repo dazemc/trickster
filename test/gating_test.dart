@@ -163,6 +163,8 @@ class _RecordingDiskSampler extends DiskSampler {
 }
 
 class _RecordingGpuSampler extends GpuSampler {
+  _RecordingGpuSampler({super.includeUsage, super.includeMemory});
+
   var starts = 0;
   var pauses = 0;
   var resumes = 0;
@@ -381,7 +383,11 @@ void main() {
       seatIdleChanges: changes.stream,
       clockBuilder: () => clock,
       cpuBuilder: () => CpuBloc(sampler: cpu)..add(const CpuStarted()),
-      gpuBuilder: () => GpuBloc(sampler: gpu)..add(const GpuStarted()),
+      gpuBuilder: ({required includeUsage, required includeMemory}) => GpuBloc(
+        sampler: gpu,
+        includeUsage: includeUsage,
+        includeMemory: includeMemory,
+      )..add(const GpuStarted()),
       settle: const Duration(milliseconds: 100),
     );
     final before = clock.state.now;
@@ -539,9 +545,11 @@ void main() {
     await pumpBarHarness(
       tester,
       settings: const BarSettings(modules: ['clock', 'gpu', 'vram']),
-      gpuBuilder: () {
+      gpuBuilder: ({required includeUsage, required includeMemory}) {
         builds += 1;
         return GpuBloc(
+          includeUsage: includeUsage,
+          includeMemory: includeMemory,
           initial: const GpuState([
             GpuLoad(
               id: 'card0',
@@ -566,6 +574,70 @@ void main() {
       find.byKey(const ValueKey<String>('system-bar-vram-card0')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('live gpu/vram changes rebuild the shared sampler flags', (
+    tester,
+  ) async {
+    final samplers = <_RecordingGpuSampler>[];
+    const load = GpuLoad(
+      id: 'card0',
+      label: 'AMD0',
+      usage: 0.4,
+      history: [0.4],
+      memoryUsedBytes: 500,
+      memoryTotalBytes: 1000,
+      memoryHistory: [0.5],
+    );
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'gpu']),
+      gpuBuilder: ({required includeUsage, required includeMemory}) {
+        final sampler = _RecordingGpuSampler(
+          includeUsage: includeUsage,
+          includeMemory: includeMemory,
+        );
+        samplers.add(sampler);
+        return GpuBloc(
+          sampler: sampler,
+          includeUsage: includeUsage,
+          includeMemory: includeMemory,
+          initial: const GpuState([load]),
+        )..add(const GpuStarted());
+      },
+      settle: const Duration(milliseconds: 100),
+    );
+
+    expect(samplers, hasLength(1));
+    expect(samplers.single.includeUsage, isTrue);
+    expect(samplers.single.includeMemory, isFalse);
+    expect(find.byType(GpuPill), findsOneWidget);
+    expect(find.byType(VramPill), findsNothing);
+
+    final settingsBloc = tester
+        .element(find.byType(TricksterBarStrip))
+        .read<SettingsBloc>();
+    settingsBloc.add(const SettingsModulesChanged(['clock', 'gpu', 'vram']));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(samplers, hasLength(1));
+    expect(samplers.single.includeUsage, isTrue);
+    expect(samplers.single.includeMemory, isTrue);
+    expect(samplers.single.starts, 1);
+    expect(find.byType(GpuPill), findsOneWidget);
+    expect(find.byType(VramPill), findsOneWidget);
+
+    settingsBloc.add(const SettingsModulesChanged(['clock', 'vram']));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(samplers, hasLength(1));
+    expect(samplers.single.includeUsage, isFalse);
+    expect(samplers.single.includeMemory, isTrue);
+    expect(samplers.single.starts, 1);
+    expect(find.byType(GpuPill), findsNothing);
+    expect(find.byType(VramPill), findsOneWidget);
   });
 
   testWidgets('disabled vram alone builds no GpuBloc or sampler', (
