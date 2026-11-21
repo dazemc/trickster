@@ -247,6 +247,13 @@ or scope that created it. The native runner owns resources Dart cannot see;
 the overlay lifecycle gap above shows what happens when that ownership is not
 paired.
 
+A module `*Stopped` event is terminal for its bloc: the bloc marks itself
+stopped, cancels its snapshots subscription, and disposes its
+sampler/service/monitor/worker exactly once. Later Started, Paused, Resumed,
+sample, focus, or refresh events are ignored, and `close()` after a stop must
+not dispose twice. Closing without a stop keeps the normal teardown. No
+production path emits `Stopped` today.
+
 ## Non-goals
 
 Not a compositor, not a Quickshell config, not a Denial component, not a
