@@ -18,3 +18,12 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Authorized step
+
+- S: Fix the `SessionConfig` keyboard JSON round-trip. Serialize
+  `TricksterKeyboard.onDemand` as the documented `on_demand` wire spelling
+  while `fromJson` keeps accepting the legacy `onDemand` spelling. Done when
+  tests cover all keyboard values through `toJson`/`fromJson` and legacy
+  `onDemand`, `layer` and `locale` serialization are confirmed consistent, and
+  analyze/full tests/release build are green.
