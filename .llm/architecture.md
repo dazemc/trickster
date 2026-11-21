@@ -71,11 +71,14 @@ keyboard and the full input region; tooltips take no keyboard and an empty
 input region, so hovering one cannot steal the pointer. Overlays never take
 the native blur effect: an effect on a hidden overlay black-screens it.
 
-**Gap — overlay stacking.** Overlays now record their monitor, a null monitor
-is refused, and matching menu/tooltip windows are destroyed with their output;
-the overlay blocs also close their native surfaces and clear a session whose
-view is no longer retained. Every overlay is still a full-monitor surface, so
-independent owners can stack. Arbitrate one owner next.
+**Overlay coordination.** One app-owned `OverlayCoordinator` arbitrates the
+four overlay blocs. Tray menu, calendar, and volume slider are modal: at most
+one owns the slot, and an open modal excludes tooltips. A modal request
+closes the active tooltip first, then the previous modal; a tooltip request
+behind a modal is refused. Same-kind requests retarget or replace their own
+surface without touching another kind. Dismissals are generation-safe and
+bounded by a short timeout; failed opens, dismissals, closes, and
+retained-view clears release the claim.
 
 **Settings.** The settings process creates its window with
 `fl_view_new(project)`, registers plugins on that view, and builds one `View`
@@ -214,9 +217,9 @@ fresh client. Its 60 s refresh remains the only discovery cadence.
 - Native runner: engine, bootstrap/strip/overlay views, layer-shell windows,
   blur effect and regions, idle registry/seat/notifier, PipeWire capture and
   volume streams.
-- Dart bar app: config watcher, control server, overlay blocs (tray menu,
-  calendar, volume slider, tooltip), wallpaper accent bloc, settings and
-  outputs transports.
+- Dart bar app: config watcher, control server, overlay coordinator and blocs
+  (tray menu, calendar, volume slider, tooltip), wallpaper accent bloc,
+  settings and outputs transports.
 - Module blocs: their sampler, D-Bus client, socket, worker isolate, or timer.
 - `PipArtworkCache`: process-wide bounded cache, intentionally alive until
   process exit.
