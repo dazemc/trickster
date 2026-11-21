@@ -144,6 +144,17 @@ through `settingsCloseRequested`; the native delete handler holds the window
 while Dart flushes and calls `settingsClose`, with a 5 s native fallback so a
 dead isolate cannot make the window unclosable. A failed flush still closes.
 
+**Keyboard and focus.** Every settings control is a focusable action target:
+Tab traverses, Enter or Space activates buttons, chips, toggles, navigation
+rows, and reset controls, and sliders step along their scale with the arrow
+keys, clamped exactly like the semantics path. Focus rings use the accent;
+selected chips and enabled toggles switch to a contrasting ring so the accent
+fill cannot swallow it. The options inspector is modal to pointer input and
+keyboard focus (a scrim plus its own `FocusScope` and traversal group), closes
+on Escape or its close control, and restores focus to the gear that opened it.
+Switching sections resets the page scroll to the top. These are window-local
+behavior; documents, revisions, and persistence are unchanged.
+
 **Gaps.**
 
 - A settings document with an invalid scalar type is an invalid document; if
