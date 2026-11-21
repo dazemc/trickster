@@ -28,6 +28,7 @@ A short-lived client against `$XDG_RUNTIME_DIR/trickster/control.sock`, mirrorin
 
 It is a control client only — never a second UI runtime.
 
-`status` exposes `state.ram` for the RAM module. VRAM has no separate state
-tree: `memory_used_bytes`, `memory_total_bytes`, and `memory_history` ride each
-entry in `state.gpu.gpus`, including when only `vram` is configured.
+`status` exposes `state.ram` for the RAM module and `state.temperature` for
+the selected hwmon sensor. VRAM has no separate state tree:
+`memory_used_bytes`, `memory_total_bytes`, and `memory_history` ride each entry
+in `state.gpu.gpus`, including when only `vram` is configured.
