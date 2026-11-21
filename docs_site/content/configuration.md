@@ -119,8 +119,9 @@ back to the settings process environment.
   step along their scale with the arrow keys. A focused control paints the
   accent ring; selected chips and enabled toggles switch to a contrasting
   ring. Opening the options inspector moves focus into it, keeps Tab inside,
-  closes on Escape, and returns focus to the gear that opened it. Switching
-  sections returns the page to the top.
+  hides the shell from assistive technology, closes on Escape, and returns
+  focus to the gear that opened it. Switching sections returns the page to
+  the top.
 - The workspace rail mirrors the compositor: each strip shows the numbered
   workspaces the compositor places on its output, in id order, and pressing
   a pip focuses it. Placement, persistence, and the main display belong to
@@ -137,7 +138,9 @@ back to the settings process environment.
   clock's hour cycle instead of following the locale's preference;
   `clock.show_date` (bool, default `true`), `clock.show_seconds` (bool;
   the clock then ticks every second instead of once a minute), and
-  `clock.date_style` (`short`, `long`, or `weekday`, default `short`).
+  `clock.date_style` (`short`, `long`, or `weekday`, default `short`). On a
+  left or right strip the bar hides the date and seconds regardless of these
+  keys; the settings inspector disables both toggles and says why.
 - `cpu.warn` / `cpu.critical` and `gpu.warn` / `gpu.critical` (number 0–1,
   defaults `0.85` / `0.95`) — tint the load percent when it crosses each
   level; `warn` must stay below `critical`.
