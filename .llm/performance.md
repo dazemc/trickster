@@ -365,9 +365,7 @@ working buffer freed after the accent is committed.
 
 Release logs only state changes and errors. Debug/profile builds trace every
 bloc event, transition, error, and lifecycle through `TricksterObserver`. No
-per-frame or per-sample logging. `TRICKSTER_LOG` is parsed into
-`SessionConfig` but never applied to a logger; that is a gap, not a working
-filter.
+per-frame or per-sample logging.
 
 ## Measurement protocol
 
