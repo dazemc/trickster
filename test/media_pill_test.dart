@@ -29,7 +29,7 @@ class _FakeMediaPlayerService extends MediaPlayerService {
   final calls = <String>[];
 
   @override
-  Future<void> start() async {}
+  Future<void> start({bool paused = false}) async {}
 
   @override
   Future<void> dispose() async {}

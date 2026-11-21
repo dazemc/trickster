@@ -151,6 +151,7 @@ Future<void> pumpBarHarness(
   BatteryBloc Function()? batteryBuilder,
   WorkspacesBloc Function()? workspacesBuilder,
   MediaBloc Function()? mediaBuilder,
+  MediaPlayerService Function()? mediaServiceBuilder,
   VisualizerBloc Function()? visualizerBuilder,
   SinkVolumeBloc Function()? volumeBuilder,
   OpencodeBloc Function()? opencodeBuilder,
@@ -208,7 +209,10 @@ Future<void> pumpBarHarness(
                 ),
             mediaBuilder:
                 mediaBuilder ??
-                () => MediaBloc(initial: MprisPlaybackState.unavailable()),
+                (mediaServiceBuilder == null
+                    ? () => MediaBloc(initial: MprisPlaybackState.unavailable())
+                    : null),
+            mediaServiceBuilder: mediaServiceBuilder,
             visualizerBuilder:
                 visualizerBuilder ??
                 () => VisualizerBloc(analyzer: FakeBandAnalyzer()),

@@ -201,8 +201,10 @@ class MediaPlayerService {
   MprisPlaybackState _current = MprisPlaybackState.unavailable();
   int _recoveryAttempt = 0;
   int _connectionGeneration = 0;
+  int _recoveryGeneration = 0;
   bool _started = false;
   bool _disposed = false;
+  bool _recoveryPaused = false;
   bool _refreshing = false;
   bool _refreshAgain = false;
   bool _refreshTransportFailure = false;
@@ -221,17 +223,17 @@ class MediaPlayerService {
 
   MprisPlaybackState get current => _current;
 
-  Future<void> start() async {
+  Future<void> start({bool paused = false}) async {
     if (_started || _disposed) {
       return;
     }
     _started = true;
+    _recoveryPaused = _recoveryPaused || paused;
     try {
       _client ??= _clientFactory();
-      _refreshTimer = Timer.periodic(
-        recoveryInterval,
-        (_) => _scheduleRefresh(immediate: true),
-      );
+      if (!_recoveryPaused) {
+        _startRecoveryTimer();
+      }
       await refresh();
       if (!_disposed && !_refreshTransportFailure) {
         _subscribeOwnerChanges();
@@ -240,6 +242,44 @@ class MediaPlayerService {
       // The service stays alive and the recovery timer retries.
       _scheduleRecovery();
     }
+  }
+
+  /// Stops only the periodic recovery scan. The owner and player signal
+  /// subscriptions, the active player, and the current state stay live.
+  void pauseRecovery() {
+    if (_disposed || _recoveryPaused) {
+      return;
+    }
+    _recoveryPaused = true;
+    _recoveryGeneration += 1;
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  /// Runs one recovery scan, then restarts the idle recovery cadence. A pause
+  /// or dispose during the scan wins: the timer is not rearmed.
+  Future<void> resumeRecovery() async {
+    if (_disposed || !_started || !_recoveryPaused) {
+      return;
+    }
+    _recoveryPaused = false;
+    final generation = ++_recoveryGeneration;
+    await refresh();
+    if (_disposed || _recoveryPaused || generation != _recoveryGeneration) {
+      return;
+    }
+    _startRecoveryTimer();
+  }
+
+  void _startRecoveryTimer() {
+    if (_disposed || _recoveryPaused) {
+      return;
+    }
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      recoveryInterval,
+      (_) => _scheduleRefresh(immediate: true),
+    );
   }
 
   void _subscribeOwnerChanges() {
@@ -650,6 +690,7 @@ class MediaPlayerService {
       return;
     }
     _disposed = true;
+    _recoveryGeneration += 1;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     _signalTimer?.cancel();

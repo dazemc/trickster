@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/state/battery_bloc.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
@@ -41,6 +42,7 @@ class ModuleScope extends StatelessWidget {
     this.gpuSamplerBuilder,
     this.batterySamplerBuilder,
     this.opencodeSamplerBuilder,
+    this.mediaServiceBuilder,
     this.trayBuilder,
     this.batteryBuilder,
     this.workspacesBuilder,
@@ -62,6 +64,7 @@ class ModuleScope extends StatelessWidget {
   final GpuSampler Function()? gpuSamplerBuilder;
   final BatterySampler Function()? batterySamplerBuilder;
   final OpencodeSampler Function()? opencodeSamplerBuilder;
+  final MediaPlayerService Function()? mediaServiceBuilder;
 
   final TrayBloc Function()? trayBuilder;
   final BatteryBloc Function()? batteryBuilder;
@@ -78,6 +81,7 @@ class ModuleScope extends StatelessWidget {
         settings.includes('cpu') ||
         settings.includes('gpu') ||
         settings.includes('battery') ||
+        settings.includes('media') ||
         settings.includes('opencode');
     return MultiBlocProvider(
       providers: [
@@ -124,9 +128,11 @@ class ModuleScope extends StatelessWidget {
           ),
         if (settings.includes('media')) ...[
           BlocProvider<MediaBloc>(
-            create: (_) =>
+            create: (context) =>
                 mediaBuilder?.call() ??
-                (MediaBloc()..add(const MediaStarted())),
+                (MediaBloc(service: mediaServiceBuilder?.call())..add(
+                  MediaStarted(paused: context.read<SeatIdleBloc>().state.idle),
+                )),
           ),
           BlocProvider<VisualizerBloc>(
             create: (_) => visualizerBuilder?.call() ?? VisualizerBloc(),
@@ -172,6 +178,9 @@ class ModuleScope extends StatelessWidget {
                   context.read<BatteryBloc>().add(
                     state.idle ? const BatteryPaused() : const BatteryResumed(),
                   );
+                }
+                if (settings.includes('media')) {
+                  context.read<MediaBloc>().add(MediaIdleChanged(state.idle));
                 }
                 if (settings.includes('opencode')) {
                   context.read<OpencodeBloc>().add(

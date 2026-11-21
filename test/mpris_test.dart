@@ -94,6 +94,7 @@ class _FakePlayerObject extends DBusObject {
   bool canPause = true;
 
   final calls = <String>[];
+  int playerGetAllCalls = 0;
 
   /// When set, the next player-interface GetAll captures its snapshot and
   /// then waits, letting a test mutate state in the discovery gap.
@@ -148,6 +149,7 @@ class _FakePlayerObject extends DBusObject {
       };
     }
     final snapshot = _playerProperties();
+    playerGetAllCalls += 1;
     final gate = holdPlayerGetAll;
     if (gate != null && !gate.isCompleted) {
       playerGetAllHeld = true;
@@ -470,6 +472,121 @@ void main() {
     await _emitUntil(after, <String, DBusValue>{
       'Metadata': after._metadata(),
     }, () => service.current.title == 'Signal after restart');
+  });
+
+  test(
+    'paused recovery keeps signals live and resumes with one scan',
+    () async {
+      final bus = await _FakeBus.start();
+      addTearDown(bus.dispose);
+      final service = _service(
+        bus,
+        recoveryInterval: const Duration(milliseconds: 80),
+      );
+      addTearDown(service.dispose);
+      await service.start();
+
+      final player = _FakePlayerObject();
+      final client = await _servePlayer(bus, player, 'fake');
+      addTearDown(client.close);
+      await _waitFor(() => service.current.available);
+
+      service.pauseRecovery();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      final pausedReads = player.playerGetAllCalls;
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+      expect(
+        player.playerGetAllCalls,
+        pausedReads,
+        reason: 'the recovery timer is cancelled while idle',
+      );
+
+      player.title = 'Signal while paused';
+      player.playbackStatus = 'Paused';
+      await _emitUntil(player, <String, DBusValue>{
+        'Metadata': player._metadata(),
+        'PlaybackStatus': DBusString('Paused'),
+      }, () => service.current.title == 'Signal while paused');
+      expect(service.current.playing, isFalse);
+      expect(
+        player.playerGetAllCalls,
+        pausedReads,
+        reason: 'signal updates do not run a recovery scan',
+      );
+
+      player.title = 'Recovered on resume';
+      final beforeResume = player.playerGetAllCalls;
+      await service.resumeRecovery();
+      expect(
+        player.playerGetAllCalls,
+        beforeResume + 1,
+        reason: 'resume performs exactly one immediate scan',
+      );
+      expect(service.current.title, 'Recovered on resume');
+
+      final afterResume = player.playerGetAllCalls;
+      await _waitFor(() => player.playerGetAllCalls > afterResume);
+    },
+  );
+
+  test('a repeated resume does not stack recovery timers', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = _service(
+      bus,
+      recoveryInterval: const Duration(milliseconds: 100),
+    );
+    addTearDown(service.dispose);
+    await service.start();
+
+    final player = _FakePlayerObject();
+    final client = await _servePlayer(bus, player, 'fake');
+    addTearDown(client.close);
+    await _waitFor(() => service.current.available);
+
+    service.pauseRecovery();
+    await service.resumeRecovery();
+    final afterFirstResume = player.playerGetAllCalls;
+
+    await service.resumeRecovery();
+    expect(
+      player.playerGetAllCalls,
+      afterFirstResume,
+      reason: 'a second resume is a no-op',
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 260));
+    expect(
+      player.playerGetAllCalls - afterFirstResume,
+      inInclusiveRange(1, 3),
+      reason: 'only one timer is armed',
+    );
+  });
+
+  test('dispose while recovery is paused never revives the timer', () async {
+    final bus = await _FakeBus.start();
+    addTearDown(bus.dispose);
+    final service = _service(
+      bus,
+      recoveryInterval: const Duration(milliseconds: 60),
+    );
+    addTearDown(service.dispose);
+    await service.start();
+
+    final player = _FakePlayerObject();
+    final client = await _servePlayer(bus, player, 'fake');
+    addTearDown(client.close);
+    await _waitFor(() => service.current.available);
+
+    service.pauseRecovery();
+    await service.dispose();
+    final disposedReads = player.playerGetAllCalls;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(player.playerGetAllCalls, disposedReads);
+
+    await service.resumeRecovery();
+    await Future<void>.delayed(const Duration(milliseconds: 140));
+    expect(player.playerGetAllCalls, disposedReads);
   });
 
   test('starts while the bus is down and recovers when it appears', () async {

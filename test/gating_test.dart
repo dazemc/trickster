@@ -11,6 +11,7 @@ import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/services/battery.dart';
 import 'package:trickster/src/services/cpu.dart';
 import 'package:trickster/src/services/gpu.dart';
+import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/state/clock_bloc.dart';
 import 'package:trickster/src/state/cpu_bloc.dart';
@@ -136,6 +137,29 @@ class _RecordingOpencodeSampler extends OpencodeSampler {
 
   @override
   void resume() {
+    resumes += 1;
+  }
+}
+
+class _RecordingMediaService extends MediaPlayerService {
+  var starts = 0;
+  var pauses = 0;
+  var resumes = 0;
+  bool? startedPaused;
+
+  @override
+  Future<void> start({bool paused = false}) async {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pauseRecovery() {
+    pauses += 1;
+  }
+
+  @override
+  Future<void> resumeRecovery() async {
     resumes += 1;
   }
 }
@@ -461,6 +485,75 @@ void main() {
     await tester.pump();
     expect(battery.resumes, 1);
     expect(opencode.resumes, 1);
+  });
+
+  testWidgets('seat idle pauses media recovery once per transition', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final media = _RecordingMediaService();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'media']),
+      seatIdleChanges: changes.stream,
+      mediaServiceBuilder: () => media,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    expect(media.starts, 1);
+    expect(media.startedPaused, isFalse);
+
+    changes.add(true);
+    await tester.pump();
+    expect(media.pauses, 1);
+
+    changes.add(true);
+    await tester.pump();
+    expect(media.pauses, 1);
+
+    changes.add(false);
+    await tester.pump();
+    expect(media.resumes, 1);
+  });
+
+  testWidgets('initial idle seeds media recovery paused', (tester) async {
+    final media = _RecordingMediaService();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock', 'media']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      mediaServiceBuilder: () => media,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    expect(media.starts, 1);
+    expect(media.startedPaused, isTrue);
+    expect(media.pauses, 0);
+  });
+
+  testWidgets('media recovery is gated only when media is configured', (
+    tester,
+  ) async {
+    final changes = StreamController<bool>.broadcast();
+    addTearDown(changes.close);
+    final media = _RecordingMediaService();
+    await pumpBarHarness(
+      tester,
+      settings: const BarSettings(modules: ['clock']),
+      initialSeatIdle: const SeatIdleState(idle: true),
+      seatIdleChanges: changes.stream,
+      mediaServiceBuilder: () => media,
+      settle: const Duration(milliseconds: 100),
+    );
+
+    changes.add(false);
+    await tester.pump();
+    changes.add(true);
+    await tester.pump();
+    expect(media.starts, 0);
+    expect(media.pauses, 0);
+    expect(media.resumes, 0);
   });
 
   testWidgets('initial idle seeds battery and opencode paused', (tester) async {

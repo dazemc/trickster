@@ -181,13 +181,30 @@ class FakeMediaPlayerService extends MediaPlayerService {
   final controller = StreamController<MprisPlaybackState>.broadcast();
 
   var disposed = false;
+  var starts = 0;
+  var recoveryPauses = 0;
+  var recoveryResumes = 0;
+  bool? startedPaused;
   final calls = <String>[];
 
   @override
   Stream<MprisPlaybackState> get snapshots => controller.stream;
 
   @override
-  Future<void> start() async {}
+  Future<void> start({bool paused = false}) async {
+    starts += 1;
+    startedPaused = paused;
+  }
+
+  @override
+  void pauseRecovery() {
+    recoveryPauses += 1;
+  }
+
+  @override
+  Future<void> resumeRecovery() async {
+    recoveryResumes += 1;
+  }
 
   @override
   Future<void> dispose() async {
@@ -652,6 +669,32 @@ cpu MHz\t\t: 3400.000
         await bloc.close();
       }
       expect(service.disposed, isTrue);
+    });
+
+    test('idle changes gate recovery without stopping snapshots', () async {
+      final service = FakeMediaPlayerService();
+      final bloc = MediaBloc(service: service);
+      try {
+        bloc.add(const MediaStarted(paused: true));
+        await pumpEventQueue();
+        expect(service.starts, 1);
+        expect(service.startedPaused, isTrue);
+
+        bloc.add(const MediaIdleChanged(false));
+        await pumpEventQueue();
+        expect(service.recoveryResumes, 1);
+
+        service.controller.add(playback);
+        await pumpEventQueue();
+        expect(bloc.state, playback);
+
+        bloc.add(const MediaIdleChanged(true));
+        await pumpEventQueue();
+        expect(service.recoveryPauses, 1);
+        expect(bloc.state, playback);
+      } finally {
+        await bloc.close();
+      }
     });
 
     test('controls forward to the player service', () async {
