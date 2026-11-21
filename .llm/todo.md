@@ -18,3 +18,12 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## StatusNotifier offload
+
+- **L — Implement the StatusNotifier worker path, default off.** Add the
+  bounded protocol, the `trickster-sni-worker` isolate, and the UI proxy with
+  icon merge; keep `TrayBloc` defaulting to the local `StatusNotifierService`.
+  Done: protocol round-trip/bounds, proxy fake-worker, real-isolate fake-bus,
+  and no-UI-D-Bus tests green; `flutter analyze`, full tests, and a release
+  build pass; no default flip.
