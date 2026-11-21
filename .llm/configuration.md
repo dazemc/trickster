@@ -23,9 +23,11 @@ order:
 application, and the bar menu's settings launch use the same result. An
 injected `ConfigPaths` (tests, embedders) wins over every source. Paths are
 normalized to absolute form with `.`/`..` collapsed and duplicate separators
-removed; symbolic links are deliberately not resolved, so watcher event
-spellings still compare equal. A relative override and its canonical spelling
-name the same document.
+removed; symbolic links are deliberately not resolved, so the watched
+directory's spelling and the configured path compare equal. A custom outputs
+parent reached through a different link spelling remains a watcher gap (see
+`.llm/suggestions.md`). A relative override and its canonical spelling name the
+same document.
 
 The remaining `TRICKSTER_*` keys come from `/etc/trickster/session.conf` and
 the process environment, which overrides the file per key. `--edge SIDE`
@@ -133,7 +135,8 @@ The document carries:
   the stale entry stays selectable and resettable without the monitor
   attached;
 - `appearance`, `workspaces`, `cpu`, `ram`, `temperature`, `disk`, `clock`,
-  `battery`, `gpu`, `vram`, `media`, `opencode`: nested module options;
+  `battery`, `network`, `gpu`, `vram`, `media`, `opencode`: nested module
+  options;
 - `locale`: `en` or `zh`; null follows the system.
 
 Every write is revision-checked against a fresh read of the live document.
@@ -247,8 +250,8 @@ the reverse). The bar never crashes over config.
   fallback and hand edits.
 - **Disruptive keys** (edge, layer, thickness, keyboard, output set) destroy
   and recreate only the affected layer surfaces.
-- **Gap:** a non-disruptive settings change still calls native `outputs()`, a
-  Wayland enumeration, even when output placement did not change.
+- A settings-only reload does not enumerate outputs: `shouldReconcileOutputs`
+  keeps native `outputs()` to the first apply or an outputs document change.
 
 ## CLI and control socket
 
@@ -279,4 +282,5 @@ the reverse). The bar never crashes over config.
 | control socket | `ControlServer` | one JSON line per request |
 
 No second writer and no second revision line. The bar's own writes go through
-the same settings store instance the control socket serves.
+the same settings transport instance the control socket serves, so its advisory
+lock and revision check cover both writers.
