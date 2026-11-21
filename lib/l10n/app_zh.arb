@@ -182,6 +182,28 @@
   "@networkLinkUnknown": {
     "description": "Network link state when the kernel publishes no carrier or operstate."
   },
+  "networkSignal": "信号 {percent}%",
+  "@networkSignal": {
+    "description": "Network tooltip Wi-Fi signal strength.",
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "example": "72"
+      }
+    }
+  },
+  "networkBand24": "2.4 GHz",
+  "@networkBand24": {
+    "description": "Network tooltip Wi-Fi band label."
+  },
+  "networkBand5": "5 GHz",
+  "@networkBand5": {
+    "description": "Network tooltip Wi-Fi band label."
+  },
+  "networkBand6": "6 GHz",
+  "@networkBand6": {
+    "description": "Network tooltip Wi-Fi band label."
+  },
   "networkSpeedDetail": "速率 {speed}",
   "@networkSpeedDetail": {
     "description": "Network tooltip Ethernet link speed.",

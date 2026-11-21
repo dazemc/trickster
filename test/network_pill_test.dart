@@ -102,6 +102,68 @@ void main() {
     expect(find.textContaining('%'), findsNothing);
   });
 
+  testWidgets('an associated SSID replaces Wi-Fi and details the tooltip', (
+    tester,
+  ) async {
+    const sample = NetworkSample(
+      interface: 'wlan0',
+      medium: NetworkMedium.wifi,
+      link: NetworkLink.up,
+      adminUp: true,
+      defaultRoute: true,
+      status: NetworkStatus.online,
+      source: NetworkSource.networkManager,
+      ssid: 'home',
+      signalPercent: 72,
+      frequencyMhz: 5180,
+      band: WifiBand.band5,
+      rxBytesPerSecond: 1024,
+      txBytesPerSecond: 512,
+      rxBytesTotal: 2048,
+      txBytesTotal: 1024,
+    );
+    await _pump(tester, sample);
+    expect(find.text('home'), findsOneWidget);
+    expect(find.text('Wi-Fi'), findsNothing);
+    final tooltip = tester.widget<PillTooltip>(find.byType(PillTooltip));
+    expect(tooltip.label, contains('wlan0'));
+    expect(tooltip.label, contains('home'));
+    expect(tooltip.label, contains('Wi-Fi'));
+    expect(tooltip.label, contains('72% signal'));
+    expect(tooltip.label, contains('5 GHz'));
+    expect(tooltip.label, contains('link up'));
+    expect(tooltip.label, contains('received 1K/s · sent 512 B/s'));
+    expect(tooltip.label, contains('2 KiB received'));
+  });
+
+  testWidgets('local, limited, and captive classify the pill text', (
+    tester,
+  ) async {
+    Future<void> pumpStatus(NetworkStatus status) {
+      return _pump(
+        tester,
+        NetworkSample(
+          interface: 'wlan0',
+          medium: NetworkMedium.wifi,
+          link: NetworkLink.up,
+          adminUp: true,
+          defaultRoute: true,
+          status: status,
+          ssid: 'home',
+        ),
+      );
+    }
+
+    await pumpStatus(NetworkStatus.local);
+    expect(find.text('Local'), findsOneWidget);
+    await pumpStatus(NetworkStatus.limited);
+    expect(find.text('Limited'), findsOneWidget);
+    await pumpStatus(NetworkStatus.captive);
+    expect(find.text('Limited'), findsOneWidget);
+    await pumpStatus(NetworkStatus.disabled);
+    expect(find.text('Off'), findsOneWidget);
+  });
+
   testWidgets('linked, disconnected, off, and connected are distinct', (
     tester,
   ) async {

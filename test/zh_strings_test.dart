@@ -152,6 +152,10 @@ void main() {
     expect(l10n.networkDisconnected, '未连接');
     expect(l10n.networkRatesCompact('1.2M/s', '80K/s'), '↓1.2M/s ↑80K/s');
     expect(l10n.networkLinkDetail('已连通'), '链路 已连通');
+    expect(l10n.networkSignal(72), '信号 72%');
+    expect(l10n.networkBand24, '2.4 GHz');
+    expect(l10n.networkBand5, '5 GHz');
+    expect(l10n.networkBand6, '6 GHz');
     expect(
       l10n.networkTotalsDetail('1 GiB', '2 GiB'),
       '累计接收 1 GiB · 累计发送 2 GiB',

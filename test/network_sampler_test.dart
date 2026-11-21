@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trickster/src/services/network.dart';
 
@@ -19,6 +21,39 @@ class _FakeReader implements NetworkReader {
   @override
   void dispose() {
     disposed += 1;
+  }
+}
+
+class _FakeMetadata implements NetworkMetadataSource {
+  final controller = StreamController<NetworkMetadataSnapshot>.broadcast();
+
+  NetworkMetadataSnapshot _current = const NetworkMetadataSnapshot.none();
+  var starts = 0;
+  var disposes = 0;
+
+  @override
+  Stream<NetworkMetadataSnapshot> get snapshots => controller.stream;
+
+  @override
+  NetworkMetadataSnapshot get current => _current;
+
+  @override
+  Future<void> start() async {
+    starts += 1;
+  }
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> dispose() async {
+    disposes += 1;
+    await controller.close();
+  }
+
+  void emit(NetworkMetadataSnapshot snapshot) {
+    _current = snapshot;
+    controller.add(snapshot);
   }
 }
 
@@ -71,6 +106,7 @@ typedef _Fixture = ({
 
 _Fixture _fixture({
   String? interface,
+  NetworkMetadataSource? metadata,
   Duration interval = const Duration(seconds: 1),
 }) {
   final reader = _FakeReader();
@@ -79,6 +115,7 @@ _Fixture _fixture({
     interval: interval,
     interface: interface,
     reader: reader,
+    metadata: metadata,
     nowMicros: () => now,
     log: (_) {},
   );
@@ -402,6 +439,195 @@ void main() {
     expect(f.sampler.isRunning, isFalse);
     expect(f.reader.disposed, 1);
     expect(f.samples, hasLength(1));
+  });
+
+  testWidgets('metadata enriches the selected interface and preserves rates', (
+    tester,
+  ) async {
+    final metadata = _FakeMetadata();
+    final f = _fixture(metadata: metadata);
+    f.reader.reading = _reading(
+      rx: {'wlan0': 1000},
+      tx: {'wlan0': 2000},
+      interfaces: {
+        'wlan0': _info('wlan0', ifindex: 3, medium: NetworkMedium.wifi),
+      },
+      routes: const {'wlan0'},
+    );
+    f.sampler.start();
+    await tester.pump();
+    expect(metadata.starts, 1);
+    expect(f.samples.single.source, NetworkSource.kernel);
+    expect(f.samples.single.ssid, isNull);
+
+    f.reader.reading = _reading(
+      rx: {'wlan0': 2000},
+      tx: {'wlan0': 3000},
+      interfaces: {
+        'wlan0': _info('wlan0', ifindex: 3, medium: NetworkMedium.wifi),
+      },
+      routes: const {'wlan0'},
+    );
+    f.setNow(1000000);
+    await tester.pump(const Duration(seconds: 1));
+    expect(f.samples.last.rxBytesPerSecond, 1000);
+
+    metadata.emit(
+      const NetworkMetadataSnapshot(
+        service: NetworkMetadataServiceKind.networkManager,
+        devices: {
+          'wlan0': NetworkDeviceMetadata(
+            medium: NetworkMedium.wifi,
+            status: NetworkStatus.online,
+            ssid: 'home',
+            signalPercent: 72,
+            frequencyMhz: 5180,
+          ),
+        },
+      ),
+    );
+    await tester.pump();
+    final enriched = f.samples.last;
+    expect(enriched.interface, 'wlan0');
+    expect(enriched.ssid, 'home');
+    expect(enriched.signalPercent, 72);
+    expect(enriched.frequencyMhz, 5180);
+    expect(enriched.band, WifiBand.band5);
+    expect(enriched.status, NetworkStatus.online);
+    expect(enriched.source, NetworkSource.networkManager);
+    expect(enriched.pillState, NetworkPillState.wifi);
+    expect(enriched.rxBytesPerSecond, 1000);
+    expect(enriched.txBytesPerSecond, 1000);
+  });
+
+  testWidgets('an interface change drops metadata for the old name', (
+    tester,
+  ) async {
+    final metadata = _FakeMetadata();
+    final f = _fixture(metadata: metadata);
+    f.reader.reading = _reading(
+      rx: {'wlan0': 1000},
+      tx: {'wlan0': 2000},
+      interfaces: {
+        'wlan0': _info('wlan0', ifindex: 3, medium: NetworkMedium.wifi),
+      },
+      routes: const {'wlan0'},
+    );
+    f.sampler.start();
+    await tester.pump();
+    metadata.emit(
+      const NetworkMetadataSnapshot(
+        service: NetworkMetadataServiceKind.networkManager,
+        devices: {
+          'wlan0': NetworkDeviceMetadata(
+            medium: NetworkMedium.wifi,
+            status: NetworkStatus.online,
+            ssid: 'home',
+            signalPercent: 80,
+            frequencyMhz: 2412,
+          ),
+        },
+      ),
+    );
+    await tester.pump();
+    expect(f.samples.last.ssid, 'home');
+
+    f.reader.reading = _reading(
+      rx: {'enp42s0': 500},
+      tx: {'enp42s0': 600},
+      interfaces: {'enp42s0': _info('enp42s0', ifindex: 2)},
+      routes: const {'enp42s0'},
+    );
+    f.setNow(1000000);
+    await tester.pump(const Duration(seconds: 1));
+    final switched = f.samples.last;
+    expect(switched.interface, 'enp42s0');
+    expect(switched.ssid, isNull);
+    expect(switched.signalPercent, isNull);
+    expect(switched.frequencyMhz, isNull);
+    expect(switched.band, WifiBand.unknown);
+    expect(switched.source, NetworkSource.kernel);
+  });
+
+  testWidgets('metadata while paused is stored but not painted', (
+    tester,
+  ) async {
+    final metadata = _FakeMetadata();
+    final f = _fixture(metadata: metadata);
+    f.reader.reading = _reading(
+      rx: {'wlan0': 1000},
+      tx: {'wlan0': 2000},
+      interfaces: {
+        'wlan0': _info('wlan0', ifindex: 3, medium: NetworkMedium.wifi),
+      },
+      routes: const {'wlan0'},
+    );
+    f.sampler.start();
+    await tester.pump();
+    expect(f.samples, hasLength(1));
+
+    f.sampler.pause();
+    metadata.emit(
+      const NetworkMetadataSnapshot(
+        service: NetworkMetadataServiceKind.networkManager,
+        devices: {
+          'wlan0': NetworkDeviceMetadata(
+            medium: NetworkMedium.wifi,
+            status: NetworkStatus.online,
+            ssid: 'home',
+          ),
+        },
+      ),
+    );
+    await tester.pump();
+    expect(f.samples, hasLength(1));
+
+    f.sampler.resume();
+    await tester.pump();
+    expect(f.samples, hasLength(2));
+    expect(f.samples.last.ssid, 'home');
+    expect(f.samples.last.source, NetworkSource.networkManager);
+  });
+
+  testWidgets('losing the metadata owner clears identity fields', (
+    tester,
+  ) async {
+    final metadata = _FakeMetadata();
+    final f = _fixture(metadata: metadata);
+    f.reader.reading = _reading(
+      rx: {'wlan0': 1000},
+      tx: {'wlan0': 2000},
+      interfaces: {
+        'wlan0': _info('wlan0', ifindex: 3, medium: NetworkMedium.wifi),
+      },
+      routes: const {'wlan0'},
+    );
+    f.sampler.start();
+    await tester.pump();
+    metadata.emit(
+      const NetworkMetadataSnapshot(
+        service: NetworkMetadataServiceKind.networkManager,
+        devices: {
+          'wlan0': NetworkDeviceMetadata(
+            medium: NetworkMedium.wifi,
+            status: NetworkStatus.online,
+            ssid: 'home',
+            signalPercent: 72,
+          ),
+        },
+      ),
+    );
+    await tester.pump();
+    expect(f.samples.last.ssid, 'home');
+
+    metadata.emit(const NetworkMetadataSnapshot.none());
+    await tester.pump();
+    final cleared = f.samples.last;
+    expect(cleared.ssid, isNull);
+    expect(cleared.signalPercent, isNull);
+    expect(cleared.status, NetworkStatus.unknown);
+    expect(cleared.source, NetworkSource.kernel);
+    expect(cleared.interface, 'wlan0');
   });
 
   test('sample json round-trips with snake_case keys', () {

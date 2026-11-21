@@ -255,6 +255,30 @@ abstract class AppLocalizations {
   /// **'unknown'**
   String get networkLinkUnknown;
 
+  /// Network tooltip Wi-Fi signal strength.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% signal'**
+  String networkSignal(int percent);
+
+  /// Network tooltip Wi-Fi band label.
+  ///
+  /// In en, this message translates to:
+  /// **'2.4 GHz'**
+  String get networkBand24;
+
+  /// Network tooltip Wi-Fi band label.
+  ///
+  /// In en, this message translates to:
+  /// **'5 GHz'**
+  String get networkBand5;
+
+  /// Network tooltip Wi-Fi band label.
+  ///
+  /// In en, this message translates to:
+  /// **'6 GHz'**
+  String get networkBand6;
+
   /// Network tooltip Ethernet link speed.
   ///
   /// In en, this message translates to:

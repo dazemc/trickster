@@ -8,6 +8,7 @@ void main() {
   test('the network module never spawns a process', () {
     const files = [
       'lib/src/services/network.dart',
+      'lib/src/services/network_metadata.dart',
       'lib/src/state/network_bloc.dart',
       'lib/src/bar/network.dart',
     ];

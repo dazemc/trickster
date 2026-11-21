@@ -8,6 +8,7 @@ import 'package:trickster/src/services/disk.dart';
 import 'package:trickster/src/services/gpu.dart';
 import 'package:trickster/src/services/mpris.dart';
 import 'package:trickster/src/services/network.dart';
+import 'package:trickster/src/services/network_metadata.dart';
 import 'package:trickster/src/services/opencode.dart';
 import 'package:trickster/src/services/ram.dart';
 import 'package:trickster/src/services/temperature.dart';
@@ -184,7 +185,10 @@ class ModuleScope extends StatelessWidget {
                 (NetworkBloc(
                   sampler:
                       networkSamplerBuilder?.call() ??
-                      NetworkSampler(interface: settings.network.interface),
+                      NetworkSampler(
+                        interface: settings.network.interface,
+                        metadata: NetworkMetadataService(),
+                      ),
                 )..add(
                   NetworkStarted(
                     paused: context.read<SeatIdleBloc>().state.idle,

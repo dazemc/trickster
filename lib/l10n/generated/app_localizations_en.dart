@@ -103,6 +103,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkLinkUnknown => 'unknown';
 
   @override
+  String networkSignal(int percent) {
+    return '$percent% signal';
+  }
+
+  @override
+  String get networkBand24 => '2.4 GHz';
+
+  @override
+  String get networkBand5 => '5 GHz';
+
+  @override
+  String get networkBand6 => '6 GHz';
+
+  @override
   String networkSpeedDetail(String speed) {
     return 'speed $speed';
   }

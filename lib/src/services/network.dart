@@ -9,8 +9,28 @@ enum NetworkMedium { unknown, ethernet, wifi }
 
 enum NetworkLink { unknown, down, up }
 
-/// The text contract for the pill. `local` and `limited` are reserved for the
-/// connectivity metadata that will follow this kernel-only slice.
+/// Where the connectivity/identity metadata came from. `kernel` means only
+/// sysfs/procfs facts; the pill must not invent SSID, signal, or a band.
+enum NetworkSource { kernel, networkManager, iwd }
+
+/// The connectivity classification the pill renders. `captive` folds into
+/// the "Limited" text; `unknown` leaves the kernel link/route decision in
+/// charge.
+enum NetworkStatus {
+  unknown,
+  disabled,
+  disconnected,
+  linked,
+  local,
+  limited,
+  captive,
+  online,
+}
+
+enum WifiBand { unknown, band24, band5, band6 }
+
+/// The text contract for the pill. `local` and `limited` are reachable with
+/// NetworkManager/iwd metadata; kernel-only samples use the link/route path.
 enum NetworkPillState {
   wifi,
   ethernet,
@@ -20,6 +40,22 @@ enum NetworkPillState {
   limited,
   disconnected,
   disabled,
+}
+
+WifiBand wifiBandForFrequency(int? frequencyMhz) {
+  if (frequencyMhz == null || frequencyMhz <= 0) {
+    return WifiBand.unknown;
+  }
+  if (frequencyMhz >= 2400 && frequencyMhz <= 2500) {
+    return WifiBand.band24;
+  }
+  if (frequencyMhz >= 4900 && frequencyMhz < 5925) {
+    return WifiBand.band5;
+  }
+  if (frequencyMhz >= 5925 && frequencyMhz <= 7125) {
+    return WifiBand.band6;
+  }
+  return WifiBand.unknown;
 }
 
 /// One interface's byte counters from `/proc/net/dev`.
@@ -100,8 +136,9 @@ class NetworkKernelReading {
   final Set<String> defaultRouteInterfaces;
 }
 
-/// One kernel-truth sample. No connectivity metadata: rates, counters, link,
-/// medium, admin state, and the default-route flag are the whole state.
+/// One merged sample: kernel truth plus, when available, NetworkManager/iwd
+/// identity and connectivity metadata. Kernel-only values stay null; nothing
+/// is synthesized.
 class NetworkSample extends Equatable {
   const NetworkSample({
     this.interface,
@@ -109,6 +146,12 @@ class NetworkSample extends Equatable {
     this.link = NetworkLink.unknown,
     this.adminUp = false,
     this.defaultRoute = false,
+    this.status = NetworkStatus.unknown,
+    this.source = NetworkSource.kernel,
+    this.ssid,
+    this.signalPercent,
+    this.frequencyMhz,
+    this.band = WifiBand.unknown,
     this.ethernetSpeedMbps,
     this.rxBytesPerSecond,
     this.txBytesPerSecond,
@@ -124,6 +167,14 @@ class NetworkSample extends Equatable {
   final NetworkLink link;
   final bool adminUp;
   final bool defaultRoute;
+
+  /// Merged connectivity state; [NetworkStatus.unknown] defers to link/route.
+  final NetworkStatus status;
+  final NetworkSource source;
+  final String? ssid;
+  final int? signalPercent;
+  final int? frequencyMhz;
+  final WifiBand band;
   final int? ethernetSpeedMbps;
 
   /// Null on the first sample, a counter reset, or an interface/link change.
@@ -134,14 +185,31 @@ class NetworkSample extends Equatable {
 
   bool get visible => interface != null;
 
-  /// Kernel-only state priority. `local` and `limited` become reachable with
-  /// the connectivity metadata slice; this slice never fabricates them.
+  /// Disabled and disconnected are metadata-aware; local/limited/captive come
+  /// only from the metadata source. Kernel-only samples fall through to the
+  /// link/default-route decision.
   NetworkPillState get pillState {
-    if (!adminUp) {
+    if (!adminUp || status == NetworkStatus.disabled) {
       return NetworkPillState.disabled;
     }
-    if (link == NetworkLink.down) {
+    if (status == NetworkStatus.disconnected || link == NetworkLink.down) {
       return NetworkPillState.disconnected;
+    }
+    if (status == NetworkStatus.captive || status == NetworkStatus.limited) {
+      return NetworkPillState.limited;
+    }
+    if (status == NetworkStatus.local) {
+      return NetworkPillState.local;
+    }
+    if (status == NetworkStatus.linked) {
+      return NetworkPillState.linked;
+    }
+    if (status == NetworkStatus.online) {
+      return switch (medium) {
+        NetworkMedium.wifi => NetworkPillState.wifi,
+        NetworkMedium.ethernet => NetworkPillState.ethernet,
+        NetworkMedium.unknown => NetworkPillState.connected,
+      };
     }
     if (link != NetworkLink.up || !defaultRoute) {
       return NetworkPillState.linked;
@@ -160,6 +228,12 @@ class NetworkSample extends Equatable {
     link,
     adminUp,
     defaultRoute,
+    status,
+    source,
+    ssid,
+    signalPercent,
+    frequencyMhz,
+    band,
     ethernetSpeedMbps,
     rxBytesPerSecond,
     txBytesPerSecond,
@@ -173,6 +247,12 @@ class NetworkSample extends Equatable {
     'link': link.name,
     'admin_up': adminUp,
     'default_route': defaultRoute,
+    'status': status.name,
+    'source': source.name,
+    'ssid': ssid,
+    'signal_percent': signalPercent,
+    'frequency_mhz': frequencyMhz,
+    'band': band.name,
     'ethernet_speed_mbps': ethernetSpeedMbps,
     'rx_bytes_per_second': rxBytesPerSecond,
     'tx_bytes_per_second': txBytesPerSecond,
@@ -186,6 +266,12 @@ class NetworkSample extends Equatable {
     link: _enumByName(NetworkLink.values, json['link']),
     adminUp: json['admin_up'] as bool? ?? false,
     defaultRoute: json['default_route'] as bool? ?? false,
+    status: _enumByName(NetworkStatus.values, json['status']),
+    source: _enumByName(NetworkSource.values, json['source']),
+    ssid: json['ssid'] as String?,
+    signalPercent: (json['signal_percent'] as num?)?.toInt(),
+    frequencyMhz: (json['frequency_mhz'] as num?)?.toInt(),
+    band: _enumByName(WifiBand.values, json['band']),
     ethernetSpeedMbps: (json['ethernet_speed_mbps'] as num?)?.toInt(),
     rxBytesPerSecond: (json['rx_bytes_per_second'] as num?)?.toInt(),
     txBytesPerSecond: (json['tx_bytes_per_second'] as num?)?.toInt(),
@@ -201,6 +287,85 @@ T _enumByName<T extends Enum>(List<T> values, Object? name) {
     }
   }
   return values.first;
+}
+
+/// One device's identity/connectivity metadata, keyed by interface name.
+class NetworkDeviceMetadata extends Equatable {
+  const NetworkDeviceMetadata({
+    required this.medium,
+    this.status = NetworkStatus.unknown,
+    this.ssid,
+    this.signalPercent,
+    this.frequencyMhz,
+    this.speedMbps,
+  });
+
+  final NetworkMedium medium;
+  final NetworkStatus status;
+  final String? ssid;
+  final int? signalPercent;
+  final int? frequencyMhz;
+  final int? speedMbps;
+
+  @override
+  List<Object?> get props => [
+    medium,
+    status,
+    ssid,
+    signalPercent,
+    frequencyMhz,
+    speedMbps,
+  ];
+}
+
+/// One authoritative metadata read. `service == none` is neutral: the sampler
+/// falls back to kernel facts and clears every metadata field.
+class NetworkMetadataSnapshot extends Equatable {
+  const NetworkMetadataSnapshot({
+    this.service = NetworkMetadataServiceKind.none,
+    this.networkingEnabled = true,
+    this.wirelessEnabled = true,
+    this.devices = const <String, NetworkDeviceMetadata>{},
+  });
+
+  const NetworkMetadataSnapshot.none() : this();
+
+  final NetworkMetadataServiceKind service;
+  final bool networkingEnabled;
+  final bool wirelessEnabled;
+  final Map<String, NetworkDeviceMetadata> devices;
+
+  bool get available => service != NetworkMetadataServiceKind.none;
+
+  NetworkSource get source => switch (service) {
+    NetworkMetadataServiceKind.none => NetworkSource.kernel,
+    NetworkMetadataServiceKind.networkManager => NetworkSource.networkManager,
+    NetworkMetadataServiceKind.iwd => NetworkSource.iwd,
+  };
+
+  @override
+  List<Object?> get props => [
+    service,
+    networkingEnabled,
+    wirelessEnabled,
+    ...devices.entries.map((entry) => Object.hash(entry.key, entry.value)),
+  ];
+}
+
+enum NetworkMetadataServiceKind { none, networkManager, iwd }
+
+/// The metadata authority the sampler listens to. `null` on the sampler means
+/// kernel-only (unit tests, or a deliberately disabled metadata plane).
+abstract interface class NetworkMetadataSource {
+  Stream<NetworkMetadataSnapshot> get snapshots;
+
+  NetworkMetadataSnapshot get current;
+
+  Future<void> start();
+
+  Future<void> refresh();
+
+  Future<void> dispose();
 }
 
 /// Parses the two header lines plus one `iface: rx ... tx ...` line per
@@ -636,9 +801,11 @@ class NetworkSampler {
     this.interval = const Duration(seconds: 1),
     this.interface,
     NetworkReader? reader,
+    NetworkMetadataSource? metadata,
     int Function()? nowMicros,
     void Function(String)? log,
   }) : _reader = reader ?? SystemNetworkReader(),
+       _metadata = metadata,
        _nowMicros = nowMicros,
        _log = log ?? stderr.writeln;
 
@@ -647,18 +814,23 @@ class NetworkSampler {
   /// Pinned interface name; null selects the active physical interface.
   final String? interface;
   final NetworkReader _reader;
+  final NetworkMetadataSource? _metadata;
   final int Function()? _nowMicros;
   final void Function(String) _log;
   final Stopwatch _stopwatch = Stopwatch()..start();
   final _controller = StreamController<NetworkSample>.broadcast();
 
   NetworkSample _latest = const NetworkSample.none();
+  NetworkMetadataSnapshot _metadataSnapshot =
+      const NetworkMetadataSnapshot.none();
+  StreamSubscription<NetworkMetadataSnapshot>? _metadataSubscription;
   _CounterBaseline? _baseline;
   String? _loggedInterface;
   Timer? _timer;
   var _running = false;
   var _paused = false;
   var _disposed = false;
+  var _metadataStarted = false;
 
   Stream<NetworkSample> get snapshots => _controller.stream;
 
@@ -667,12 +839,15 @@ class NetworkSampler {
   @visibleForTesting
   bool get isRunning => _timer?.isActive ?? false;
 
-  /// A paused start reads nothing and starts no timer, so a module created
-  /// while the seat is already idle does no periodic work.
+  /// A paused start starts no throughput timer, so a module created while the
+  /// seat is already idle does no periodic work. The metadata plane may still
+  /// connect and keep its event subscriptions live, matching MPRIS; a resume
+  /// sample already has the latest identity state.
   void start({bool paused = false}) {
     if (_disposed) {
       return;
     }
+    _startMetadata();
     if (_running) {
       if (paused) {
         pause();
@@ -687,6 +862,19 @@ class NetworkSampler {
       _sample();
       _schedule();
     }
+  }
+
+  void _startMetadata() {
+    final metadata = _metadata;
+    if (metadata == null) {
+      return;
+    }
+    _metadataSubscription ??= metadata.snapshots.listen(_onMetadata);
+    if (_metadataStarted) {
+      return;
+    }
+    _metadataStarted = true;
+    unawaited(metadata.start());
   }
 
   void pause() {
@@ -728,6 +916,9 @@ class NetworkSampler {
     _timer?.cancel();
     _timer = null;
     _baseline = null;
+    await _metadataSubscription?.cancel();
+    _metadataSubscription = null;
+    await _metadata?.dispose();
     _reader.dispose();
     await _controller.close();
   }
@@ -786,7 +977,7 @@ class NetworkSampler {
       atMicros: now,
     );
 
-    final next = NetworkSample(
+    final base = NetworkSample(
       interface: selected.name,
       medium: selected.medium,
       link: selected.link,
@@ -800,6 +991,7 @@ class NetworkSampler {
       rxBytesTotal: counters.rxBytes,
       txBytesTotal: counters.txBytes,
     );
+    final next = _mergeMetadata(base, _metadataSnapshot);
     if (next != _latest) {
       _latest = next;
       _controller.add(next);
@@ -808,6 +1000,75 @@ class NetworkSampler {
       _loggedInterface = selected.name;
       _log('trickster: network interface ${selected.name}');
     }
+  }
+
+  void _onMetadata(NetworkMetadataSnapshot snapshot) {
+    _metadataSnapshot = snapshot;
+    if (!_running ||
+        _paused ||
+        _disposed ||
+        _controller.isClosed ||
+        !_latest.visible) {
+      return;
+    }
+    final next = _mergeMetadata(_latest, snapshot);
+    if (next != _latest) {
+      _latest = next;
+      _controller.add(next);
+    }
+  }
+
+  /// Metadata is looked up by the selected interface name, so an interface
+  /// change cannot carry the old SSID. A missing device clears every metadata
+  /// field and leaves the kernel classification in charge.
+  NetworkSample _mergeMetadata(
+    NetworkSample base,
+    NetworkMetadataSnapshot snapshot,
+  ) {
+    final device = base.interface == null
+        ? null
+        : snapshot.devices[base.interface];
+    if (device == null) {
+      return NetworkSample(
+        interface: base.interface,
+        medium: base.medium,
+        link: base.link,
+        adminUp: base.adminUp,
+        defaultRoute: base.defaultRoute,
+        status: NetworkStatus.unknown,
+        source: NetworkSource.kernel,
+        ethernetSpeedMbps: base.ethernetSpeedMbps,
+        rxBytesPerSecond: base.rxBytesPerSecond,
+        txBytesPerSecond: base.txBytesPerSecond,
+        rxBytesTotal: base.rxBytesTotal,
+        txBytesTotal: base.txBytesTotal,
+      );
+    }
+    final usable =
+        device.status != NetworkStatus.disconnected &&
+        device.status != NetworkStatus.disabled;
+    return NetworkSample(
+      interface: base.interface,
+      medium: device.medium,
+      link: base.link,
+      adminUp: base.adminUp,
+      defaultRoute: base.defaultRoute,
+      status: device.status,
+      source: snapshot.source,
+      ssid: usable ? device.ssid : null,
+      signalPercent: usable ? device.signalPercent : null,
+      frequencyMhz: usable ? device.frequencyMhz : null,
+      band: usable
+          ? wifiBandForFrequency(device.frequencyMhz)
+          : WifiBand.unknown,
+      ethernetSpeedMbps: usable && device.medium == NetworkMedium.ethernet
+          ? base.ethernetSpeedMbps ?? device.speedMbps
+          : null,
+      rxBytesPerSecond: base.rxBytesPerSecond,
+      txBytesPerSecond: base.txBytesPerSecond,
+      rxBytesTotal: base.rxBytesTotal,
+      txBytesTotal: base.txBytesTotal,
+    );
   }
 
   void _hide() {

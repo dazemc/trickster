@@ -58,12 +58,37 @@ String networkLinkLabel(AppLocalizations l10n, NetworkLink link) {
   };
 }
 
-/// The hover label is the whole kernel record: interface, state, link, speed,
-/// the current rates, and the interface's lifetime totals.
+String? networkBandLabel(AppLocalizations l10n, WifiBand band) {
+  return switch (band) {
+    WifiBand.band24 => l10n.networkBand24,
+    WifiBand.band5 => l10n.networkBand5,
+    WifiBand.band6 => l10n.networkBand6,
+    WifiBand.unknown => null,
+  };
+}
+
+/// The number the pill paints: an associated SSID when the link is healthy,
+/// otherwise the state text (Local, Limited, Disconnected, and so on).
+String networkIdentityLabel(AppLocalizations l10n, NetworkSample sample) {
+  final ssid = sample.ssid;
+  if (sample.pillState == NetworkPillState.wifi &&
+      ssid != null &&
+      ssid.isNotEmpty) {
+    return ssid;
+  }
+  return networkStateLabel(l10n, sample.pillState);
+}
+
+/// The hover label carries the identity, signal, band, link, speed, current
+/// rates, and lifetime totals. Unknown metadata is omitted, never fabricated.
 String networkTooltipLabel(AppLocalizations l10n, NetworkSample sample) {
+  final band = networkBandLabel(l10n, sample.band);
   final parts = <String>[
-    if (sample.interface != null) sample.interface!,
+    ?sample.interface,
     networkStateLabel(l10n, sample.pillState),
+    if (sample.ssid case final ssid? when ssid.isNotEmpty) ssid,
+    if (sample.signalPercent != null) l10n.networkSignal(sample.signalPercent!),
+    ?band,
     l10n.networkLinkDetail(networkLinkLabel(l10n, sample.link)),
     if (sample.ethernetSpeedMbps != null)
       l10n.networkSpeedDetail(formatLinkSpeed(sample.ethernetSpeedMbps!)),
@@ -104,7 +129,7 @@ class NetworkPill extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final l10n = context.l10n;
-    final stateText = networkStateLabel(l10n, sample.pillState);
+    final stateText = networkIdentityLabel(l10n, sample);
     final rx = sample.rxBytesPerSecond;
     final tx = sample.txBytesPerSecond;
     final ratesText =

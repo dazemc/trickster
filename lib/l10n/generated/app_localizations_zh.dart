@@ -103,6 +103,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkLinkUnknown => '未知';
 
   @override
+  String networkSignal(int percent) {
+    return '信号 $percent%';
+  }
+
+  @override
+  String get networkBand24 => '2.4 GHz';
+
+  @override
+  String get networkBand5 => '5 GHz';
+
+  @override
+  String get networkBand6 => '6 GHz';
+
+  @override
   String networkSpeedDetail(String speed) {
     return '速率 $speed';
   }
