@@ -114,6 +114,13 @@ back to the settings process environment.
   scrim, and the module page keeps its scroll position and width. The page
   caps its content width at 1120 logical pixels and paints a scrollbar at
   900×600 and other window sizes; the inspector scrolls independently.
+- Every settings control is keyboard-operable: Tab moves focus, Enter or
+  Space activates buttons, chips, toggles, and navigation rows, and sliders
+  step along their scale with the arrow keys. A focused control paints the
+  accent ring; selected chips and enabled toggles switch to a contrasting
+  ring. Opening the options inspector moves focus into it, keeps Tab inside,
+  closes on Escape, and returns focus to the gear that opened it. Switching
+  sections returns the page to the top.
 - The workspace rail mirrors the compositor: each strip shows the numbered
   workspaces the compositor places on its output, in id order, and pressing
   a pip focuses it. Placement, persistence, and the main display belong to
