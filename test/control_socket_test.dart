@@ -114,7 +114,7 @@ void main() {
     expect(BarSettings.decode(written.json).accent, const Color(0xffff0000));
   });
 
-  test('the store retries once after a revision mismatch', () async {
+  test('the store surfaces a revision mismatch without resending', () async {
     final directory = await _temporaryDir();
     final server = await _FakeControlServer.bind(directory);
     addTearDown(server.dispose);
@@ -124,12 +124,15 @@ void main() {
 
     await store.read();
     server.rejectNextWrite = true;
-    await store.write(const BarSettings(modules: ['clock']));
+    await expectLater(
+      store.write(const BarSettings(modules: ['clock'])),
+      throwsA(isA<SettingsRevisionConflict>()),
+    );
 
-    expect(server.revision, 2);
+    expect(server.revision, 1);
     expect(
       server.commands.where((command) => command == 'settings.write'),
-      hasLength(2),
+      hasLength(1),
     );
   });
 
