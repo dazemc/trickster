@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart'
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:material_ui/material_ui.dart' show Scrollbar;
 import 'package:trickster/l10n/generated/app_localizations.dart';
 import 'package:trickster/src/config/settings.dart';
 import 'package:trickster/src/locale.dart';
@@ -89,12 +91,16 @@ class _ModulesPageState extends State<ModulesPage> {
 
   final Map<String, GlobalKey> _rowKeys = <String, GlobalKey>{};
   final Map<ModuleZone, GlobalKey> _zoneKeys = <ModuleZone, GlobalKey>{};
-  final Map<String, GlobalKey> _optionsKeys = <String, GlobalKey>{};
+  final Map<String, FocusNode> _optionsFocus = <String, FocusNode>{};
+  final OverlayPortalController _optionsPortal = OverlayPortalController(
+    debugLabel: 'module-options',
+  );
 
   final GlobalKey _disabledKey = GlobalKey();
 
   Timer? _autoScrollTimer;
   Offset? _autoScrollPointer;
+  FocusNode? _optionsReturnFocus;
 
   GlobalKey _rowKey(String module) =>
       _rowKeys.putIfAbsent(module, GlobalKey.new);
@@ -102,13 +108,20 @@ class _ModulesPageState extends State<ModulesPage> {
   GlobalKey _zoneKey(ModuleZone zone) =>
       _zoneKeys.putIfAbsent(zone, GlobalKey.new);
 
-  GlobalKey _optionsKey(String module) =>
-      _optionsKeys.putIfAbsent(module, GlobalKey.new);
+  FocusNode _optionsFocusNode(String module) => _optionsFocus.putIfAbsent(
+    module,
+    () => FocusNode(debugLabel: 'module-options-$module'),
+  );
 
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
     _autoScrollTimer = null;
+    for (final node in _optionsFocus.values) {
+      node.dispose();
+    }
+    _optionsFocus.clear();
+    _optionsReturnFocus = null;
     super.dispose();
   }
 
@@ -181,47 +194,56 @@ class _ModulesPageState extends State<ModulesPage> {
     _updateDrag(modules, pointer);
   }
 
-  /// Reveals an options panel after its row expands. A panel opened near the
-  /// bottom would otherwise appear entirely below the fold.
-  void _revealOptions(String module) {
-    final panel = _optionsKey(module).currentContext;
-    if (panel == null) {
+  void _toggleOptions(ModulesBloc modules, String module) {
+    if (modules.state.optionsModule == module) {
+      _closeOptions();
       return;
     }
-    final scrollable = Scrollable.maybeOf(panel);
-    if (scrollable == null) {
-      return;
-    }
-    final panelBox = panel.findRenderObject() as RenderBox?;
-    final viewport = scrollable.context.findRenderObject() as RenderBox?;
-    if (panelBox == null || viewport == null || !panelBox.hasSize) {
-      return;
-    }
-    final panelRect = panelBox.localToGlobal(Offset.zero) & panelBox.size;
-    final viewportRect = viewport.localToGlobal(Offset.zero) & viewport.size;
-    if (panelRect.top >= viewportRect.top &&
-        panelRect.bottom <= viewportRect.bottom) {
-      return;
-    }
-    final alignment = panelRect.height > viewportRect.height ? 0.0 : 0.5;
-    unawaited(
-      Scrollable.ensureVisible(
-        panel,
-        alignment: alignment,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _optionsReturnFocus = _optionsFocusNode(module);
+    modules.add(ModulesOptionsToggled(module));
   }
 
-  void _toggleOptions(ModulesBloc modules, String module) {
-    modules.add(ModulesOptionsToggled(module));
+  /// Closes the inspector and, after the scrim and its focus exclusion leave
+  /// the tree, returns keyboard focus to the gear that opened it.
+  void _closeOptions() {
+    final modules = context.read<ModulesBloc>();
+    if (modules.state.optionsModule == null) {
+      return;
+    }
+    modules.add(const ModulesOptionsClosed());
+    final node = _optionsReturnFocus;
+    _optionsReturnFocus = null;
+    if (node == null) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
+      if (!mounted || node.context == null || !node.canRequestFocus) {
         return;
       }
-      _revealOptions(module);
+      node.requestFocus();
     });
+  }
+
+  void _syncOptionsPortal(ModulesState state) {
+    if (state.optionsModule != null) {
+      if (!_optionsPortal.isShowing) {
+        _optionsPortal.show();
+      }
+    } else if (_optionsPortal.isShowing) {
+      _optionsPortal.hide();
+    }
+  }
+
+  Widget _buildOptionsOverlay(BuildContext context) {
+    final module = context.watch<ModulesBloc>().state.optionsModule;
+    if (module == null) {
+      return const SizedBox.shrink();
+    }
+    return _ModuleOptionsOverlay(
+      module: module,
+      workspaceNames: widget.workspaceNames,
+      onClose: _closeOptions,
+    );
   }
 
   /// Tracks the pointer over the segment geometry so the gap follows the
@@ -401,14 +423,8 @@ class _ModulesPageState extends State<ModulesPage> {
         note: note,
         enabled: settings.includes(module),
         reorderable: reorderable || draggableOut,
-        options: hasOptions
-            ? ModuleOptionsPanel(
-                key: _optionsKey(module),
-                module: module,
-                workspaceNames: widget.workspaceNames,
-              )
-            : null,
-        optionsExpanded: state.expanded.contains(module),
+        optionsFocusNode: hasOptions ? _optionsFocusNode(module) : null,
+        optionsExpanded: state.optionsModule == module,
         onToggleOptions: hasOptions
             ? () => _toggleOptions(modules, module)
             : null,
@@ -477,7 +493,7 @@ class _ModulesPageState extends State<ModulesPage> {
       ];
     }
 
-    return LayoutBuilder(
+    final content = LayoutBuilder(
       builder: (context, constraints) => DragTarget<String>(
         onWillAcceptWithDetails: (details) => true,
         onAcceptWithDetails: (_) {},
@@ -634,6 +650,23 @@ class _ModulesPageState extends State<ModulesPage> {
         ),
       ),
     );
+
+    return BlocListener<ModulesBloc, ModulesState>(
+      listenWhen: (previous, next) =>
+          previous.optionsModule != next.optionsModule,
+      listener: (context, state) => _syncOptionsPortal(state),
+      child: OverlayPortal(
+        controller: _optionsPortal,
+        overlayChildBuilder: _buildOptionsOverlay,
+        child: ExcludeFocus(
+          excluding: state.optionsModule != null,
+          child: ExcludeSemantics(
+            excluding: state.optionsModule != null,
+            child: content,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -742,7 +775,7 @@ class _ModuleRow extends StatelessWidget {
     this.note,
     required this.enabled,
     required this.reorderable,
-    required this.options,
+    required this.optionsFocusNode,
     required this.optionsExpanded,
     required this.onToggleOptions,
     required this.feedbackWidth,
@@ -761,7 +794,7 @@ class _ModuleRow extends StatelessWidget {
   final String? note;
   final bool enabled;
   final bool reorderable;
-  final Widget? options;
+  final FocusNode? optionsFocusNode;
   final bool optionsExpanded;
   final VoidCallback? onToggleOptions;
   final double feedbackWidth;
@@ -807,6 +840,7 @@ class _ModuleRow extends StatelessWidget {
           if (onToggleOptions != null) ...[
             _ModuleOptionsButton(
               key: ValueKey<String>('module-options-$module'),
+              focusNode: optionsFocusNode!,
               label: l10n.settingsModuleOptions(label),
               expanded: optionsExpanded,
               onPressed: onToggleOptions!,
@@ -858,30 +892,23 @@ class _ModuleRow extends StatelessWidget {
               ),
             ),
           ),
-        if (options != null && optionsExpanded)
-          Padding(
-            padding: const EdgeInsets.only(
-              left: 64,
-              right: 16,
-              top: 4,
-              bottom: 12,
-            ),
-            child: options,
-          ),
       ],
     );
   }
 }
 
-/// The gear that reveals one module's typed options.
+/// The gear that opens one module's typed options.
 class _ModuleOptionsButton extends StatefulWidget {
   const _ModuleOptionsButton({
+    required this.focusNode,
     required this.label,
     required this.expanded,
     required this.onPressed,
     super.key,
   });
 
+  /// Owned by the page so closing the inspector can restore focus here.
+  final FocusNode focusNode;
   final String label;
   final bool expanded;
   final VoidCallback onPressed;
@@ -891,13 +918,11 @@ class _ModuleOptionsButton extends StatefulWidget {
 }
 
 class _ModuleOptionsButtonState extends State<_ModuleOptionsButton> {
-  final FocusNode _focusNode = FocusNode();
   var _focused = false;
 
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
+  void _activate() {
+    widget.focusNode.requestFocus();
+    widget.onPressed();
   }
 
   @override
@@ -906,10 +931,10 @@ class _ModuleOptionsButtonState extends State<_ModuleOptionsButton> {
       button: true,
       expanded: widget.expanded,
       label: widget.label,
-      onTap: widget.onPressed,
+      onTap: _activate,
       child: ExcludeSemantics(
         child: FocusableActionDetector(
-          focusNode: _focusNode,
+          focusNode: widget.focusNode,
           onShowFocusHighlight: (value) => setState(() => _focused = value),
           shortcuts: const <ShortcutActivator, Intent>{
             SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -918,7 +943,7 @@ class _ModuleOptionsButtonState extends State<_ModuleOptionsButton> {
           actions: <Type, Action<Intent>>{
             ActivateIntent: CallbackAction<ActivateIntent>(
               onInvoke: (_) {
-                widget.onPressed();
+                _activate();
                 return null;
               },
             ),
@@ -927,7 +952,7 @@ class _ModuleOptionsButtonState extends State<_ModuleOptionsButton> {
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: widget.onPressed,
+              onTap: _activate,
               child: SizedBox.square(
                 dimension: 24,
                 child: Center(
@@ -949,6 +974,281 @@ class _ModuleOptionsButtonState extends State<_ModuleOptionsButton> {
                         color: widget.expanded
                             ? ShellBrandColors.defaultAccent
                             : ShellMediaColors.lightForegroundSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The full-window options surface: a modal scrim plus a right-edge inspector
+/// that never participates in the modules page layout.
+class _ModuleOptionsOverlay extends StatefulWidget {
+  const _ModuleOptionsOverlay({
+    required this.module,
+    required this.workspaceNames,
+    required this.onClose,
+  });
+
+  final String module;
+  final Future<List<String>> Function()? workspaceNames;
+  final VoidCallback onClose;
+
+  @override
+  State<_ModuleOptionsOverlay> createState() => _ModuleOptionsOverlayState();
+}
+
+class _ModuleOptionsOverlayState extends State<_ModuleOptionsOverlay> {
+  static const double _edge = 24;
+  static const double _maxWidth = 560;
+
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void didUpdateWidget(covariant _ModuleOptionsOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.module != widget.module && _scroll.hasClients) {
+      _scroll.jumpTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final label = moduleLabel(l10n, widget.module);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.min(
+          _maxWidth,
+          math.max(0.0, constraints.maxWidth - _edge * 2),
+        );
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ExcludeSemantics(
+              child: GestureDetector(
+                key: const ValueKey<String>('module-options-inspector-scrim'),
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onClose,
+                child: ColoredBox(
+                  color: SettingsColors.background.withValues(alpha: 0.72),
+                ),
+              ),
+            ),
+            Positioned(
+              top: _edge,
+              right: _edge,
+              bottom: _edge,
+              width: width,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                child: Semantics(
+                  scopesRoute: true,
+                  namesRoute: true,
+                  explicitChildNodes: true,
+                  label: l10n.settingsModuleOptions(label),
+                  child: Shortcuts(
+                    shortcuts: const <ShortcutActivator, Intent>{
+                      SingleActivator(LogicalKeyboardKey.escape):
+                          DismissIntent(),
+                    },
+                    child: Actions(
+                      actions: <Type, Action<Intent>>{
+                        DismissIntent: CallbackAction<DismissIntent>(
+                          onInvoke: (_) {
+                            widget.onClose();
+                            return null;
+                          },
+                        ),
+                      },
+                      child: FocusScope(
+                        autofocus: true,
+                        child: FocusTraversalGroup(
+                          policy: ReadingOrderTraversalPolicy(),
+                          child: DecoratedBox(
+                            key: const ValueKey<String>(
+                              'module-options-inspector',
+                            ),
+                            decoration: BoxDecoration(
+                              color: SettingsGlass.panel(
+                                context,
+                                SettingsColors.surface,
+                              ),
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(18),
+                              ),
+                              border: Border.all(color: SettingsColors.outline),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    16,
+                                    12,
+                                    12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Semantics(
+                                          header: true,
+                                          child: Text(
+                                            l10n.settingsModuleOptions(label),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: ShellText.systemBarValue
+                                                .copyWith(fontSize: 15),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      _OptionsCloseButton(
+                                        label: l10n.settingsOptionsClose,
+                                        onPressed: widget.onClose,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  height: 1,
+                                  color: SettingsColors.outline,
+                                ),
+                                Expanded(
+                                  child: Scrollbar(
+                                    key: const ValueKey<String>(
+                                      'module-options-inspector-scrollbar',
+                                    ),
+                                    controller: _scroll,
+                                    thumbVisibility: true,
+                                    child: SingleChildScrollView(
+                                      key: const ValueKey<String>(
+                                        'module-options-inspector-scroll',
+                                      ),
+                                      controller: _scroll,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        20,
+                                        16,
+                                        20,
+                                        20,
+                                      ),
+                                      child: ModuleOptionsPanel(
+                                        key: ValueKey<String>(
+                                          'module-options-panel-${widget.module}',
+                                        ),
+                                        module: widget.module,
+                                        workspaceNames: widget.workspaceNames,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A focusable, keyboard-activatable close control for the options inspector.
+class _OptionsCloseButton extends StatefulWidget {
+  const _OptionsCloseButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  State<_OptionsCloseButton> createState() => _OptionsCloseButtonState();
+}
+
+class _OptionsCloseButtonState extends State<_OptionsCloseButton> {
+  final FocusNode _focus = FocusNode(debugLabel: 'module-options-close');
+  var _focused = false;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.label,
+      onTap: widget.onPressed,
+      child: ExcludeSemantics(
+        child: FocusableActionDetector(
+          focusNode: _focus,
+          autofocus: true,
+          onShowFocusHighlight: (value) => setState(() => _focused = value),
+          shortcuts: const <ShortcutActivator, Intent>{
+            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+          },
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                widget.onPressed();
+                return null;
+              },
+            ),
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              key: const ValueKey<String>('module-options-inspector-close'),
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onPressed,
+              child: SizedBox.square(
+                dimension: 30,
+                child: Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: SettingsGlass.control(
+                        context,
+                        _focused
+                            ? SettingsColors.surfaceHigh
+                            : SettingsColors.surface,
+                      ),
+                      border: Border.all(
+                        color: _focused
+                            ? ShellBrandColors.defaultAccent
+                            : SettingsColors.outline,
+                      ),
+                    ),
+                    child: const SizedBox.square(
+                      dimension: 30,
+                      child: Center(
+                        child: Icon(
+                          LucideIcons.x,
+                          size: 14,
+                          color: ShellMediaColors.lightForegroundSecondary,
+                        ),
                       ),
                     ),
                   ),

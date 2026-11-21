@@ -9,18 +9,22 @@ import 'package:trickster/src/settings/saver.dart';
 
 const _unset = Object();
 
-/// Removes option panels for modules a disabled or unavailable document no
-/// longer renders.
-Set<String> pruneExpanded(
-  Set<String> expanded,
+/// Keeps the options inspector open only while its module still renders a
+/// gear. An enabled module moves to the Unavailable row without one; a
+/// disabled module keeps its gear in Disabled, reason note and all.
+String? pruneOptions(
+  String? module,
   BarSettings settings,
   List<ModuleAvailability> unavailable,
 ) {
+  if (module == null || !BarSettings.knownModules.contains(module)) {
+    return null;
+  }
   final hidden = <String>{for (final entry in unavailable) entry.module};
-  return {
-    for (final module in expanded)
-      if (settings.includes(module) && !hidden.contains(module)) module,
-  };
+  if (settings.includes(module) && hidden.contains(module)) {
+    return null;
+  }
+  return module;
 }
 
 /// The configured modules per zone, in strip order; [exclude] removes the
@@ -69,6 +73,11 @@ class ModulesOptionsToggled extends ModulesEvent {
 
   @override
   List<Object?> get props => [module];
+}
+
+/// Dismisses the options inspector, returning focus to its gear.
+class ModulesOptionsClosed extends ModulesEvent {
+  const ModulesOptionsClosed();
 }
 
 /// Asks the injected async loader for the bar's live availability.
@@ -155,11 +164,11 @@ class ModulesReset extends ModulesEvent {
   const ModulesReset();
 }
 
-/// The modules page's availability, expansion, and drag state.
+/// The modules page's availability, inspector, and drag state.
 class ModulesState extends Equatable {
   const ModulesState({
     this.unavailable = const <ModuleAvailability>[],
-    this.expanded = const <String>{},
+    this.optionsModule,
     this.dragging,
     this.previewZone,
     this.previewIndex = 0,
@@ -170,8 +179,8 @@ class ModulesState extends Equatable {
   /// Hardware this machine cannot run, with the reason.
   final List<ModuleAvailability> unavailable;
 
-  /// Modules whose options panel is open.
-  final Set<String> expanded;
+  /// The module whose options inspector is open, if any.
+  final String? optionsModule;
 
   /// The module currently lifted by a drag.
   final String? dragging;
@@ -182,7 +191,7 @@ class ModulesState extends Equatable {
 
   ModulesState copyWith({
     List<ModuleAvailability>? unavailable,
-    Set<String>? expanded,
+    Object? optionsModule = _unset,
     Object? dragging = _unset,
     Object? previewZone = _unset,
     int? previewIndex,
@@ -191,7 +200,9 @@ class ModulesState extends Equatable {
   }) {
     return ModulesState(
       unavailable: unavailable ?? this.unavailable,
-      expanded: expanded ?? this.expanded,
+      optionsModule: identical(optionsModule, _unset)
+          ? this.optionsModule
+          : optionsModule as String?,
       dragging: identical(dragging, _unset)
           ? this.dragging
           : dragging as String?,
@@ -209,7 +220,7 @@ class ModulesState extends Equatable {
   @override
   List<Object?> get props => [
     ...unavailable.map((entry) => Object.hash(entry.module, entry.reason)),
-    ...expanded,
+    optionsModule,
     dragging,
     previewZone,
     previewIndex,
@@ -222,7 +233,7 @@ class ModulesState extends Equatable {
       for (final entry in unavailable)
         {'module': entry.module, 'reason': entry.reason.name},
     ],
-    'expanded': expanded.toList(),
+    if (optionsModule != null) 'options_module': optionsModule,
     if (dragging != null) 'dragging': dragging,
     if (previewZone != null) 'preview_zone': previewZone!.wire,
     'preview_index': previewIndex,
@@ -236,7 +247,7 @@ class ModulesState extends Equatable {
       throw const FormatException('modules state must be an object');
     }
     final unavailable = json['unavailable'];
-    final expanded = json['expanded'];
+    final optionsModule = json['options_module'];
     final pointer = json['last_pointer'];
     final zone = json['preview_zone'];
     ModuleZone? previewZone;
@@ -261,9 +272,7 @@ class ModulesState extends Equatable {
                   ),
             ]
           : const <ModuleAvailability>[],
-      expanded: expanded is List
-          ? {for (final module in expanded) '$module'}
-          : const <String>{},
+      optionsModule: optionsModule is String ? optionsModule : null,
       dragging: json['dragging'] as String?,
       previewZone: previewZone,
       previewIndex: (json['preview_index'] as num?)?.toInt() ?? 0,
@@ -297,6 +306,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
        ) {
     on<ModulesToggled>(_onToggled);
     on<ModulesOptionsToggled>(_onOptionsToggled);
+    on<ModulesOptionsClosed>(_onOptionsClosed);
     on<ModulesAvailabilityRequested>(_onAvailabilityRequested);
     on<ModulesAvailabilityLoaded>(_onAvailabilityLoaded);
     on<ModulesMovedWithinZone>(_onMovedWithinZone);
@@ -341,8 +351,8 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
   }
 
   void _onToggled(ModulesToggled event, Emitter<ModulesState> emit) {
-    if (!event.enabled && state.expanded.contains(event.module)) {
-      emit(state.copyWith(expanded: {...state.expanded}..remove(event.module)));
+    if (!event.enabled && state.optionsModule == event.module) {
+      emit(state.copyWith(optionsModule: null));
     }
     _apply((settings) {
       final modules = List<String>.of(settings.modules);
@@ -361,11 +371,23 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     ModulesOptionsToggled event,
     Emitter<ModulesState> emit,
   ) {
-    final expanded = Set<String>.of(state.expanded);
-    if (!expanded.remove(event.module)) {
-      expanded.add(event.module);
+    emit(
+      state.copyWith(
+        optionsModule: state.optionsModule == event.module
+            ? null
+            : event.module,
+      ),
+    );
+  }
+
+  void _onOptionsClosed(
+    ModulesOptionsClosed event,
+    Emitter<ModulesState> emit,
+  ) {
+    if (state.optionsModule == null) {
+      return;
     }
-    emit(state.copyWith(expanded: expanded));
+    emit(state.copyWith(optionsModule: null));
   }
 
   Future<void> _onAvailabilityRequested(
@@ -390,7 +412,11 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     emit(
       state.copyWith(
         unavailable: event.unavailable,
-        expanded: pruneExpanded(state.expanded, _document, event.unavailable),
+        optionsModule: pruneOptions(
+          state.optionsModule,
+          _document,
+          event.unavailable,
+        ),
       ),
     );
   }
@@ -484,6 +510,7 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     _lastPointer = null;
     emit(
       state.copyWith(
+        optionsModule: null,
         dragging: event.module,
         previewZone: event.zone,
         previewIndex: current.indexOf(event.module).clamp(0, current.length),
@@ -539,7 +566,14 @@ class ModulesBloc extends Bloc<ModulesEvent, ModulesState> {
     ModulesDroppedOnDisabled event,
     Emitter<ModulesState> emit,
   ) {
-    emit(state.copyWith(dropHandled: true));
+    emit(
+      state.copyWith(
+        dropHandled: true,
+        optionsModule: state.optionsModule == event.module
+            ? null
+            : state.optionsModule,
+      ),
+    );
     _apply((settings) {
       final modules = List<String>.of(settings.modules)..remove(event.module);
       return settings.copyWith(modules: modules);

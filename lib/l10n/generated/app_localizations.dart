@@ -663,6 +663,12 @@ abstract class AppLocalizations {
   /// **'{module} options'**
   String settingsModuleOptions(String module);
 
+  /// Accessible label for the close button of the module options inspector.
+  ///
+  /// In en, this message translates to:
+  /// **'Close options'**
+  String get settingsOptionsClose;
+
   /// Label above the workspace pip style choices.
   ///
   /// In en, this message translates to:

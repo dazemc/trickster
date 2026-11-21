@@ -343,6 +343,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsOptionsClose => 'Close options';
+
+  @override
   String get settingsWorkspacesPipStyle => 'Pip style';
 
   @override

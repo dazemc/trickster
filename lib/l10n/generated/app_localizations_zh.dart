@@ -337,6 +337,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get settingsOptionsClose => '关闭选项';
+
+  @override
   String get settingsWorkspacesPipStyle => '工作区样式';
 
   @override

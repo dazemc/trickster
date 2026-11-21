@@ -558,6 +558,10 @@
       }
     }
   },
+  "settingsOptionsClose": "Close options",
+  "@settingsOptionsClose": {
+    "description": "Accessible label for the close button of the module options inspector."
+  },
   "settingsWorkspacesPipStyle": "Pip style",
   "@settingsWorkspacesPipStyle": {
     "description": "Label above the workspace pip style choices."
