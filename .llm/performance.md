@@ -125,9 +125,12 @@ and no repeating tickers.
 The old "spring entrance" and "motion springs" language is **not current**.
 The spring references are a constitution correction in `suggestions.md`.
 
-Reduced motion currently reaches the workspace lens/switch and the media
-visualizer through `MediaQuery.maybeDisableAnimationsOf`. The pill entrance and
-other transitions do not yet honor it. **Gap.**
+**Current.** Reduced motion reaches every timed transition through
+`MediaQuery.maybeDisableAnimationsOf`. The entrance settles its controller and
+schedules no stagger timer; the clock switcher, meter text style, media control
+fill, and settings transitions take zero duration and land on their first
+frame. The settings process installs `MediaQuery.fromView`, so the platform
+flag reaches both processes. Widget tests pin the reduced path.
 
 ## Backdrop blur
 
@@ -391,6 +394,7 @@ same scenario and keep the numbers with their provenance.
 | 60 Hz fixed engine fallback, no output refresh read | Current | Flutter 3.50.1 GTK embedder; upstream refs |
 | No per-output scheduling, VRR, or >60 fps | Current | No native vsync/presentation path |
 | 220/60 ms entrance, 72/168/80 ms lens, no springs | Current | Motion constants and controllers |
+| Reduced motion zeroes every timed transition | Current | `Motion.duration`, entrance dependency gate, settings `MediaQuery.fromView`; reduced-motion widget tests |
 | Clock only rebuilds its pill | Current | Shared `ClockBloc`, pill-local builder |
 | Visualizer 30 Hz only playing+visible | Current | 33 ms pump, FFT isolate, visibility gate |
 | Worker-exit capture teardown and visualizer restart | Current | `BandAnalyzer.failures`, generation guard, capped `VisualizerBloc` retry |
