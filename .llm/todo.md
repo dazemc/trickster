@@ -18,19 +18,3 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
-
-## Authorized step
-
-- L: Offload MPRIS only to a widget-free worker isolate. Introduce a
-  `MediaPlayerClient` interface implemented by `MediaPlayerService` and a new
-  proxy. The worker owns `MediaPlayerService` and its `DBusClient`, listens
-  to snapshots, and sends JSON-compatible `MprisPlaybackState.toJson()` plus
-  errors. The UI proxy starts the worker only when media starts, forwards
-  start (including paused), pause/resume recovery, play/pause, next, and
-  previous commands, ignores pre-start controls, and kills the worker and
-  closes its streams on dispose with no revival. Leave StatusNotifier on the
-  UI isolate. Keep `MediaBloc`/bar behavior unchanged; adapt ModuleScope and
-  media service builder types. Add tests for command forwarding, state
-  deserialization, paused start, recovery pause/resume, disposal, worker
-  error/failure, and that the UI proxy constructs no DBusClient. Done when
-  analyze, full tests, and the release build are green.
