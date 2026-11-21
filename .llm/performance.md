@@ -162,10 +162,11 @@ work never rebuilds a strip. The modules page caps content at 1120 logical
 pixels, paints one `Scrollbar`, and scrolls a single `SingleChildScrollView`.
 Dragging a module starts a 16 ms edge-scroll timer that jumps the page only
 while a drag session exists; the timer is cancelled on drop, drag end, and
-dispose. Opening an options panel runs one 180 ms `Scrollable.ensureVisible`,
-and option panels are pruned when their module is disabled or becomes
-unavailable. None of these timers or animations run while the modules page is
-idle.
+dispose. Opening options mounts a right-edge inspector over a modal scrim:
+the module page keeps its scroll offset and width, the inspector owns its own
+scrollable/scrollbar, and focus returns to the gear on close. Inspector state
+is pruned when its module is disabled or becomes unavailable. None of these
+timers or animations run while the modules page is idle.
 
 ## Motion inventory
 
