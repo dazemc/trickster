@@ -161,11 +161,13 @@ re-check after a compositor or Flutter update.
 
 ## Idle and sampling cadence
 
-Seat idle is observed through `ext-idle-notify-v1` on the first seat with a
-60 s timeout. The notification is inhibitor-aware and purely observational: it
-reads no input devices, installs no inhibitor, and rebinds when the compositor
-removes and later re-advertises the seat or notifier. Without the protocol,
-samplers keep their normal cadence. Multi-seat compositors are a gap.
+Seat idle is observed through one inhibitor-aware `ext-idle-notify-v1`
+notification per advertised seat, each with a 60 s timeout. The observer reads
+no input devices and installs no inhibitor. The aggregate is idle only when at
+least one seat is bound and every seat with a live notification is idle; any
+resume, seat removal/reset, or notifier loss falls back to false. Late seats
+bind and a new notifier recreates every notification. Without the protocol,
+samplers keep their normal cadence.
 
 | Service | Cadence | While seat idle |
 | --- | --- | --- |
