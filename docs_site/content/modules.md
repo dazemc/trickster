@@ -14,6 +14,7 @@ Modules are toggled by name in `settings.json` → `modules`. A name that is not
 | `gpu` | Label + sparkline + percent per readable card | `/sys/class/drm` `gpu_busy_percent` (amdgpu) or NVML (NVIDIA, worker isolate), 1 Hz shared sampler; pauses while the seat idles | Hidden with no reading |
 | `vram` | VRAM caption + sparkline + percent per GPU with dedicated memory; caption can be the queried device name | `mem_info_vram_used`/`total` (amdgpu, i915/Arc), Xe `tile0/vram0/*`, or NVML `nvmlDeviceGetMemoryInfo` on the same 1 Hz shared sampler; pauses while the seat idles | Hidden per GPU with no memory; suspended dGPUs and unified-memory iGPUs do not appear |
 | `ram` | RAM caption + sparkline + percent | `/proc/meminfo` (`MemTotal`/`MemAvailable`, with the `MemFree + Buffers + Cached + SReclaimable - Shmem` fallback), 1 Hz sampler with a reused 8 KiB buffer; pauses while the seat idles | Hidden if unreadable |
+| `temperature` | CPU/TEMP caption + Celsius + sparkline | `/sys/class/hwmon` `temp*_input`/`temp*_label`/`name`, 1 Hz; prefers `k10temp`/`coretemp`/`zenpower` with `Tctl`/`Tdie`/`Package`, otherwise the hottest readable sensor; pauses while the seat idles | Hidden when no sensor is readable |
 | `battery` | Gauge + percent | sysfs `power_supply`, 5 s sampler | Hidden with no `BAT*` device |
 | `workspaces` | Pip rail with a deforming lens; number, dot, Roman, or browsed image pips with active, occupied, and empty states | Sway/Hyprland/niri IPC sockets, auto-detected | Always renders when listed |
 | `media` | Live equalizer mark (band levels from the sink monitor; bar count configurable), now-playing text, transport keys, and the sink volume readout (level glyph, accent while muted, wheel to step, click for a slider) in full/semi/compact modes; left-click controls, right-click cycles and saves | MPRIS (`org.mpris.MediaPlayer2.*`) and the default sink (monitor and volume), event-driven | Hidden with no playing or paused player |
@@ -28,8 +29,9 @@ instead.
 By default the tray leads the strip, the workspace rail is centered, and the remaining modules trail. `module_placement` moves any module between the leading, center, and trailing zones.
 
 <Info>
-The `ram` and `vram` modules are user-requested additions. Denial has no
-memory module, so do not describe either as Denial parity.
+The `ram`, `vram`, and `temperature` modules are user-requested additions.
+Denial has no memory or temperature module, so do not describe them as Denial
+parity.
 </Info>
 
 `vram` renders one pill per GPU that publishes dedicated memory. It is not an
