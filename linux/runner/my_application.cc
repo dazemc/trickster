@@ -980,9 +980,25 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
       if (surface->horizontal) {
         gtk_widget_set_size_request(GTK_WIDGET(surface->window), -1,
                                     (gint)thickness);
+        if (surface->view != nullptr) {
+          gtk_widget_set_size_request(GTK_WIDGET(surface->view), -1,
+                                      (gint)thickness);
+        }
       } else {
         gtk_widget_set_size_request(GTK_WIDGET(surface->window),
                                     (gint)thickness, -1);
+        if (surface->view != nullptr) {
+          gtk_widget_set_size_request(GTK_WIDGET(surface->view),
+                                      (gint)thickness, -1);
+        }
+      }
+      // The GTK parent can grow its layer surface without Flutter observing a
+      // new allocation on the already-realized FlView. Queue both so the
+      // engine's view metrics follow the exclusive zone instead of waiting
+      // forever for a frame at the old cross size.
+      gtk_widget_queue_resize(GTK_WIDGET(surface->window));
+      if (surface->view != nullptr) {
+        gtk_widget_queue_resize(GTK_WIDGET(surface->view));
       }
       break;
     }
