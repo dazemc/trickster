@@ -18,3 +18,17 @@ memory, or lifecycle work. Findings in `.llm/suggestions.md` remain proposals
 until the user escalates them here.
 
 Sizes: S <1 day, M 1–3 days, L 3+ days.
+
+## Network module
+
+- **M — Add the network module kernel slice.** Add `NetworkSample`,
+  `/sys/class/net` interface discovery with physical/tunnel filtering,
+  IPv4/IPv6 default-route selection, a 1 Hz `/proc/net/dev` sampler with
+  measured-elapsed rates and reset semantics, the `NetworkBloc`, the text
+  `network` pill, `NetworkOptions` (`interface`, `show_rates`),
+  ModuleScope/gating/status/settings/l10n wiring, and tests. Default-on after
+  battery. No NetworkManager/iwd metadata, no D-Bus, no process spawns.
+  Done: parser/selection/symlink/tunnel tests, sampler rate/reset/pause/resume
+  tests, bloc/pill/config/gating/widget/status/l10n tests, `flutter analyze`,
+  full `flutter test`, and a release build pass; headless status proves the
+  live host interface without restarting the bar.
