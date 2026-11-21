@@ -96,9 +96,10 @@ back to the settings process environment.
 - The settings modules page groups rows by zone, drags them between zones
   with edge auto-scroll, and supports `Ctrl+Arrow` reorder plus
   `Ctrl+Shift+Arrow` zone moves from the drag handle. A disabled row keeps
-  its options gear; opening a panel scrolls it into view. The page caps its
-  content width at 1120 logical pixels and paints a scrollbar at 900×600 and
-  other window sizes.
+  its options gear; opening it shows a right-edge inspector over a modal
+  scrim, and the module page keeps its scroll position and width. The page
+  caps its content width at 1120 logical pixels and paints a scrollbar at
+  900×600 and other window sizes; the inspector scrolls independently.
 - The workspace rail mirrors the compositor: each strip shows the numbered
   workspaces the compositor places on its output, in id order, and pressing
   a pip focuses it. Placement, persistence, and the main display belong to
