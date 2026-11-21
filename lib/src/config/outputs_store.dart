@@ -43,14 +43,17 @@ class FileOutputsTransport implements OutputsDocumentTransport {
     ).hasMatch(document)) {
       return false;
     }
-    return _isParseableDocument(document);
+    return isParseableDocument(document);
   }
 
   /// A document that the grammar can parse, even if it has no `system_bar=`
   /// line yet. A user-edited file with comments and unrelated keys is a
   /// perfectly good base for inserting that line; an empty or malformed file
   /// is not.
-  static bool _isParseableDocument(String document) {
+  ///
+  /// Bootstrap uses this to tell the shipped comment-only seed (benign, it
+  /// simply means defaults until the first save) from a torn write.
+  static bool isParseableDocument(String document) {
     if (document.trim().isEmpty) {
       return false;
     }
@@ -143,7 +146,7 @@ class FileOutputsTransport implements OutputsDocumentTransport {
       } on Object {
         continue;
       }
-      if (_isParseableDocument(document)) {
+      if (isParseableDocument(document)) {
         return document;
       }
     }

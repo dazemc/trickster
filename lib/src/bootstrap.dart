@@ -130,40 +130,67 @@ class Bootstrap {
   }) {
     final file = File(paths.outputs);
     final transport = FileOutputsTransport(file);
-    OutputsConfig? parsed;
+    final liveExists = file.existsSync();
+    String? liveDocument;
     String? liveError;
-    if (file.existsSync()) {
+    if (liveExists) {
       try {
-        final document = file.readAsStringSync();
-        if (document.trim().isEmpty) {
-          liveError = 'outputs.conf is empty';
-        } else {
-          parsed = OutputsConfig.parse(document);
-        }
-      } on Object catch (parseError) {
-        stderr.writeln('trickster: $parseError');
-        liveError = '$parseError';
+        liveDocument = file.readAsStringSync();
+      } on Object catch (readError) {
+        stderr.writeln('trickster: $readError');
+        liveError = '$readError';
       }
     }
-    // A valid live document always wins. A missing, unreadable, empty, or
-    // corrupt live file recovers from the same `.prev` snapshot the settings
-    // application reads instead of silently resetting placement to defaults.
-    var config = parsed;
+    // Classify the live document exactly as the settings application's file
+    // transport does. A parseable file without `system_bar=` (the shipped
+    // comment-only seed, or a user file of comments and unrelated keys) is
+    // not a valid placement document, but it is also not a torn write.
+    var seedShape = false;
+    OutputsConfig? config;
     String? warning;
-    if (config == null) {
+    String? error;
+    if (liveDocument != null &&
+        FileOutputsTransport.isValidDocument(liveDocument)) {
+      // A valid live document always wins, including a deliberate rollback
+      // to a lower band than the snapshot.
+      config = OutputsConfig.parse(liveDocument);
+    } else {
+      if (liveExists) {
+        if (liveDocument == null) {
+          // The read failure already carries the reason.
+        } else if (liveDocument.trim().isEmpty) {
+          liveError = 'outputs.conf is empty';
+        } else if (FileOutputsTransport.isParseableDocument(liveDocument)) {
+          seedShape = true;
+          liveError = 'outputs.conf has no system_bar= line';
+        } else {
+          try {
+            OutputsConfig.parse(liveDocument);
+            liveError = 'outputs.conf is not a valid document';
+          } on Object catch (parseError) {
+            stderr.writeln('trickster: $parseError');
+            liveError = '$parseError';
+          }
+        }
+      }
+      // A missing, unreadable, empty, invalid, or placement-less live file
+      // recovers from the same `.prev` snapshot the settings application
+      // reads instead of silently resetting placement to defaults.
       final recovered = transport.readDocumentSync();
       if (recovered != null) {
-        // The snapshot is a usable document. The live file's parse error is
-        // reported separately as a warning: the bar applies the recovered
-        // placement instead of keeping last-good state, while `--check`
-        // still sees that the live document itself is invalid.
         config = OutputsConfig.parse(recovered);
-        warning = liveError;
-        liveError = null;
+        // A missing live file is not a warning: `.prev` is simply the
+        // document. An invalid live document is: the bar applies the
+        // snapshot, while a preflight still reports the live file as bad.
+        warning = liveExists ? liveError : null;
       } else {
-        // Neither the live document nor its snapshot is usable: keep the
-        // live-file error so `--check` and the reload path surface it.
         config = const OutputsConfig();
+        // Only a genuinely torn live document is an error. The comment-only
+        // seed shape is benign: defaults apply until the first save inserts
+        // the `system_bar=` line.
+        if (liveExists && !seedShape) {
+          error = liveError;
+        }
       }
     }
     if (edge != null) {
@@ -179,7 +206,7 @@ class Bootstrap {
         connectors: config.connectors,
       );
     }
-    return (config, liveError, warning);
+    return (config, error, warning);
   }
 
   static (BarSettings, String?) _settings(

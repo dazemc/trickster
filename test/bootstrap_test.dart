@@ -143,6 +143,49 @@ void main() {
     expect(runtime.outputsWarning, isNotNull);
   });
 
+  test('a comment-only live outputs file recovers from a valid .prev', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('# my layout\n');
+    File('${paths.outputs}.prev').writeAsStringSync('system_bar=bottom,44\n');
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs.side, SystemBarSide.bottom);
+    expect(runtime.outputs.thickness, 44);
+    expect(runtime.outputsError, isNull);
+    // The live document has no placement line, so `--check` still reports
+    // it even though the bar applies the snapshot.
+    expect(runtime.outputsWarning, isNotNull);
+  });
+
+  test(
+    'a comment-only live outputs file without .prev is not a torn write',
+    () {
+      final paths = ConfigPaths(configHome: home.path);
+      Directory(paths.root).createSync(recursive: true);
+      // The shape the package seeds on first launch.
+      File(paths.outputs).writeAsStringSync(
+        '# Trickster output configuration\n# system_bar=top,32\n',
+      );
+
+      final runtime = Bootstrap.load(paths: paths);
+      expect(runtime.outputs, const OutputsConfig());
+      expect(runtime.outputsError, isNull);
+      expect(runtime.outputsWarning, isNull);
+    },
+  );
+
+  test('an empty live outputs file without .prev surfaces the error', () {
+    final paths = ConfigPaths(configHome: home.path);
+    Directory(paths.root).createSync(recursive: true);
+    File(paths.outputs).writeAsStringSync('');
+
+    final runtime = Bootstrap.load(paths: paths);
+    expect(runtime.outputs, const OutputsConfig());
+    expect(runtime.outputsError, isNotNull);
+    expect(runtime.outputsWarning, isNull);
+  });
+
   test('an empty live outputs file recovers from a valid .prev', () {
     final paths = ConfigPaths(configHome: home.path);
     Directory(paths.root).createSync(recursive: true);
